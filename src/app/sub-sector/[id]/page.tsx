@@ -4,23 +4,15 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
-import { FollowButton } from "@/components/FollowButton";
+import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { locationsService } from "@/lib/locationsService";
-import SearchableSelect from "@/components/ui/SearchableSelect";
 import CompactPagination from "@/components/ui/CompactPagination";
 import ProfileSubnav from "@/components/ProfileSubnav";
-import {
-  CorporateEvent,
-  CorporateEventsResponse,
-  CorporateEventsFilters,
-  BuyerInvestorType,
-} from "@/types/corporateEvents";
-import {
-  ContentArticle,
-  InsightsAnalysisResponse,
-} from "@/types/insightsAnalysis";
-import { CSVExporter } from "@/utils/csvExport";
+import { T } from "@/components/redesign/primitives";
+import { ContentArticle, InsightsAnalysisResponse } from "@/types/insightsAnalysis";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
+import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 const TABS = [
   { id: "all", name: "All Companies" },
@@ -30,1356 +22,14 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-// Transactions tab – mirrors corporate events grid layout,
-// pre-filtered by current sub-sector (secondary sector)
-function SubSectorTransactionsTab({ subSectorId }: { subSectorId: number }) {
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<CorporateEventsFilters>({
-    Countries: [],
-    Provinces: [],
-    Cities: [],
-    primary_sectors_ids: [],
-    Secondary_sectors_ids: [],
-    deal_types: [],
-    Deal_Status: [],
-    Buyer_Investor_Types: [],
-    Funding_stage: [],
-    Date_start: null,
-    Date_end: null,
-    search_query: "",
-    Page: 1,
-    Per_page: 50,
-  });
-
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedContinentalRegions, setSelectedContinentalRegions] = useState<
-    string[]
-  >([]);
-  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
-  const [selectedProvinces, setSelectedProvinces] = useState<string[]>([]);
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
-  const [selectedDealStatuses, setSelectedDealStatuses] = useState<string[]>(
-    []
-  );
-  const [selectedBuyerInvestorTypes, setSelectedBuyerInvestorTypes] =
-    useState<BuyerInvestorType[]>([]);
-  const [selectedFundingStages, setSelectedFundingStages] = useState<string[]>(
-    []
-  );
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateStart, setDateStart] = useState("");
-  const [dateEnd, setDateEnd] = useState("");
-
-  const [countries, setCountries] = useState<Array<{ locations_Country: string }>>(
-    []
-  );
-  const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
-  const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<
-    Array<{ State__Province__County: string }>
-  >([]);
-  const [cities, setCities] = useState<Array<{ City: string }>>([]);
-  const [fundingStages, setFundingStages] = useState<string[]>([]);
-
-  const [loadingCountries, setLoadingCountries] = useState(false);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingCities, setLoadingCities] = useState(false);
-  const [loadingFundingStages, setLoadingFundingStages] = useState(false);
-
-  const [corporateEvents, setCorporateEvents] = useState<CorporateEvent[]>([]);
-  const [pagination, setPagination] = useState({
-    itemsReceived: 0,
-    curPage: 1,
-    nextPage: null as number | null,
-    prevPage: null as number | null,
-    offset: 0,
-    perPage: 50,
-    pageTotal: 0,
-  });
-  const [summaryData, setSummaryData] = useState({
-    acquisitions: 0,
-    investments: 0,
-    ipos: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const countryOptions = countries.map((country) => ({
-    value: country.locations_Country,
-    label: country.locations_Country,
-  }));
-  const provinceOptions = provinces.map((province) => ({
-    value: province.State__Province__County,
-    label: province.State__Province__County,
-  }));
-  const cityOptions = cities.map((city) => ({
-    value: city.City,
-    label: city.City,
-  }));
-
-  const fundingStageOptions = fundingStages.map((stage) => ({
-    value: stage,
-    label: stage,
-  }));
-
-  const buyerInvestorTypeOptions = [
-    { value: "private_equity", label: "Private Equity" },
-    { value: "venture_capital", label: "Venture Capital" },
-    { value: "da_strategic", label: "Data & Analytics Strategic" },
-    { value: "other_strategic", label: "Other Strategic" },
-  ];
-
-  const buyerInvestorTypeLabel = (value: string) => {
-    const found = buyerInvestorTypeOptions.find((o) => o.value === value);
-    return found ? found.label : value;
-  };
-
-  const eventTypeOptions = [
-    { value: "Acquisition", label: "Acquisition" },
-    { value: "Sale", label: "Sale" },
-    { value: "IPO", label: "IPO" },
-    { value: "MBO", label: "MBO" },
-    { value: "Investment", label: "Investment" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Divestment", label: "Divestment" },
-    { value: "Restructuring", label: "Restructuring" },
-    { value: "Dual track", label: "Dual track" },
-    { value: "Closing", label: "Closing" },
-    { value: "Grant", label: "Grant" },
-    { value: "Debt financing", label: "Debt financing" },
-    { value: "Partnership", label: "Partnership" },
-  ];
-
-  const dealStatusOptions = [
-    { value: "Completed", label: "Completed" },
-    { value: "In Market", label: "In Market" },
-    { value: "Not yet launched", label: "Not yet launched" },
-    { value: "Strategic Review", label: "Strategic Review" },
-    { value: "Deal Prep", label: "Deal Prep" },
-    { value: "In Exclusivity", label: "In Exclusivity" },
-  ];
-
-  const fetchCountries = async () => {
-    try {
-      setLoadingCountries(true);
-      const countriesData = await locationsService.getCountries();
-      setCountries(countriesData);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingCountries(false);
-    }
-  };
-
-  const fetchContinentalRegions = async () => {
-    try {
-      const list = await locationsService.getContinentalRegions();
-      if (Array.isArray(list)) setContinentalRegions(list);
-    } catch {
-      // ignore
-    }
-  };
-
-  const fetchSubRegions = async () => {
-    try {
-      const list = await locationsService.getSubRegions();
-      if (Array.isArray(list)) setSubRegions(list);
-    } catch {
-      // ignore
-    }
-  };
-
-  const fetchProvinces = async () => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
-    try {
-      setLoadingProvinces(true);
-      const provincesData = await locationsService.getProvinces(
-        selectedCountries
-      );
-      setProvinces(provincesData);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingProvinces(false);
-    }
-  };
-
-  const fetchCities = async () => {
-    if (selectedCountries.length === 0 || selectedProvinces.length === 0) {
-      setCities([]);
-      return;
-    }
-    try {
-      setLoadingCities(true);
-      const citiesData = await locationsService.getCities(
-        selectedCountries,
-        selectedProvinces
-      );
-      setCities(citiesData);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingCities(false);
-    }
-  };
-
-  const fetchFundingStages = async () => {
-    try {
-      setLoadingFundingStages(true);
-      const response = await fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/funding_stage_options"
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch funding stages: ${response.status}`);
-      }
-      const data: unknown = await response.json();
-      if (Array.isArray(data)) {
-        setFundingStages(
-          data
-            .map((v) => (typeof v === "string" ? v : ""))
-            .filter((v): v is string => Boolean(v))
-        );
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingFundingStages(false);
-    }
-  };
-
-  const fetchCorporateEvents = async (nextFilters: CorporateEventsFilters) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) {
-        setError("Authentication required");
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.append("Page", nextFilters.Page.toString());
-      params.append("Per_page", nextFilters.Per_page.toString());
-
-      if (nextFilters.search_query)
-        params.append("search_query", nextFilters.search_query);
-
-      if (nextFilters.Countries.length > 0) {
-        params.append("Countries", nextFilters.Countries.join(","));
-      }
-      if (nextFilters.Provinces.length > 0) {
-        params.append("Provinces", nextFilters.Provinces.join(","));
-      }
-      if (nextFilters.Cities.length > 0) {
-        params.append("Cities", nextFilters.Cities.join(","));
-      }
-
-      const asPartial = nextFilters as Partial<CorporateEventsFilters>;
-      if (asPartial.continentalRegions && asPartial.continentalRegions.length) {
-        params.append(
-          "Continental_Region",
-          asPartial.continentalRegions.join(",")
-        );
-      }
-      if (asPartial.subRegions && asPartial.subRegions.length) {
-        params.append(
-          "geographical_sub_region",
-          asPartial.subRegions.join(",")
-        );
-      }
-
-      // Always pre-filter by current sub-sector (secondary sector)
-      const secondaryIds = [
-        subSectorId,
-        ...(nextFilters.Secondary_sectors_ids || []).filter(
-          (id) => id !== subSectorId
-        ),
-      ];
-      secondaryIds.forEach((id) =>
-        params.append("Secondary_sectors_ids[]", id.toString())
-      );
-
-      if (nextFilters.deal_types.length > 0) {
-        params.append("deal_types", nextFilters.deal_types.join(","));
-      }
-      if (nextFilters.Deal_Status.length > 0) {
-        params.append("Deal_Status", nextFilters.Deal_Status.join(","));
-      }
-      if (nextFilters.Funding_stage && nextFilters.Funding_stage.length > 0) {
-        params.append("Funding_stage", nextFilters.Funding_stage.join(","));
-      }
-      if (
-        nextFilters.Buyer_Investor_Types &&
-        nextFilters.Buyer_Investor_Types.length > 0
-      ) {
-        params.append(
-          "Buyer_Investor_Types",
-          nextFilters.Buyer_Investor_Types.join(",")
-        );
-      }
-      if (nextFilters.Date_start) {
-        params.append("Date_start", nextFilters.Date_start);
-      }
-      if (nextFilters.Date_end) {
-        params.append("Date_end", nextFilters.Date_end);
-      }
-
-      const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: CorporateEventsResponse = await response.json();
-
-      setCorporateEvents(data.items);
-      setPagination({
-        itemsReceived: data.itemsReceived,
-        curPage: data.curPage,
-        nextPage: data.nextPage,
-        prevPage: data.prevPage,
-        offset: data.offset,
-        perPage: nextFilters.Per_page,
-        pageTotal: data.pageTotal,
-      });
-      setSummaryData({
-        acquisitions: data.acquisitions,
-        investments: data.investments,
-        ipos: data.ipos,
-      });
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Failed to fetch corporate events"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCountries();
-    fetchContinentalRegions();
-    fetchSubRegions();
-    fetchFundingStages();
-
-    if (!Number.isNaN(subSectorId) && subSectorId > 0) {
-      const initialFilters: CorporateEventsFilters = {
-        ...filters,
-        Secondary_sectors_ids: [subSectorId],
-      };
-      setFilters(initialFilters);
-      fetchCorporateEvents(initialFilters);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subSectorId]);
-
-  useEffect(() => {
-    fetchProvinces();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountries]);
-
-  useEffect(() => {
-    fetchCities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProvinces]);
-
-  const handleSearch = () => {
-    const updatedFilters: CorporateEventsFilters = {
-      ...filters,
-      search_query: searchTerm,
-      Countries: selectedCountries,
-      Provinces: selectedProvinces,
-      Cities: selectedCities,
-      deal_types: selectedEventTypes,
-      Deal_Status: selectedDealStatuses,
-      Buyer_Investor_Types: selectedBuyerInvestorTypes,
-      Funding_stage: selectedFundingStages,
-      Date_start: dateStart || null,
-      Date_end: dateEnd || null,
-      Page: 1,
-      Secondary_sectors_ids: [subSectorId],
-    };
-    setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
-  };
-
-  const handlePageChange = (page: number) => {
-    const updatedFilters: CorporateEventsFilters = {
-      ...filters,
-      Page: page,
-      Buyer_Investor_Types: selectedBuyerInvestorTypes,
-      Funding_stage: selectedFundingStages,
-      Secondary_sectors_ids: [subSectorId],
-    };
-    setFilters(updatedFilters);
-    fetchCorporateEvents(updatedFilters);
-  };
-
-  const handleExportCSV = () => {
-    if (corporateEvents.length > 0) {
-      CSVExporter.exportCorporateEvents(
-        corporateEvents,
-        `sub_sector_${subSectorId}_transactions`
-      );
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const formatCurrency = (
-    amount: string | undefined,
-    currency: string | undefined
-  ) => {
-    if (!amount || !currency) return "-";
-    const n = Number(amount);
-    if (Number.isNaN(n)) return "-";
-    return `${currency}${n.toLocaleString(undefined, {
-      maximumFractionDigits: 3,
-    })}`;
-  };
-
-  const renderSectorLinks = (
-    sectors:
-      | Array<string | { sector_name?: string; id?: number }>
-      | undefined,
-    kind: "primary" | "secondary" = "primary"
-  ): React.ReactNode => {
-    if (!Array.isArray(sectors) || sectors.length === 0) {
-      return "-";
-    }
-    const basePath = kind === "primary" ? "/sector" : "/sub-sector";
-    const nodes: React.ReactNode[] = [];
-    sectors.forEach((sector, index) => {
-      const name = typeof sector === "string" ? sector : sector?.sector_name;
-      if (!name) return;
-      const sectorId =
-        typeof sector === "object" && sector
-          ? (sector as { id?: number }).id
-          : undefined;
-      nodes.push(
-        sectorId ? (
-          <a
-            key={`${sectorId}-${name}-${index}`}
-            href={`${basePath}/${sectorId}`}
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            {name}
-          </a>
-        ) : (
-          <span key={`${name}-${index}`}>{name}</span>
-        )
-      );
-      if (index < sectors.length - 1) {
-        nodes.push(<span key={`sep-${index}`}>, </span>);
-      }
-    });
-    return nodes.length > 0 ? nodes : "-";
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Filters Section */}
-      <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-slate-900">Filters</h2>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-blue-600 underline hover:text-blue-800"
-          >
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </button>
-        </div>
-
-        {showFilters && (
-          <>
-            <h2 className="mt-4 mb-4 text-xl font-bold text-slate-900">
-              Filter Corporate Events
-            </h2>
-            <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-3">
-              {/* Event Type */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Corporate Event Type
-                </h3>
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  By Type
-                </label>
-                <SearchableSelect
-                  options={eventTypeOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedEventTypes.includes(value)
-                    ) {
-                      setSelectedEventTypes([...selectedEventTypes, value]);
-                    }
-                  }}
-                  placeholder="Select Type"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedEventTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedEventTypes.map((eventType) => (
-                      <span
-                        key={eventType}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {eventType}
-                        <button
-                          onClick={() =>
-                            setSelectedEventTypes(
-                              selectedEventTypes.filter((t) => t !== eventType)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Deal Status
-                </label>
-                <SearchableSelect
-                  options={dealStatusOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedDealStatuses.includes(value)
-                    ) {
-                      setSelectedDealStatuses([...selectedDealStatuses, value]);
-                    }
-                  }}
-                  placeholder="Select Deal Status"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedDealStatuses.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedDealStatuses.map((status) => (
-                      <span
-                        key={status}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-red-700 bg-red-50 rounded"
-                      >
-                        {status}
-                        <button
-                          onClick={() =>
-                            setSelectedDealStatuses(
-                              selectedDealStatuses.filter((s) => s !== status)
-                            )
-                          }
-                          className="font-bold text-red-700 hover:text-red-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Buyer / Investor Type
-                </label>
-                <SearchableSelect
-                  options={buyerInvestorTypeOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedBuyerInvestorTypes.includes(
-                        value as BuyerInvestorType
-                      )
-                    ) {
-                      setSelectedBuyerInvestorTypes([
-                        ...selectedBuyerInvestorTypes,
-                        value as BuyerInvestorType,
-                      ]);
-                    }
-                  }}
-                  placeholder="Select Buyer / Investor Type"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedBuyerInvestorTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedBuyerInvestorTypes.map((type) => (
-                      <span
-                        key={type}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-800 bg-blue-50 rounded"
-                      >
-                        {buyerInvestorTypeLabel(type)}
-                        <button
-                          onClick={() =>
-                            setSelectedBuyerInvestorTypes(
-                              selectedBuyerInvestorTypes.filter((t) => t !== type)
-                            )
-                          }
-                          className="font-bold text-blue-800 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Location */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Location
-                </h3>
-
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  By Continental Region
-                </label>
-                <SearchableSelect
-                  options={continentalRegions.map((r) => ({
-                    value: r,
-                    label: r,
-                  }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedContinentalRegions.includes(value)
-                    ) {
-                      setSelectedContinentalRegions([
-                        ...selectedContinentalRegions,
-                        value,
-                      ]);
-                    }
-                  }}
-                  placeholder="Select Continental Region"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedContinentalRegions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedContinentalRegions.map((r) => (
-                      <span
-                        key={r}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedContinentalRegions(
-                              selectedContinentalRegions.filter((x) => x !== r)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Sub-Region
-                </label>
-                <SearchableSelect
-                  options={subRegions.map((r) => ({ value: r, label: r }))}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedSubRegions.includes(value)
-                    ) {
-                      setSelectedSubRegions([...selectedSubRegions, value]);
-                    }
-                  }}
-                  placeholder="Select Sub-Region"
-                  disabled={false}
-                  style={{}}
-                />
-                {selectedSubRegions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedSubRegions.map((r) => (
-                      <span
-                        key={r}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                      >
-                        {r}
-                        <button
-                          onClick={() =>
-                            setSelectedSubRegions(
-                              selectedSubRegions.filter((x) => x !== r)
-                            )
-                          }
-                          className="font-bold text-orange-700 hover:text-orange-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Country
-                </label>
-                <SearchableSelect
-                  options={countryOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCountries.includes(value)
-                    ) {
-                      setSelectedCountries([...selectedCountries, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCountries ? "Loading..." : "Select Country"
-                  }
-                  disabled={loadingCountries}
-                  style={{}}
-                />
-                {selectedCountries.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedCountries.map((country) => (
-                      <span
-                        key={country}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded"
-                      >
-                        {country}
-                        <button
-                          onClick={() =>
-                            setSelectedCountries(
-                              selectedCountries.filter((c) => c !== country)
-                            )
-                          }
-                          className="font-bold text-blue-700 hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Province
-                </label>
-                <SearchableSelect
-                  options={provinceOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedProvinces.includes(value)
-                    ) {
-                      setSelectedProvinces([...selectedProvinces, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingProvinces
-                      ? "Loading..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select Province"
-                  }
-                  disabled={loadingProvinces || selectedCountries.length === 0}
-                  style={{}}
-                />
-                {selectedProvinces.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedProvinces.map((province) => (
-                      <span
-                        key={province}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-green-700 bg-green-50 rounded"
-                      >
-                        {province}
-                        <button
-                          onClick={() =>
-                            setSelectedProvinces(
-                              selectedProvinces.filter((p) => p !== province)
-                            )
-                          }
-                          className="font-bold text-green-700 hover:text-green-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By City
-                </label>
-                <SearchableSelect
-                  options={cityOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedCities.includes(value)
-                    ) {
-                      setSelectedCities([...selectedCities, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingCities
-                      ? "Loading..."
-                      : selectedCountries.length === 0
-                      ? "Select country first"
-                      : "Select City"
-                  }
-                  disabled={loadingCities || selectedCountries.length === 0}
-                  style={{}}
-                />
-                {selectedCities.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedCities.map((city) => (
-                      <span
-                        key={city}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-orange-700 bg-orange-50 rounded"
-                      >
-                        {city}
-                        <button
-                          onClick={() =>
-                            setSelectedCities(
-                              selectedCities.filter((c) => c !== city)
-                            )
-                          }
-                          className="font-bold text-orange-700 hover:text-orange-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Date Filters */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-slate-900">
-                  Announcement Date
-                </h3>
-                <label className="block mb-2 text-sm font-semibold text-slate-900">
-                  Start
-                </label>
-                <input
-                  type="date"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                  className="px-3 py-2 w-full rounded-md border border-slate-300"
-                />
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  End
-                </label>
-                <input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                  className="px-3 py-2 w-full rounded-md border border-slate-300"
-                />
-
-                <label className="block mt-4 mb-2 text-sm font-semibold text-slate-900">
-                  By Funding Stage
-                </label>
-                <SearchableSelect
-                  options={fundingStageOptions}
-                  value=""
-                  onChange={(value) => {
-                    if (
-                      typeof value === "string" &&
-                      value &&
-                      !selectedFundingStages.includes(value)
-                    ) {
-                      setSelectedFundingStages([...selectedFundingStages, value]);
-                    }
-                  }}
-                  placeholder={
-                    loadingFundingStages ? "Loading funding stages..." : "Select Funding Stage"
-                  }
-                  disabled={loadingFundingStages}
-                  style={{}}
-                />
-                {selectedFundingStages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedFundingStages.map((stage) => (
-                      <span
-                        key={stage}
-                        className="inline-flex gap-1 items-center px-2 py-1 text-xs text-emerald-700 bg-emerald-50 rounded"
-                      >
-                        {stage}
-                        <button
-                          onClick={() =>
-                            setSelectedFundingStages(
-                              selectedFundingStages.filter((s) => s !== stage)
-                            )
-                          }
-                          className="font-bold text-emerald-700 hover:text-emerald-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Search Row */}
-        <div className="mt-4">
-          {showFilters && (
-            <h3 className="mb-2 text-lg font-semibold text-slate-900">
-              Search Corporate Events
-            </h3>
-          )}
-          <div className="flex gap-3 items-center">
-            <input
-              type="text"
-              placeholder="Enter search terms here"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 px-3 py-2 max-w-md rounded-md border border-slate-300"
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <button
-              onClick={handleSearch}
-              className="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              {loading ? "Searching..." : "Search"}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 mt-4 text-red-700 bg-red-50 rounded-md">
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* Statistics Block */}
-      {summaryData.acquisitions > 0 && (
-        <div className="p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <h2 className="mb-4 text-xl font-bold text-slate-900">
-            Corporate Events
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div>
-              <span className="text-sm text-slate-600">Acquisitions:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.acquisitions?.toLocaleString() || "0"}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-slate-600">Investments:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.investments?.toLocaleString() || "0"}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-slate-600">IPOs:</span>
-              <p className="text-2xl font-bold text-slate-900">
-                {summaryData.ipos?.toLocaleString() || "0"}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Button */}
-      {corporateEvents.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={handleExportCSV}
-            className="px-6 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700"
-            disabled={loading}
-          >
-            {loading ? "Exporting..." : "Export CSV"}
-          </button>
-        </div>
-      )}
-
-      {/* Results Table */}
-      {loading && (
-        <div className="py-10 text-center text-slate-600">
-          Loading corporate events...
-        </div>
-      )}
-
-      {!loading && corporateEvents.length === 0 && (
-        <div className="py-10 text-center text-slate-600">
-          No corporate events found.
-        </div>
-      )}
-
-      {!loading && corporateEvents.length > 0 && (
-        <div className="overflow-x-auto p-6 bg-white rounded-xl border shadow-lg border-slate-200/60">
-          <table className="w-full table-fixed min-w-[900px]">
-            <colgroup>
-              <col style={{ width: "30%" }} />
-              <col style={{ width: "18%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "18%" }} />
-            </colgroup>
-            <thead>
-              <tr className="border-b-2 border-slate-200">
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Event Details
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Parties
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Deal Details
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Advisors
-                </th>
-                <th className="p-3 text-sm font-semibold text-left text-slate-900">
-                  Sectors
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {corporateEvents.map((event: CorporateEvent, index: number) => {
-                const target = event.target_counterparty?.new_company;
-                const targetCounterpartyId =
-                  event.target_counterparty?.new_company_counterparty;
-                const targetName = target?.name || "-";
-                const targetHref = targetCounterpartyId
-                  ? `/company/${targetCounterpartyId}`
-                  : "";
-                const targetCountry =
-                  target?.country ||
-                  (target as
-                    | { _location?: { Country?: string } }
-                    | undefined)?._location?.Country ||
-                  "-";
-                const fundingStage =
-                  (
-                    event.investment_data?.Funding_stage ||
-                    event.investment_data?.funding_stage ||
-                    ""
-                  ).trim();
-                const isPartnership = /partnership/i.test(
-                  event.deal_type || ""
-                );
-
-                const rawPrimary =
-                  (target?.primary_sectors as
-                    | Array<string | { sector_name?: string }>
-                    | undefined) ??
-                  ((target as unknown as {
-                    _sectors_primary?: Array<{ sector_name?: string }>;
-                  })?._sectors_primary as
-                    | Array<{ sector_name?: string }>
-                    | undefined);
-
-                const primarySectorsForLinks:
-                  | Array<{ sector_name: string; id?: number }>
-                  | undefined =
-                  Array.isArray(rawPrimary) && rawPrimary.length > 0
-                    ? (rawPrimary
-                        .map((s) => {
-                          const name =
-                            typeof s === "string"
-                              ? s
-                              : (s as {
-                                  sector_name?: string;
-                                  id?: number;
-                                }).sector_name || "";
-                          const trimmed = name.trim();
-                          if (!trimmed) return null;
-                          const id =
-                            typeof s === "string"
-                              ? undefined
-                              : (s as { id?: number }).id;
-                          return { sector_name: trimmed, id };
-                        })
-                        .filter((x) => x !== null) as Array<{
-                        sector_name: string;
-                        id?: number;
-                      }>)
-                    : undefined;
-
-                const rawSecondary =
-                  (target?.secondary_sectors as
-                    | Array<string | { sector_name?: string }>
-                    | undefined) ??
-                  ((target as unknown as {
-                    _sectors_secondary?: Array<{ sector_name?: string }>;
-                  })?._sectors_secondary as
-                    | Array<{ sector_name?: string }>
-                    | undefined);
-
-                const secondarySectorsForLinks:
-                  | Array<{ sector_name: string; id?: number }>
-                  | undefined =
-                  Array.isArray(rawSecondary) && rawSecondary.length > 0
-                    ? (rawSecondary
-                        .map((s) => {
-                          const name =
-                            typeof s === "string"
-                              ? s
-                              : (s as {
-                                  sector_name?: string;
-                                  id?: number;
-                                }).sector_name || "";
-                          const trimmed = name.trim();
-                          if (!trimmed) return null;
-                          const id =
-                            typeof s === "string"
-                              ? undefined
-                              : (s as { id?: number }).id;
-                          return { sector_name: trimmed, id };
-                        })
-                        .filter((x) => x !== null) as Array<{
-                        sector_name: string;
-                        id?: number;
-                      }>)
-                    : undefined;
-
-                return (
-                  <tr
-                    key={event.id || index}
-                    className="border-b border-slate-100"
-                  >
-                    {/* Event Details */}
-                    <td className="p-3 align-top break-words">
-                      <div className="mb-1">
-                        <a
-                          href={`/corporate-event/${event.id}`}
-                          className="font-medium text-blue-600 underline hover:text-blue-800"
-                        >
-                          {event.description || "-"}
-                        </a>
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        Date: {formatDate(event.announcement_date)}
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        Target HQ: {targetCountry}
-                      </div>
-                    </td>
-
-                    {/* Parties */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div className="mb-1">
-                        <strong>Target:</strong>{" "}
-                        {targetHref ? (
-                          <a
-                            href={targetHref}
-                            className="text-blue-600 underline hover:text-blue-800"
-                          >
-                            {targetName}
-                          </a>
-                        ) : (
-                          <span>{targetName}</span>
-                        )}
-                      </div>
-                      {!isPartnership && (
-                        <div>
-                          {(() => {
-                            const list = Array.isArray(
-                              event.other_counterparties
-                            )
-                              ? event.other_counterparties.filter((cp) =>
-                                  /investor|acquirer/i.test(
-                                    cp._counterparty_type?.counterparty_status ||
-                                      ""
-                                  )
-                                )
-                              : [];
-                            if (list.length === 0) {
-                              return (
-                                <>
-                                  <strong>Buyer(s):</strong> -
-                                </>
-                              );
-                            }
-                            const statuses = list
-                              .map((cp) =>
-                                (
-                                  cp._counterparty_type?.counterparty_status ||
-                                  ""
-                                ).toLowerCase()
-                              )
-                              .join(" ");
-                            const hasAcquirer = /acquirer/.test(statuses);
-                            const label = hasAcquirer
-                              ? "Buyer(s)"
-                              : "Investor(s)";
-                            const names = list
-                              .map((cp) => cp._new_company?.name || "Unknown")
-                              .join(", ");
-                            return (
-                              <>
-                                <strong>{label}:</strong>{" "}
-                                {names || "-"}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-                      {!isPartnership && (
-                        <div className="mt-1 text-xs text-slate-600">
-                          <strong>Seller(s):</strong>{" "}
-                          {Array.isArray(event.other_counterparties) &&
-                          event.other_counterparties.length > 0
-                            ? (() => {
-                                const sellers =
-                                  event.other_counterparties.filter((cp) => {
-                                    const status =
-                                      cp._counterparty_type?.counterparty_status ||
-                                      "";
-                                    return /divestor|seller|vendor/i.test(status);
-                                  });
-                                if (sellers.length === 0)
-                                  return "-";
-                                return sellers
-                                  .map(
-                                    (cp) => cp._new_company?.name || "Unknown"
-                                  )
-                                  .join(", ");
-                              })()
-                            : "-"}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Deal Details */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div className="mb-1">
-                        <strong>Deal Type:</strong>{" "}
-                        {event.deal_type ? (
-                          <span className="inline-flex flex-wrap gap-1 align-middle">
-                            <span className="inline-block px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded">
-                              {event.deal_type}
-                            </span>
-                            {fundingStage && (
-                              <span className="inline-block px-2 py-1 text-xs text-green-700 bg-green-50 rounded">
-                                {fundingStage}
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </div>
-                      <div>
-                        <strong>Amount (m):</strong>{" "}
-                        {formatCurrency(
-                          event.investment_data?.investment_amount_m,
-                          event.investment_data?.currency?.Currency
-                        )}
-                      </div>
-                      <div>
-                        <strong>EV (m):</strong>{" "}
-                        {formatCurrency(
-                          event.ev_data?.enterprise_value_m,
-                          event.ev_data?.currency?.Currency
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Advisors */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div>
-                        <strong>Advisors:</strong>{" "}
-                        {Array.isArray(event.advisors) &&
-                        event.advisors.length > 0
-                          ? event.advisors
-                              .map((advisor) => {
-                                const nc = advisor._new_company;
-                                return nc?.name || "Unknown";
-                              })
-                              .join(", ")
-                          : "-"}
-                      </div>
-                    </td>
-
-                    {/* Sectors */}
-                    <td className="p-3 align-top text-xs break-words text-slate-600">
-                      <div>
-                        <strong>Primary:</strong>{" "}
-                        {renderSectorLinks(primarySectorsForLinks as Array<
-                          string | { sector_name?: string; id?: number }
-                        >)}
-                      </div>
-                      <div className="mt-1">
-                        <strong>Secondary:</strong>{" "}
-                        {renderSectorLinks(
-                          secondarySectorsForLinks as Array<
-                            string | { sector_name?: string; id?: number }
-                          >,
-                          "secondary"
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pagination.pageTotal > 1 && (
-        <div className="flex justify-center items-center mt-6">
-          <CompactPagination
-            curPage={pagination.curPage}
-            pageTotal={pagination.pageTotal}
-            onPageChange={handlePageChange}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
+const INSIGHTS_GRID_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 16,
+  width: "100%",
+  boxSizing: "border-box",
+  alignItems: "stretch",
+};
 
 const SubSectorPage = () => {
   const params = useParams();
@@ -1389,8 +39,14 @@ const SubSectorPage = () => {
     (searchParams?.get("tab") as TabId) || "all"
   );
 
-  // Header title lookup
+  // Header lookup: sub-sector name + parent primary sector (for breadcrumb)
   const [subSectorName, setSubSectorName] = useState<string>("");
+  const [primarySector, setPrimarySector] = useState<{
+    id: number;
+    sector_name: string;
+  } | null>(null);
+  const [headerLoaded, setHeaderLoaded] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -1401,8 +57,16 @@ const SubSectorPage = () => {
           (s) => s.id === subSectorId
         );
         setSubSectorName(found?.sector_name || "");
+        const related = found?.related_primary_sector;
+        setPrimarySector(
+          related?.id != null
+            ? { id: related.id, sector_name: related.sector_name }
+            : null
+        );
       } catch {
         // ignore name fetch failure
+      } finally {
+        if (!cancelled) setHeaderLoaded(true);
       }
     };
     if (!Number.isNaN(subSectorId)) run();
@@ -1492,149 +156,234 @@ const SubSectorPage = () => {
     if (activeTab === "insights") fetchInsights(1);
   }, [activeTab, fetchInsights]);
 
+  const hasValidId = !Number.isNaN(subSectorId) && subSectorId > 0;
+
   return (
     <AppShell>
-    <div className="min-h-screen bg-gradient-to-br to-blue-50 from-slate-50">
-      <header className="bg-white border-b shadow-sm border-slate-200/60">
-        <div className="px-6 py-4 w-full">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <div className="flex justify-center items-center w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                <svg
-                  className="w-6 h-6 text-white"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100%",
+          background: T.paper,
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            background: T.panel,
+            borderBottom: `1px solid ${T.divider}`,
+            padding: "18px 20px 16px",
+          }}
+        >
+          <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8 }}>
+            <a
+              href="/sectors"
+              style={{
+                fontWeight: 600,
+                color: T.azure,
+                textDecoration: "none",
+              }}
+            >
+              Sectors
+            </a>
+            {primarySector && (
+              <>
+                {" / "}
+                <a
+                  href={`/sector/${primarySector.id}`}
+                  style={{
+                    fontWeight: 600,
+                    color: T.azure,
+                    textDecoration: "none",
+                  }}
                 >
-                  <path d="M3 12h18M3 6h18M3 18h18" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">
-                  {subSectorName || "Sub-Sector"}
-                </h1>
-              </div>
-            </div>
-            {!Number.isNaN(subSectorId) && subSectorId > 0 && (
-              <FollowButton
-                followKey="followed_sectors"
-                entityId={subSectorId}
-                entityType="sector"
-                label="Sub-Sector"
-              />
+                  {primarySector.sector_name}
+                </a>
+              </>
             )}
+            {" / "}
+            {headerLoaded ? subSectorName || "Sub-Sector" : "…"}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 18 }}>
+            <div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 800,
+                  letterSpacing: "-0.028em",
+                  color: T.ink,
+                  lineHeight: 1.1,
+                }}
+              >
+                {headerLoaded ? (
+                  subSectorName || "Sub-Sector"
+                ) : (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      height: 28,
+                      width: 260,
+                      background: T.hair,
+                      borderRadius: 6,
+                    }}
+                  />
+                )}
+              </h1>
+            </div>
+            <div
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
+              {hasValidId && (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    height: 36,
+                    padding: "0 10px 0 14px",
+                    borderRadius: 999,
+                    border: `1px solid ${T.divider}`,
+                    background: T.panel,
+                  }}
+                >
+                  <InlineFollowButton
+                    followKey="followed_sectors"
+                    entityId={subSectorId}
+                    label={subSectorName || "Sub-Sector"}
+                    showLabel
+                    icon="star"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </header>
 
-      <main className="px-6 py-8 w-full">
-        <div className="mb-8">
+        <div style={{ padding: "0 20px", background: T.panel }}>
           <ProfileSubnav
+            sticky
             tabs={TABS.map((tab) => ({ id: tab.id, label: tab.name }))}
             activeTab={activeTab}
             onChange={(id) => setTab(id as TabId)}
           />
         </div>
 
-        {activeTab === "all" && !Number.isNaN(subSectorId) && subSectorId > 0 && (
-          <ScopedCompaniesPanel secondarySectorId={subSectorId} embedded />
-        )}
+        <main style={{ flex: 1, padding: "18px 20px 40px" }}>
+          {activeTab === "all" && hasValidId && (
+            <ScopedCompaniesPanel secondarySectorId={subSectorId} embedded />
+          )}
 
-        {activeTab === "transactions" && (
-          <SubSectorTransactionsTab subSectorId={subSectorId} />
-        )}
+          {activeTab === "transactions" && hasValidId && (
+            <ScopedCorporateEventsPanel
+              secondarySectorId={subSectorId}
+              embedded
+            />
+          )}
 
-        {activeTab === "insights" && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border shadow-lg border-slate-200/60">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-3 items-center text-xl">
-                    <span className="inline-flex justify-center items-center w-8 h-8 bg-indigo-50 rounded-lg">
-                      <svg
-                        className="w-4 h-4 text-indigo-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 12h18M3 6h18M3 18h18" />
-                      </svg>
-                    </span>
-                    <span className="text-slate-900">Insights & Analysis</span>
-                  </div>
-                </div>
-              </div>
-              <div className="px-5 py-4">
-                {insightsLoading ? (
-                  <div className="py-10 text-center text-slate-500">
-                    Loading articles...
-                  </div>
-                ) : insightsError ? (
-                  <div className="py-4 text-center text-red-600">
-                    {insightsError}
-                  </div>
-                ) : articles.length === 0 ? (
-                  <div className="py-10 text-center text-slate-500">
-                    No articles found.
-                  </div>
-                ) : (
-                  <div
-                    className="grid gap-4"
+          {activeTab === "insights" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div
+                style={{
+                  background: T.panel,
+                  border: `1px solid ${T.divider}`,
+                  borderRadius: T.rLg,
+                  boxShadow:
+                    "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "13px 16px",
+                    borderBottom: `1px solid ${T.hair}`,
+                  }}
+                >
+                  <h2
                     style={{
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(320px, 1fr))",
+                      margin: 0,
+                      fontSize: 14.5,
+                      fontWeight: 800,
+                      color: T.ink,
                     }}
                   >
-                    {articles.map((article) => (
-                      <a
-                        key={article.id}
-                        href={`/article/${article.id}`}
-                        className="block p-4 bg-white rounded-lg border shadow-sm transition-shadow border-slate-200 hover:shadow-md"
-                      >
-                        <h3 className="text-base font-semibold text-slate-900">
-                          {article.Headline || "-"}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {article.Publication_Date
-                            ? new Date(
-                                article.Publication_Date
-                              ).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })
-                            : "-"}
-                        </p>
-                        {article.Content_Type && (
-                          <span className="inline-block mt-2 px-2 py-0.5 text-xs rounded border bg-blue-50 text-blue-700 border-blue-200">
-                            {article.Content_Type}
-                          </span>
-                        )}
-                        <p className="mt-3 text-sm text-slate-700 line-clamp-4">
-                          {article.Strapline || "No summary available"}
-                        </p>
-                      </a>
-                    ))}
-                  </div>
-                )}
+                    Insights &amp; Analysis
+                  </h2>
+                </div>
+                <div style={{ padding: 16 }}>
+                  {insightsLoading ? (
+                    <div
+                      style={{
+                        padding: "40px 0",
+                        textAlign: "center",
+                        color: T.muted,
+                        fontSize: 13.5,
+                      }}
+                    >
+                      Loading articles...
+                    </div>
+                  ) : insightsError ? (
+                    <div
+                      style={{
+                        padding: "16px 0",
+                        textAlign: "center",
+                        color: T.coral,
+                        fontSize: 13.5,
+                      }}
+                    >
+                      {insightsError}
+                    </div>
+                  ) : articles.length === 0 ? (
+                    <div
+                      style={{
+                        padding: "40px 0",
+                        textAlign: "center",
+                        color: T.muted,
+                        fontSize: 13.5,
+                      }}
+                    >
+                      No articles found.
+                    </div>
+                  ) : (
+                    <div style={INSIGHTS_GRID_STYLE}>
+                      {articles.map((article) => (
+                        <InsightsAnalysisCard key={article.id} article={article} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+              {insightsPagination.pageTotal > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <CompactPagination
+                    curPage={insightsPagination.curPage}
+                    pageTotal={insightsPagination.pageTotal}
+                    onPageChange={(page) => fetchInsights(page)}
+                  />
+                </div>
+              )}
             </div>
-            {insightsPagination.pageTotal > 1 && (
-              <div className="flex justify-center items-center">
-                <CompactPagination
-                  curPage={insightsPagination.curPage}
-                  pageTotal={insightsPagination.pageTotal}
-                  onPageChange={(page) => fetchInsights(page)}
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-      <Footer />
-    </div>
+          )}
+        </main>
+        <Footer />
+      </div>
     </AppShell>
   );
 };

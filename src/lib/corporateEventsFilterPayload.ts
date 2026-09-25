@@ -370,6 +370,7 @@ export function buildCorporateEventsSearchPayload(args: {
   secondarySectors: SectorRef[];
   userId?: number | null;
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   page?: number;
   perPage?: number;
   dealTabTypes?: readonly string[];
@@ -379,6 +380,14 @@ export function buildCorporateEventsSearchPayload(args: {
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
     filters.primary_sectors_ids = Array.from(
       new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
+  if (args.scopedSecondarySectorIds && args.scopedSecondarySectorIds.length > 0) {
+    filters.Secondary_sectors_ids = Array.from(
+      new Set([
+        ...args.scopedSecondarySectorIds,
+        ...filters.Secondary_sectors_ids,
+      ])
     );
   }
   if (args.dealTabTypes && args.dealTabTypes.length > 0) {
@@ -396,6 +405,7 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   secondarySectors: SectorRef[];
   userId?: number | null;
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   page?: number;
   perPage?: number;
   followedEntityIds?: FollowedEntityIds;
@@ -404,6 +414,14 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
     filters.primary_sectors_ids = Array.from(
       new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
+  if (args.scopedSecondarySectorIds && args.scopedSecondarySectorIds.length > 0) {
+    filters.Secondary_sectors_ids = Array.from(
+      new Set([
+        ...args.scopedSecondarySectorIds,
+        ...filters.Secondary_sectors_ids,
+      ])
     );
   }
   return {

@@ -26,7 +26,8 @@ import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
 export type ScopedCorporateEventsPanelProps = {
-  primarySectorId: number;
+  primarySectorId?: number;
+  secondarySectorId?: number;
   embedded?: boolean;
 };
 
@@ -184,6 +185,7 @@ function useScopedCorporateEventsSearch(userId: number | null) {
 
 export function ScopedCorporateEventsPanel({
   primarySectorId,
+  secondarySectorId,
   embedded = true,
 }: ScopedCorporateEventsPanelProps) {
   const { user } = useAuth();
@@ -203,8 +205,12 @@ export function ScopedCorporateEventsPanel({
   } = useScopedCorporateEventsSearch(userId);
 
   const scopedPrimarySectorIds = useMemo(
-    () => [primarySectorId],
+    () => (primarySectorId != null ? [primarySectorId] : []),
     [primarySectorId]
+  );
+  const scopedSecondarySectorIds = useMemo(
+    () => (secondarySectorId != null ? [secondarySectorId] : []),
+    [secondarySectorId]
   );
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
@@ -233,8 +239,9 @@ export function ScopedCorporateEventsPanel({
       secondarySectors: [],
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
     });
-  }, [emptyFilterState, userId, scopedPrimarySectorIds]);
+  }, [emptyFilterState, userId, scopedPrimarySectorIds, scopedSecondarySectorIds]);
 
   const buildScopedCountsFilters = useCallback((): Filters => {
     return buildCorporateEventsCountsSearchPayload({
@@ -243,8 +250,9 @@ export function ScopedCorporateEventsPanel({
       secondarySectors: [],
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
     });
-  }, [emptyFilterState, userId, scopedPrimarySectorIds]);
+  }, [emptyFilterState, userId, scopedPrimarySectorIds, scopedSecondarySectorIds]);
 
   useEffect(() => {
     const listFilters = buildScopedFilters();
@@ -255,6 +263,7 @@ export function ScopedCorporateEventsPanel({
     buildScopedCountsFilters,
     fetchCorporateEvents,
     primarySectorId,
+    secondarySectorId,
     userId,
   ]);
 
@@ -314,8 +323,13 @@ export function ScopedCorporateEventsPanel({
             exportCSVRef.current?.({ mode, scope: "full_list" })
           }
           exporting={exporting}
-          excludeFilterIds={["primary_sector"]}
+          excludeFilterIds={
+            secondarySectorId != null
+              ? ["secondary_sector"]
+              : ["primary_sector"]
+          }
           scopedPrimarySectorIds={scopedPrimarySectorIds}
+          scopedSecondarySectorIds={scopedSecondarySectorIds}
           matchCountOverride={pagination.itemsTotal}
         />
         <CorporateEventsSearchSection

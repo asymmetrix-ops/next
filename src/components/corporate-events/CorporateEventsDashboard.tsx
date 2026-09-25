@@ -78,6 +78,7 @@ export type CorporateEventsDashboardProps = {
   hideColumns?: boolean;
   excludeFilterIds?: string[];
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   matchCountOverride?: number;
 };
 
@@ -99,6 +100,7 @@ export const CorporateEventsDashboard = ({
   hideColumns = false,
   excludeFilterIds = [],
   scopedPrimarySectorIds = [],
+  scopedSecondarySectorIds = [],
   matchCountOverride,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -259,6 +261,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
       dealTabTypes: tabConfig?.dealTypes,
       followedEntityIds,
     });
@@ -268,6 +271,7 @@ export const CorporateEventsDashboard = ({
     secondarySectors,
     userId,
     scopedPrimarySectorIds,
+    scopedSecondarySectorIds,
     activeDealTab,
     followedEntityIds,
   ]);
@@ -280,6 +284,7 @@ export const CorporateEventsDashboard = ({
         secondarySectors,
         userId,
         scopedPrimarySectorIds,
+        scopedSecondarySectorIds,
         followedEntityIds,
       }),
     [
@@ -288,6 +293,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
       followedEntityIds,
     ]
   );
