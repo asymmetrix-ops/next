@@ -22,6 +22,7 @@ import {
   INDIVIDUAL_ROLE_TAB_CONFIG,
   INDIVIDUAL_ROLE_TAB_ORDER,
   findJobTitleId,
+  type IndividualJobTitleRoleTab,
   type IndividualRoleTab,
   type IndividualsSummaryCounts,
   type Country,
@@ -31,6 +32,12 @@ import {
   type SecondarySector,
   type JobTitleOption,
 } from "@/components/individuals/individualsFilterConfig";
+import {
+  ADVISORS_TAB_DEFAULT_LIST_SORT,
+  DEFAULT_INDIVIDUALS_LIST_SORT,
+  mergeSortIntoIndividualFilters,
+  type IndividualsListSortState,
+} from "@/components/individuals/individualsListSort";
 import { CANONICAL_INDIVIDUAL_COLUMN_KEYS } from "@/components/individuals/individualsColumnCategories";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { SearchExportMenu } from "@/components/search/SearchExportMenu";
@@ -63,6 +70,10 @@ export type IndividualDashboardProps = {
   initialSearch?: string;
   summaryCounts?: IndividualsSummaryCounts;
   jobTitles: JobTitleOption[];
+  listSort: IndividualsListSortState;
+  onSyncListSort?: (sort: IndividualsListSortState) => void;
+  advisorsTabCount?: number;
+  listItemsTotal?: number;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
   columnsCount?: number;
@@ -76,6 +87,10 @@ export const IndividualDashboard = ({
   initialSearch,
   summaryCounts = EMPTY_INDIVIDUALS_SUMMARY_COUNTS,
   jobTitles,
+  listSort,
+  onSyncListSort,
+  advisorsTabCount = 0,
+  listItemsTotal = 0,
   onColumnsClick,
   columnsActive = false,
   columnsCount = 0,
@@ -210,20 +225,43 @@ export const IndividualDashboard = ({
     });
   }, [filterBarState, primarySectors, secondarySectors, jobTitles]);
 
-  const buildSearchFilters = useCallback((): IndividualsSearchFilters => {
-    const tabConfig =
-      activeRoleTab !== "all" ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab] : null;
-    const tabJobTitleId = tabConfig
-      ? findJobTitleId(jobTitles, tabConfig.jobTitle)
-      : null;
-    return buildIndividualsSearchPayload({
-      state: filterBarState,
+  const buildSearchFilters = useCallback(
+    (sortOverride?: IndividualsListSortState): IndividualsSearchFilters => {
+      const tabConfig =
+        activeRoleTab !== "all" && activeRoleTab !== "advisors"
+          ? INDIVIDUAL_ROLE_TAB_CONFIG[activeRoleTab]
+          : null;
+      const tabJobTitleId = tabConfig
+        ? findJobTitleId(jobTitles, tabConfig.jobTitle)
+        : null;
+      const payload = buildIndividualsSearchPayload({
+        state: filterBarState,
+        primarySectors,
+        secondarySectors,
+        jobTitles,
+        roleTabJobTitleIds: tabJobTitleId != null ? [tabJobTitleId] : undefined,
+      });
+
+      if (activeRoleTab === "advisors") {
+        payload.advisors_only = true;
+      } else {
+        delete payload.advisors_only;
+      }
+
+      return mergeSortIntoIndividualFilters(
+        payload,
+        sortOverride ?? listSort
+      );
+    },
+    [
+      filterBarState,
       primarySectors,
       secondarySectors,
       jobTitles,
-      roleTabJobTitleIds: tabJobTitleId != null ? [tabJobTitleId] : undefined,
-    });
-  }, [filterBarState, primarySectors, secondarySectors, jobTitles, activeRoleTab]);
+      activeRoleTab,
+      listSort,
+    ]
+  );
 
   const isPortfolioFilterActive = filterBarState.filters.some(
     (f) => f.id === "followed" && f.value === true
@@ -239,6 +277,8 @@ export const IndividualDashboard = ({
   buildCountsFiltersRef.current = buildCountsFilters;
   const onSearchRef = useRef(onSearch);
   onSearchRef.current = onSearch;
+  const onSyncListSortRef = useRef(onSyncListSort);
+  onSyncListSortRef.current = onSyncListSort;
 
   const filterSearchKey = useMemo(
     () =>
@@ -273,11 +313,16 @@ export const IndividualDashboard = ({
       skipInitialTabRef.current = false;
       return;
     }
+    const nextSort =
+      activeRoleTab === "advisors"
+        ? ADVISORS_TAB_DEFAULT_LIST_SORT
+        : DEFAULT_INDIVIDUALS_LIST_SORT;
     onSearchRef.current?.(
-      buildSearchFiltersRef.current(),
+      buildSearchFiltersRef.current(nextSort),
       buildCountsFiltersRef.current(),
       isPortfolioFilterActiveRef.current
     );
+    onSyncListSortRef.current?.(nextSort);
   }, [activeRoleTab]);
 
   // Per-tab counts: the backend's get_individuals_counts endpoint only ever
@@ -286,7 +331,7 @@ export const IndividualDashboard = ({
   // plus that tab's own job title — mirroring the counts pattern used for
   // Insights & Analysis content-type pills.
   const [roleTabCounts, setRoleTabCounts] = useState<
-    Record<Exclude<IndividualRoleTab, "all">, number | null>
+    Record<IndividualJobTitleRoleTab, number | null>
   >({
     ceo: null,
     cfo: null,
@@ -330,7 +375,7 @@ export const IndividualDashboard = ({
       if (cancelled) return;
       setRoleTabCounts(
         Object.fromEntries(results) as Record<
-          Exclude<IndividualRoleTab, "all">,
+          IndividualJobTitleRoleTab,
           number | null
         >
       );
@@ -350,6 +395,12 @@ export const IndividualDashboard = ({
     dot: string;
   }[] = [
     { id: "all", label: "All", count: summaryCounts.totalCount, dot: "#64748b" },
+    {
+      id: "advisors",
+      label: "Advisors",
+      count: advisorsTabCount,
+      dot: "#6366f1",
+    },
     ...INDIVIDUAL_ROLE_TAB_ORDER.map((id) => ({
       id,
       label: INDIVIDUAL_ROLE_TAB_CONFIG[id].label,
@@ -361,8 +412,10 @@ export const IndividualDashboard = ({
   const matchCount =
     activeRoleTab === "all"
       ? summaryCounts.totalCount
-      : roleTabs.find((tab) => tab.id === activeRoleTab)?.count ??
-        summaryCounts.totalCount;
+      : activeRoleTab === "advisors"
+        ? listItemsTotal
+        : roleTabs.find((tab) => tab.id === activeRoleTab)?.count ??
+          summaryCounts.totalCount;
 
   return (
     <div style={SEARCH_DASHBOARD_SHELL}>

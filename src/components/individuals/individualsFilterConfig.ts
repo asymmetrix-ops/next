@@ -41,6 +41,7 @@ export const EMPTY_INDIVIDUALS_SUMMARY_COUNTS: IndividualsSummaryCounts = {
 
 export type IndividualRoleTab =
   | "all"
+  | "advisors"
   | "ceo"
   | "cfo"
   | "partner"
@@ -49,7 +50,13 @@ export type IndividualRoleTab =
   | "executive_director"
   | "non_executive_director";
 
-export const INDIVIDUAL_ROLE_TAB_ORDER: Exclude<IndividualRoleTab, "all">[] = [
+/** Role tabs filtered by job title (excludes All and Advisors). */
+export type IndividualJobTitleRoleTab = Exclude<
+  IndividualRoleTab,
+  "all" | "advisors"
+>;
+
+export const INDIVIDUAL_ROLE_TAB_ORDER: IndividualJobTitleRoleTab[] = [
   "ceo",
   "cfo",
   "partner",
@@ -63,7 +70,7 @@ export const INDIVIDUAL_ROLE_TAB_ORDER: Exclude<IndividualRoleTab, "all">[] = [
 // list (see JobTitleOption / fetchJobTitlesServer) rather than hardcoded ids,
 // since the id-per-tab list this replaced was brittle to look up and verify.
 export const INDIVIDUAL_ROLE_TAB_CONFIG: Record<
-  Exclude<IndividualRoleTab, "all">,
+  IndividualJobTitleRoleTab,
   {
     label: string;
     dot: string;

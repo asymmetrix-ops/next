@@ -1,9 +1,10 @@
-import type { Individual } from "@/types/individuals";
+import type { Individual, IndividualCurrentCompany } from "@/types/individuals";
 
 export const INDIVIDUAL_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = {
   name: ["advisor_individuals"],
   current_company: ["current_company"],
   current_roles: ["current_roles"],
+  corporate_events: ["corporate_events_count"],
   location: ["_locations_individual"],
 };
 
@@ -45,6 +46,34 @@ export function resolveIndividualCompanyHref(ind: Individual): string | null {
   } catch {
     return null;
   }
+}
+
+export function getIndividualCurrentCompanies(
+  individual: Individual
+): IndividualCurrentCompany[] {
+  if (individual.current_companies?.length) {
+    return individual.current_companies;
+  }
+  if (individual.current_company) {
+    const href = resolveIndividualCompanyHref(individual);
+    const companyIdMatch = href?.match(/\/company\/(\d+)/);
+    const companyId = companyIdMatch ? Number(companyIdMatch[1]) : NaN;
+    if (Number.isFinite(companyId)) {
+      return [
+        {
+          employee_new_company_id: companyId,
+          company_name: individual.current_company,
+        },
+      ];
+    }
+    return [
+      {
+        employee_new_company_id: 0,
+        company_name: individual.current_company,
+      },
+    ];
+  }
+  return [];
 }
 
 export function formatIndividualRoles(individual: Individual): string {

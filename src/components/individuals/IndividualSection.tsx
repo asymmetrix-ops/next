@@ -16,6 +16,7 @@ import type { IndividualsSearchFilters } from "@/app/individuals/actions";
 import { createDefaultIndividualFilters } from "@/lib/individualsFilterPayload";
 import {
   CANONICAL_INDIVIDUAL_COLUMN_KEYS,
+  ADVISORS_TAB_DEFAULT_INDIVIDUAL_COLUMN_KEYS,
   DEFAULT_VISIBLE_INDIVIDUAL_COLUMN_KEYS,
   INDIVIDUALS_COLUMN_CATEGORIES,
   PROD_DEFAULT_INDIVIDUAL_COLUMN_KEYS,
@@ -28,13 +29,18 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "@/components/individuals/individualsColumnFilterMap";
 import {
   formatIndividualLocation,
-  resolveIndividualCompanyHref,
+  getIndividualCurrentCompanies,
 } from "@/components/individuals/individualsColumnFields";
 import {
   compareIndividualSortValues,
   getIndividualColumnSortKind,
   getIndividualSortValueForColumn,
 } from "@/components/individuals/individualsTableSort";
+import {
+  columnKeyToIndividualsSortBy,
+  toggleIndividualsListSort,
+  type IndividualsListSortState,
+} from "@/components/individuals/individualsListSort";
 import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
 import { namesToMultiValueItems } from "@/components/search/searchMultiValueUtils";
@@ -75,6 +81,7 @@ const ALL_INDIVIDUAL_COLUMNS: IndividualColumnDefinition[] = [
   { key: "name", label: "Name", minWidth: 220 },
   { key: "current_company", label: "Current Companies", minWidth: 180 },
   { key: "current_roles", label: "Current Roles", wrap: true, minWidth: 150 },
+  { key: "corporate_events", label: "Corporate Events", minWidth: 140 },
   { key: "location", label: "Location", wrap: true, minWidth: 200 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },
 ];
@@ -96,6 +103,8 @@ export const IndividualSection = ({
   pagination,
   fetchIndividuals,
   currentFilters,
+  listSort,
+  onServerSortChange,
   filterPinnedColumnKeys = [],
   externalShowColumnsModal,
   externalSetShowColumnsModal,
@@ -103,6 +112,7 @@ export const IndividualSection = ({
   onRegisterExportCSV,
   onExportingChange,
   isPortfolioOnlyFilter = false,
+  isAdvisorsTab = false,
   selectedEntityIds,
   onToggleEntitySelection,
   onTogglePageSelection,
@@ -120,6 +130,8 @@ export const IndividualSection = ({
   };
   fetchIndividuals: (page?: number, filters?: Filters) => Promise<void>;
   currentFilters: Filters | undefined;
+  listSort: IndividualsListSortState;
+  onServerSortChange: (nextSort: IndividualsListSortState) => void;
   filterPinnedColumnKeys?: string[];
   externalShowColumnsModal?: boolean;
   externalSetShowColumnsModal?: (value: boolean) => void;
@@ -127,6 +139,7 @@ export const IndividualSection = ({
   onRegisterExportCSV?: (fn: (request: ListExportRequest) => Promise<void>) => void;
   onExportingChange?: (exporting: boolean) => void;
   isPortfolioOnlyFilter?: boolean;
+  isAdvisorsTab?: boolean;
 } & SearchTableSelectionProps & {
   onClearSelection?: () => void;
 }) => {
@@ -143,7 +156,7 @@ export const IndividualSection = ({
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(
     DEFAULT_VISIBLE_INDIVIDUAL_COLUMN_KEYS
   );
-  const [sortState, setSortState] = useState<{
+  const [clientSort, setClientSort] = useState<{
     key: string;
     dir: "asc" | "desc";
   } | null>(null);
@@ -200,6 +213,32 @@ export const IndividualSection = ({
     );
   }, [filterPinnedColumnKeys]);
 
+  const prevAdvisorsTabRef = useRef(isAdvisorsTab);
+  useEffect(() => {
+    const enteredAdvisorsTab = isAdvisorsTab && !prevAdvisorsTabRef.current;
+    prevAdvisorsTabRef.current = isAdvisorsTab;
+    if (!enteredAdvisorsTab) return;
+    setSelectedColumnKeys((current) => {
+      const merged = enforceIndividualColumnKeyOrder(
+        Array.from(
+          new Set([
+            ...ADVISORS_TAB_DEFAULT_INDIVIDUAL_COLUMN_KEYS,
+            ...current,
+            ...filterPinnedColumnKeys,
+          ])
+        ),
+        filterPinnedColumnKeys
+      );
+      const orderedDefaults = ADVISORS_TAB_DEFAULT_INDIVIDUAL_COLUMN_KEYS.filter(
+        (key) => merged.includes(key)
+      );
+      const rest = merged.filter(
+        (key) => !ADVISORS_TAB_DEFAULT_INDIVIDUAL_COLUMN_KEYS.includes(key)
+      );
+      return [...orderedDefaults, ...rest];
+    });
+  }, [isAdvisorsTab, filterPinnedColumnKeys]);
+
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(INDIVIDUALS_COLUMNS_STORAGE_KEY);
@@ -245,16 +284,20 @@ export const IndividualSection = ({
   }, [selectedColumns.length, onColumnsCountChange]);
 
   useEffect(() => {
-    if (sortState && !selectedColumnKeys.includes(sortState.key)) {
-      setSortState(null);
+    if (clientSort && !selectedColumnKeys.includes(clientSort.key)) {
+      setClientSort(null);
     }
-  }, [selectedColumnKeys, sortState]);
+  }, [selectedColumnKeys, clientSort]);
 
-  const sortedIndividuals = useMemo(() => {
-    if (!sortState || !getIndividualColumnSortKind(sortState.key)) {
+  const displayIndividuals = useMemo(() => {
+    if (
+      !clientSort ||
+      columnKeyToIndividualsSortBy(clientSort.key) ||
+      !getIndividualColumnSortKind(clientSort.key)
+    ) {
       return individuals;
     }
-    const { key, dir } = sortState;
+    const { key, dir } = clientSort;
     return [...individuals].sort((a, b) =>
       compareIndividualSortValues(
         getIndividualSortValueForColumn(a, key),
@@ -262,7 +305,11 @@ export const IndividualSection = ({
         dir
       )
     );
-  }, [individuals, sortState]);
+  }, [individuals, clientSort]);
+
+  useEffect(() => {
+    setClientSort(null);
+  }, [listSort.sortBy, listSort.sortDir]);
 
   const handleIndividualClick = useCallback(
     (id: number) => {
@@ -274,18 +321,52 @@ export const IndividualSection = ({
   const handlePageChange = useCallback(
     (page: number) => {
       const filters = currentFilters ?? createDefaultIndividualFilters();
-      void fetchIndividuals(page, { ...filters, page });
+      void fetchIndividuals(page, {
+        ...filters,
+        page,
+        sort_by: listSort.sortBy,
+        sort_dir: listSort.sortDir,
+      });
     },
-    [currentFilters, fetchIndividuals]
+    [currentFilters, fetchIndividuals, listSort.sortBy, listSort.sortDir]
   );
 
-  const handleSortColumn = useCallback((columnKey: string) => {
-    if (!getIndividualColumnSortKind(columnKey)) return;
-    setSortState((current) => {
-      if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
-      return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
-    });
-  }, []);
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const serverSortBy = columnKeyToIndividualsSortBy(columnKey);
+      if (serverSortBy) {
+        setClientSort(null);
+        onServerSortChange(
+          toggleIndividualsListSort(listSort, serverSortBy)
+        );
+        return;
+      }
+
+      if (!getIndividualColumnSortKind(columnKey)) return;
+      setClientSort((current) => {
+        if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
+        return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
+      });
+    },
+    [listSort, onServerSortChange]
+  );
+
+  const getColumnSortIndicator = useCallback(
+    (columnKey: string): { active: boolean; dir: "asc" | "desc" } => {
+      const serverSortBy = columnKeyToIndividualsSortBy(columnKey);
+      if (serverSortBy) {
+        return {
+          active: listSort.sortBy === serverSortBy,
+          dir: listSort.sortDir,
+        };
+      }
+      return {
+        active: clientSort?.key === columnKey,
+        dir: clientSort?.dir ?? "asc",
+      };
+    },
+    [listSort.sortBy, listSort.sortDir, clientSort]
+  );
 
   const handleReorderTableColumns = useCallback(
     (dragKey: string, dropKey: string) => {
@@ -344,10 +425,28 @@ export const IndividualSection = ({
         );
       }
       case "current_company": {
-        const href = resolveIndividualCompanyHref(individual);
-        const company = individual.current_company;
-        if (!company) return "-";
-        if (!href) return company;
+        const companies = getIndividualCurrentCompanies(individual);
+        if (companies.length === 0) return "-";
+        return (
+          <SearchEntityMultiValueCell
+            items={companies.map((company, index) => {
+              const companyId = company.employee_new_company_id;
+              const href =
+                companyId > 0 ? `/company/${companyId}` : undefined;
+              return {
+                key: `company-${companyId}-${index}`,
+                name: company.company_name,
+                href,
+              };
+            })}
+          />
+        );
+      }
+      case "corporate_events": {
+        const id = individual.id;
+        const count = individual.corporate_events_count ?? 0;
+        const href = id ? `/individual/${id}#corporate-events` : undefined;
+        if (!href) return count.toLocaleString();
         return (
           <a
             href={href}
@@ -368,7 +467,7 @@ export const IndividualSection = ({
               router.push(href);
             }}
           >
-            {company}
+            {count.toLocaleString()}
           </a>
         );
       }
@@ -556,7 +655,14 @@ export const IndividualSection = ({
           exportSingleMode="all_columns"
         />
       )}
-      <div className="company-table-scroll">
+      <div
+        className="company-table-scroll"
+        style={{
+          position: "relative",
+          opacity: loading && individuals.length > 0 ? 0.55 : 1,
+          transition: "opacity 0.15s ease",
+        }}
+      >
         <table className="company-table">
           <thead>
             <tr>
@@ -570,7 +676,8 @@ export const IndividualSection = ({
               )}
               {selectedColumns.map((column) => {
                 const sortKind = getIndividualColumnSortKind(column.key);
-                const isActive = sortState?.key === column.key;
+                const { active: isActive, dir: sortDir } =
+                  getColumnSortIndicator(column.key);
                 const isDraggable = !isFrozenColumnKey(column.key);
                 const isDragging = headerDragKey === column.key;
                 const isDragOver =
@@ -639,7 +746,7 @@ export const IndividualSection = ({
                     aria-sort={
                       sortKind
                         ? isActive
-                          ? sortState?.dir === "asc"
+                          ? sortDir === "asc"
                             ? "ascending"
                             : "descending"
                           : "none"
@@ -661,7 +768,7 @@ export const IndividualSection = ({
                     )}
                     {sortKind && isActive && (
                       <span className="company-table-sort-indicator">
-                        {sortState?.dir === "asc" ? "▲" : "▼"}
+                        {sortDir === "asc" ? "▲" : "▼"}
                       </span>
                     )}
                   </th>
@@ -670,14 +777,14 @@ export const IndividualSection = ({
             </tr>
           </thead>
           <tbody>
-            {sortedIndividuals.length === 0 ? (
+            {displayIndividuals.length === 0 ? (
               <tr>
                 <td colSpan={selectedColumns.length + (selectionEnabled ? 1 : 0)}>
                   No individuals found.
                 </td>
               </tr>
             ) : (
-              sortedIndividuals.map((individual, index) => {
+              displayIndividuals.map((individual, index) => {
                 const entityId = individual.id;
                 const isRowSelected =
                   typeof entityId === "number" && selectedEntityIds?.has(entityId);

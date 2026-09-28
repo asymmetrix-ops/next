@@ -11,6 +11,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "name",
   "current_company",
   "current_roles",
+  "corporate_events",
   "location",
 ]);
 

@@ -22,7 +22,14 @@ export interface Individual {
   total_count?: number;
   current_roles: CurrentRole[];
   current_company: string | null;
+  current_companies?: IndividualCurrentCompany[];
+  corporate_events_count?: number;
   current_company_location: Location[];
+}
+
+export interface IndividualCurrentCompany {
+  employee_new_company_id: number;
+  company_name: string;
 }
 
 // Individual Location with region fields

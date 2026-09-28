@@ -62,6 +62,13 @@ export const INDIVIDUALS_COLUMN_CATEGORIES: IndividualColumnCategory[] = [
         defaultVisible: true,
       },
       {
+        id: "corporate_events",
+        columnKey: "corporate_events",
+        label: "Corporate Events",
+        type: "text",
+        defaultVisible: false,
+      },
+      {
         id: "location",
         columnKey: "location",
         label: "Location",
@@ -92,6 +99,15 @@ export const FROZEN_INDIVIDUAL_COLUMN_KEYS = ["name"] as const;
 
 export const DEFAULT_VISIBLE_INDIVIDUAL_COLUMN_KEYS: string[] = [
   ...PROD_DEFAULT_INDIVIDUAL_COLUMN_KEYS,
+];
+
+/** Default visible columns when the Advisors tab is active. */
+export const ADVISORS_TAB_DEFAULT_INDIVIDUAL_COLUMN_KEYS: string[] = [
+  "name",
+  "current_company",
+  "current_roles",
+  "corporate_events",
+  "location",
 ];
 
 export function getEffectiveFrozenIndividualColumnKeys(

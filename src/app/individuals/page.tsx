@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { IndividualDashboard } from "@/components/individuals/IndividualDashboard";
@@ -24,6 +25,13 @@ import {
   type JobTitleOption,
 } from "@/components/individuals/individualsFilterConfig";
 import {
+  DEFAULT_INDIVIDUALS_LIST_SORT,
+  applyIndividualsListSortToSearchParams,
+  mergeSortIntoIndividualFilters,
+  parseIndividualsListSortFromSearchParams,
+  type IndividualsListSortState,
+} from "@/components/individuals/individualsListSort";
+import {
   fetchIndividualsServer,
   fetchIndividualsCountsServer,
   fetchJobTitlesServer,
@@ -32,7 +40,9 @@ import { authService } from "@/lib/auth";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
-const useIndividualsAPI = () => {
+const useIndividualsAPI = (
+  initialListSort: IndividualsListSortState = DEFAULT_INDIVIDUALS_LIST_SORT
+) => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +64,7 @@ const useIndividualsAPI = () => {
   const [summaryCounts, setSummaryCounts] = useState<IndividualsSummaryCounts>(
     EMPTY_INDIVIDUALS_SUMMARY_COUNTS
   );
+  const [advisorsTabCount, setAdvisorsTabCount] = useState(0);
   const [jobTitles, setJobTitles] = useState<JobTitleOption[]>([]);
 
   const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
@@ -126,6 +137,12 @@ const useIndividualsAPI = () => {
             pageTotal: data.pageTotal,
             itemsTotal: data.itemsTotal,
           });
+          if (
+            typeof data.advisorsTabCount === "number" &&
+            Number.isFinite(data.advisorsTabCount)
+          ) {
+            setAdvisorsTabCount(data.advisorsTabCount);
+          }
         }
       } catch (err) {
         if (requestId === lastRequestIdRef.current) {
@@ -153,7 +170,10 @@ const useIndividualsAPI = () => {
     }
 
     void fetchJobTitlesServer(token).then(setJobTitles).catch(console.error);
-    const defaults = createDefaultIndividualFilters();
+    const defaults = mergeSortIntoIndividualFilters(
+      createDefaultIndividualFilters(),
+      initialListSort
+    );
     fetchIndividuals(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -167,10 +187,23 @@ const useIndividualsAPI = () => {
     jobTitles,
     fetchIndividuals,
     currentFilters,
+    advisorsTabCount,
   };
 };
 
 function IndividualsPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const initialListSort = useMemo(
+    () =>
+      parseIndividualsListSortFromSearchParams(
+        new URLSearchParams(searchParams.toString())
+      ) ?? DEFAULT_INDIVIDUALS_LIST_SORT,
+    [searchParams]
+  );
+
   const {
     individuals,
     loading,
@@ -180,7 +213,37 @@ function IndividualsPageInner() {
     jobTitles,
     fetchIndividuals,
     currentFilters,
-  } = useIndividualsAPI();
+    advisorsTabCount,
+  } = useIndividualsAPI(initialListSort);
+
+  const [listSort, setListSort] =
+    useState<IndividualsListSortState>(initialListSort);
+  useEffect(() => {
+    setListSort(initialListSort);
+  }, [initialListSort]);
+
+  const currentFiltersRef = useRef(currentFilters);
+  currentFiltersRef.current = currentFilters;
+
+  const syncListSortToUrl = useCallback(
+    (sort: IndividualsListSortState) => {
+      const params = applyIndividualsListSortToSearchParams(
+        new URLSearchParams(searchParams.toString()),
+        sort
+      );
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const syncListSort = useCallback(
+    (sort: IndividualsListSortState) => {
+      setListSort(sort);
+      syncListSortToUrl(sort);
+    },
+    [syncListSortToUrl]
+  );
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -210,6 +273,19 @@ function IndividualsPageInner() {
       void fetchIndividuals(1, listFilters, countsFilters);
     },
     [fetchIndividuals]
+  );
+
+  const handleServerSortChange = useCallback(
+    (nextSort: IndividualsListSortState) => {
+      syncListSort(nextSort);
+      const base =
+        currentFiltersRef.current ?? createDefaultIndividualFilters();
+      void fetchIndividuals(
+        1,
+        mergeSortIntoIndividualFilters({ ...base, page: 1 }, nextSort)
+      );
+    },
+    [fetchIndividuals, syncListSort]
   );
 
   const handleFilterColumnsChange = useCallback(
@@ -247,6 +323,10 @@ function IndividualsPageInner() {
         initialSearch={initialSearch}
         summaryCounts={summaryCounts}
         jobTitles={jobTitles}
+        listSort={listSort}
+        onSyncListSort={syncListSort}
+        advisorsTabCount={advisorsTabCount}
+        listItemsTotal={pagination.itemsTotal}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
         onExport={(mode) =>
           exportCSVRef.current?.({ mode, scope: "full_list" })
@@ -262,6 +342,8 @@ function IndividualsPageInner() {
         pagination={pagination}
         fetchIndividuals={fetchIndividuals}
         currentFilters={currentFilters}
+        listSort={listSort}
+        onServerSortChange={handleServerSortChange}
         filterPinnedColumnKeys={filterPinnedColumnKeys}
         externalShowColumnsModal={showColumnsModal}
         externalSetShowColumnsModal={setShowColumnsModal}
@@ -271,6 +353,7 @@ function IndividualsPageInner() {
         }}
         onExportingChange={setExporting}
         isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        isAdvisorsTab={Boolean(currentFilters?.advisors_only)}
         selectedEntityIds={selectedEntityIds}
         onToggleEntitySelection={toggleEntitySelection}
         onTogglePageSelection={togglePageSelection}

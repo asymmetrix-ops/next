@@ -87,6 +87,39 @@ export function normalizeIndividualFromApi(
     raw._locations_individual
   );
 
+  const parsedCurrentCompanies =
+    parseJsonStringField<unknown[]>(raw.current_companies) ?? raw.current_companies;
+  const currentCompanies = Array.isArray(parsedCurrentCompanies)
+    ? parsedCurrentCompanies
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") return null;
+          const rec = entry as Record<string, unknown>;
+          const companyId = Number(rec.employee_new_company_id);
+          const companyName = String(rec.company_name ?? "").trim();
+          if (!companyName || !Number.isFinite(companyId)) return null;
+          return {
+            employee_new_company_id: companyId,
+            company_name: companyName,
+          };
+        })
+        .filter(
+          (
+            company
+          ): company is NonNullable<Individual["current_companies"]>[number] =>
+            company != null
+        )
+    : undefined;
+
+  const corporateEventsCountRaw = raw.corporate_events_count;
+  const corporateEventsCount =
+    typeof corporateEventsCountRaw === "number" &&
+    Number.isFinite(corporateEventsCountRaw)
+      ? corporateEventsCountRaw
+      : typeof corporateEventsCountRaw === "string" &&
+          corporateEventsCountRaw.trim()
+        ? Number(corporateEventsCountRaw)
+        : undefined;
+
   return {
     id: Number(raw.id),
     advisor_individuals: String(raw.advisor_individuals ?? "").trim(),
@@ -94,6 +127,14 @@ export function normalizeIndividualFromApi(
       raw.current_company == null || String(raw.current_company).trim() === ""
         ? null
         : String(raw.current_company),
+    current_companies:
+      currentCompanies && currentCompanies.length > 0
+        ? currentCompanies
+        : undefined,
+    corporate_events_count:
+      corporateEventsCount != null && Number.isFinite(corporateEventsCount)
+        ? corporateEventsCount
+        : undefined,
     current_roles: currentRoles,
     _locations_individual: location,
     roles,

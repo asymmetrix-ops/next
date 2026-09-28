@@ -414,7 +414,7 @@ export default function IndividualProfilePage() {
               </LinkPanel>
             </div>
 
-            <div className="individual-grid-events">
+            <div className="individual-grid-events" id="corporate-events">
               <LinkPanel fillGridCell className="individual-events-v3-card">
                 <CorporateEventsProfilePanel
                   tokens={{

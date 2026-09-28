@@ -21,6 +21,7 @@ export interface IndividualsListResponse {
   perPage: number;
   pageTotal: number;
   itemsTotal: number;
+  advisorsTabCount?: number;
 }
 
 type IndividualsApiListResponse = {
@@ -33,6 +34,7 @@ type IndividualsApiListResponse = {
   totalIndividuals?: number;
   totalPages?: number;
   nextOffset?: number | null;
+  advisorsTabCount?: number;
 };
 
 function mapIndividualsListResponse(
@@ -63,6 +65,11 @@ function mapIndividualsListResponse(
       ? Number(data.nextOffset) > 0
       : curPage < pageTotal;
 
+  const advisorsTabCount =
+    typeof data.advisorsTabCount === "number" && Number.isFinite(data.advisorsTabCount)
+      ? data.advisorsTabCount
+      : undefined;
+
   return {
     items,
     curPage,
@@ -71,6 +78,7 @@ function mapIndividualsListResponse(
     perPage,
     pageTotal,
     itemsTotal,
+    advisorsTabCount,
   };
 }
 
