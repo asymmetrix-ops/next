@@ -7,6 +7,22 @@ import {
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
+function parseIndividualRelatedEventsPayload(
+  relatedEvents: unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Record<string, any> | null {
+  if (relatedEvents == null) return null;
+  if (typeof relatedEvents === "string") {
+    const trimmed = relatedEvents.trim();
+    if (!trimmed) return null;
+    return JSON.parse(trimmed);
+  }
+  if (typeof relatedEvents === "object" && !Array.isArray(relatedEvents)) {
+    return relatedEvents as Record<string, unknown>;
+  }
+  return null;
+}
+
 class IndividualService {
   private getAuthHeaders() {
     const token = localStorage.getItem("asymmetrix_auth_token");
@@ -73,18 +89,13 @@ class IndividualService {
     const raw: any = await response.json();
 
     try {
-      // New shape detection
+      // New shape: conterparty_table_content[0].related_events (object or stringified JSON)
       const container = raw?.conterparty_table_content?.[0];
-      const relatedEventsStr = container?.related_events;
+      const parsed = parseIndividualRelatedEventsPayload(
+        container?.related_events
+      );
 
-      if (
-        typeof relatedEventsStr === "string" &&
-        relatedEventsStr.trim().length > 0
-      ) {
-        // Parse the embedded JSON string
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const parsed: any = JSON.parse(relatedEventsStr);
-
+      if (parsed) {
         // Map Events_Table -> events
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const eventsTable: any[] = Array.isArray(parsed?.Events_Table)

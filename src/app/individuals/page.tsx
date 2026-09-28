@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  Suspense,
   useState,
   useEffect,
   useCallback,
@@ -366,5 +367,20 @@ function IndividualsPageInner() {
 }
 
 export default function IndividualsPage() {
-  return <IndividualsPageInner />;
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <div className="min-h-screen">
+            <div className="company-section">
+              <div className="loading">Loading individuals...</div>
+            </div>
+            <Footer />
+          </div>
+        </AppShell>
+      }
+    >
+      <IndividualsPageInner />
+    </Suspense>
+  );
 }
