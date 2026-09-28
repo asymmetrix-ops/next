@@ -529,7 +529,7 @@ export function AdvisorDealsProfilePanel({
                   letterSpacing: 0.35,
                 }}
               >
-                Sub-Sector
+                Secondary Sector
               </span>
               <SearchableSelect
                 options={filterSecondarySectors.map((s) => ({ value: s.id, label: s.sector_name }))}
@@ -542,7 +542,7 @@ export function AdvisorDealsProfilePanel({
                     ? "Loading…"
                     : selectedFilterPrimary.length === 0
                       ? "Select primary first"
-                      : "Filter by sub-sector"
+                      : "Filter by secondary sector"
                 }
                 disabled={loadingFilterSecondary || selectedFilterPrimary.length === 0}
                 style={{

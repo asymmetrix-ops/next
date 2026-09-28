@@ -903,7 +903,7 @@ export default function FinancialMetricsTable({
 
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Sub-Sector
+                    Secondary Sector
                   </label>
                   <SearchableSelect
                     options={secondarySectors.map((s) => ({
@@ -941,7 +941,7 @@ export default function FinancialMetricsTable({
                         }
                       }
                     }}
-                    placeholder={loadingSecondarySectors ? "Loading..." : "Select Sub-Sector"}
+                    placeholder={loadingSecondarySectors ? "Loading..." : "Select secondary sector"}
                     disabled={loadingSecondarySectors}
                   />
                   {filters.secondarySectors.length > 0 && (

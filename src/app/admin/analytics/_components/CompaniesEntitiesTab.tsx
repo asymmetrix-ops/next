@@ -293,7 +293,7 @@ export function CompaniesEntitiesTab() {
         }
       } catch (e) {
         if (!aborted) {
-          setSectorsError(e instanceof Error ? e.message : "Failed to load sub-sectors");
+          setSectorsError(e instanceof Error ? e.message : "Failed to load secondary sectors");
         }
       } finally {
         if (!aborted) setSectorsLoading(false);
@@ -528,7 +528,7 @@ export function CompaniesEntitiesTab() {
           {showSubSectorControl && (
             <div className="md:col-span-2 xl:col-span-1">
               <span className="mb-1 block text-sm font-medium text-gray-700">
-                Sub-sector
+                Secondary sector
               </span>
               <SearchableMultiSelect
                 options={subSelectOptions}
@@ -536,7 +536,7 @@ export function CompaniesEntitiesTab() {
                 onSelectionChange={(values) =>
                   updateFilters({ subSectorIds: values as number[] })
                 }
-                placeholder="Select sub-sectors"
+                placeholder="Select secondary sectors"
                 disabled={sectorsLoading}
               />
             </div>
@@ -587,7 +587,7 @@ export function CompaniesEntitiesTab() {
 
         {debouncedFilters.primarySectorIds.length > 0 && (
           <TopNHorizontalBarChart
-            title="Top sub-sectors"
+            title="Top secondary sectors"
             items={subBreakdownItems}
             barColor="#7c3aed"
             loading={summaryLoading}
@@ -638,7 +638,7 @@ export function CompaniesEntitiesTab() {
                     )}
                   </button>
                 </th>
-                <th className="px-3 py-2 text-left">Sub-sectors</th>
+                <th className="px-3 py-2 text-left">Secondary sectors</th>
                 <th className="px-3 py-2 text-left">
                   <button
                     onClick={() => onTableSort("date")}

@@ -114,7 +114,7 @@ export default function DealMetrics({ metrics }: {
               {renderSectors(metrics.sectors)}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Sub-Sector(s)</p>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Secondary Sector(s)</p>
               {renderSubSectors(metrics.subSectors)}
             </div>
           </div>

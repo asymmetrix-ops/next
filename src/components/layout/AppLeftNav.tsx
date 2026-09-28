@@ -74,7 +74,7 @@ const SECTIONS: NavSection[] = [
   },
   {
     key: "subSectors",
-    label: "Sub-Sectors",
+    label: "Secondary Sectors",
     href: "/sub-sectors",
     icon: Squares2X2Icon,
     isActive: (p) =>

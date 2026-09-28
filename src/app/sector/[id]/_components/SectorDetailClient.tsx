@@ -491,7 +491,7 @@ const TABS = [
   { id: "overview", name: "Overview" },
   { id: "most_active", name: "Most Active" },
   { id: "public", name: "Public Companies" },
-  { id: "subsectors", name: "Sub-Sectors" },
+  { id: "subsectors", name: "Secondary Sectors" },
   { id: "transactions", name: "Transactions" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
@@ -1617,7 +1617,7 @@ const SectorDetailPage = ({
       setSubSectors(mapped);
     } catch (e) {
       setSubSectorsError(
-        e instanceof Error ? e.message : "Failed to fetch sub-sectors"
+        e instanceof Error ? e.message : "Failed to fetch secondary sectors"
       );
     } finally {
       setSubSectorsLoading(false);
@@ -2622,7 +2622,7 @@ const SectorDetailPage = ({
           <div>
             {subSectorsLoading ? (
               <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-                Loading sub-sectors…
+                Loading secondary sectors…
               </div>
             ) : subSectorsError ? (
               <div style={{ padding: "16px 0", textAlign: "center", color: "#A62E22", fontSize: 13 }}>
@@ -2630,7 +2630,7 @@ const SectorDetailPage = ({
               </div>
             ) : subSectors.length === 0 ? (
               <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-                No sub-sectors found.
+                No secondary sectors found.
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>

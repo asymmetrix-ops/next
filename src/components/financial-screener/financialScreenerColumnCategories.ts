@@ -69,7 +69,7 @@ export const FINANCIAL_SCREENER_COLUMN_CATEGORIES: FinancialScreenerColumnCatego
         {
           id: "sub_sector",
           columnKey: "sub_sector",
-          label: "Sub sector",
+          label: "Secondary sector",
           type: "text",
           defaultVisible: false,
         },

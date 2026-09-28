@@ -113,7 +113,7 @@ const SubSectorPage = () => {
           return;
         }
         if (Number.isNaN(subSectorId) || subSectorId <= 0) {
-          setInsightsError("Invalid sub-sector id");
+          setInsightsError("Invalid secondary sector id");
           return;
         }
         const params = new URLSearchParams();
@@ -204,7 +204,7 @@ const SubSectorPage = () => {
               </>
             )}
             {" / "}
-            {headerLoaded ? subSectorName || "Sub-Sector" : "…"}
+            {headerLoaded ? subSectorName || "Secondary Sector" : "…"}
           </div>
 
           <div style={{ display: "flex", alignItems: "flex-start", gap: 18 }}>
@@ -220,7 +220,7 @@ const SubSectorPage = () => {
                 }}
               >
                 {headerLoaded ? (
-                  subSectorName || "Sub-Sector"
+                  subSectorName || "Secondary Sector"
                 ) : (
                   <span
                     style={{
@@ -258,7 +258,7 @@ const SubSectorPage = () => {
                   <InlineFollowButton
                     followKey="followed_sectors"
                     entityId={subSectorId}
-                    label={subSectorName || "Sub-Sector"}
+                    label={subSectorName || "Secondary Sector"}
                     showLabel
                     icon="star"
                   />

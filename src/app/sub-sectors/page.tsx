@@ -186,7 +186,7 @@ const SubSectorCard = ({
         <a
           href={href}
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Open ${subSector.sector_name || "sub-sector"} profile`}
+          aria-label={`Open ${subSector.sector_name || "secondary sector"} profile`}
           style={{
             marginLeft: "auto",
             color: hover ? BLUE_600 : "#8A93A8",
@@ -389,7 +389,7 @@ const SubSectorsSection = () => {
         setPageTotal(data.total_pages || 1);
         setTotalCount(data.total_count || 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch sub-sectors");
+        setError(err instanceof Error ? err.message : "Failed to fetch secondary sectors");
         console.error("Error fetching sub-sectors:", err);
       } finally {
         setLoading(false);
@@ -501,9 +501,9 @@ const SubSectorsSection = () => {
         <div style={SEARCH_DASHBOARD_INNER}>
           <div style={SEARCH_DASHBOARD_HEADER_ROW}>
             <div>
-              <div style={SEARCH_DASHBOARD_EYEBROW}>Sub-Sectors</div>
+              <div style={SEARCH_DASHBOARD_EYEBROW}>Secondary Sectors</div>
               <h1 style={SEARCH_DASHBOARD_TITLE}>
-                Sub-sector search
+                Secondary sector search
                 <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
                   {totalCount.toLocaleString()} matches
                 </span>
@@ -551,7 +551,7 @@ const SubSectorsSection = () => {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSearch();
             }}
-            placeholder="Search sub-sectors…"
+            placeholder="Search secondary sectors…"
             style={{
               width: "100%",
               height: 38,
@@ -609,7 +609,7 @@ const SubSectorsSection = () => {
               cursor: "pointer",
             }}
           >
-            <option value="sector_name">Sub-sector name</option>
+            <option value="sector_name">Secondary sector name</option>
             <option value="Number_of_Companies">Companies</option>
             <option value="Number_of_Public">Public companies</option>
             <option value="Number_of_PE">PE-owned companies</option>
@@ -660,12 +660,12 @@ const SubSectorsSection = () => {
           <strong style={{ color: INK, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
             {totalCount.toLocaleString()}
           </strong>{" "}
-          sub-sectors
+          secondary sectors
         </span>
       </div>
 
       {loading ? (
-        <div className="loading">Loading sub-sectors...</div>
+        <div className="loading">Loading secondary sectors...</div>
       ) : error ? (
         <div className="error">{error}</div>
       ) : (

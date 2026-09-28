@@ -325,5 +325,6 @@ export function getSearchBadgeLabel(type: string): string {
   const t = (type || "").toLowerCase().trim();
   if (t === "insight" || t === "insights" || t === "article")
     return "Insights & Analysis";
+  if (t === "sub_sector" || t === "sub-sector") return "Secondary sector";
   return String(type).replace(/_/g, " ");
 }
