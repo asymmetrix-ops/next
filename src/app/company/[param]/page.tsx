@@ -2171,14 +2171,19 @@ const CompanyDetail = () => {
   }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
 
   useEffect(() => {
-    if (
-      !showFinancialsTab &&
-      (activeProfileTab === "Financials" ||
-        activeProfileTab === "Financial Intelligence")
-    ) {
+    if (!showFinancialsTab && activeProfileTab === "Financials") {
       setActiveProfileTab("Summary");
     }
   }, [showFinancialsTab, activeProfileTab]);
+
+  const companyProfileSubnavTabs = useMemo(() => {
+    const tabs: Array<"Summary" | "Financials" | "Financial Intelligence"> = [
+      "Summary",
+    ];
+    if (showFinancialsTab) tabs.push("Financials");
+    tabs.push("Financial Intelligence");
+    return tabs.map((tab) => ({ id: tab, label: tab }));
+  }, [showFinancialsTab]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -3981,10 +3986,7 @@ const CompanyDetail = () => {
         {/* Navigation tabs */}
         <div style={{ marginTop: "16px", marginBottom: "16px" }}>
           <ProfileSubnav
-            tabs={(showFinancialsTab
-              ? (["Summary", "Financials"] as const)
-              : (["Summary"] as const)
-            ).map((tab) => ({ id: tab, label: tab }))}
+            tabs={companyProfileSubnavTabs}
             activeTab={activeProfileTab}
             onChange={(id) => setActiveProfileTab(id as typeof activeProfileTab)}
           />

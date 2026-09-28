@@ -61,6 +61,7 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import { FinancialIntelligenceWorkspace } from "@/app/financial-intelligence/FinancialIntelligenceWorkspace";
 import ProfileSubnav from "@/components/ProfileSubnav";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
@@ -3655,7 +3656,7 @@ const CompanyDetail = () => {
         <ProfileSubnav
           tabs={[
             "Summary", "Products", "Methodology", "People",
-            "Financials", "Insights", "Deals", "Ownership", "Market",
+            "Financials", "Financial Intelligence", "Insights", "Deals", "Ownership", "Market",
           ].map((tab) => ({ id: tab, label: tab }))}
           activeTab={activeProfileTab}
           onChange={(tab) => {
@@ -3669,7 +3670,12 @@ const CompanyDetail = () => {
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Financials" && showFinancialsTab ? (
+          {activeProfileTab === "Financial Intelligence" ? (
+            <FinancialIntelligenceWorkspace
+              initialCompanyId={company?.id ?? null}
+              embedded
+            />
+          ) : activeProfileTab === "Financials" && showFinancialsTab ? (
             <CompanyFinancialsSection
               rows={financialMetricsCardRows}
               loading={financialMetricsCardLoading}
