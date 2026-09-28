@@ -465,6 +465,33 @@ export function buildCompaniesSearchPayload(args: {
     }
 
     // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
+    if (item.id === "arr" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "arr_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_pc",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "subscription_revenue_m" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "subscription_revenue_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
     if (item.id === "churn" && hasRangeValue(v)) {
       pushClause({
         id: item.key,

@@ -192,6 +192,7 @@ const PERCENT_COLUMN_KEYS = new Set([
   "linkedin_growth",
   "revenue_growth",
   "ebitda_margin",
+  "arr_pc",
   "churn_pc",
   "grr_pc",
   "nrr",
@@ -246,7 +247,8 @@ export function formatCompanyColumnDisplay(
     columnKey === "enterprise_value" ||
     columnKey === "ev" ||
     columnKey === "ebit_m" ||
-    columnKey === "arr_m"
+    columnKey === "arr_m" ||
+    columnKey === "subscription_revenue_m"
   ) {
     return formatMetricMillions(raw, currencyCode);
   }

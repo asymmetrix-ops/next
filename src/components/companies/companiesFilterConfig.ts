@@ -244,6 +244,18 @@ export function buildCompaniesFilterDefs({
         ["40%+", 40, 200],
       ],
     },
+    subscription_revenue_m: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
+      ],
+    },
     churn: {
       unit: "%",
       min: 0,

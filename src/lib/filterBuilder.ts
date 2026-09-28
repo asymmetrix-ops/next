@@ -32,6 +32,7 @@ export type FilterType =
   | "rule_of_40"
   | "arr_m"
   | "arr_pc"
+  | "subscription_revenue_m"
   | "churn"
   | "grr"
   | "nrr"
@@ -74,6 +75,7 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   rule_of_40: '"Rule_of_40"',
   arr_m: '"ARR_m"',
   arr_pc: '"ARR_pc"',
+  subscription_revenue_m: '"Subscription_revenue_m"',
   churn: '"Churn_pc"',
   grr: '"GRR_pc"',
   nrr: '"NRR"',

@@ -60,6 +60,7 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   rule_40: "rule_of_40",
   arr: "arr_m",
   arr_growth: "arr_pc",
+  subscription_revenue_m: "subscription_revenue_m",
   churn: "churn_pc",
   nrr: "nrr",
   grr: "grr_pc",
@@ -168,6 +169,7 @@ function mapColumnCategoryToFilterCategory(
   }
   if (
     [
+      "subscription_revenue_m",
       "arr_pc",
       "arr_m",
       "churn_pc",
