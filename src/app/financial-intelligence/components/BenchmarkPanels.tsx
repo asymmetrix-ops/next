@@ -304,9 +304,8 @@
         </div>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "0 24px",
+            display: "flex",
+            flexDirection: "column",
             background: "#fff",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-md)",

@@ -77,6 +77,10 @@ export const CorporateEventDealMetrics: React.FC<
   evBandFallback,
   align = "left",
 }) => {
+  const hasAmountNumeric = hasNumericAmount(amountMillions);
+  const hasAmountDisplay = isNonEmptyString(amountDisplay);
+  const shouldShowAmountRow = hasAmountNumeric || hasAmountDisplay;
+
   const hasEvNumeric = hasNumericAmount(evMillions);
   const hasEvDisplay = isNonEmptyString(evDisplay);
   const hasEvBand = isNonEmptyString(evBandFallback);
@@ -117,14 +121,14 @@ export const CorporateEventDealMetrics: React.FC<
 
       {!isPartnership && (
         <>
-          <div style={rowStyle}>
-            <strong>{amountLabel}:</strong>{" "}
-            {hasNumericAmount(amountMillions)
-              ? formatDealAmount(amountMillions, amountCurrency)
-              : isNonEmptyString(amountDisplay)
-                ? amountDisplay
-                : "Not available"}
-          </div>
+          {shouldShowAmountRow && (
+            <div style={rowStyle}>
+              <strong>{amountLabel}:</strong>{" "}
+              {hasAmountNumeric
+                ? formatDealAmount(amountMillions, amountCurrency)
+                : amountDisplay}
+            </div>
+          )}
           {shouldShowEvRow && (
             <div style={rowStyle}>
               <strong>{evLabel}:</strong>{" "}

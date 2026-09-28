@@ -65,12 +65,13 @@ export const CorporateEventDealMetrics: React.FC<
 }) => {
   const resolvedAmountDisplay =
     (isNonEmptyString(amountDisplay) ? amountDisplay : null) ??
-    (event ? formatCorporateEventInvestmentAmount(event) : "Not available");
+    (event ? formatCorporateEventInvestmentAmount(event, "") : "");
 
   const resolvedEvDisplay =
     (isNonEmptyString(evDisplay) ? evDisplay : null) ??
     (event ? formatCorporateEventEnterpriseValue(event, "") : "");
 
+  const shouldShowAmountRow = isNonEmptyString(resolvedAmountDisplay);
   const shouldShowEvRow = isNonEmptyString(resolvedEvDisplay);
 
   return (
@@ -95,9 +96,11 @@ export const CorporateEventDealMetrics: React.FC<
 
       {!isPartnership && (
         <>
-          <div style={mutedRowStyle}>
-            <strong>{amountLabel}:</strong> {resolvedAmountDisplay}
-          </div>
+          {shouldShowAmountRow && (
+            <div style={mutedRowStyle}>
+              <strong>{amountLabel}:</strong> {resolvedAmountDisplay}
+            </div>
+          )}
           {shouldShowEvRow && (
             <div style={mutedRowStyle}>
               <strong>{evLabel}:</strong> {resolvedEvDisplay}

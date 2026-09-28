@@ -783,7 +783,11 @@ export const CorporateEventsSearchSection = ({
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
-                      className={getSearchTableColumnClassName(column, frozenColumnKeys)}
+                      className={getSearchTableColumnClassName(column, frozenColumnKeys, [
+                        column.key === "description"
+                          ? "company-table-cell-event"
+                          : undefined,
+                      ])}
                       style={{
                         minWidth: column.minWidth,
                         ...getStickyColumnStyle(
@@ -833,6 +837,9 @@ export const CorporateEventsSearchSection = ({
               white-space: normal;
               height: auto;
               vertical-align: top;
+            }
+            .ce-search-table td.company-table-cell-event {
+              vertical-align: middle;
             }
             .ce-search-table .company-table-cell-wrap-inner {
               display: -webkit-box;
