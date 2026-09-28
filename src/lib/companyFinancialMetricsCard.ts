@@ -50,6 +50,10 @@ export type CompanyFinancialMetricsCardRow = {
   Subscription_revenue_currency_display?: string | null;
   Subscription_revenue_source_label?: string | null;
   Subscription_revenue_source?: number | string | null;
+  ARR_m?: number | string | null;
+  ARR_currency_display?: string | null;
+  ARR_source_label?: string | null;
+  ARR_source?: number | string | null;
   Churn_pc?: number | string | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -255,6 +259,15 @@ export const FINANCIALS_CARD_DEFS: FinancialsCardDef[] = [
         valueField: "Subscription_revenue_pc",
         sourceField: "Subscription_revenue_source_label",
         sourceCodeField: "Subscription_revenue_source",
+      },
+      {
+        key: "arr_m",
+        label: "ARR (m)",
+        format: "money_millions",
+        valueField: "ARR_m",
+        sourceField: "ARR_source_label",
+        sourceCodeField: "ARR_source",
+        currencyField: "ARR_currency_display",
       },
       {
         key: "churn",

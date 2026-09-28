@@ -348,11 +348,6 @@ export function GlobalSearchModal() {
     [rows, highlightedIndex, closeSearch, cycleFilter]
   );
 
-  const isMac = useMemo(
-    () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform),
-    []
-  );
-
   if (!open) return null;
 
   return (
@@ -465,37 +460,17 @@ export function GlobalSearchModal() {
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 px-5 py-3 text-xs text-gray-400">
-          <div className="hidden items-center gap-4 sm:flex">
-            <span className="inline-flex items-center gap-1.5">
-              <kbd className="rounded border border-gray-300 px-1.5 py-0.5 font-medium">↑↓</kbd>
-              Navigate
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <kbd className="rounded border border-gray-300 px-1.5 py-0.5 font-medium">↵</kbd>
-              Open
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <kbd className="rounded border border-gray-300 px-1.5 py-0.5 font-medium">Tab</kbd>
-              Next type
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <kbd className="rounded border border-gray-300 px-1.5 py-0.5 font-medium">
-                {isMac ? "⌘K" : "Ctrl K"}
-              </kbd>
-              Toggle
-            </span>
-          </div>
-          {canLoadMore ? (
+        {canLoadMore ? (
+          <div className="flex shrink-0 justify-end border-t border-gray-100 px-5 py-3">
             <button
               type="button"
               onClick={() => setDisplayedCount((c) => c + PAGE_SIZE)}
-              className="ml-auto shrink-0 font-medium text-blue-600 hover:text-blue-700"
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
             >
               See all results
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
