@@ -20,6 +20,26 @@ export interface ContentCorrection {
   updated_at: string;
 }
 
+/** Resolved primary company for flags and display (Get_All_Content_Articles). */
+export interface ContentArticlePrimaryCompany {
+  id: number;
+  name: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  iso2: string | null;
+  iso3: string | null;
+  source: string;
+}
+
+export interface ContentArticleLocation {
+  City: string | null;
+  State__Province__County: string | null;
+  Country: string | null;
+  iso2?: string | null;
+  iso3?: string | null;
+}
+
 export interface ContentArticle {
   id: number;
   created_at: number;
@@ -36,31 +56,24 @@ export interface ContentArticle {
       sector_name: string;
     }>
   >;
+  /** Authoritative HQ country for card flags when present. */
+  primary_company?: ContentArticlePrimaryCompany | null;
   companies_mentioned: Array<{
     id: number;
     name: string;
     locations_id: number;
-    _locations: {
-      City: string;
-      State__Province__County: string;
-      Country: string;
-      iso2?: string;
-    };
+    _locations: ContentArticleLocation;
     hq_iso2?: string | null;
     hq_country?: string | null;
   }>;
+  /** Populated whenever Company_of_Focus is set — not limited to Company Analysis. */
   companies_of_focus?: Array<{
     id: number;
     name: string;
     locations_id?: number;
     hq_iso2?: string | null;
     hq_country?: string | null;
-    _locations?: {
-      City?: string;
-      State__Province__County?: string;
-      Country?: string;
-      iso2?: string;
-    };
+    _locations?: ContentArticleLocation;
   }>;
   Transaction_status?: string;
   Visibility: string;

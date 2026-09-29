@@ -12,6 +12,7 @@ type RawTopViewedArticle = {
   byline?: unknown;
   Publication_Date?: string;
   companies_of_focus?: unknown;
+  primary_company?: unknown;
   sectors?: unknown;
   time_ago?: string;
 };
@@ -37,6 +38,22 @@ function parseJsonArray(value: unknown): Record<string, unknown>[] {
   } catch {
     return [];
   }
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 }
 
 function pickPrimarySectorName(rawSectors: unknown): string | undefined {
@@ -68,8 +85,10 @@ export async function fetchTopViewedLandingArticles(): Promise<
       const timeAgo = item.time_ago?.trim() || "";
 
       const companiesOfFocus = parseJsonArray(item.companies_of_focus);
+      const primaryCompany = parseJsonObject(item.primary_company);
       const countryIso2 = getInsightHqCountryIso2({
         ...item,
+        primary_company: primaryCompany,
         companies_of_focus: companiesOfFocus,
       });
 

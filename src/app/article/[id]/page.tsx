@@ -80,6 +80,16 @@ interface ArticleDetail {
     sector_name: string;
     Sector_importance: string;
   }>;
+  primary_company?: {
+    id: number;
+    name: string;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    iso2: string | null;
+    iso3: string | null;
+    source: string;
+  } | null;
   companies_mentioned: Array<{ id: number; name: string }>;
   companies_of_focus?: Array<{
     id: number;
@@ -88,10 +98,11 @@ interface ArticleDetail {
     hq_country?: string | null;
     locations_id?: number;
     _locations?: {
-      City?: string;
-      State__Province__County?: string;
-      Country?: string;
-      iso2?: string;
+      City?: string | null;
+      State__Province__County?: string | null;
+      Country?: string | null;
+      iso2?: string | null;
+      iso3?: string | null;
     };
   }>;
   Transaction_status?: string;
@@ -605,10 +616,11 @@ const ArticleDetailPage = () => {
               hq_country?: string | null;
               locations_id?: number;
               _locations?: {
-                City?: string;
-                State__Province__County?: string;
-                Country?: string;
-                iso2?: string;
+                City?: string | null;
+                State__Province__County?: string | null;
+                Country?: string | null;
+                iso2?: string | null;
+                iso3?: string | null;
               };
             }>
           >(raw.companies_of_focus) ||
