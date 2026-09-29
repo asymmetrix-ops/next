@@ -18,6 +18,7 @@ export function IncomeStatementFinancialsCard({
   reserveYoyColumn = false,
   allowedSources,
   currencyMode = "preferred",
+  gridTemplate,
 }: {
   model: IncomeStatementFinancialsViewModel;
   showYoyColumn?: boolean;
@@ -25,6 +26,7 @@ export function IncomeStatementFinancialsCard({
   reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
   currencyMode?: CurrencyDisplayMode;
+  gridTemplate?: string;
 }) {
   return (
     <LinkPanel style={{ marginBottom: 16 }}>
@@ -56,6 +58,7 @@ export function IncomeStatementFinancialsCard({
         reserveYoyColumn={reserveYoyColumn}
         allowedSources={allowedSources}
         currencyMode={currencyMode}
+        gridTemplate={gridTemplate}
       />
     </LinkPanel>
   );

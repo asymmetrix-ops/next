@@ -6,9 +6,9 @@ import {
   T,
   FIN_METRIC_VALUE_CLASS,
   finMetricLabelStyle,
-  finMetricValueStyle,
   finMetricsPeriodHeaderStyle,
 } from "./primitives";
+import { sourceTypeColor } from "@/lib/financialIntelligence/sourceTypes";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import {
   formatIncomeStatementMoneyDisplay,
@@ -83,13 +83,23 @@ const tdLabelStyle: React.CSSProperties = {
   textAlign: "left",
   whiteSpace: "normal",
   lineHeight: 1.35,
+  fontSize: 13,
+  fontWeight: 600,
+  color: T.ink2,
 };
 
-const tdValueStyle: React.CSSProperties = {
-  ...finMetricValueStyle,
-  padding: "4px 8px",
-  textAlign: "center",
-};
+function incomeStatementValueStyle(display: string): React.CSSProperties {
+  const isEmpty = display === "-" || display === "—";
+  return {
+    fontFamily: T.sans,
+    fontSize: 13,
+    fontWeight: isEmpty ? 600 : 700,
+    color: isEmpty ? T.faint : sourceTypeColor("Public"),
+    fontVariantNumeric: "tabular-nums",
+    padding: "4px 8px",
+    textAlign: "center",
+  };
+}
 
 /** Compact master-style income statement for the profile financial card. */
 export function IncomeStatementTable({
@@ -120,6 +130,7 @@ export function IncomeStatementTable({
       }}
     >
       <table
+        className="income-statement-grid"
         style={{
           width: "100%",
           minWidth: periodCount > 4 ? `${periodCount * 72 + 96}px` : undefined,
@@ -161,15 +172,18 @@ export function IncomeStatementTable({
               }}
             >
               <td style={tdLabelStyle}>{metric.label}</td>
-              {orderedRows.map((row) => (
-                <td
-                  key={`${row.id}-${metric.label}`}
-                  className={FIN_METRIC_VALUE_CLASS}
-                  style={tdValueStyle}
-                >
-                  {metric.getValue(row)}
-                </td>
-              ))}
+              {orderedRows.map((row) => {
+                const display = metric.getValue(row);
+                return (
+                  <td
+                    key={`${row.id}-${metric.label}`}
+                    className={FIN_METRIC_VALUE_CLASS}
+                    style={incomeStatementValueStyle(display)}
+                  >
+                    {display}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

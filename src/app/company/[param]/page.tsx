@@ -2916,6 +2916,7 @@ const CompanyDetail = () => {
     divider: "#E4E8F2",
     hair:    "#EFF2F8",
     ink:     "#0A0E1A",
+    ink2:    "#1E2536",
     body:    "#566078",
     muted:   "#6B7488",
     faint:   "#8A93A8",
@@ -3783,10 +3784,10 @@ const CompanyDetail = () => {
     .company-grid-finance-primary.desktop-financial-metrics .income-statement-grid td:first-child,
     .mobile-financial-metrics .fin-metrics-card--primary .income-statement-grid td:first-child {
       font-family: ${T.sans} !important;
-      color: ${T.muted} !important;
+      color: ${T.ink2} !important;
       font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
       line-height: 1.35 !important;
-      font-weight: 400 !important;
+      font-weight: 600 !important;
       text-align: left !important;
     }
     .company-grid-finance-primary.desktop-financial-metrics .income-statement-grid td:not(:first-child),
@@ -3795,8 +3796,9 @@ const CompanyDetail = () => {
       font-family: ${T.sans} !important;
       font-size: ${FIN_METRIC_COMPACT_BODY_FONT_SIZE}px !important;
       line-height: 1.55 !important;
-      font-weight: 400 !important;
-      color: ${T.body} !important;
+      font-weight: 700 !important;
+      color: ${T.ink} !important;
+      font-variant-numeric: tabular-nums !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
     .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
