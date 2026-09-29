@@ -7,6 +7,7 @@ import {
   CARD_TITLE_STYLE,
   LinkPanel,
   T,
+  finMetricLabelStyle,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
@@ -189,13 +190,17 @@ function MetricValueCell({
     currencyMode
   );
 
+  const isEmpty = display === "-";
+
   return (
     <span
       style={{
         fontFamily: T.sans,
         fontSize: 13,
-        fontWeight: display === "-" ? 400 : 700,
-        color: display === "-" ? T.muted : T.ink,
+        fontWeight: isEmpty ? 600 : 700,
+        color: isEmpty
+          ? T.faint
+          : sourceTypeColor(cell.sourceType),
         fontVariantNumeric: "tabular-nums",
         minWidth: 0,
         textAlign: "center",
@@ -320,9 +325,10 @@ function FinancialsMetricsCard({
         >
           <span
             style={{
-              fontFamily: T.sans,
+              ...finMetricLabelStyle,
               fontSize: 13,
-              color: T.body,
+              fontWeight: 600,
+              color: T.ink2,
               minWidth: 0,
             }}
           >
@@ -550,6 +556,24 @@ export function CompanyFinancialsSection({
         </div>
       ) : null}
 
+      {hasIncomeStatement && alignedIncomeStatementModel ? (
+        <IncomeStatementFinancialsCard
+          model={alignedIncomeStatementModel}
+          showYoyColumn={incomeStatementShowYoy}
+          reserveYoyColumn={
+            !incomeStatementUsesHistory && showTableYoyColumn
+          }
+          allowedSources={allowedSources}
+          currencyMode={currencyMode}
+          gridTemplate={buildFinancialsTableGridTemplate(
+            alignedIncomeStatementModel.columnLabels.length,
+            incomeStatementShowYoy ||
+              (!incomeStatementUsesHistory && showTableYoyColumn),
+            { includeSourceColumn: true }
+          )}
+        />
+      ) : null}
+
       {!hasMetrics
         ? null
         : model.cards.map((card) => (
@@ -563,18 +587,6 @@ export function CompanyFinancialsSection({
               currencyMode={currencyMode}
             />
           ))}
-
-      {hasIncomeStatement && alignedIncomeStatementModel ? (
-        <IncomeStatementFinancialsCard
-          model={alignedIncomeStatementModel}
-          showYoyColumn={incomeStatementShowYoy}
-          reserveYoyColumn={
-            !incomeStatementUsesHistory && showTableYoyColumn
-          }
-          allowedSources={allowedSources}
-          currencyMode={currencyMode}
-        />
-      ) : null}
     </div>
   );
 }

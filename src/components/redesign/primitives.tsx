@@ -7,6 +7,7 @@
  * real data via props. The token values match page.tsx's `T` object.
  */
 import React from "react";
+import { sourceTypeColor } from "@/lib/financialIntelligence/sourceTypes";
 
 // ── Design tokens (mirrors page.tsx T and redesign/tokens.jsx) ──────────────
 // Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
@@ -18,6 +19,8 @@ export const T = {
   divider:      "#E4E8F2",
   hair:         "#EFF2F8",
   ink:          "#0A0E1A",
+  /** Card titles and financials table metric names (CompanyFinancials.html `.mt td.m`). */
+  ink2:         "#1E2536",
   body:         "#566078",
   muted:        "#6B7488",
   faint:        "#8A93A8",
@@ -225,16 +228,7 @@ export const FIN_METRIC_VALUE_CLASS = "fin-metric-value";
 
 /** Text color for a fin-metric value, keyed off its data-source label (Public/Estimate/…). */
 export function finMetricValueColorForSource(source?: string): string {
-  switch ((source || "").trim().toLowerCase()) {
-    case "estimate":
-      return T.muted;
-    case "proprietary":
-    case "linkedin":
-      return T.body;
-    case "public":
-    default:
-      return T.ink;
-  }
+  return sourceTypeColor(source);
 }
 
 /** Value column in Financial Metrics — centered under the period header. */
