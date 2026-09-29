@@ -179,14 +179,14 @@ const SubSectorPage = () => {
         >
           <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8 }}>
             <a
-              href="/sectors"
+              href="/sub-sectors"
               style={{
                 fontWeight: 600,
                 color: T.azure,
                 textDecoration: "none",
               }}
             >
-              Sectors
+              Secondary Sector
             </a>
             {primarySector && (
               <>
