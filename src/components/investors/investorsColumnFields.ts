@@ -21,7 +21,7 @@ export const INVESTOR_COLUMN_FIELD_ALIASES: Record<string, readonly string[]> = 
     "last_investment.display",
     "last_investment",
   ],
-  sub_region: ["sub_region", "geographical_sub_region"],
+  sub_region: ["hq_sub_region", "geographical_sub_region", "sub_region"],
   state: ["state", "province", "hq_state"],
   city: ["city", "hq_city"],
 };

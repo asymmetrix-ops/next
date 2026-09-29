@@ -36,6 +36,16 @@ export interface InvestorListItem {
     days_since?: number | string | null;
   } | null;
   sub_region?: string | null;
+  hq_sub_region?: string | null;
+  hq_region?: string | null;
+  sub_regions?: string[];
+  portfolio_companies_info?: {
+    locations_id: number | null;
+    primary_business_focus_id: number[] | null;
+    sectors_id: number[] | null;
+    country: string | null;
+    sub_region: string | null;
+  }[];
   state?: string | null;
   city?: string | null;
 }
