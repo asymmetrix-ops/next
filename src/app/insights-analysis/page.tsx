@@ -33,8 +33,6 @@ import {
 
 const CONTENT_ARTICLES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
-const CONTENT_ARTICLES_TYPE_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_Content_Articles_Type_Counts";
 
 // ── Design tokens local to this page (mirrors src/app/sectors/page.tsx) ──────
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
@@ -147,38 +145,6 @@ function buildContentArticlesParams(
   return params;
 }
 
-// Params for the aggregate type-counts endpoint. Same filter semantics as
-// buildContentArticlesParams (omit optional filters entirely when unset —
-// an empty string is a real filter value to Xano, not "no filter"), but:
-//   - no Offset / Per_page / content_type (this endpoint groups by type)
-//   - company_id and show_followed are REQUIRED params on this endpoint
-//     (it 400s with "Missing param" otherwise), unlike the list endpoint.
-function buildTypeCountsParams(filters: InsightsAnalysisFilters): URLSearchParams {
-  const params = new URLSearchParams();
-  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-  params.append("show_followed", String(Boolean(filters.show_followed)));
-  params.append(
-    "company_id",
-    String(filters.company_id != null && filters.company_id > 0 ? filters.company_id : 0)
-  );
-  if (filters.search_query) params.append("search_query", filters.search_query);
-  if (filters.Countries?.length) params.append("Countries", filters.Countries.join(","));
-  if (filters.Provinces?.length) params.append("Provinces", filters.Provinces.join(","));
-  if (filters.Cities?.length) params.append("Cities", filters.Cities.join(","));
-  if (filters.primary_sectors_ids?.length)
-    params.append("primary_sectors_ids", filters.primary_sectors_ids.join(","));
-  if (filters.Secondary_sectors_ids?.length)
-    params.append("Secondary_sectors_ids", filters.Secondary_sectors_ids.join(","));
-  const ts = (filters.Transaction_status || "").trim();
-  if (ts) params.append("Transaction_status", ts);
-  return params;
-}
-
-type ContentArticlesTypeCountsResponse = {
-  total: number;
-  by_type: Array<{ content_type: string; count: number }>;
-};
-
 // Main Insights Analysis Page Component
 function InsightsAnalysisPageContent() {
   const { isTrialActive } = useAuth();
@@ -256,11 +222,6 @@ function InsightsAnalysisPageContent() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Content-type pill counts (real counts read from a lightweight Per_page=1
-  // request per type — see the isTrialActive-style fetchByType pattern below).
-  const [typeCounts, setTypeCounts] = useState<Record<string, number | null>>({});
-  const [allTypesCount, setAllTypesCount] = useState<number | null>(null);
 
   const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
@@ -475,77 +436,6 @@ function InsightsAnalysisPageContent() {
     };
     run();
   }, []);
-
-  // Content-type pill counts — a single aggregate request (grouped by type
-  // server-side) instead of one Per_page=1 request per type. Refetched
-  // whenever a filter OTHER than the active content type changes; never
-  // fires just from switching which type pill is selected.
-  const primarySectorIdsKey = JSON.stringify(filters.primary_sectors_ids);
-  const secondarySectorIdsKey = JSON.stringify(filters.Secondary_sectors_ids);
-  useEffect(() => {
-    if (isTrialActive) return;
-    if (contentTypes.length === 0) return;
-
-    let cancelled = false;
-    // Abort the in-flight request when filters change again before it
-    // resolves — without this, rapid filter changes (e.g. checking several
-    // sectors in a row) pile up superseded requests instead of just the
-    // latest one winning.
-    const ac = new AbortController();
-
-    const run = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
-
-      try {
-        const params = buildTypeCountsParams(filters);
-        const res = await fetch(`${CONTENT_ARTICLES_TYPE_COUNTS_URL}?${params.toString()}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "X-Data-Source": "live",
-          },
-          signal: ac.signal,
-        });
-        if (!res.ok) return;
-        const json: ContentArticlesTypeCountsResponse = await res.json();
-        if (cancelled) return;
-
-        setAllTypesCount(typeof json.total === "number" ? json.total : null);
-        const next: Record<string, number | null> = {};
-        (Array.isArray(json.by_type) ? json.by_type : []).forEach((row) => {
-          if (row?.content_type) next[row.content_type] = row.count ?? null;
-        });
-        setTypeCounts(next);
-      } catch {
-        // Leave counts unset — pills render without a count rather than a fake one.
-      }
-    };
-
-    // Small debounce so a burst of filter changes (e.g. toggling several
-    // sector checkboxes) collapses into a single request instead of one
-    // per change.
-    const t = window.setTimeout(run, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      ac.abort();
-    };
-    // Intentionally excludes filters.Content_Type / filters.content_type so
-    // toggling the active type pill doesn't refire this effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isTrialActive,
-    contentTypes,
-    filters.search_query,
-    primarySectorIdsKey,
-    secondarySectorIdsKey,
-    filters.Transaction_status,
-    filters.portfolio_only,
-    filters.company_id,
-    filters.show_followed,
-  ]);
 
   // Handle search
   const handleSearch = () => {
@@ -814,10 +704,6 @@ function InsightsAnalysisPageContent() {
       border-radius: 999px;
       flex-shrink: 0;
     }
-    .ia-type-count {
-      color: ${T.faint};
-      font-weight: 600;
-    }
     .ia-company-banner {
       display: flex;
       align-items: center;
@@ -944,9 +830,6 @@ function InsightsAnalysisPageContent() {
                   onClick={() => handleTypeSelect("")}
                 >
                   All types
-                  {allTypesCount != null && (
-                    <span className="ia-type-count">{allTypesCount.toLocaleString()}</span>
-                  )}
                 </button>
                 {contentTypes.map((ct) => (
                   <button
@@ -957,9 +840,6 @@ function InsightsAnalysisPageContent() {
                   >
                     <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
                     {ct}
-                    {typeCounts[ct] != null && (
-                      <span className="ia-type-count">{typeCounts[ct]!.toLocaleString()}</span>
-                    )}
                   </button>
                 ))}
               </div>
