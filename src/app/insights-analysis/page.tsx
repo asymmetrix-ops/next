@@ -134,8 +134,11 @@ function buildContentArticlesParams(
     params.append("Secondary_sectors_ids", filters.Secondary_sectors_ids.join(","));
   const ct = overrides?.content_type ?? (filters.Content_Type || filters.content_type || "").trim();
   if (ct) params.append("content_type", ct);
-  const ts = (filters.Transaction_status || "").trim();
-  if (ts) params.append("Transaction_status", ts);
+  // Xano expects the numeric id here, not the label (ERROR_CODE_INPUT_ERROR
+  // "Value is not a valid integer" if a label string is sent).
+  if (filters.Transaction_status != null && filters.Transaction_status !== "") {
+    params.append("Transaction_status", String(filters.Transaction_status));
+  }
   if (filters.company_id != null && filters.company_id > 0) {
     params.append("company_id", String(filters.company_id));
   }
@@ -207,6 +210,9 @@ function InsightsAnalysisPageContent() {
   const [primarySectors, setPrimarySectors] = useState<
     Array<{ id: number; sector_name: string }>
   >([]);
+  const [transactionStatuses, setTransactionStatuses] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -249,6 +255,7 @@ function InsightsAnalysisPageContent() {
               "Content-Type": "application/json",
               "X-Data-Source": "live",
             },
+            cache: "no-store",
           });
           if (!res.ok) throw new Error(String(res.status));
           const json: InsightsAnalysisResponse = await res.json();
@@ -403,7 +410,7 @@ function InsightsAnalysisPageContent() {
         const token = localStorage.getItem("asymmetrix_auth_token");
         if (!token) return;
 
-        const [resp, sectors] = await Promise.all([
+        const [resp, sectors, statuses] = await Promise.all([
           fetch(
             "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
             {
@@ -415,6 +422,7 @@ function InsightsAnalysisPageContent() {
             }
           ),
           locationsService.getPrimarySectors(),
+          locationsService.getTransactionStatuses().catch(() => []),
         ]);
 
         if (!resp.ok) return;
@@ -430,6 +438,11 @@ function InsightsAnalysisPageContent() {
         );
         setContentTypes(values);
         setPrimarySectors(sectors);
+        setTransactionStatuses(
+          (Array.isArray(statuses) ? statuses : [])
+            .filter((s) => s && s.id != null && s.label)
+            .map((s) => ({ id: s.id, label: s.label.trim() }))
+        );
       } catch {
         // ignore
       }
@@ -873,11 +886,12 @@ function InsightsAnalysisPageContent() {
                   <span className="ia-field-label">Transaction status</span>
                   <select
                     className="ia-select"
-                    value={filters.Transaction_status || ""}
+                    value={filters.Transaction_status ?? ""}
                     onChange={(e) => {
+                      const raw = e.target.value;
                       const updated = {
                         ...filters,
-                        Transaction_status: e.target.value || undefined,
+                        Transaction_status: raw ? Number(raw) : undefined,
                         Offset: 1,
                       };
                       setFilters(updated);
@@ -885,11 +899,11 @@ function InsightsAnalysisPageContent() {
                     }}
                   >
                     <option value="">All transaction statuses</option>
-                    <option value="Rumoured in Market">Rumoured in Market</option>
-                    <option value="Transaction anticipated within 18 months">
-                      Transaction anticipated within 18 months
-                    </option>
-                    <option value="Reported in Market">Reported in Market</option>
+                    {transactionStatuses.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="ia-field">

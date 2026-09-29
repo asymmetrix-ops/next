@@ -46,6 +46,7 @@ export async function fetchInsightsLogicalPage(
     const response = await fetch(`${options.url}?${params.toString()}`, {
       method: "GET",
       headers,
+      cache: "no-store",
     });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

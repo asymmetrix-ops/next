@@ -128,7 +128,8 @@ export interface InsightsAnalysisFilters {
   search_query: string;
   Content_Type?: string;
   content_type?: string;
-  Transaction_status?: string;
+  /** Xano expects the transaction_statuses row id here, not the label string. */
+  Transaction_status?: number | string;
   primary_sectors_ids: number[];
   Secondary_sectors_ids: number[];
   Countries: string[];
