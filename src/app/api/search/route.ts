@@ -110,7 +110,12 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
         String(rec.title ?? rec.name ?? rec.headline ?? rec.description ?? rec.label ?? "")
           .trim() || "Untitled";
       const itemType = String(rec.type ?? rec.entity_type ?? defaultType).toLowerCase().trim() || defaultType;
-      const logoRaw = rec.logo_url ?? rec.linkedin_logo ?? rec.logo ?? null;
+      const logoRaw =
+        rec.logo ??
+        rec.logo_url ??
+        rec.linkedin_logo ??
+        rec.company_logo ??
+        null;
       const logo = typeof logoRaw === "string" && logoRaw.trim() ? logoRaw : null;
       return { id, title, type: itemType, logo };
     })

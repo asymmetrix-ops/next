@@ -11,6 +11,7 @@ import {
   getSearchBadgeLabel,
   PORTFOLIO_FALLBACK_SOURCES,
 } from "@/lib/globalSearch";
+import { GlobalSearchResultAvatar } from "@/components/search/GlobalSearchResultAvatar";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
@@ -1007,13 +1008,21 @@ export default function MyPortfolioPage() {
                     return (
                       <tr key={`${r.type}-${r.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
-                          {href ? (
-                            <Link href={href} className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2">
-                              {r.title}
-                            </Link>
-                          ) : (
-                            <span className="font-medium text-gray-900">{r.title}</span>
-                          )}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <GlobalSearchResultAvatar result={r} size="sm" />
+                            {href ? (
+                              <Link
+                                href={href}
+                                className="min-w-0 font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 truncate"
+                              >
+                                {r.title}
+                              </Link>
+                            ) : (
+                              <span className="min-w-0 font-medium text-gray-900 truncate">
+                                {r.title}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}>

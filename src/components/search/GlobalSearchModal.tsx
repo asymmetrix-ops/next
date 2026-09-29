@@ -2,16 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  BuildingOfficeIcon,
-  CalendarDaysIcon,
-  ChartBarIcon,
-  LightBulbIcon,
-} from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { trackEvent } from "@/lib/tracking";
-import { getInitials } from "@/lib/userDisplay";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   type GlobalSearchResult,
   type SearchPageType,
@@ -28,26 +20,8 @@ import {
   type RecentItem,
   type RecentItemEntityType,
 } from "@/lib/recentItems";
+import { GlobalSearchResultAvatar } from "./GlobalSearchResultAvatar";
 import { useGlobalSearch } from "./GlobalSearchProvider";
-
-const AVATAR_COLORS = [
-  { bg: "#FEE2E2", fg: "#DC2626" },
-  { bg: "#DBEAFE", fg: "#1D4ED8" },
-  { bg: "#EDE9FE", fg: "#7C3AED" },
-  { bg: "#D1FAE5", fg: "#059669" },
-  { bg: "#FEF3C7", fg: "#B45309" },
-  { bg: "#E0E7FF", fg: "#4338CA" },
-  { bg: "#FCE7F3", fg: "#DB2777" },
-  { bg: "#CCFBF1", fg: "#0D9488" },
-];
-
-function colorForTitle(title: string): { bg: string; fg: string } {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash * 31 + title.charCodeAt(i)) | 0;
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function normalizeType(type: string): string {
   return String(type || "").toLowerCase().trim();
@@ -67,56 +41,6 @@ function toRecentEntityType(type: string): RecentItemEntityType | null {
   if (t === "insight" || t === "insights" || t === "article") return "insight";
   if (t === "sector" || t === "sub_sector" || t === "sub-sector") return "sector";
   return null;
-}
-
-const ICON_TYPES = new Set([
-  "sector",
-  "sectors",
-  "sub_sector",
-  "sub-sector",
-  "corporate_event",
-  "corporate-events",
-  "event",
-  "insight",
-  "insights",
-  "article",
-]);
-
-function ResultAvatar({ result }: { result: GlobalSearchResult }) {
-  const t = normalizeType(result.type);
-
-  const logoSrc = result.logo ? resolveCompanyLogoSrc(result.logo) : null;
-  if (logoSrc) {
-    return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-white">
-        {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URIs, not a next/image-optimizable source */}
-        <img src={logoSrc} alt="" className="h-full w-full object-contain" />
-      </span>
-    );
-  }
-
-  if (ICON_TYPES.has(t)) {
-    const Icon =
-      t === "insight" || t === "insights" || t === "article"
-        ? LightBulbIcon
-        : t.startsWith("corporate") || t === "event"
-          ? CalendarDaysIcon
-          : ChartBarIcon;
-    return (
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-    );
-  }
-  const color = colorForTitle(result.title || "?");
-  return (
-    <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[13px] font-bold"
-      style={{ background: color.bg, color: color.fg }}
-    >
-      {getInitials(result.title) || <BuildingOfficeIcon className="h-[18px] w-[18px]" />}
-    </span>
-  );
 }
 
 const FILTERS: Array<{ key: SearchPageType | null; label: string }> = [
@@ -443,7 +367,7 @@ export function GlobalSearchModal() {
                         idx === highlightedIndex ? "bg-blue-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <ResultAvatar result={row.avatarResult} />
+                      <GlobalSearchResultAvatar result={row.avatarResult} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-gray-900">
                           {row.title}

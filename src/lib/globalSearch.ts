@@ -37,7 +37,7 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
-  /** Raw logo payload from the API (base64 or URL) — resolve with resolveCompanyLogoSrc before rendering. */
+  /** Raw logo payload from search APIs (base64 JPEG/PNG or URL) for companies, investors, and advisors. */
   logo?: string | null;
 };
 
