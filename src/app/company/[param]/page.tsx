@@ -1363,6 +1363,8 @@ const CompanyDetail = () => {
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const insightsRowRef = useRef<HTMLDivElement | null>(null);
   const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
+  const productMixRowRef = useRef<HTMLDivElement | null>(null);
+  const productUsersRowRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
@@ -2282,18 +2284,19 @@ const CompanyDetail = () => {
       return;
     }
 
+    // Overview leads row 1: Description + Financial Metrics conform to
+    // Overview's own natural height instead of the tallest of the three.
     const measure = () => {
       const prevDisplay = descEl?.style.display ?? "";
       if (descEl) descEl.style.display = "none";
-      const max = Math.max(overviewEl.offsetHeight, financeEl.offsetHeight);
+      const leadHeight = overviewEl.offsetHeight;
       if (descEl) descEl.style.display = prevDisplay;
-      if (max > 0) setRowOneCardHeight(max);
+      if (leadHeight > 0) setRowOneCardHeight(leadHeight);
     };
 
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(overviewEl);
-    ro.observe(financeEl);
     return () => ro.disconnect();
   }, [
     rowOneCardHeight,
@@ -2318,23 +2321,34 @@ const CompanyDetail = () => {
   ]);
 
   useEffect(() => {
-    if (!showInsights || rowTwoCardHeight !== 0) return;
+    if (rowTwoCardHeight !== 0 || typeof ResizeObserver === "undefined") return;
 
-    const insightsEl = insightsRowRef.current;
     const financeEl = financeSecondaryRowRef.current;
-    if (!insightsEl || !financeEl || typeof ResizeObserver === "undefined") {
-      return;
-    }
+    if (!financeEl) return;
+
+    // Row 2's height leader, in priority order:
+    // 1. When Insights & Analysis is shown, it leads (paired with Other Metrics).
+    // 2. Otherwise the product cards (Core Products/Users, then Product Mix)
+    //    lead — Other Metrics conforms to them, not the other way around.
+    // 3. If none of those are present, Other Metrics keeps its own natural
+    //    height (no forcing).
+    const insightsEl = showInsights ? insightsRowRef.current : null;
+    const productUsersEl = !showInsights ? productUsersRowRef.current : null;
+    const productMixEl = !showInsights ? productMixRowRef.current : null;
+    const leaders = [insightsEl, productUsersEl, productMixEl].filter(
+      (el): el is HTMLDivElement => el != null
+    );
+
+    if (leaders.length === 0) return;
 
     const measure = () => {
-      const max = Math.max(insightsEl.offsetHeight, financeEl.offsetHeight);
-      if (max > 0) setRowTwoCardHeight(max);
+      const leadHeight = Math.max(...leaders.map((el) => el.offsetHeight));
+      if (leadHeight > 0) setRowTwoCardHeight(leadHeight);
     };
 
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(insightsEl);
-    ro.observe(financeEl);
+    leaders.forEach((el) => ro.observe(el));
     return () => ro.disconnect();
   }, [
     rowTwoCardHeight,
@@ -4531,7 +4545,10 @@ const CompanyDetail = () => {
 
             {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
             {showProductAttributes && (
-              <div className="company-grid-product-mix">
+              <div
+                ref={productMixRowRef}
+                className="company-grid-product-mix"
+              >
                 <ProductAttributesCard
                   productRows={productTypeBarRows}
                   revenueRows={revenueModelRows.map((r) => ({
@@ -4545,7 +4562,10 @@ const CompanyDetail = () => {
             )}
 
             {showCoreProducts && (
-              <div className="company-grid-product-users">
+              <div
+                ref={productUsersRowRef}
+                className="company-grid-product-users"
+              >
                 <ProductUsersListCard
                   sections={coreProductsSections}
                   useCaseSections={usersUseCaseSections}
@@ -4715,13 +4735,11 @@ const CompanyDetail = () => {
                 display: "flex",
                 flexDirection: "column",
                 width: "100%",
-                ...(showInsights && rowTwoCardHeight > 0
-                  ? { height: rowTwoCardHeight }
-                  : {}),
+                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
               }}
             >
               <FinMetricsSecondaryCard
-                fillGridCell={showInsights && rowTwoCardHeight > 0}
+                fillGridCell={rowTwoCardHeight > 0}
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
               />
