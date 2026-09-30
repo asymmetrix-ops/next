@@ -147,7 +147,17 @@ function toJobTitleRecords(value: unknown): Array<{ job_title: string }> {
   }
 
   if (typeof value === "string" && value.trim()) {
-    return [{ job_title: value.trim() }];
+    const trimmed = value.trim();
+    // Xano sometimes returns these as JSON strings: '[45]' (ids only) or
+    // '[{"id":45,"job_title":"Senior Managing Director"}]'.
+    if (/^[\[{]/.test(trimmed)) {
+      try {
+        return toJobTitleRecords(JSON.parse(trimmed));
+      } catch {
+        return [];
+      }
+    }
+    return [{ job_title: trimmed }];
   }
 
   if (typeof value === "object" && value !== null && "job_title" in value) {

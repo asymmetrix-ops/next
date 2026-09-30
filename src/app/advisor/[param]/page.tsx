@@ -19,6 +19,8 @@ import {
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import type { AdvisorIndividual } from "@/types/advisor";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
@@ -65,7 +67,9 @@ export default function AdvisorProfilePage() {
     individuals_id: number;
     Individual_text?: string;
     advisor_individuals?: string;
-    job_titles_id?: Array<{ id?: number; job_title: string } | number>;
+    job_titles_id?: unknown;
+    _job_titles?: unknown;
+    job_titles?: unknown;
     linkedin_URL?: string;
     linkedin_url?: string;
     LinkedIn_URL?: string;
@@ -81,21 +85,42 @@ export default function AdvisorProfilePage() {
     return undefined;
   };
 
-  const formatRoleTitles = (role: RoleItem): string => {
-    const titles = role.job_titles_id;
-    if (!Array.isArray(titles) || titles.length === 0) return "";
-    return titles
-      .map((jt) => {
-        if (typeof jt === "number") return "";
-        return jt.job_title?.trim() || "";
-      })
-      .filter(Boolean)
-      .join(", ");
-  };
+  const formatRoleTitles = (role: RoleItem): string =>
+    formatJobTitlesFromId(role.job_titles_id, role._job_titles ?? role.job_titles);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
   });
+
+  /**
+   * People listed on the advisor profile (`get_the_advisor_new_company`).
+   * That endpoint returns one `Advisors_individuals` list with a per-row
+   * `Status` ("Current" / "Past"); split lists are used when present.
+   */
+  const profileIndividualsFor = (which: "current" | "past"): AdvisorIndividual[] => {
+    const split =
+      which === "current"
+        ? advisorData?.Advisors_individuals_current
+        : advisorData?.Advisors_individuals_past;
+    if (split?.length) return split;
+    return (advisorData?.Advisors_individuals ?? []).filter((individual) => {
+      const isPast = String(individual.Status ?? "").trim().toLowerCase() === "past";
+      return which === "past" ? isPast : !isPast;
+    });
+  };
+
+  const profileTitles = (individual: AdvisorIndividual): string =>
+    formatJobTitlesFromId(individual.job_titles_id, individual._job_titles);
+
+  /** Titles for a person from the profile list, matched by individual id. */
+  const profileTitlesByIndividualId = (individualId?: number): string => {
+    if (!individualId) return "";
+    const match = (advisorData?.Advisors_individuals ?? []).find(
+      (individual) => individual.individuals_id === individualId
+    );
+    return match ? profileTitles(match) : "";
+  };
+
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
@@ -250,7 +275,8 @@ export default function AdvisorProfilePage() {
 
       const fromRoles = (roles: RoleItem[]) =>
         roles.map((role) => {
-          const titles = formatRoleTitles(role);
+          const titles =
+            formatRoleTitles(role) || profileTitlesByIndividualId(role.individuals_id);
           return {
             id: role.id,
             individual_id: role.individuals_id,
@@ -261,54 +287,32 @@ export default function AdvisorProfilePage() {
           };
         });
 
-      const fromProfileIndividuals = (
-        arr: Array<{
-          id: number;
-          individuals_id: number;
-          advisor_individuals: string;
-          job_titles_id?: Array<{ id?: number; job_title: string }>;
-        }>
-      ) =>
-        arr.map((individual) => ({
-          id: individual.id,
-          individual_id: individual.individuals_id,
-          name: (individual.advisor_individuals || "").trim() || "Unknown",
-          job_titles: individual.job_titles_id?.map((jt) => jt.job_title) || [],
-        }));
+      const fromProfileIndividuals = (arr: AdvisorIndividual[]) =>
+        arr.map((individual) => {
+          const titles = profileTitles(individual);
+          return {
+            id: individual.id,
+            individual_id: individual.individuals_id,
+            name: (individual.advisor_individuals || "").trim() || "Unknown",
+            job_titles: titles ? titles.split(", ") : [],
+            linkedin_url: individual.linkedin_URL?.trim() || null,
+          };
+        });
 
-      let current: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
-      let past: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
+      let current: ReturnType<typeof fromProfileIndividuals> = [];
+      let past: ReturnType<typeof fromProfileIndividuals> = [];
 
       if (rolesCurrent.length > 0) {
         current = fromRoles(rolesCurrent);
-      } else if (
-        advisorData?.Advisors_individuals_current &&
-        advisorData.Advisors_individuals_current.length > 0
-      ) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
+      } else if (profileIndividualsFor("current").length > 0) {
+        current = fromProfileIndividuals(profileIndividualsFor("current"));
         fallbacksUsed.push("advisor_profile_current");
-      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals);
-        fallbacksUsed.push("advisor_profile_all");
       }
 
       if (rolesPast.length > 0) {
         past = fromRoles(rolesPast);
-      } else if (
-        advisorData?.Advisors_individuals_past &&
-        advisorData.Advisors_individuals_past.length > 0
-      ) {
-        past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
+      } else if (profileIndividualsFor("past").length > 0) {
+        past = fromProfileIndividuals(profileIndividualsFor("past"));
         fallbacksUsed.push("advisor_profile_past");
       }
 
@@ -539,7 +543,7 @@ export default function AdvisorProfilePage() {
     );
   }
 
-  const { Advisor, Portfolio_companies_count, Advisors_individuals } = advisorData;
+  const { Advisor, Portfolio_companies_count } = advisorData;
 
   const extractAdvisorFocus = (advisor: Advisor): string[] => {
     const raw = advisor.primary_business_focus_id;
@@ -599,55 +603,34 @@ export default function AdvisorProfilePage() {
     ? (corporateEvents as unknown as AdvisorDealEvent[])
     : [];
 
-  const peopleCurrent = (() => {
-    if (rolesCurrent.length > 0) {
-      return rolesCurrent.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_current?.length) {
-      return advisorData.Advisors_individuals_current.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    if (Advisors_individuals?.length) {
-      return Advisors_individuals.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
+  const mapRolePeople = (roles: RoleItem[]) =>
+    roles.map((role) => ({
+      id: role.id,
+      name: role.advisor_individuals || role.Individual_text || "Unknown",
+      role: formatRoleTitles(role) || profileTitlesByIndividualId(role.individuals_id),
+      individualId: role.individuals_id,
+      linkedinUrl: resolvePersonLinkedIn(role),
+    }));
 
-  const peoplePast = (() => {
-    if (rolesPast.length > 0) {
-      return rolesPast.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_past?.length) {
-      return advisorData.Advisors_individuals_past.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: individual.job_titles_id?.map((jt) => jt.job_title).join(", ") || "",
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
+  const mapProfilePeople = (individuals: AdvisorIndividual[]) =>
+    individuals.map((individual) => ({
+      id: individual.id,
+      name: individual.advisor_individuals,
+      role: profileTitles(individual),
+      individualId: individual.individuals_id,
+      linkedinUrl: normalizeLinkedInProfileUrl(individual.linkedin_URL) ?? undefined,
+    }));
+
+  const peopleCurrent =
+    rolesCurrent.length > 0
+      ? mapRolePeople(rolesCurrent)
+      : mapProfilePeople(profileIndividualsFor("current"));
+
+  const peoplePast =
+    rolesPast.length > 0
+      ? mapRolePeople(rolesPast)
+      : mapProfilePeople(profileIndividualsFor("past"));
+
   const linkedinUrl = normalizeLinkedInProfileUrl(Advisor.linkedin_data?.LinkedIn_URL);
   const activeMandates: AdvisorActiveMandate[] = Array.isArray(advisorData.Active_Mandates)
     ? advisorData.Active_Mandates
