@@ -95,7 +95,10 @@ function applyFilterItem(
     const ids = (v as string[])
       .map(Number)
       .filter((id) => Number.isFinite(id) && id > 0);
-    next.Current_Companies = Array.from(new Set(ids));
+    // Each chip is its own filter instance — merge, don't overwrite.
+    next.Current_Companies = Array.from(
+      new Set([...next.Current_Companies, ...ids])
+    );
     return next;
   }
   if (

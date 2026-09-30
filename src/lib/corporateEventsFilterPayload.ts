@@ -279,7 +279,12 @@ function buildFiltersFromFilterBar(args: {
       const ids = (v as string[])
         .map(Number)
         .filter((id) => Number.isFinite(id) && id > 0);
-      if (ids.length > 0) filters.target_company_ids = Array.from(new Set(ids));
+      // Each Target chip is its own filter instance — merge, don't overwrite.
+      if (ids.length > 0) {
+        filters.target_company_ids = Array.from(
+          new Set([...(filters.target_company_ids ?? []), ...ids])
+        );
+      }
       continue;
     }
     if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
