@@ -201,10 +201,24 @@ export function Cell({
             <CompanyAvatar name={row.name} logo={row.logo} size={22} fallbackColor={row.color} />
           )}
           <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{
-              fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{row.name}</div>
+            {row.companyId != null && !isMedian ? (
+              <a
+                href={`/company/${row.companyId}`}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+              >{row.name}</a>
+            ) : (
+              <div style={{
+                fontWeight: 600, fontSize: 12.5, color: 'var(--fg-1)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{row.name}</div>
+            )}
             {row.isManuallyAdded && (
               <span
                 style={{
