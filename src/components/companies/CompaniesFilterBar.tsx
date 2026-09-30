@@ -48,6 +48,8 @@ export interface FilterDef {
   type: FilterTypeIcon;
   editor: FilterEditorType;
   options?: string[];
+  /** Display names for option values when the stored value differs (e.g. company ids). */
+  optionLabels?: Record<string, string>;
   unit?: string;
   min?: number;
   max?: number;
@@ -368,8 +370,10 @@ function summarize(
   if (value == null) return "";
   if (def.editor === "enum") {
     if (!Array.isArray(value) || value.length === 0) return "";
-    if (value.length === 1) return String(value[0]);
-    return `${String(value[0])} +${value.length - 1}`;
+    const first = String(value[0]);
+    const firstLabel = def.optionLabels?.[first] ?? first;
+    if (value.length === 1) return firstLabel;
+    return `${firstLabel} +${value.length - 1}`;
   }
   if (def.editor === "range") {
     if (def.id === "holding_period") {
@@ -549,25 +553,6 @@ interface PickerRowProps {
 
 function PickerRow({ def, onPick }: PickerRowProps) {
   const [hover, setHover] = useState(false);
-  const { currency } = usePlatformCurrency();
-  const currencySymbol = getCurrencySymbol(currency);
-  const localizedUnit = def.unit
-    ? localizeCurrencyFilterUnit(def.unit, currencySymbol)
-    : "";
-  const hint =
-    def.editor === "enum"
-      ? `${def.options?.length ?? 0} options`
-      : def.editor === "range"
-        ? `range${localizedUnit ? ` (${localizedUnit})` : ""}`
-        : def.editor === "date_range"
-          ? "date range"
-          : def.editor === "segmented"
-            ? "choice"
-            : def.editor === "boolean"
-              ? "toggle"
-              : def.editor === "yes_no_dual"
-                ? "Yes / No"
-                : "";
   return (
     <li>
       <button
@@ -623,9 +608,6 @@ function PickerRow({ def, onPick }: PickerRowProps) {
               {def.fullLabel}
             </span>
           )}
-        </span>
-        <span style={{ fontSize: 10.5, color: "var(--fg-4)", flexShrink: 0 }}>
-          {hint}
         </span>
         <span
           style={{
@@ -728,8 +710,13 @@ function AddFilterPicker({
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // The popover is visibility:hidden until positioned, so focus on the next
+  // frame once it is visible (an immediate focus() is ignored on hidden nodes).
   useEffect(() => {
-    if (!activeDef) inputRef.current?.focus();
+    if (activeDef) return;
+    inputRef.current?.focus();
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
   }, [activeDef]);
 
   const activeReservedValues = useMemo(() => {
@@ -750,7 +737,9 @@ function AddFilterPicker({
         d.label.toLowerCase().includes(ql) ||
         d.fullLabel.toLowerCase().includes(ql) ||
         d.category.toLowerCase().includes(ql) ||
-        (d.options ?? []).some((o) => String(o).toLowerCase().includes(ql))
+        (d.options ?? []).some((o) =>
+          String(d.optionLabels?.[o] ?? o).toLowerCase().includes(ql)
+        )
     );
   }, [q, availableDefs]);
 
@@ -927,7 +916,10 @@ function AddFilterPicker({
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
+      <div
+        className="ax-filter-picker-list"
+        style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}
+      >
         {categories.map((cat) => {
           const defs = byCat[cat.id];
           if (!defs || defs.length === 0) return null;
@@ -943,12 +935,6 @@ function AddFilterPicker({
               >
                 <span className="ax-eyebrow" style={{ fontSize: 10.5 }}>
                   {cat.name}
-                </span>
-                <span
-                  className="ax-numeric"
-                  style={{ fontSize: 10.5, color: "var(--fg-4)" }}
-                >
-                  {defs.length}
                 </span>
               </div>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -996,7 +982,6 @@ function AddFilterPicker({
         <span>
           <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> select
         </span>
-        <span style={{ color: "var(--fg-link)" }}>Same fields as columns</span>
       </div>
     </div>
   );
@@ -1280,9 +1265,9 @@ function EnumEditor({
   const opts = useMemo(() => {
     if (!q) return def.options ?? [];
     return (def.options ?? []).filter((o) =>
-      o.toLowerCase().includes(q.toLowerCase())
+      (def.optionLabels?.[o] ?? o).toLowerCase().includes(q.toLowerCase())
     );
-  }, [q, def.options]);
+  }, [q, def.options, def.optionLabels]);
 
   const toggle = (o: string) => {
     const reserved = reservedValues?.has(o) && !picked.includes(o);
@@ -1438,7 +1423,7 @@ function EnumEditor({
                   </svg>
                 )}
               </span>
-              <span style={{ flex: 1 }}>{o}</span>
+              <span style={{ flex: 1 }}>{def.optionLabels?.[o] ?? o}</span>
             </button>
           );
         })}

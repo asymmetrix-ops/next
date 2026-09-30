@@ -39,6 +39,8 @@ export interface CorporateEventsFilters {
   Product_Types?: string[];
   target_company_id?: number;
   new_company_id?: number;
+  /** Restrict to events whose target is one of these companies (requires backend support). */
+  target_company_ids?: number[];
   individual_id?: number;
   investor_id?: number;
   /** Platform currency for converted deal amounts (USD=15, EUR=6, GBP=7). */

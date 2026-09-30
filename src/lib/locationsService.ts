@@ -1,6 +1,28 @@
 import { authService } from "./auth";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
+const COMPANY_FILTER_OPTIONS_BASE_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:VP2Spm80:develop";
+
+export interface CompanyFilterOption {
+  id: number;
+  label: string;
+}
+const CORPORATE_EVENT_TARGET_OPTIONS_BASE_URL =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
+
+export interface CorporateEventTargetOption {
+  id: number;
+  name: string;
+  events_count?: number;
+}
+const INDIVIDUAL_OPTIONS_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+
+export interface IndividualCurrentCompanyOption {
+  id: number;
+  name: string;
+  people_count?: number;
+}
 const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
 const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz";
 
@@ -473,6 +495,103 @@ class LocationsService {
       .filter((value): value is string => value.length > 0);
 
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+  }
+
+  // Option lists for the Companies multi-value filters ({ id, label }).
+  async getCompanyProductTypeOptions(): Promise<CompanyFilterOption[]> {
+    return this.getCompanyFilterOptions("get_product_types");
+  }
+
+  async getDataCollectionMethods(): Promise<CompanyFilterOption[]> {
+    return this.getCompanyFilterOptions("get_data_collection_methods");
+  }
+
+  async getRevenueModels(): Promise<CompanyFilterOption[]> {
+    return this.getCompanyFilterOptions("get_revenue_models");
+  }
+
+  private async getCompanyFilterOptions(path: string): Promise<CompanyFilterOption[]> {
+    const response = await fetch(`${COMPANY_FILTER_OPTIONS_BASE_URL}/${path}`, {
+      method: "GET",
+      headers: { ...this.getAuthHeaders() },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(`Failed to fetch ${path}: ${response.status} ${response.statusText}`);
+    }
+    const data = (await response.json()) as { value?: unknown } | unknown[];
+    const raw = Array.isArray(data) ? data : Array.isArray(data?.value) ? data.value : [];
+    const seen = new Set<string>();
+    const out: CompanyFilterOption[] = [];
+    for (const item of raw) {
+      const obj = item as { id?: unknown; label?: unknown };
+      const label = typeof obj?.label === "string" ? obj.label.trim() : "";
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      out.push({ id: Number(obj.id), label });
+    }
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  // Companies that are the target of at least one corporate event (Target filter).
+  async getCorporateEventTargetOptions(
+    limit = 1000
+  ): Promise<CorporateEventTargetOption[]> {
+    const response = await fetch(
+      `${CORPORATE_EVENT_TARGET_OPTIONS_BASE_URL}/get_corporate_event_target_options?q=&ids=&limit=${limit}`,
+      { method: "GET", headers: { ...this.getAuthHeaders() } }
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch target options: ${response.status} ${response.statusText}`
+      );
+    }
+    const data = (await response.json()) as unknown;
+    const raw = Array.isArray(data) ? data : [];
+    const out: CorporateEventTargetOption[] = [];
+    for (const item of raw) {
+      const obj = item as Partial<CorporateEventTargetOption>;
+      const name = typeof obj?.name === "string" ? obj.name.trim() : "";
+      if (!name || !Number.isFinite(Number(obj.id))) continue;
+      out.push({ id: Number(obj.id), name, events_count: obj.events_count });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // Companies where at least one individual currently works (Current Company filter).
+  async getIndividualCurrentCompanyOptions(
+    limit = 1000
+  ): Promise<IndividualCurrentCompanyOption[]> {
+    const response = await fetch(
+      `${INDIVIDUAL_OPTIONS_BASE_URL}/get_individual_current_company_options?q=&ids=&limit=${limit}`,
+      { method: "GET", headers: { ...this.getAuthHeaders() } }
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch current company options: ${response.status} ${response.statusText}`
+      );
+    }
+    const data = (await response.json()) as unknown;
+    const raw = Array.isArray(data) ? data : [];
+    const out: IndividualCurrentCompanyOption[] = [];
+    for (const item of raw) {
+      const obj = item as Partial<IndividualCurrentCompanyOption>;
+      const name = typeof obj?.name === "string" ? obj.name.trim() : "";
+      if (!name || !Number.isFinite(Number(obj.id))) continue;
+      out.push({ id: Number(obj.id), name, people_count: obj.people_count });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Investor type options used by Investors page filters.

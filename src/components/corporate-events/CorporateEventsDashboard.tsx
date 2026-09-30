@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService } from "@/lib/locationsService";
+import { locationsService, type CorporateEventTargetOption } from "@/lib/locationsService";
 import {
   fetchUserPortfolioData,
   portfolioDataToUserPortfolioRecord,
@@ -119,6 +119,7 @@ export const CorporateEventsDashboard = ({
     []
   );
   const [fundingStages, setFundingStages] = useState<string[]>([]);
+  const [targetOptions, setTargetOptions] = useState<CorporateEventTargetOption[]>([]);
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
@@ -181,6 +182,10 @@ export const CorporateEventsDashboard = ({
         }
       })
       .catch(console.error);
+    locationsService
+      .getCorporateEventTargetOptions()
+      .then(setTargetOptions)
+      .catch(console.error);
     fetchUserPortfolioData()
       .then((portfolioData) => {
         const typeLabel: Record<string, string> = {
@@ -242,6 +247,7 @@ export const CorporateEventsDashboard = ({
         secondarySectors,
         fundingStages,
         portfolioEntityOptions,
+        targetOptions,
       }).filter((def) => !excludeFilterIds.includes(def.id)),
     [
       continentalRegions,
@@ -253,6 +259,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       fundingStages,
       portfolioEntityOptions,
+      targetOptions,
       excludeFilterIds,
     ]
   );

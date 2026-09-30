@@ -72,6 +72,9 @@ export function buildCompaniesFilterDefs({
   primarySectors,
   secondarySectors,
   ownershipTypes,
+  productTypes = [],
+  dataCollectionMethods = [],
+  revenueModels = [],
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -81,6 +84,9 @@ export function buildCompaniesFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
+  productTypes?: string[];
+  dataCollectionMethods?: string[];
+  revenueModels?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     region: { options: continentalRegions },
@@ -91,6 +97,9 @@ export function buildCompaniesFilterDefs({
     primary_sector: { options: primarySectors.map((s) => s.sector_name) },
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
+    product_type: { options: productTypes },
+    data_collection_method: { options: dataCollectionMethods },
+    revenue_model: { options: revenueModels },
     transaction: {
       options: [
         "Rumoured in Market",

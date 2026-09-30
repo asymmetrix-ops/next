@@ -70,6 +70,7 @@ export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "sectors", name: "Sector Invested In" },
   { id: "investor_type", name: "Investor Type" },
   { id: "portfolio", name: "Portfolio" },
+  { id: "overview", name: "Overview" },
 ];
 
 export const INVESTOR_TYPE_TAB_ORDER: Exclude<InvestorTypeTab, "all">[] = [
@@ -202,6 +203,36 @@ export function buildInvestorsFilterDefs({
         ["51–200", 51, 200],
         ["200+", 200, 10000],
       ],
+    },
+    linkedin_members: {
+      type: "#",
+      editor: "range",
+      min: 0,
+      max: 100000,
+      presets: [
+        ["<100", 0, 99],
+        ["100–999", 100, 999],
+        ["1k–9.9k", 1000, 9999],
+        ["10k+", 10000, 100000],
+      ],
+    },
+    year_founded: {
+      type: "#",
+      editor: "range",
+      min: 1800,
+      max: 2030,
+      presets: [
+        ["Pre-2000", 1800, 1999],
+        ["2000–2009", 2000, 2009],
+        ["2010–2019", 2010, 2019],
+        ["2020+", 2020, 2030],
+      ],
+    },
+    total_investments: {
+      type: "#",
+      editor: "range",
+      min: 0,
+      max: 10000,
     },
     years_since_inv: {
       unit: "yrs",

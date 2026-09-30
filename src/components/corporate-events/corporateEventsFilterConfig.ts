@@ -191,6 +191,7 @@ export function buildCorporateEventsFilterDefs({
   secondarySectors,
   fundingStages,
   portfolioEntityOptions = [],
+  targetOptions = [],
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -201,6 +202,7 @@ export function buildCorporateEventsFilterDefs({
   secondarySectors: SecondarySector[];
   fundingStages: string[];
   portfolioEntityOptions?: string[];
+  targetOptions?: Array<{ id: number; name: string }>;
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     deal_type: { options: DEAL_TYPE_OPTIONS },
@@ -217,6 +219,12 @@ export function buildCorporateEventsFilterDefs({
     primary_sector: { options: primarySectors.map((s) => s.sector_name) },
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     portfolio_entity: { options: portfolioEntityOptions },
+    target: {
+      options: targetOptions.map((o) => String(o.id)),
+      optionLabels: Object.fromEntries(
+        targetOptions.map((o) => [String(o.id), o.name])
+      ),
+    },
   };
 
   const columnLinked = buildColumnLinkedFilterDefs(overrides);

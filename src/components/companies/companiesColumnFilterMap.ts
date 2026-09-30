@@ -29,9 +29,6 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "hq",
   "investors",
   "lifecycle_stage",
-  "product_type",
-  "data_collection_method",
-  "revenue_model",
 ]);
 
 /**

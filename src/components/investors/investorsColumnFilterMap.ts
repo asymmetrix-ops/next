@@ -30,6 +30,9 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   investor_type: "type",
   portfolio_companies: "portfolio_companies",
   years_since_inv: "years_since_last_investment",
+  linkedin_members: "linkedin_members",
+  year_founded: "year_founded",
+  total_investments: "total_investments",
   followed: "follow",
 };
 
@@ -78,6 +81,13 @@ function mapColumnCategoryToFilterCategory(column: InvestorColumnMeta): string {
     return column.columnKey === "primary_sectors" ? "sectors" : "portfolio";
   }
   if (column.columnKey === "type") return "investor_type";
+  if (
+    column.columnKey === "linkedin_members" ||
+    column.columnKey === "year_founded" ||
+    column.columnKey === "total_investments"
+  ) {
+    return "overview";
+  }
   return "location";
 }
 

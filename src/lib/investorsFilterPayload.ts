@@ -189,6 +189,20 @@ export function buildInvestorsSearchPayload(args: {
       });
       continue;
     }
+    if (
+      (item.id === "linkedin_members" ||
+        item.id === "year_founded" ||
+        item.id === "total_investments") &&
+      hasRangeValue(v)
+    ) {
+      pushClause({
+        id: item.key,
+        type: item.id,
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
     if (item.id === "years_since_inv" && hasRangeValue(v)) {
       pushClause({
         id: item.key,

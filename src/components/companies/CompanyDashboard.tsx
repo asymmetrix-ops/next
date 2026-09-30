@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService } from "@/lib/locationsService";
+import { locationsService, type CompanyFilterOption } from "@/lib/locationsService";
 import {
   buildCompaniesCountsSearchPayload,
   buildCompaniesSearchPayload,
@@ -148,6 +148,9 @@ export const CompanyDashboard = ({
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [productTypes, setProductTypes] = useState<CompanyFilterOption[]>([]);
+  const [dataCollectionMethods, setDataCollectionMethods] = useState<CompanyFilterOption[]>([]);
+  const [revenueModels, setRevenueModels] = useState<CompanyFilterOption[]>([]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
@@ -174,6 +177,9 @@ export const CompanyDashboard = ({
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
+    locationsService.getCompanyProductTypeOptions().then(setProductTypes).catch(console.error);
+    locationsService.getDataCollectionMethods().then(setDataCollectionMethods).catch(console.error);
+    locationsService.getRevenueModels().then(setRevenueModels).catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -266,6 +272,9 @@ export const CompanyDashboard = ({
       primarySectors,
       secondarySectors,
       ownershipTypes,
+      productTypes: productTypes.map((o) => o.label),
+      dataCollectionMethods: dataCollectionMethods.map((o) => o.label),
+      revenueModels: revenueModels.map((o) => o.label),
     });
     const merged = [...extraFilterDefs, ...defs];
     if (excludeFilterIds.length === 0) return merged;
@@ -280,6 +289,9 @@ export const CompanyDashboard = ({
     primarySectors,
     secondarySectors,
     ownershipTypes,
+    productTypes,
+    dataCollectionMethods,
+    revenueModels,
     excludeFilterIds,
     extraFilterDefs,
   ]);
@@ -310,6 +322,15 @@ export const CompanyDashboard = ({
   }, [filterBarState, onFilterBarStateChange]);
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
+  const multiValueOptions = useMemo(
+    () => ({
+      product_type: productTypes,
+      data_collection_method: dataCollectionMethods,
+      revenue_model: revenueModels,
+    }),
+    [productTypes, dataCollectionMethods, revenueModels]
+  );
+
   const buildGlobalSearchFilters = useCallback((): Filters => {
     return buildCompaniesCountsSearchPayload({
       state: filterBarState,
@@ -320,6 +341,7 @@ export const CompanyDashboard = ({
       scopedSecondarySectorIds,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
+      multiValueOptions,
     });
   }, [
     filterBarState,
@@ -330,6 +352,7 @@ export const CompanyDashboard = ({
     scopedSecondarySectorIds,
     portfolioCompanyIds,
     hybridBusinessFocusIds,
+    multiValueOptions,
   ]);
 
   const buildSearchFilters = useCallback((opts?: { ignoreOwnership?: boolean }): Filters => {
@@ -347,6 +370,7 @@ export const CompanyDashboard = ({
       scopedSecondarySectorIds,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
+      multiValueOptions,
     });
   }, [
     filterBarState,
@@ -359,6 +383,7 @@ export const CompanyDashboard = ({
     scopedSecondarySectorIds,
     portfolioCompanyIds,
     hybridBusinessFocusIds,
+    multiValueOptions,
   ]);
 
   const buildGlobalSearchFiltersRef = useRef(buildGlobalSearchFilters);

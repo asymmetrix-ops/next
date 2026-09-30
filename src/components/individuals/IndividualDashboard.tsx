@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService } from "@/lib/locationsService";
+import { locationsService, type IndividualCurrentCompanyOption } from "@/lib/locationsService";
 import { buildIndividualsSearchPayload } from "@/lib/individualsFilterPayload";
 import type { IndividualsSearchFilters } from "@/app/individuals/actions";
 import { fetchIndividualsCountsServer } from "@/app/individuals/actions";
@@ -106,6 +106,7 @@ export const IndividualDashboard = ({
 
   const [activeRoleTab, setActiveRoleTab] = useState<IndividualRoleTab>("all");
 
+  const [currentCompanies, setCurrentCompanies] = useState<IndividualCurrentCompanyOption[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
@@ -142,6 +143,7 @@ export const IndividualDashboard = ({
 
   useEffect(() => {
     locationsService.getCountries().then(setCountries).catch(console.error);
+    locationsService.getIndividualCurrentCompanyOptions().then(setCurrentCompanies).catch(console.error);
     locationsService.getContinentalRegions().then(setContinentalRegions).catch(console.error);
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
@@ -193,6 +195,7 @@ export const IndividualDashboard = ({
         primarySectors,
         secondarySectors,
         jobTitles,
+        currentCompanyOptions: currentCompanies,
       }),
     [
       continentalRegions,
@@ -203,6 +206,7 @@ export const IndividualDashboard = ({
       primarySectors,
       secondarySectors,
       jobTitles,
+      currentCompanies,
     ]
   );
 

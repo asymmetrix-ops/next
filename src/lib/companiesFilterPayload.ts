@@ -138,6 +138,13 @@ export function buildCompaniesSearchPayload(args: {
   scopedSecondarySectorIds?: number[];
   portfolioCompanyIds?: number[];
   hybridBusinessFocusIds?: number[];
+  /** Label → id lookups for multi-value company filters (product type etc.). */
+  multiValueOptions?: Partial<
+    Record<
+      "product_type" | "data_collection_method" | "revenue_model",
+      Array<{ id: number; label: string }>
+    >
+  >;
   columns?: string[];
   page?: number;
   perPage?: number;
@@ -153,6 +160,7 @@ export function buildCompaniesSearchPayload(args: {
     scopedSecondarySectorIds = [],
     portfolioCompanyIds = [],
     hybridBusinessFocusIds = [],
+    multiValueOptions = {},
     columns = [],
     page = 1,
     perPage = 20,
@@ -326,6 +334,30 @@ export function buildCompaniesSearchPayload(args: {
           op,
         });
       }
+      continue;
+    }
+    if (
+      (item.id === "product_type" ||
+        item.id === "data_collection_method" ||
+        item.id === "revenue_model") &&
+      Array.isArray(v) &&
+      v.length > 0
+    ) {
+      pushClause({
+        id: item.key,
+        type: item.id,
+        value: {
+          value: v as string[],
+          ids: (v as string[])
+            .map((label) =>
+              multiValueOptions[item.id as keyof typeof multiValueOptions]?.find(
+                (o) => o.label === label
+              )?.id
+            )
+            .filter((id): id is number => id != null),
+        },
+        op,
+      });
       continue;
     }
     if (item.id === "headcount" && hasRangeValue(v)) {

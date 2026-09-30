@@ -15,6 +15,11 @@ export interface IndividualsSearchFilters {
   Primary_Sectors: number[];
   Secondary_Sectors: number[];
   Job_Titles: number[];
+  /** Current employer company ids (requires `current_company_ids` backend support). */
+  Current_Companies: number[];
+  /** Advisor deal count range (non-advisors count as 0). */
+  Advisor_Deal_Count_Min?: number;
+  Advisor_Deal_Count_Max?: number;
   Statuses: string[];
   portfolio_only: boolean;
   advisors_only?: boolean;
@@ -86,6 +91,23 @@ function applyFilterItem(
     next.Job_Titles = resolveJobTitleIds(v as string[], jobTitles);
     return next;
   }
+  if (item.id === "current_company" && Array.isArray(v)) {
+    const ids = (v as string[])
+      .map(Number)
+      .filter((id) => Number.isFinite(id) && id > 0);
+    next.Current_Companies = Array.from(new Set(ids));
+    return next;
+  }
+  if (
+    item.id === "corporate_events" &&
+    typeof v === "object" &&
+    !Array.isArray(v)
+  ) {
+    const range = v as { min?: number; max?: number };
+    if (range.min !== undefined) next.Advisor_Deal_Count_Min = range.min;
+    if (range.max !== undefined) next.Advisor_Deal_Count_Max = range.max;
+    return next;
+  }
   if (item.id === "status" && Array.isArray(v)) {
     next.Statuses = v as string[];
     return next;
@@ -110,6 +132,7 @@ export const createDefaultIndividualFilters = (): IndividualsSearchFilters => ({
   Primary_Sectors: [],
   Secondary_Sectors: [],
   Job_Titles: [],
+  Current_Companies: [],
   Statuses: [],
   portfolio_only: false,
   sort_by: "name",
@@ -211,6 +234,15 @@ function appendIndividualsFilterParams(
   if (filters.Job_Titles.length > 0) {
     params.append("job_titles_ids", filters.Job_Titles.join(","));
   }
+  if (filters.Current_Companies.length > 0) {
+    params.append("current_company_ids", filters.Current_Companies.join(","));
+  }
+  if (filters.Advisor_Deal_Count_Min !== undefined) {
+    params.append("advisor_deal_count_min", String(filters.Advisor_Deal_Count_Min));
+  }
+  if (filters.Advisor_Deal_Count_Max !== undefined) {
+    params.append("advisor_deal_count_max", String(filters.Advisor_Deal_Count_Max));
+  }
   if (filters.Statuses.length > 0) {
     params.append("statuses", filters.Statuses.join(","));
   }
@@ -268,6 +300,9 @@ export function individualsFiltersToRequestBody(
     primary_sectors_ids: toIndividualsApiArray(filters.Primary_Sectors),
     Secondary_sectors_ids: toIndividualsApiArray(filters.Secondary_Sectors),
     job_titles_ids: toIndividualsApiArray(filters.Job_Titles),
+    current_company_ids: toIndividualsApiArray(filters.Current_Companies),
+    advisor_deal_count_min: filters.Advisor_Deal_Count_Min ?? null,
+    advisor_deal_count_max: filters.Advisor_Deal_Count_Max ?? null,
     statuses: toIndividualsApiArray(filters.Statuses),
     portfolio_only: filters.portfolio_only ? true : null,
     ...(filters.advisors_only ? { advisors_only: "true" } : {}),

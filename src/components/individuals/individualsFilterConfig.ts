@@ -124,6 +124,7 @@ export function buildIndividualsFilterDefs({
   primarySectors,
   secondarySectors,
   jobTitles,
+  currentCompanyOptions = [],
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -133,6 +134,7 @@ export function buildIndividualsFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   jobTitles: JobTitleOption[];
+  currentCompanyOptions?: Array<{ id: number; name: string }>;
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     region: { options: continentalRegions },
@@ -144,6 +146,24 @@ export function buildIndividualsFilterDefs({
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     job_title: { options: jobTitles.map((title) => title.job_title) },
     status: { options: STATUS_FILTER_OPTIONS },
+    current_company: {
+      options: currentCompanyOptions.map((c) => String(c.id)),
+      optionLabels: Object.fromEntries(
+        currentCompanyOptions.map((c) => [String(c.id), c.name])
+      ),
+    },
+    corporate_events: {
+      type: "#",
+      editor: "range",
+      min: 0,
+      max: 200,
+      presets: [
+        ["Advisors (1+)", 1, 200],
+        ["1–5 deals", 1, 5],
+        ["6–20 deals", 6, 20],
+        ["20+ deals", 20, 200],
+      ],
+    },
   };
 
   const columnLinked = buildColumnLinkedFilterDefs(overrides);

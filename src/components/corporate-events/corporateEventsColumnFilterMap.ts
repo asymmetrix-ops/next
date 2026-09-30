@@ -11,12 +11,15 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "description",
   "parties",
   "advisors",
+  // Shows deal type + amount, already covered by the Deal Type / Investment Amount filters.
+  "deal_details",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   country: "target_hq",
   primary_sector: "primary_sectors",
   secondary_sector: "secondary_sectors",
+  target: "target",
   deal_type: "deal_type",
   deal_status: "deal_type",
   funding_stage: "funding_stage",

@@ -185,3 +185,20 @@ All colors MUST be HSL.
 .entity-chip-individual:hover { background-color: #D5CFF0 !important; }
 .entity-chip-sector:hover { background-color: #E5DAF9 !important; }
 .entity-chip-subsector:hover { background-color: #F2ECFC !important; }
+
+/* Filter picker list: slim scrollbar without the native up/down arrow buttons */
+.ax-filter-picker-list::-webkit-scrollbar {
+  width: 8px;
+}
+.ax-filter-picker-list::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.ax-filter-picker-list::-webkit-scrollbar-thumb {
+  background: var(--ax-gray-200, #d5dae1);
+  border-radius: 999px;
+}
+.ax-filter-picker-list::-webkit-scrollbar-track {
+  background: transparent;
+}

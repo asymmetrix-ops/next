@@ -5,6 +5,9 @@ export type InvestorFilterType =
   | "investor_type_ids"
   | "portfolio_companies_count"
   | "years_since_investment"
+  | "linkedin_members"
+  | "year_founded"
+  | "total_investments"
   | "country"
   | "province"
   | "city"
@@ -67,6 +70,24 @@ export function buildInvestorFilterClauseSql(
     switch (type) {
       case "portfolio_companies_count":
         return buildRangeSql("nc.number_of_active_investments", min, max);
+      case "linkedin_members":
+        return buildRangeSql(
+          `COALESCE(ld.linkedin_employee, (nc.linkedin_data ->> 'LinkedIn_Employee')::int)`,
+          min,
+          max
+        );
+      case "year_founded":
+        return buildRangeSql(
+          `yf."Year"::int`,
+          min,
+          max
+        );
+      case "total_investments":
+        return buildRangeSql(
+          `(COALESCE(cardinality(inv."Active_DA_Portfolio_Companies_id"), 0) + COALESCE(cardinality(inv."Past_DA_Portfolio_Companies_id"), 0))`,
+          min,
+          max
+        );
       case "years_since_investment": {
         const minDays = min != null ? min * 365 : undefined;
         const maxDays = max != null ? max * 365 : undefined;

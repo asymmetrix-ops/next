@@ -49,11 +49,14 @@ export type FilterType =
   | "holding_period_years"
   | "financial_year_range"
   | "linkedin_growth_range"
-  | "has_mcp";
+  | "has_mcp"
+  | "product_type"
+  | "data_collection_method"
+  | "revenue_model";
 
 export type FilterValue =
   | { min?: number; max?: number }
-  | { value: string | number | string[] | number[] };
+  | { value: string | number | string[] | number[]; ids?: number[] };
 
 export interface FilterClause {
   id: string;
@@ -96,6 +99,21 @@ const FINANCIAL_TYPES = new Set(Object.keys(FINANCIAL_FIELD_MAP));
 
 const esc = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
 
+/**
+ * Matches labels and/or ids against a multi-value column cast to text
+ * (text, text[], int[] or jsonb) on element boundaries.
+ */
+const multiValueSql = (column: string, labels: string[], ids: number[]) => {
+  const reEscape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tokens = [
+    ...labels.map((l) => String(l).trim()).filter(Boolean),
+    ...ids.filter((i) => Number.isFinite(i)).map(String),
+  ];
+  if (tokens.length === 0) return null;
+  const re = `(^|[{\\["|,])\\s*(${tokens.map(reEscape).join("|")})\\s*($|[}\\]"|,])`;
+  return `${column}::text ~* ${esc(re)}`;
+};
+
 const inList = (values: string[] | number[]) =>
   (values as string[]).map((v) => esc(String(v))).join(",");
 
@@ -109,6 +127,9 @@ function buildRangeSql(field: string, min?: number, max?: number): string | null
   if (hasMax) return `(${field} IS NOT NULL AND ${field} <= ${max})`;
   return null;
 }
+
+const toLabelList = (val: unknown): string[] =>
+  Array.isArray(val) ? val.map(String) : val == null ? [] : [String(val)];
 
 // ─── CORE BUILDER ────────────────────────────────────────────────────────────
 
@@ -246,6 +267,13 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
 
       case "has_mcp":
         return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
+
+      case "product_type":
+        return multiValueSql('nc."Product_Type"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
+      case "data_collection_method":
+        return multiValueSql('nc."Data_Collection_Method"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
+      case "revenue_model":
+        return multiValueSql('nc."Revenue_Model"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
 
       default:
         return null;

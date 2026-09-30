@@ -275,6 +275,13 @@ function buildFiltersFromFilterBar(args: {
       filters.filter_individual_ids = parsed.filter_individual_ids;
       continue;
     }
+    if (item.id === "target" && Array.isArray(v) && v.length > 0) {
+      const ids = (v as string[])
+        .map(Number)
+        .filter((id) => Number.isFinite(id) && id > 0);
+      if (ids.length > 0) filters.target_company_ids = Array.from(new Set(ids));
+      continue;
+    }
     if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
       filters.Product_Types = v as string[];
     }
@@ -400,6 +407,9 @@ function appendSharedCorporateEventFilterParams(
   }
 
   params.append("new_company_id", String(filters.new_company_id ?? 0));
+  (filters.target_company_ids ?? []).forEach((id) =>
+    params.append("target_company_ids[]", String(id))
+  );
   params.append("target_company_id", String(filters.target_company_id ?? 0));
   params.append("individual_id", String(filters.individual_id ?? 0));
   params.append("investor_id", String(filters.investor_id ?? 0));
