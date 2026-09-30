@@ -1356,21 +1356,6 @@ const InvestorDetailPage = () => {
               >
                 {Investor.name}
               </span>
-              {investorType && (
-                <div
-                  style={{
-                    marginTop: 3,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontFamily: T.sans,
-                    fontSize: 13,
-                    color: T.muted,
-                  }}
-                >
-                  <span>{investorType}</span>
-                </div>
-              )}
             </div>
           </div>
 
