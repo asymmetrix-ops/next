@@ -12,7 +12,6 @@ import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/t
 import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
 import { locationsService } from "@/lib/locationsService";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
-import { SEARCH_BULK_TOOLBAR_STYLES } from "@/components/search/searchTableStyles";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import {
   fetchTransactionCompsOptionsServer,
@@ -301,8 +300,6 @@ export function TransactionCompsView() {
       ) : (
         <div className="px-7 py-4">
           {selectedIds.size > 0 && (
-            <>
-            <style dangerouslySetInnerHTML={{ __html: SEARCH_BULK_TOOLBAR_STYLES }} />
             <BulkPortfolioActionToolbar
               entityType="company"
               entityIds={Array.from(selectedIds)}
@@ -310,7 +307,6 @@ export function TransactionCompsView() {
               exporting={exporting}
               onExport={exportList}
             />
-            </>
           )}
           <TransactionCompsTable
             rows={rows}

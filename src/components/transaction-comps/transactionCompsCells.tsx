@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
 import type { TransactionCompRow } from "./transactionCompsTypes";
 
 export const NUMERIC_COLUMNS = new Set([
@@ -42,13 +43,19 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
   switch (key) {
     case "company":
       return (
-        <div className="flex min-w-0 items-center gap-2.5">
-          <CompanyAvatar name={row.company_name} logo={row.logo} size={28} />
-          <div className="min-w-0">
-            <Link href={`/company/${row.company_id}`} className="block truncate font-semibold text-blue-700 hover:underline">
+        <div className="company-table-entity-name-cell">
+          <CompanyAvatar name={row.company_name} logo={row.logo} size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX} />
+          <div className="company-table-entity-name-text">
+            <Link
+              href={`/company/${row.company_id}`}
+              className="company-table-entity-name company-table-entity-name-link"
+              style={{ color: "#0A0E1A" }}
+            >
               {row.company_name}
             </Link>
-            <div className="truncate text-xs text-gray-500">{row.hq_country ?? ""}</div>
+            {row.hq_country && (
+              <div className="company-table-entity-subtitle">{row.hq_country}</div>
+            )}
           </div>
         </div>
       );

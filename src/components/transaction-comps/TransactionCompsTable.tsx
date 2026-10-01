@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import { ALL_TRANSACTION_COMPS_COLUMN_META } from "./transactionCompsColumns";
 import {
   NUMERIC_COLUMNS,
@@ -11,6 +12,21 @@ import type { TransactionCompRow } from "./transactionCompsTypes";
 
 const LABELS = new Map(ALL_TRANSACTION_COMPS_COLUMN_META.map((c) => [c.columnKey, c.label]));
 
+/** Width of the checkbox column; the frozen Company column sticks right after it. */
+const SELECT_COL_WIDTH = 44;
+const COMPANY_COL_WIDTH = 260;
+
+const MIN_WIDTH: Record<string, number> = {
+  company: COMPANY_COL_WIDTH,
+  corporate_events: 300,
+  acquirer_investor: 200,
+  sector: 200,
+};
+
+/**
+ * Same table chrome as the Companies list (`company-table*` classes from
+ * SEARCH_TABLE_STYLES): dedicated hover-checkbox column + frozen first column.
+ */
 export function TransactionCompsTable({
   rows,
   columnKeys,
@@ -35,94 +51,126 @@ export function TransactionCompsTable({
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.company_id));
   const someSelected = rows.some((r) => selectedIds.has(r.company_id));
 
+  const stickyStyle = (key: string, header: boolean, selected = false): React.CSSProperties | undefined =>
+    key === "company"
+      ? {
+          position: "sticky",
+          left: SELECT_COL_WIDTH,
+          zIndex: header ? 7 : 3,
+          boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+          background: header ? "#F5F7FD" : selected ? "#EFF6FF" : "#fff",
+        }
+      : undefined;
+
   return (
-    <div className={`relative isolate overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
-      <table className="min-w-full border-separate border-spacing-0 text-sm text-gray-800">
-        <thead>
-          <tr>
-            {columnKeys.map((key, i) => {
-              const apiSort = SORT_BY_COLUMN[key];
-              const active = apiSort === sortBy;
+    <>
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
+      <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
+        <table className="company-table">
+          <thead>
+            <tr>
+              <th
+                className="company-table-select-cell"
+                style={{ minWidth: SELECT_COL_WIDTH, width: SELECT_COL_WIDTH, textAlign: "center" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allSelected && someSelected;
+                  }}
+                  onChange={(e) => onToggleAll(e.target.checked)}
+                  aria-label="Select all companies on this page"
+                />
+              </th>
+              {columnKeys.map((key) => {
+                const apiSort = SORT_BY_COLUMN[key];
+                const active = apiSort === sortBy;
+                return (
+                  <th
+                    key={key}
+                    className={[
+                      apiSort ? "company-table-th-sortable" : "",
+                      key === "company" ? "company-table-sticky-frozen" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{
+                      minWidth: MIN_WIDTH[key],
+                      textAlign: NUMERIC_COLUMNS.has(key) ? "right" : undefined,
+                      ...stickyStyle(key, true),
+                    }}
+                    onClick={apiSort ? () => onSort(apiSort) : undefined}
+                  >
+                    {LABELS.get(key)}
+                    {active && (
+                      <span className="company-table-sort-indicator">
+                        {sortDir === "asc" ? " ↑" : " ↓"}
+                      </span>
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const selected = selectedIds.has(row.company_id);
               return (
-                <th
-                  key={key}
-                  className={`whitespace-nowrap border-b border-gray-200 bg-gray-50 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 ${
-                    NUMERIC_COLUMNS.has(key) ? "text-right" : "text-left"
-                  } ${i === 0 ? "sticky left-0 z-20 min-w-[280px]" : ""}`}
+                <tr
+                  key={`${row.company_id}-${row.corporate_event?.id ?? ""}`}
+                  className={selected ? "company-table-row-selected" : undefined}
                 >
-                  <div className={`flex items-center gap-3 ${NUMERIC_COLUMNS.has(key) ? "justify-end" : ""}`}>
-                    {i === 0 && (
-                      <input
-                        type="checkbox"
-                        aria-label="Select all"
-                        checked={allSelected}
-                        ref={(el) => {
-                          if (el) el.indeterminate = !allSelected && someSelected;
-                        }}
-                        onChange={(e) => onToggleAll(e.target.checked)}
-                      />
-                    )}
-                    {apiSort ? (
-                      <button type="button" onClick={() => onSort(apiSort)} className="uppercase hover:text-gray-800">
-                        {LABELS.get(key)}
-                        {active ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                      </button>
-                    ) : (
-                      LABELS.get(key)
-                    )}
-                  </div>
-                </th>
+                  <td
+                    className="company-table-select-cell"
+                    style={{
+                      minWidth: SELECT_COL_WIDTH,
+                      width: SELECT_COL_WIDTH,
+                      textAlign: "center",
+                      background: selected ? "#EFF6FF" : "#fff",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => onToggleRow(row.company_id)}
+                      aria-label={`Select ${row.company_name}`}
+                    />
+                  </td>
+                  {columnKeys.map((key) => (
+                    <td
+                      key={key}
+                      className={key === "company" ? "company-table-sticky-frozen" : undefined}
+                      style={{
+                        minWidth: MIN_WIDTH[key],
+                        textAlign: NUMERIC_COLUMNS.has(key) ? "right" : undefined,
+                        fontVariantNumeric: NUMERIC_COLUMNS.has(key) ? "tabular-nums" : undefined,
+                        ...stickyStyle(key, false, selected),
+                      }}
+                    >
+                      {renderTransactionCompCell(row, key)}
+                    </td>
+                  ))}
+                </tr>
               );
             })}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const selected = selectedIds.has(row.company_id);
-            return (
-              <tr key={`${row.company_id}-${row.corporate_event?.id ?? ""}`} className="group">
-                {columnKeys.map((key, i) => (
-                  <td
-                    key={key}
-                    className={`border-b border-gray-100 px-4 py-3 align-middle ${
-                      NUMERIC_COLUMNS.has(key) ? "whitespace-nowrap text-right tabular-nums" : key === "corporate_events" ? "min-w-[280px]" : ""
-                    } ${selected ? "bg-blue-50" : "bg-white group-hover:bg-gray-50"} ${
-                      i === 0 ? "sticky left-0 z-10 min-w-[280px]" : ""
-                    }`}
-                  >
-                    {i === 0 ? (
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${row.company_name}`}
-                          checked={selected}
-                          onChange={() => onToggleRow(row.company_id)}
-                          className={`transition-opacity ${
-                            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-                          }`}
-                        />
-                        {renderTransactionCompCell(row, key)}
-                      </div>
-                    ) : (
-                      renderTransactionCompCell(row, key)
-                    )}
-                  </td>
-                ))}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "#6B7488" }}>
+                  No transactions match your filters.
+                </td>
               </tr>
-            );
-          })}
-          {!loading && rows.length === 0 && (
-            <tr>
-              <td colSpan={columnKeys.length} className="px-4 py-12 text-center text-gray-500">
-                No transactions match your filters.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {loading && rows.length === 0 && (
-        <div className="px-4 py-12 text-center text-gray-500">Loading transaction comps…</div>
-      )}
-    </div>
+            )}
+            {loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "#6B7488" }}>
+                  Loading transaction comps…
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
