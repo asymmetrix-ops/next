@@ -195,7 +195,21 @@ class LocationsService {
    * and works with no countries. Fetches every page and returns distinct,
    * non-empty province names. Also tolerates the legacy plain-array response.
    */
-  async getProvinces(countries: string[] = []): Promise<Province[]> {
+  private provincesCache = new Map<string, Promise<Province[]>>();
+
+  /** Cached per country set so the (multi-page) fetch runs once per session. */
+  getProvinces(countries: string[] = []): Promise<Province[]> {
+    const key = [...countries].sort().join("|");
+    let cached = this.provincesCache.get(key);
+    if (!cached) {
+      cached = this.fetchAllProvinces(countries);
+      this.provincesCache.set(key, cached);
+      cached.catch(() => this.provincesCache.delete(key));
+    }
+    return cached;
+  }
+
+  private async fetchAllProvinces(countries: string[]): Promise<Province[]> {
     const perPage = 200; // Xano max for locations_get_province
     const fetchPage = async (page: number) => {
       const queryParams = new URLSearchParams();
