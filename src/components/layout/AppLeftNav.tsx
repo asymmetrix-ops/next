@@ -18,6 +18,7 @@ import {
   Squares2X2Icon,
   BookmarkIcon,
   Cog6ToothIcon,
+  ScaleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -34,6 +35,8 @@ type NavCounts = {
   sectors?: number;
   insightsAnalysis?: number;
   dealRadar?: number;
+  financialIntelligence?: number;
+  transactionComps?: number;
 };
 
 type NavSection = {
@@ -53,6 +56,14 @@ const SECTIONS: NavSection[] = [
     isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
+    key: "insightsAnalysis",
+    label: "Insights & Analysis",
+    href: "/insights-analysis",
+    icon: LightBulbIcon,
+    isActive: (p) =>
+      p.startsWith("/insights-analysis") || p.startsWith("/article/"),
+  },
+  {
     key: "companies",
     label: "Companies",
     href: "/companies",
@@ -61,6 +72,28 @@ const SECTIONS: NavSection[] = [
       p.startsWith("/companies") ||
       p.startsWith("/company/") ||
       p.startsWith("/new_company/"),
+  },
+  {
+    key: "financialIntelligence",
+    label: "Financial Intelligence",
+    href: "/financial-intelligence",
+    icon: Squares2X2Icon,
+    isActive: (p) => p.startsWith("/financial-intelligence"),
+  },
+  {
+    key: "corporateEvents",
+    label: "Corporate Events",
+    href: "/corporate-events",
+    icon: CalendarDaysIcon,
+    isActive: (p) =>
+      p.startsWith("/corporate-events") || p.startsWith("/corporate-event/"),
+  },
+  {
+    key: "transactionComps",
+    label: "Transaction Comps",
+    href: "/transaction-comps",
+    icon: ScaleIcon,
+    isActive: (p) => p.startsWith("/transaction-comps"),
   },
   {
     key: "sectors",
@@ -94,25 +127,8 @@ const SECTIONS: NavSection[] = [
     isActive: (p) =>
       p.startsWith("/individuals") || p.startsWith("/individual/"),
   },
-  {
-    key: "corporateEvents",
-    label: "Corporate Events",
-    href: "/corporate-events",
-    icon: CalendarDaysIcon,
-    isActive: (p) =>
-      p.startsWith("/corporate-events") || p.startsWith("/corporate-event/"),
-  },
-  {
-    key: "insightsAnalysis",
-    label: "Insights & Analysis",
-    href: "/insights-analysis",
-    icon: LightBulbIcon,
-    isActive: (p) =>
-      p.startsWith("/insights-analysis") || p.startsWith("/article/"),
-  },
 ];
 
-const FINANCIAL_INTELLIGENCE_HREF = "/financial-intelligence";
 const MY_PORTFOLIO_HREF = "/my-portfolio";
 const DASHBOARD_HREF = "/home-user";
 
@@ -323,14 +339,6 @@ export default function AppLeftNav() {
             active={s.isActive(pathname)}
           />
         ))}
-        <NavRow
-          open={open}
-          href={FINANCIAL_INTELLIGENCE_HREF}
-          label="Financial Intelligence"
-          icon={Squares2X2Icon}
-          count={null}
-          active={pathname.startsWith(FINANCIAL_INTELLIGENCE_HREF)}
-        />
         <NavRow
           open={open}
           href={MY_PORTFOLIO_HREF}

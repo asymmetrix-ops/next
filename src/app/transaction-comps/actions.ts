@@ -1,0 +1,106 @@
+"use server";
+
+import { cookies } from "next/headers";
+import type {
+  TransactionCompsOption,
+  TransactionCompsOptionType,
+  TransactionCompsQuery,
+  TransactionCompsResponse,
+} from "@/components/transaction-comps/transactionCompsTypes";
+
+const TRANSACTION_COMPS_API_BASE =
+  "https://xdil-abvj-o7rq.e2.xano.io/api:lqZy8LiD:develop";
+
+function buildParams(q: TransactionCompsQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("page", String(Math.max(1, q.page)));
+  params.set("per_page", String(q.perPage));
+  params.set("sort_by", q.sortBy);
+  params.set("sort_dir", q.sortDir);
+  if (q.searchText.trim()) params.set("search", q.searchText.trim());
+  // Only send bounds the user set: the API treats 0 as a real value.
+  for (const [stem, r] of Object.entries(q.ranges)) {
+    if (r.min !== undefined) params.set(`${stem}_min`, String(r.min));
+    if (r.max !== undefined) params.set(`${stem}_max`, String(r.max));
+  }
+  if (q.dealDateFrom) params.set("deal_date_from", q.dealDateFrom);
+  if (q.dealDateTo) params.set("deal_date_to", q.dealDateTo);
+  const lists: [string, (string | number)[]][] = [
+    ["sector_ids", q.sectorIds],
+    ["countries", q.countries],
+    ["ownership_ids", q.ownershipIds],
+    ["deal_types", q.dealTypes],
+    ["deal_statuses", q.dealStatuses],
+    ["acquirer_ids", q.acquirerIds],
+    ["ce_ids", q.ceIds],
+    ["ids", q.ids],
+  ];
+  for (const [name, values] of lists) {
+    if (values.length > 0) params.set(name, values.join(","));
+  }
+  return params;
+}
+
+export async function fetchTransactionCompsServer(
+  query: TransactionCompsQuery
+): Promise<TransactionCompsResponse | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    if (!token) return null;
+
+    const response = await fetch(
+      `${TRANSACTION_COMPS_API_BASE}/transaction_comps?${buildParams(query).toString()}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) {
+      console.error(
+        `Transaction comps API failed (${response.status}):`,
+        await response.text().catch(() => response.statusText)
+      );
+      return null;
+    }
+    const raw = (await response.json()) as Partial<TransactionCompsResponse>;
+    const items = Array.isArray(raw.items) ? raw.items : [];
+    return {
+      total: Number(raw.total) || items.length,
+      page: Number(raw.page) || query.page,
+      per_page: Number(raw.per_page) || query.perPage,
+      items,
+    };
+  } catch (error) {
+    console.error("fetchTransactionCompsServer error:", error);
+    return null;
+  }
+}
+
+export async function fetchTransactionCompsOptionsServer(
+  type: TransactionCompsOptionType,
+  q = "",
+  limit = 1000
+): Promise<TransactionCompsOption[]> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    if (!token) return [];
+    const params = new URLSearchParams({ type, q, limit: String(limit) });
+    const response = await fetch(
+      `${TRANSACTION_COMPS_API_BASE}/transaction_comps/options?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (!response.ok) return [];
+    const raw = (await response.json()) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((o) => o as Partial<TransactionCompsOption>)
+      .filter((o): o is TransactionCompsOption => Number.isFinite(Number(o.id)) && typeof o.label === "string")
+      .map((o) => ({ id: Number(o.id), label: o.label }));
+  } catch (error) {
+    console.error("fetchTransactionCompsOptionsServer error:", error);
+    return [];
+  }
+}
