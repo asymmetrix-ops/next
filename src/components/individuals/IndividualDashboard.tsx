@@ -81,6 +81,8 @@ export type IndividualDashboardProps = {
   exporting?: boolean;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const IndividualDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -110,7 +112,8 @@ export const IndividualDashboard = ({
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  // State options load lazily (paged + searchable) inside the filter editor.
+  const provinces = NO_PROVINCES;
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
@@ -154,10 +157,6 @@ export const IndividualDashboard = ({
       )
       .catch(console.error);
   }, []);
-
-  useEffect(() => {
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
 
   useEffect(() => {
     locationsService

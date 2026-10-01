@@ -96,6 +96,8 @@ export type CompanyDashboardProps = {
   showOwnershipTabsWhenListTabId?: string;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const CompanyDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -143,7 +145,8 @@ export const CompanyDashboard = ({
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  // State options load lazily (paged + searchable) inside the filter editor.
+  const provinces = NO_PROVINCES;
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
@@ -199,11 +202,6 @@ export const CompanyDashboard = ({
       })
       .catch(console.error);
   }, []);
-
-  // Provinces depend on selected countries
-  useEffect(() => {
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
 
   // Cities depend on selected countries + provinces
   useEffect(() => {

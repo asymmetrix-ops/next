@@ -76,6 +76,8 @@ export type AdvisorDashboardProps = {
   matchCountOverride?: number;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const AdvisorDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -105,7 +107,8 @@ export const AdvisorDashboard = ({
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  // State options load lazily (paged + searchable) inside the filter editor.
+  const provinces = NO_PROVINCES;
   const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
@@ -150,10 +153,6 @@ export const AdvisorDashboard = ({
       )
       .catch(console.error);
   }, []);
-
-  useEffect(() => {
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
 
   useEffect(() => {
     locationsService

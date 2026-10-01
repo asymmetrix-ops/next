@@ -46,6 +46,9 @@ interface City {
 
 export const CITY_FILTER_PAGE_SIZE = 100;
 
+/** Default paging for `locations_get_province` (API max is 200). */
+export const PROVINCE_FILTER_PAGE_SIZE = 50;
+
 export type CitySearchResult = {
   cities: City[];
   page: number;
@@ -266,6 +269,54 @@ class LocationsService {
       }
     }
     return out;
+  }
+
+  /**
+   * Paged + searchable `locations_get_province` (max per_page is 200).
+   * One small request per search/page; nothing is loaded up front.
+   */
+  async searchProvinces(args: {
+    countries?: string[];
+    query?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ provinces: Province[]; page: number; hasMore: boolean }> {
+    const page = Math.max(1, args.page ?? 1);
+    const perPage = Math.min(200, Math.max(1, args.perPage ?? PROVINCE_FILTER_PAGE_SIZE));
+    const queryParams = new URLSearchParams();
+    (args.countries ?? [])
+      .filter((c) => c?.trim())
+      .forEach((country) => queryParams.append("countries", country));
+    queryParams.append("search", (args.query ?? "").trim());
+    queryParams.append("page", String(page));
+    queryParams.append("per_page", String(perPage));
+
+    const response = await fetch(
+      `${BASE_URL}/locations_get_province?${queryParams.toString()}`,
+      { method: "GET", headers: { ...this.getAuthHeaders() } }
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch provinces: ${response.status} ${response.statusText}`
+      );
+    }
+    const data = (await response.json()) as {
+      items?: Province[];
+      page?: number;
+      pages?: number;
+    };
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const responsePage = typeof data?.page === "number" ? data.page : page;
+    const pages = typeof data?.pages === "number" ? data.pages : 0;
+    return {
+      provinces: items.filter((i) => i?.State__Province__County?.trim()),
+      page: responsePage,
+      hasMore: responsePage < pages,
+    };
   }
 
   async searchCities(args: {

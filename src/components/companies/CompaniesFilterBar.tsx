@@ -14,6 +14,7 @@ import {
   summarizeYesNoDualFilter,
   type YesNoDualFilterValue,
 } from "@/lib/yesNoDualFilter";
+import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   formatFilterCurrencyValue,
@@ -81,6 +82,16 @@ function getFilterEnumValues(value: unknown): string[] {
   }
   if (typeof value === "string" && value.trim()) return [value];
   return [];
+}
+
+function getLocationScopeFromFilters(filters: FilterItem[]): {
+  countries: string[];
+  provinces: string[];
+} {
+  return {
+    countries: getFilterEnumValues(filters.find((f) => f.id === "country")?.value),
+    provinces: getFilterEnumValues(filters.find((f) => f.id === "state")?.value),
+  };
 }
 
 function isEmptyFilterValue(def: FilterDef, value: unknown): boolean {
@@ -763,6 +774,7 @@ function AddFilterPicker({
       <FilterEditor
         key={activeDef.id}
         def={activeDef}
+        filters={filters}
         value={activeInitialValue}
         reservedValues={activeReservedValues}
         onChange={(value) => onApply(activeDef, value)}
@@ -2194,6 +2206,7 @@ function YesNoDualEditor({
 
 interface FilterEditorProps {
   def: FilterDef;
+  filters: FilterItem[];
   value: unknown;
   reservedValues?: Set<string>;
   onChange: (v: unknown) => void;
@@ -2206,6 +2219,7 @@ interface FilterEditorProps {
 
 function FilterEditor({
   def,
+  filters,
   value,
   reservedValues,
   onChange,
@@ -2215,6 +2229,26 @@ function FilterEditor({
   onClose,
   portfolioBooleanDescription,
 }: FilterEditorProps) {
+  if (def.id === "state") {
+    const { countries, provinces } = getLocationScopeFromFilters(filters);
+    return (
+      <ListViewCityEnumEditor
+        def={def}
+        countries={countries}
+        provinces={provinces}
+        kind="state"
+        value={getFilterEnumValues(value)}
+        reservedValues={reservedValues}
+        onApply={(picked) => {
+          onChange(picked);
+          onClose();
+        }}
+        onRemove={onRemove}
+        onBack={onBack}
+        onDismiss={onDismiss}
+      />
+    );
+  }
   if (def.editor === "enum")
     return (
       <EnumEditor
@@ -2877,6 +2911,7 @@ export function CompaniesFilterBar({
               <FilterEditor
                 key={editing}
                 def={editingDef}
+                filters={filters}
                 value={editingFilter.value}
                 reservedValues={editingReservedValues}
                 onChange={(v) => updateFilter(editing, v)}
