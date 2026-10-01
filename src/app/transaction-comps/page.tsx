@@ -7,8 +7,10 @@ import { TransactionCompsView } from "@/components/transaction-comps/Transaction
 export default function TransactionCompsPage() {
   return (
     <AppShell>
-      <TransactionCompsView />
-      <Footer />
+      <div className="min-h-screen">
+        <TransactionCompsView />
+        <Footer />
+      </div>
     </AppShell>
   );
 }

@@ -231,7 +231,7 @@ export function TransactionCompsView() {
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="bg-white">
       <div style={SEARCH_DASHBOARD_SHELL}>
         <div style={SEARCH_DASHBOARD_INNER}>
           <div style={SEARCH_DASHBOARD_HEADER_ROW}>
