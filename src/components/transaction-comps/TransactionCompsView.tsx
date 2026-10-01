@@ -43,6 +43,7 @@ import {
   filterStateToQuery,
   type TransactionCompsFilterOptions,
 } from "./transactionCompsFilterConfig";
+import { TargetCombobox } from "./TargetCombobox";
 import { TransactionCompsTable } from "./TransactionCompsTable";
 import {
   DEFAULT_TRANSACTION_COMPS_QUERY,
@@ -311,21 +312,11 @@ export function TransactionCompsView() {
                 entityLabel="companies"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              Target
-              <select
-                value={targetId ?? ""}
-                onChange={(e) => setTargetId(e.target.value ? Number(e.target.value) : null)}
-                className="h-9 max-w-[220px] rounded-full border border-gray-200 bg-white px-3 text-sm"
-              >
-                <option value="">Select company…</option>
-                {targetOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TargetCombobox
+              options={targetOptions}
+              selectedId={targetId}
+              onSelect={setTargetId}
+            />
           </div>
           {target && (
             <div className="mt-2">

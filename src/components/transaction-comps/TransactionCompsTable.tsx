@@ -36,7 +36,7 @@ export function TransactionCompsTable({
   const someSelected = rows.some((r) => selectedIds.has(r.company_id));
 
   return (
-    <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
+    <div className={`relative isolate overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
       <table className="min-w-full border-separate border-spacing-0 text-sm text-gray-800">
         <thead>
           <tr>
@@ -85,7 +85,7 @@ export function TransactionCompsTable({
                   <td
                     key={key}
                     className={`border-b border-gray-100 px-4 py-3 align-middle ${
-                      NUMERIC_COLUMNS.has(key) ? "text-right tabular-nums" : ""
+                      NUMERIC_COLUMNS.has(key) ? "whitespace-nowrap text-right tabular-nums" : key === "corporate_events" ? "min-w-[280px]" : ""
                     } ${selected ? "bg-blue-50" : "bg-white group-hover:bg-gray-50"} ${
                       i === 0 ? "sticky left-0 z-10 min-w-[280px]" : ""
                     }`}

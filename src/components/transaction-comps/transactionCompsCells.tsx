@@ -27,13 +27,17 @@ const num = (v: number | null | undefined, digits: number, suffix = "") =>
   v == null ? dash : `${v.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
 const text = (v?: string | number | null) => (v == null || v === "" ? dash : v);
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function fmtDate(v?: string | null) {
   if (!v) return dash;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime())
-    ? v
-    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (!m) return v;
+  return <span className="whitespace-nowrap">{`${m[3]} ${MONTHS[Number(m[2]) - 1] ?? m[2]} ${m[1]}`}</span>;
 }
+
+/** A zero from the API means "not available" for monetary values. */
+const money = (v: number | null | undefined) => (v ? num(v, 1) : dash);
 
 export function renderTransactionCompCell(row: TransactionCompRow, key: string): React.ReactNode {
   switch (key) {
@@ -49,7 +53,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
           </div>
         </div>
       );
-    case "ev": return num(row.ev_m_usd, 1);
+    case "ev": return money(row.ev_m_usd);
     case "ev_revenue": return num(row.ev_revenue, 1, "x");
     case "ev_ebitda": return num(row.ev_ebitda, 1, "x");
     case "ev_ebit": return num(row.ev_ebit, 1, "x");
@@ -75,8 +79,8 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
     case "hq_country": return text(row.hq_country);
     case "deal_type": return text(row.deal_type);
     case "deal_status": return text(row.deal_status);
-    case "revenue": return num(row.revenue_m_usd, 1);
-    case "ebitda": return num(row.ebitda_m_usd, 1);
+    case "revenue": return money(row.revenue_m_usd);
+    case "ebitda": return money(row.ebitda_m_usd);
     case "rev_growth": return num(row.revenue_growth_pc, 1, "%");
     case "ebitda_margin": return num(row.ebitda_margin_pc, 1, "%");
     case "rule_of_40": return num(row.rule_of_40, 0);
