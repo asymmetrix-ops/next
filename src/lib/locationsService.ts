@@ -22,6 +22,9 @@ interface City {
   City: string;
 }
 
+/** Default paging for `locations_get_province`. */
+export const PROVINCE_FILTER_PAGE_SIZE = 50;
+
 /** Default paging for `locations_get_city` (matches API defaults). */
 export const CITY_FILTER_PAGE_SIZE = 25;
 
@@ -178,67 +181,56 @@ class LocationsService {
   }
 
   /**
-   * `locations_get_province` is paged ({ items, page, per_page, total, pages })
-   * and works with no countries. Fetches every page and returns distinct,
-   * non-empty province names. Also tolerates the legacy plain-array response.
+   * `locations_get_province` is paged ({ items, page, per_page, total, pages }),
+   * searchable, works with no countries, and caps per_page at 200.
    */
-  async getProvinces(countries: string[] = []): Promise<Province[]> {
-    const perPage = 200; // Xano max for locations_get_province
-    const fetchPage = async (page: number) => {
-      const queryParams = new URLSearchParams();
-      countries
-        .filter((c) => c?.trim())
-        .forEach((country) => queryParams.append("countries", country));
-      queryParams.append("search", "");
-      queryParams.append("page", String(page));
-      queryParams.append("per_page", String(perPage));
+  async searchProvinces(args: {
+    countries?: string[];
+    query?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<{ provinces: Province[]; page: number; hasMore: boolean }> {
+    const page = Math.max(1, args.page ?? 1);
+    const perPage = Math.min(200, Math.max(1, args.perPage ?? PROVINCE_FILTER_PAGE_SIZE));
+    const queryParams = new URLSearchParams();
+    (args.countries ?? [])
+      .filter((c) => c?.trim())
+      .forEach((country) => queryParams.append("countries", country));
+    queryParams.append("search", (args.query ?? "").trim());
+    queryParams.append("page", String(page));
+    queryParams.append("per_page", String(perPage));
 
-      const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          ...this.getAuthHeaders(),
-        },
-      });
+    const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          authService.logout();
-          throw new Error("Authentication required");
-        }
-        throw new Error(
-          `Failed to fetch provinces: ${response.status} ${response.statusText}`
-        );
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
       }
-
-      const data = (await response.json()) as
-        | Province[]
-        | { items?: Province[]; pages?: number };
-      if (Array.isArray(data)) return { items: data, pages: 1 };
-      return {
-        items: Array.isArray(data?.items) ? data.items : [],
-        pages: typeof data?.pages === "number" ? data.pages : 1,
-      };
-    };
-
-    const first = await fetchPage(1);
-    const rest = await Promise.all(
-      Array.from({ length: Math.max(0, first.pages - 1) }, (_, i) =>
-        fetchPage(i + 2)
-      )
-    );
-
-    const seen = new Set<string>();
-    const out: Province[] = [];
-    for (const { items } of [first, ...rest]) {
-      for (const item of items) {
-        const name = item?.State__Province__County?.trim();
-        if (!name || seen.has(name)) continue;
-        seen.add(name);
-        out.push({ State__Province__County: name });
-      }
+      throw new Error(
+        `Failed to fetch provinces: ${response.status} ${response.statusText}`
+      );
     }
-    return out;
+
+    const data = (await response.json()) as {
+      items?: Province[];
+      page?: number;
+      pages?: number;
+    };
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const responsePage = typeof data?.page === "number" ? data.page : page;
+    const pages = typeof data?.pages === "number" ? data.pages : 0;
+    return {
+      provinces: items.filter((i) => i?.State__Province__County?.trim()),
+      page: responsePage,
+      hasMore: responsePage < pages,
+    };
   }
 
   async searchCities(args: {

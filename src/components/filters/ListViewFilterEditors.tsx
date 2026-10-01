@@ -14,6 +14,7 @@ import {
 } from "@/lib/filterCurrencyFormat";
 import {
   CITY_FILTER_PAGE_SIZE,
+  PROVINCE_FILTER_PAGE_SIZE,
   locationsService,
 } from "@/lib/locationsService";
 
@@ -754,6 +755,8 @@ export interface ListViewCityEnumEditorProps {
   def: Pick<FilterDef, "label" | "fullLabel">;
   countries: string[];
   provinces: string[];
+  /** Which location list to load; defaults to cities. */
+  kind?: "city" | "state";
   value?: string[];
   reservedValues?: Set<string>;
   onApply: (values: string[]) => void;
@@ -766,6 +769,7 @@ export function ListViewCityEnumEditor({
   def,
   countries,
   provinces,
+  kind = "city",
   value = [],
   reservedValues,
   onApply,
@@ -800,19 +804,29 @@ export function ListViewCityEnumEditor({
       setError(null);
 
       try {
-        const result = await locationsService.searchCities({
-          countries,
-          provinces,
-          query,
-          page: nextPage,
-          perPage: CITY_FILTER_PAGE_SIZE,
-        });
+        const result =
+          kind === "state"
+            ? await locationsService.searchProvinces({
+                countries,
+                query,
+                page: nextPage,
+                perPage: PROVINCE_FILTER_PAGE_SIZE,
+              })
+            : await locationsService.searchCities({
+                countries,
+                provinces,
+                query,
+                page: nextPage,
+                perPage: CITY_FILTER_PAGE_SIZE,
+              });
 
         if (requestId !== requestIdRef.current) return;
 
-        const names = result.cities
-          .map((city) => city.City)
-          .filter((name): name is string => Boolean(name?.trim()));
+        const names = (
+          "provinces" in result
+            ? result.provinces.map((p) => p.State__Province__County)
+            : result.cities.map((c) => c.City)
+        ).filter((name): name is string => Boolean(name?.trim()));
 
         setOptions((prev) => {
           if (!append) return names;
@@ -823,10 +837,10 @@ export function ListViewCityEnumEditor({
         setHasMore(result.hasMore);
       } catch (err) {
         if (requestId !== requestIdRef.current) return;
-        console.error("[City filter] fetch error:", err);
+        console.error(`[${kind} filter] fetch error:`, err);
         if (!append) setOptions([]);
         setHasMore(false);
-        setError("Failed to load cities");
+        setError(kind === "state" ? "Failed to load states" : "Failed to load cities");
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -834,7 +848,7 @@ export function ListViewCityEnumEditor({
         }
       }
     },
-    [countries, provinces]
+    [countries, provinces, kind]
   );
 
   useEffect(() => {
@@ -918,7 +932,7 @@ export function ListViewCityEnumEditor({
               fontSize: "var(--fs-13)",
             }}
           >
-            Loading cities…
+            {kind === "state" ? "Loading states…" : "Loading cities…"}
           </div>
         )}
         {!loading && error && displayOptions.length === 0 && (
@@ -1034,7 +1048,7 @@ export function ListViewCityEnumEditor({
               opacity: loadingMore ? 0.6 : 1,
             }}
           >
-            {loadingMore ? "Loading…" : `Load ${CITY_FILTER_PAGE_SIZE} more`}
+            {loadingMore ? "Loading…" : `Load ${kind === "state" ? PROVINCE_FILTER_PAGE_SIZE : CITY_FILTER_PAGE_SIZE} more`}
           </button>
         )}
       </div>

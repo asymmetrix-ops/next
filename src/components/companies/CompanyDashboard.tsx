@@ -145,7 +145,8 @@ export const CompanyDashboard = ({
   const [countries, setCountries] = useState<Country[]>([]);
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  // State options load lazily (paged + searchable) inside the filter editor.
+  const provinces: Province[] = [];
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
@@ -153,10 +154,6 @@ export const CompanyDashboard = ({
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
   // ── Derived selected values for dependent fetches ───────────────────────
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -189,11 +186,6 @@ export const CompanyDashboard = ({
       })
       .catch(console.error);
   }, []);
-
-  // Provinces depend on selected countries
-  useEffect(() => {
-    locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
-  }, [selectedCountries]);
 
   // When specific primary sectors are selected, narrow the secondary sector list.
   // When none are selected we keep the full list loaded on mount.

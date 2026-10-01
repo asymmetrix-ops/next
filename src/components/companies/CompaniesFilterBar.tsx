@@ -2246,7 +2246,7 @@ function FilterEditor({
   onClose,
   portfolioBooleanDescription,
 }: FilterEditorProps) {
-  if (def.id === "city") {
+  if (def.id === "city" || def.id === "state") {
     const { countries, provinces } = getLocationScopeFromFilters(filters);
     const initial = getFilterEnumValues(value);
     return (
@@ -2254,6 +2254,7 @@ function FilterEditor({
         def={def}
         countries={countries}
         provinces={provinces}
+        kind={def.id === "state" ? "state" : "city"}
         value={initial}
         reservedValues={reservedValues}
         onApply={(picked) => {
