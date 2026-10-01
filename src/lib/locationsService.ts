@@ -190,32 +190,68 @@ class LocationsService {
     return await response.json();
   }
 
-  async getProvinces(countries: string[]): Promise<Province[]> {
-    const queryParams = new URLSearchParams();
-    countries.forEach((country) => {
-      queryParams.append("countries[]", country);
-    });
+  /**
+   * `locations_get_province` is paged ({ items, page, per_page, total, pages })
+   * and works with no countries. Fetches every page and returns distinct,
+   * non-empty province names. Also tolerates the legacy plain-array response.
+   */
+  async getProvinces(countries: string[] = []): Promise<Province[]> {
+    const perPage = 1000;
+    const fetchPage = async (page: number) => {
+      const queryParams = new URLSearchParams();
+      countries
+        .filter((c) => c?.trim())
+        .forEach((country) => queryParams.append("countries", country));
+      queryParams.append("search", "");
+      queryParams.append("page", String(page));
+      queryParams.append("per_page", String(perPage));
 
-    const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
+      const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...this.getAuthHeaders(),
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        authService.logout();
-        throw new Error("Authentication required");
+      if (!response.ok) {
+        if (response.status === 401) {
+          authService.logout();
+          throw new Error("Authentication required");
+        }
+        throw new Error(
+          `Failed to fetch provinces: ${response.status} ${response.statusText}`
+        );
       }
-      throw new Error(
-        `Failed to fetch provinces: ${response.status} ${response.statusText}`
-      );
-    }
 
-    return await response.json();
+      const data = (await response.json()) as
+        | Province[]
+        | { items?: Province[]; pages?: number };
+      if (Array.isArray(data)) return { items: data, pages: 1 };
+      return {
+        items: Array.isArray(data?.items) ? data.items : [],
+        pages: typeof data?.pages === "number" ? data.pages : 1,
+      };
+    };
+
+    const first = await fetchPage(1);
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(0, first.pages - 1) }, (_, i) =>
+        fetchPage(i + 2)
+      )
+    );
+
+    const seen = new Set<string>();
+    const out: Province[] = [];
+    for (const { items } of [first, ...rest]) {
+      for (const item of items) {
+        const name = item?.State__Province__County?.trim();
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+        out.push({ State__Province__County: name });
+      }
+    }
+    return out;
   }
 
   async searchCities(args: {

@@ -152,10 +152,6 @@ export const AdvisorDashboard = ({
   }, []);
 
   useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setProvinces([]);
-      return;
-    }
     locationsService.getProvinces(selectedCountries).then(setProvinces).catch(console.error);
   }, [selectedCountries]);
 
