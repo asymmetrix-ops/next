@@ -181,7 +181,9 @@ export const AdvisorDashboard = ({
         cities,
         primarySectors,
         secondarySectors,
-      }).filter((def) => !excludeFilterIds.includes(def.id)),
+      }).filter(
+        (def) => def.id !== "state" && !excludeFilterIds.includes(def.id)
+      ),
     [
       continentalRegions,
       subRegions,

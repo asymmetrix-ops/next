@@ -239,7 +239,9 @@ export const CorporateEventsDashboard = ({
         fundingStages,
         portfolioEntityOptions,
         targetOptions,
-      }).filter((def) => !excludeFilterIds.includes(def.id)),
+      }).filter(
+        (def) => def.id !== "state" && !excludeFilterIds.includes(def.id)
+      ),
     [
       continentalRegions,
       subRegions,

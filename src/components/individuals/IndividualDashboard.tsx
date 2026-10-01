@@ -187,7 +187,7 @@ export const IndividualDashboard = ({
         secondarySectors,
         jobTitles,
         currentCompanyOptions: currentCompanies,
-      }),
+      }).filter((def) => def.id !== "state" && def.id !== "status"),
     [
       continentalRegions,
       subRegions,
