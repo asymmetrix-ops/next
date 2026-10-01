@@ -82,6 +82,8 @@ export type CorporateEventsDashboardProps = {
   matchCountOverride?: number;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const CorporateEventsDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -114,7 +116,7 @@ export const CorporateEventsDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
-  const provinces: Province[] = [];
+  const provinces = NO_PROVINCES;
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []

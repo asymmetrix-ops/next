@@ -97,6 +97,8 @@ export type CompanyDashboardProps = {
   showOwnershipTabsWhenListTabId?: string;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const CompanyDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -146,7 +148,7 @@ export const CompanyDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
-  const provinces: Province[] = [];
+  const provinces = NO_PROVINCES;
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);

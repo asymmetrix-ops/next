@@ -69,6 +69,8 @@ export type IndividualDashboardProps = {
   exporting?: boolean;
 };
 
+const NO_PROVINCES: Province[] = [];
+
 export const IndividualDashboard = ({
   onSearch,
   onFilterColumnsChange,
@@ -94,7 +96,7 @@ export const IndividualDashboard = ({
   const [continentalRegions, setContinentalRegions] = useState<string[]>([]);
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
-  const provinces: Province[] = [];
+  const provinces = NO_PROVINCES;
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
