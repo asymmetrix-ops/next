@@ -184,7 +184,6 @@ export function buildFinancialScreenerFilterDefs(args: {
     rev_growth: { presets: REV_GROWTH_PRESETS, category: "financial" },
     rev_multiple: { category: "financial" },
     ev_revenue: { category: "financial" },
-    ev_ebit: { category: "financial" },
     ev_ebitda: { category: "financial" },
     financial_year: { category: "financial", editor: "enum" },
   };

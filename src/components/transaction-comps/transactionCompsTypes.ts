@@ -8,7 +8,6 @@ export interface TransactionCompRow {
   ev_m_usd?: number | null;
   ev_revenue?: number | null;
   ev_ebitda?: number | null;
-  ev_ebit?: number | null;
   revenue_m_usd?: number | null;
   ebitda_m_usd?: number | null;
   revenue_growth_pc?: number | null;

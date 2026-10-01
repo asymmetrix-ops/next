@@ -33,7 +33,6 @@ const RANGE_FILTERS: Record<string, string> = {
   ev: "ev",
   ev_revenue: "ev_revenue",
   ev_ebitda: "ev_ebitda",
-  ev_ebit: "ev_ebit",
   revenue: "revenue",
   ebitda: "ebitda",
   rev_growth: "rev_growth",
@@ -98,7 +97,6 @@ export function buildTransactionCompsFilterDefs(
     range("ebitda", "EBITDA (m)", "financial_metrics", "$", "$m", 10000),
     range("rev_growth", "Revenue growth", "financial_metrics", "%", "%", 200, -50),
     range("ebitda_margin", "EBITDA margin", "financial_metrics", "%", "%", 100, -50),
-    range("ev_ebit", "EV / EBIT", "financial_metrics", "#", "x", 100),
     range("rule_of_40", "Rule of 40", "financial_metrics", "#", undefined, 150, -50),
   ];
 }

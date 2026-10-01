@@ -72,7 +72,6 @@ const FORMAT_KEY_BY_COLUMN: Record<string, string> = {
   revenue_growth: "rev_growth_pc",
   ebitda_margin: "ebitda_margin",
   ev_revenue: "ev_revenue_x",
-  ev_ebit: "ev_ebit_x",
   ev_ebitda: "ev_ebitda_x",
 };
 
@@ -142,7 +141,6 @@ export function financialScreenerItemToExportRow(
     ebit: fin.ebit_m,
     ev: fin.ev_m,
     ev_revenue: fin.ev_revenue,
-    ev_ebit: fin.ev_ebit,
     ev_ebitda: fin.ev_ebitda,
     rev_multiple: fin.rev_multiple,
   };

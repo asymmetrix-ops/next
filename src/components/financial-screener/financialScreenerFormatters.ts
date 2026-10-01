@@ -122,8 +122,6 @@ export function getScreenerCellValue(
       return formatScreenerCurrency(fin.ev_m, evCurrency);
     case "ev_revenue":
       return formatMultipleValue(fin.ev_revenue);
-    case "ev_ebit":
-      return formatMultipleValue(fin.ev_ebit);
     case "ev_ebitda":
       return formatMultipleValue(fin.ev_ebitda);
     case "rev_multiple":

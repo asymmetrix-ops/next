@@ -21,7 +21,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   ebit: "ebit",
   enterprise_value: "ev",
   ev_revenue: "ev_revenue",
-  ev_ebit: "ev_ebit",
   ev_ebitda: "ev_ebitda",
   rev_multiple: "rev_multiple",
   financial_year: "financial_year",

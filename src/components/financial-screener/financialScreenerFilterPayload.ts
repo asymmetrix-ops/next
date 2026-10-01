@@ -151,8 +151,6 @@ function getMetricValue(
       return parseNumber(fin.ev_m);
     case "ev_revenue":
       return parseNumber(fin.ev_revenue);
-    case "ev_ebit":
-      return parseNumber(fin.ev_ebit);
     case "ev_ebitda":
       return parseNumber(fin.ev_ebitda);
     case "rev_multiple":

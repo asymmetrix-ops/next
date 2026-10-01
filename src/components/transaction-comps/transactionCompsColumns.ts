@@ -62,7 +62,6 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       col("ebitda", "EBITDA (m)", "currency"),
       col("rev_growth", "Revenue growth", "percent"),
       col("ebitda_margin", "EBITDA margin", "percent"),
-      col("ev_ebit", "EV / EBIT", "number"),
       col("rule_of_40", "Rule of 40", "number"),
     ],
   },

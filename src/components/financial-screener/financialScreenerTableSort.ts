@@ -25,7 +25,6 @@ export const FINANCIAL_SCREENER_COLUMN_SORT_KIND: Record<
   ebit: "number",
   ev: "number",
   ev_revenue: "number",
-  ev_ebit: "number",
   ev_ebitda: "number",
   rev_multiple: "number",
 };
@@ -81,8 +80,6 @@ export function getSortValueForColumn(
       return parseSortNumber(fin.ev_m);
     case "ev_revenue":
       return parseSortNumber(fin.ev_revenue);
-    case "ev_ebit":
-      return parseSortNumber(fin.ev_ebit);
     case "ev_ebitda":
       return parseSortNumber(fin.ev_ebitda);
     case "rev_multiple":

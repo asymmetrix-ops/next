@@ -4,7 +4,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
 import type { TransactionCompRow } from "./transactionCompsTypes";
 
 export const NUMERIC_COLUMNS = new Set([
-  "ev", "ev_revenue", "ev_ebitda", "ev_ebit", "revenue", "ebitda",
+  "ev", "ev_revenue", "ev_ebitda", "revenue", "ebitda",
   "rev_growth", "ebitda_margin", "rule_of_40",
 ]);
 
@@ -18,7 +18,6 @@ export const SORT_BY_COLUMN: Record<string, string> = {
   ebitda: "ebitda",
   rev_growth: "rev_growth",
   ebitda_margin: "ebitda_margin",
-  ev_ebit: "ev_ebit",
   rule_of_40: "rule_of_40",
 };
 
@@ -56,7 +55,6 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
     case "ev": return money(row.ev_m_usd);
     case "ev_revenue": return num(row.ev_revenue, 1, "x");
     case "ev_ebitda": return num(row.ev_ebitda, 1, "x");
-    case "ev_ebit": return num(row.ev_ebit, 1, "x");
     case "deal_date": return fmtDate(row.deal_date);
     case "acquirer_investor":
       return row.acquirers?.length
@@ -95,7 +93,6 @@ export function transactionCompCsvValue(row: TransactionCompRow, key: string): s
       case "ev": return row.ev_m_usd;
       case "ev_revenue": return row.ev_revenue;
       case "ev_ebitda": return row.ev_ebitda;
-      case "ev_ebit": return row.ev_ebit;
       case "deal_date": return row.deal_date;
       case "acquirer_investor": return row.acquirers?.map((a) => a.name).join("; ");
       case "corporate_events": return row.corporate_event?.name;
