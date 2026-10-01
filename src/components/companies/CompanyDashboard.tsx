@@ -207,7 +207,6 @@ export const CompanyDashboard = ({
 
   // Cities depend on selected countries + provinces
   useEffect(() => {
-    if (selectedCountries.length === 0) { setCities([]); return; }
     locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
   }, [selectedCountries, selectedProvinces]);
 

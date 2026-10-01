@@ -160,10 +160,6 @@ export const IndividualDashboard = ({
   }, [selectedCountries]);
 
   useEffect(() => {
-    if (selectedCountries.length === 0) {
-      setCities([]);
-      return;
-    }
     locationsService
       .getCities(selectedCountries, selectedProvinces)
       .then(setCities)
