@@ -9,10 +9,10 @@ import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { SearchExportMenu } from "@/components/search/SearchExportMenu";
 import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/types";
-import {
-  locationsService,
-  type CorporateEventTargetOption,
-} from "@/lib/locationsService";
+import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
+import { locationsService } from "@/lib/locationsService";
+import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import {
   fetchTransactionCompsOptionsServer,
   fetchTransactionCompsServer,
@@ -28,7 +28,6 @@ import {
 } from "@/components/search/searchDashboardLayout";
 import {
   ALL_TRANSACTION_COMPS_COLUMN_KEYS,
-  ALL_TRANSACTION_COMPS_COLUMN_META,
   DEFAULT_TRANSACTION_COMPS_COLUMN_KEYS,
   TRANSACTION_COMPS_COLUMNS_STORAGE_KEY,
   TRANSACTION_COMPS_COLUMN_CATEGORIES,
@@ -36,14 +35,12 @@ import {
   transactionCompsKeysToVisibility,
   transactionCompsVisibilityToKeys,
 } from "./transactionCompsColumns";
-import { transactionCompCsvValue } from "./transactionCompsCells";
 import {
   TRANSACTION_COMPS_FILTER_CATEGORIES,
   buildTransactionCompsFilterDefs,
   filterStateToQuery,
   type TransactionCompsFilterOptions,
 } from "./transactionCompsFilterConfig";
-import { TargetCombobox } from "./TargetCombobox";
 import { TransactionCompsTable } from "./TransactionCompsTable";
 import {
   DEFAULT_TRANSACTION_COMPS_QUERY,
@@ -65,11 +62,6 @@ const SUB_TABS = [
 
 const PER_PAGE = DEFAULT_TRANSACTION_COMPS_QUERY.perPage;
 
-function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 export function TransactionCompsView() {
   const [filterState, setFilterState] = useState<FilterBarState>(EMPTY_FILTER_STATE);
   const [options, setOptions] = useState<TransactionCompsFilterOptions>({
@@ -79,8 +71,6 @@ export function TransactionCompsView() {
     acquirers: [],
     corporateEvents: [],
   });
-  const [targetOptions, setTargetOptions] = useState<CorporateEventTargetOption[]>([]);
-  const [targetId, setTargetId] = useState<number | null>(null);
 
   const [rows, setRows] = useState<TransactionCompRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -129,10 +119,9 @@ export function TransactionCompsView() {
       locationsService.getPrimarySectors(),
       locationsService.getOwnershipTypes(),
       locationsService.getCountries(),
-      locationsService.getCorporateEventTargetOptions(),
       fetchTransactionCompsOptionsServer("acquirer"),
       fetchTransactionCompsOptionsServer("corporate_event"),
-    ]).then(([sectors, ownership, countries, targets, acquirers, events]) => {
+    ]).then(([sectors, ownership, countries, acquirers, events]) => {
       setOptions({
         sectors: sectors.status === "fulfilled" ? sectors.value : [],
         ownershipTypes: ownership.status === "fulfilled" ? ownership.value : [],
@@ -143,7 +132,6 @@ export function TransactionCompsView() {
         acquirers: acquirers.status === "fulfilled" ? acquirers.value : [],
         corporateEvents: events.status === "fulfilled" ? events.value : [],
       });
-      if (targets.status === "fulfilled") setTargetOptions(targets.value);
     });
   }, []);
 
@@ -218,29 +206,21 @@ export function TransactionCompsView() {
     [rows]
   );
 
-  const exportCsv = useCallback(
+  const exportList = useCallback(
     async (mode: ListExportMode) => {
       setExporting(true);
       try {
-        let source: TransactionCompRow[];
-        if (selectedIds.size > 0) {
-          source = rows.filter((r) => selectedIds.has(r.company_id));
-        } else {
-          const data = await fetchTransactionCompsServer(buildQuery(1, EXPORT_ALL_ENTITIES_CAP));
-          source = data?.items ?? [];
-        }
-        const keys = mode === "all_columns" ? ALL_TRANSACTION_COMPS_COLUMN_KEYS : columnKeys;
-        const label = new Map(ALL_TRANSACTION_COMPS_COLUMN_META.map((c) => [c.columnKey, c.label]));
-        const lines = [
-          keys.map((k) => csvCell(label.get(k))).join(","),
-          ...source.map((r) => keys.map((k) => csvCell(transactionCompCsvValue(r, k))).join(",")),
-        ];
-        const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }));
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "transaction-comps.csv";
-        a.click();
-        URL.revokeObjectURL(url);
+        const source =
+          selectedIds.size > 0
+            ? rows.filter((r) => selectedIds.has(r.company_id))
+            : (await fetchTransactionCompsServer(buildQuery(1, EXPORT_ALL_ENTITIES_CAP)))?.items ?? [];
+        await exportTransactionCompsList(
+          { mode, scope: selectedIds.size > 0 ? "selected" : "full_list" },
+          source,
+          columnKeys
+        );
+      } catch (e) {
+        console.error("Transaction comps export failed:", e);
       } finally {
         setExporting(false);
       }
@@ -248,7 +228,6 @@ export function TransactionCompsView() {
     [buildQuery, columnKeys, rows, selectedIds]
   );
 
-  const target = targetOptions.find((t) => t.id === targetId) ?? null;
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
@@ -269,7 +248,7 @@ export function TransactionCompsView() {
                 total={ALL_TRANSACTION_COMPS_COLUMN_KEYS.length}
                 onClick={() => setShowColumns((v) => !v)}
               />
-              <SearchExportMenu onExport={exportCsv} exporting={exporting} disabled={total === 0} />
+              <SearchExportMenu onExport={exportList} exporting={exporting} disabled={total === 0} />
             </div>
           </div>
 
@@ -312,27 +291,7 @@ export function TransactionCompsView() {
                 entityLabel="companies"
               />
             </div>
-            <TargetCombobox
-              options={targetOptions}
-              selectedId={targetId}
-              onSelect={setTargetId}
-            />
           </div>
-          {target && (
-            <div className="mt-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800">
-                Target: {target.name}
-                <button
-                  type="button"
-                  onClick={() => setTargetId(null)}
-                  className="text-blue-500 hover:text-blue-800"
-                  aria-label="Clear target"
-                >
-                  Clear
-                </button>
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -340,6 +299,15 @@ export function TransactionCompsView() {
         <div className="px-7 py-10 text-red-600">{error}</div>
       ) : (
         <div className="px-7 py-4">
+          {selectedIds.size > 0 && (
+            <BulkPortfolioActionToolbar
+              entityType="company"
+              entityIds={Array.from(selectedIds)}
+              onClearSelection={() => setSelectedIds(new Set())}
+              exporting={exporting}
+              onExport={exportList}
+            />
+          )}
           <TransactionCompsTable
             rows={rows}
             columnKeys={columnKeys}
@@ -351,31 +319,15 @@ export function TransactionCompsView() {
             onToggleRow={toggleRow}
             onToggleAll={toggleAll}
           />
-          {total > PER_PAGE && (
-            <div className="flex items-center justify-between py-4 text-sm text-gray-600">
-              <span>
-                Page {page} of {pageCount} · {total.toLocaleString()} companies
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={page <= 1 || loading}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="rounded-full border border-gray-200 px-4 py-1.5 font-semibold disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={page >= pageCount || loading}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="rounded-full border border-gray-200 px-4 py-1.5 font-semibold disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <SearchTablePagination
+            curPage={page}
+            pageTotal={pageCount}
+            nextPage={page < pageCount ? page + 1 : null}
+            onPageChange={(next) => {
+              if (next >= 1 && next <= pageCount && next !== page && !loading) setPage(next);
+            }}
+            disabled={loading}
+          />
         </div>
       )}
 
