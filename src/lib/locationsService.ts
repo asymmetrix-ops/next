@@ -196,7 +196,7 @@ class LocationsService {
    * non-empty province names. Also tolerates the legacy plain-array response.
    */
   async getProvinces(countries: string[] = []): Promise<Province[]> {
-    const perPage = 1000;
+    const perPage = 200; // Xano max for locations_get_province
     const fetchPage = async (page: number) => {
       const queryParams = new URLSearchParams();
       countries
