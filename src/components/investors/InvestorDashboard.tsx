@@ -194,7 +194,9 @@ export const InvestorDashboard = ({
         primarySectors,
         secondarySectors,
         investorTypes,
-      }).filter((def) => !excludeFilterIds.includes(def.id)),
+      }).filter(
+        (def) => def.id !== "state" && !excludeFilterIds.includes(def.id)
+      ),
     [
       continentalRegions,
       subRegions,

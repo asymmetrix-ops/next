@@ -250,7 +250,9 @@ export const CompanyDashboard = ({
       secondarySectors,
       ownershipTypes,
     });
-    const merged = [...extraFilterDefs, ...defs];
+    const merged = [...extraFilterDefs, ...defs].filter(
+      (def) => def.id !== "state"
+    );
     if (excludeFilterIds.length === 0) return merged;
     const excluded = new Set(excludeFilterIds);
     return merged.filter((def) => !excluded.has(def.id));
