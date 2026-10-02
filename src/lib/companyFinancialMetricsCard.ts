@@ -447,7 +447,10 @@ export function enrichFinancialMetricsRowWithLinkedInEmployees(
     enriched.Revenue_per_employee = revenuePerEmployee;
     enriched.Revenue_per_employee_formatted =
       Math.round(revenuePerEmployee).toLocaleString("en-US");
-    enriched.Revenue_per_employee_source_label = "LinkedIn";
+    // Revenue per employee is revenue ÷ headcount: attribute it to the revenue's source
+    // (same as the Revenue row). Only the headcount itself is LinkedIn.
+    enriched.Revenue_per_employee_source_label =
+      row.Revenue_source_label?.trim() || row.Revenue_per_employee_source_label;
   }
 
   return enriched;
