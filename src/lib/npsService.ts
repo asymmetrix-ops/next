@@ -19,7 +19,7 @@ class NpsService {
   constructor() {
     this.baseUrl =
       process.env.NEXT_PUBLIC_XANO_NPS_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:ia3IlHy1:develop";
+      "https://xdil-abvj-o7rq.e2.xano.io/api:ia3IlHy1";
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
