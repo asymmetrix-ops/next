@@ -24,6 +24,7 @@ import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
+import { AdvisorKeyPeoplePanel } from "@/components/advisors/AdvisorKeyPeoplePanel";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
   AdvisorDealsProfilePanel,
@@ -864,6 +865,9 @@ export default function AdvisorProfilePage() {
                 past={peoplePast}
               />
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <AdvisorKeyPeoplePanel advisorId={advisorId} />
           </div>
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />

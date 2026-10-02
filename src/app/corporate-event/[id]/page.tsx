@@ -17,6 +17,7 @@ import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
 import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { CorporateEventAdvisorsPanel } from "@/components/corporate-events/CorporateEventAdvisorsPanel";
 import {
   CorporateEventTransactionsPanel,
@@ -135,6 +136,63 @@ const CorporateEventDetail = ({
   const previousCorporateEventsRaw = Array.isArray(data?.Previous_Corporate_Events)
     ? data.Previous_Corporate_Events
     : [];
+
+  // Deal-level bankers per advisor row (CE → Advisor → Individual).
+  type KeyPerson = { id: number; name: string; role?: string };
+  const eventId = (event as { id?: number } | undefined)?.id;
+  const [keyPeopleByRow, setKeyPeopleByRow] = useState<Map<number, KeyPerson[]>>(
+    new Map()
+  );
+  const [keyPeopleByCompany, setKeyPeopleByCompany] = useState<
+    Map<number, KeyPerson[]>
+  >(new Map());
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const base =
+      process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
+        ? "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop"
+        : "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+    const token = localStorage.getItem("asymmetrix_auth_token");
+    fetch(`${base}/corporate_event/advisors_key_people?event_id=${eventId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: unknown) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        const byRow = new Map<number, KeyPerson[]>();
+        const byCompany = new Map<number, KeyPerson[]>();
+        for (const row of rows) {
+          let list: unknown = row?.individuals;
+          if (typeof list === "string") {
+            try {
+              list = JSON.parse(list);
+            } catch {
+              list = [];
+            }
+          }
+          const people: KeyPerson[] = (Array.isArray(list) ? list : [])
+            .filter((p) => p && typeof p.individual_id === "number" && p.name)
+            .map((p) => ({
+              id: p.individual_id,
+              name: p.name,
+              role: Array.isArray(p.job_titles)
+                ? p.job_titles.join(", ") || undefined
+                : undefined,
+            }));
+          if (typeof row?.advisor_row_id === "number")
+            byRow.set(row.advisor_row_id, people);
+          if (typeof row?.advisor_company_id === "number")
+            byCompany.set(row.advisor_company_id, people);
+        }
+        setKeyPeopleByRow(byRow);
+        setKeyPeopleByCompany(byCompany);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
 
   // Fast lookup for counterparties by id
   const counterpartiesById = React.useMemo(() => {
@@ -518,6 +576,8 @@ const CorporateEventDetail = ({
           id: number;
           individuals_id?: number;
           advisor_individuals: string;
+          job_titles_id?: unknown;
+          _job_titles?: unknown;
         }>)
       : undefined;
 
@@ -528,8 +588,14 @@ const CorporateEventDetail = ({
             .map((ind) => ({
               id: ind.individuals_id as number,
               name: ind.advisor_individuals,
+              role:
+                formatJobTitlesFromId(ind.job_titles_id, ind._job_titles) ||
+                undefined,
             }))
         : [];
+
+    const keyPeople =
+      keyPeopleByRow.get(a.id) ?? keyPeopleByCompany.get(a._new_company.id);
 
     return {
       id: a.id,
@@ -541,7 +607,7 @@ const CorporateEventDetail = ({
       advisedHqIso2: nc
         ? readHqCountryIso2(nc as unknown as Record<string, unknown>)
         : null,
-      individuals,
+      individuals: keyPeople ?? individuals,
       href: `/advisor/${a._new_company.id}`,
       hqIso2: readHqCountryIso2(
         a._new_company as unknown as Record<string, unknown>

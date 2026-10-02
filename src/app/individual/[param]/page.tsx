@@ -16,6 +16,7 @@ import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { IndividualOverviewCard } from "@/components/individuals/IndividualOverviewCard";
+import { IndividualDealsAdvisedPanel } from "@/components/individuals/IndividualDealsAdvisedPanel";
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
@@ -445,6 +446,9 @@ export default function IndividualProfilePage() {
                 />
               </LinkPanel>
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <IndividualDealsAdvisedPanel individualId={individualId} />
           </div>
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />

@@ -22,14 +22,14 @@ export type CorporateEventAdvisorRow = {
   advisedHqIso2?: string | null;
   href?: string;
   hqIso2?: string | null;
-  individuals: Array<{ id: number; name: string }>;
+  individuals: Array<{ id: number; name: string; role?: string }>;
 };
 
 type Props = {
   advisors: CorporateEventAdvisorRow[];
 };
 
-const ROW_GRID = "minmax(0, 28%) minmax(0, 16%) minmax(0, 24%) minmax(0, 32%)";
+const ROW_GRID = "minmax(0, 44%) minmax(0, 20%) minmax(0, 36%)";
 const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
 const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -175,7 +175,7 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
               padding: ROW_PAD,
             }}
           >
-            {(["Advisor", "Role", "Advised", "Individuals"] as const).map((h) => (
+            {(["Advisor", "Role", "Advised"] as const).map((h) => (
               <div key={h} style={{ ...tableColHeaderStyle, textAlign: "left", fontSize: 10 }}>
                 {h}
               </div>
@@ -192,11 +192,12 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                     display: "grid",
                     gridTemplateColumns: ROW_GRID,
                     gap: COL_GAP,
-                    alignItems: "center",
+                    alignItems: "start",
                     padding: ROW_PAD,
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
+                  <div style={{ minWidth: 0 }}>
                   <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
                     <AdvisorLogo logo={advisor.logo} name={advisor.name} />
                     {renderPartyNameWithFlag({
@@ -204,6 +205,36 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                       href: advisor.href,
                       hqIso2: advisor.hqIso2,
                     })}
+                  </div>
+                    {advisor.individuals.length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          marginLeft: 22,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                        }}
+                      >
+                        {advisor.individuals.map((ind) => (
+                          <div
+                            key={ind.id}
+                            style={{ fontSize: 12, lineHeight: 1.35, minWidth: 0 }}
+                          >
+                            <Link
+                              href={`/individual/${ind.id}`}
+                              prefetch={false}
+                              style={{ color: T.azure, textDecoration: "underline" }}
+                            >
+                              {ind.name}
+                            </Link>
+                            {ind.role ? (
+                              <span style={{ color: T.muted }}>{`, ${ind.role}`}</span>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <div
                     style={{
@@ -224,22 +255,6 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                           href: advisor.advisedHref,
                           hqIso2: advisor.advisedHqIso2,
                         })
-                      : "-"}
-                  </div>
-                  <div style={{ color: T.muted, fontSize: 12, minWidth: 0, lineHeight: 1.35 }}>
-                    {advisor.individuals.length > 0
-                      ? advisor.individuals.map((ind, i) => (
-                          <span key={ind.id}>
-                            <Link
-                              href={`/individual/${ind.id}`}
-                              prefetch={false}
-                              style={{ color: T.azure, textDecoration: "underline" }}
-                            >
-                              {ind.name}
-                            </Link>
-                            {i < advisor.individuals.length - 1 ? ", " : ""}
-                          </span>
-                        ))
                       : "-"}
                   </div>
                 </div>
