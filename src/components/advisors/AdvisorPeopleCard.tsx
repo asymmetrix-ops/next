@@ -22,28 +22,35 @@ export type AdvisorPerson = {
   linkedinUrl?: string;
 };
 
+
 type Tab = "current" | "past";
 
 type Props = {
   current: AdvisorPerson[];
   past?: AdvisorPerson[];
   fillGridCell?: boolean;
+  /** individual id → deals advised; adds a Deals column on the Current tab. */
+  dealCounts?: Record<number, number>;
 };
 
 const COL_GAP = 6;
+const DEALS_ROW_GRID = "minmax(0, 1.2fr) minmax(0, 1.2fr) 64px 56px";
 
-function ColHeader() {
+function ColHeader({ showDeals }: { showDeals: boolean }) {
   return (
     <div
       style={{
         ...tableColHeaderBarStyle,
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gridTemplateColumns: showDeals ? DEALS_ROW_GRID : MANAGEMENT_ROW_GRID,
         gap: COL_GAP,
       }}
     >
       <div style={tableColHeaderStyle}>Name</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
+      {showDeals ? (
+        <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Deals</div>
+      ) : null}
     </div>
   );
 }
@@ -51,15 +58,19 @@ function ColHeader() {
 function PersonRow({
   person,
   last,
+  showDeals,
+  deals,
 }: {
   person: AdvisorPerson;
   last: boolean;
+  showDeals: boolean;
+  deals?: number;
 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gridTemplateColumns: showDeals ? DEALS_ROW_GRID : MANAGEMENT_ROW_GRID,
         alignItems: "start",
         gap: COL_GAP,
         padding: "10px 16px",
@@ -123,6 +134,21 @@ function PersonRow({
       >
         <LinkedInProfileButton href={person.linkedinUrl} />
       </div>
+      {showDeals ? (
+        <div style={{ textAlign: "center", paddingTop: 1 }}>
+          {deals && person.individualId ? (
+            <Link
+              href={`/individual/${person.individualId}#deals-advised`}
+              prefetch={false}
+              style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
+            >
+              {deals}
+            </Link>
+          ) : (
+            "-"
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -162,10 +188,12 @@ export function AdvisorPeopleCard({
   current,
   past = [],
   fillGridCell = false,
+  dealCounts,
 }: Props) {
   const [tab, setTab] = useState<Tab>("current");
 
   const activeList = tab === "current" ? current : past;
+  const showDeals = tab === "current" && dealCounts !== undefined;
 
   const tabs = useMemo(
     () => [
@@ -197,7 +225,7 @@ export function AdvisorPeopleCard({
         ))}
       </div>
 
-      <ColHeader />
+      <ColHeader showDeals={showDeals} />
 
       <div style={{ flex: fillGridCell ? 1 : undefined, minHeight: 0 }}>
         {activeList.length > 0 ? (
@@ -206,6 +234,8 @@ export function AdvisorPeopleCard({
               key={`${tab}-${person.id ?? person.individualId ?? index}`}
               person={person}
               last={index === activeList.length - 1}
+              showDeals={showDeals}
+              deals={person.individualId ? dealCounts?.[person.individualId] : undefined}
             />
           ))
         ) : (

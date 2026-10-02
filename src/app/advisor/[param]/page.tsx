@@ -24,7 +24,7 @@ import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
-import { AdvisorKeyPeoplePanel } from "@/components/advisors/AdvisorKeyPeoplePanel";
+import { useAdvisorDealCounts } from "@/hooks/useAdvisorDealCounts";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
   AdvisorDealsProfilePanel,
@@ -88,6 +88,8 @@ export default function AdvisorProfilePage() {
 
   const formatRoleTitles = (role: RoleItem): string =>
     formatJobTitlesFromId(role.job_titles_id, role._job_titles ?? role.job_titles);
+
+  const dealCounts = useAdvisorDealCounts(advisorId);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
@@ -863,11 +865,9 @@ export default function AdvisorProfilePage() {
                 fillGridCell
                 current={peopleCurrent}
                 past={peoplePast}
+                dealCounts={dealCounts}
               />
             </div>
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <AdvisorKeyPeoplePanel advisorId={advisorId} />
           </div>
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />

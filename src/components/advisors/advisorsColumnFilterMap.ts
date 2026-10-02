@@ -14,6 +14,7 @@ export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "sectors",
   // URL column — not filterable
   "website",
+  "key_people",
 ]);
 
 export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {

@@ -71,10 +71,17 @@ export function IndividualDealsAdvisedPanel({ individualId }: { individualId: nu
     };
   }, [individualId, page]);
 
+  useEffect(() => {
+    if (!loading && rows.length > 0 && window.location.hash === "#deals-advised") {
+      document.getElementById("deals-advised")?.scrollIntoView({ block: "start" });
+    }
+  }, [loading, rows.length]);
+
   const total = rows[0]?.total ?? 0;
   if (!loading && (failed || (total === 0 && page === 1))) return null;
 
   return (
+    <div id="deals-advised">
     <LinkPanel>
       <LinkedH right={total ? `${total} deal${total === 1 ? "" : "s"}` : undefined}>
         Deals Advised
@@ -130,7 +137,19 @@ export function IndividualDealsAdvisedPanel({ individualId }: { individualId: nu
                   {d.announcement_date ? formatDate(d.announcement_date) : "-"}
                 </div>
                 <div>{d.deal_type ? <DealTypeBadge dealType={d.deal_type} /> : "-"}</div>
-                <div style={{ color: T.body, minWidth: 0 }}>{d.counterparty_name || "-"}</div>
+                <div style={{ minWidth: 0 }}>
+                  {d.counterparty_company_id && d.counterparty_name ? (
+                    <Link
+                      href={`/company/${d.counterparty_company_id}`}
+                      prefetch={false}
+                      style={{ color: T.azure, textDecoration: "underline" }}
+                    >
+                      {d.counterparty_name}
+                    </Link>
+                  ) : (
+                    <span style={{ color: T.body }}>{d.counterparty_name || "-"}</span>
+                  )}
+                </div>
                 <div style={{ minWidth: 0 }}>
                   {d.advisor_company_id && d.advisor_firm_name ? (
                     <Link
@@ -156,5 +175,6 @@ export function IndividualDealsAdvisedPanel({ individualId }: { individualId: nu
       </div>
       <SimplePager page={page} perPage={PER_PAGE} total={total} onPageChange={setPage} />
     </LinkPanel>
+    </div>
   );
 }

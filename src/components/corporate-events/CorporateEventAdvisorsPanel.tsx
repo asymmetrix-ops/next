@@ -176,7 +176,14 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
             }}
           >
             {(["Advisor", "Role", "Advised"] as const).map((h) => (
-              <div key={h} style={{ ...tableColHeaderStyle, textAlign: "left", fontSize: 10 }}>
+              <div
+                key={h}
+                style={{
+                  ...tableColHeaderStyle,
+                  textAlign: h === "Advisor" ? "left" : "center",
+                  fontSize: 10,
+                }}
+              >
                 {h}
               </div>
             ))}
@@ -203,7 +210,6 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                     {renderPartyNameWithFlag({
                       name: advisor.name,
                       href: advisor.href,
-                      hqIso2: advisor.hqIso2,
                     })}
                   </div>
                     {advisor.individuals.length > 0 ? (
@@ -244,11 +250,12 @@ export function CorporateEventAdvisorsPanel({ advisors }: Props) {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      textAlign: "center",
                     }}
                   >
                     {advisor.role || "-"}
                   </div>
-                  <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", justifyContent: "center" }}>
                     {advisor.advisedName
                       ? renderPartyNameWithFlag({
                           name: advisor.advisedName,
