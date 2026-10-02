@@ -29,8 +29,15 @@ import {
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
 import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
-import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
-import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
+import {
+  fetchAllInvestorHoldingPeriodsServer,
+  fetchInvestorHoldingPeriodAverageServer,
+} from "@/app/investors/[id]/holdingPeriodActions";
+import {
+  computeActiveHoldingPeriodAverage,
+  normalizeHoldingPeriodDisplay,
+  type InvestorHoldingPeriodAverageResponse,
+} from "@/lib/holdingPeriod";
 import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import CompanyLogo from "@/components/investor/CompanyLogo";
@@ -468,9 +475,18 @@ const InvestorDetailPage = () => {
   useEffect(() => {
     let cancelled = false;
     if (!investorId) return;
-    void fetchInvestorHoldingPeriodAverageServer(investorId).then((data) => {
-      if (!cancelled) setAvgHoldingPeriod(data);
-    });
+    void (async () => {
+      const data = await fetchInvestorHoldingPeriodAverageServer(investorId);
+      if (cancelled) return;
+      if (normalizeHoldingPeriodDisplay(data?.display)) {
+        setAvgHoldingPeriod(data);
+        return;
+      }
+      // Average endpoint is exit-based and empty for many investors; derive from active holdings.
+      const rows = await fetchAllInvestorHoldingPeriodsServer(investorId);
+      if (cancelled) return;
+      setAvgHoldingPeriod(computeActiveHoldingPeriodAverage(rows) ?? data);
+    })();
     return () => {
       cancelled = true;
     };

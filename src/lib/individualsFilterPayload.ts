@@ -264,3 +264,13 @@ export function individualsFiltersToRequestBody(
     portfolio_only: filters.portfolio_only ? true : null,
   };
 }
+
+/** Xano `get_individuals_counts` expects POST with the same filters as the list, minus pagination. */
+export function individualsCountsFiltersToRequestBody(
+  filters: IndividualsSearchFilters
+): Record<string, unknown> {
+  const { Offset, Per_page, ...rest } = individualsFiltersToRequestBody(filters);
+  void Offset;
+  void Per_page;
+  return rest;
+}

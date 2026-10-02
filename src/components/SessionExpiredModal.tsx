@@ -9,7 +9,19 @@ import {
   resetSessionExpiredFlag,
 } from "@/lib/sessionExpired";
 
-const PATHS_WITHOUT_MODAL = ["/login", "/signup"];
+// Auth pages and public marketing pages: a stale token's 401 must not pop a login window here.
+const PATHS_WITHOUT_MODAL = [
+  "/",
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/about-us",
+  "/contact-us",
+  "/press-releases",
+  "/privacy-policy",
+  "/terms-and-conditions",
+];
 
 export default function SessionExpiredModal() {
   const [open, setOpen] = useState(false);
@@ -20,7 +32,10 @@ export default function SessionExpiredModal() {
     installFetchAuthGuard();
 
     const handleSessionExpired = () => {
-      if (pathname && PATHS_WITHOUT_MODAL.includes(pathname)) return;
+      if (pathname && PATHS_WITHOUT_MODAL.includes(pathname)) {
+        resetSessionExpiredFlag();
+        return;
+      }
       authService.logout();
       setOpen(true);
     };

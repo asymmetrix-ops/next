@@ -245,7 +245,11 @@ function IndividualsPageInner() {
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
-        summaryCounts={summaryCounts}
+        summaryCounts={{
+          ...summaryCounts,
+          // counts endpoint can come back empty while the list itself has a total
+          totalCount: summaryCounts.totalCount || pagination.itemsTotal,
+        }}
         jobTitles={jobTitles}
         onColumnsClick={() => setShowColumnsModal((value) => !value)}
         onExport={(mode) =>
