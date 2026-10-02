@@ -40,6 +40,15 @@ const PLATFORM_PATH_PREFIXES = [
   "/article",
 ];
 
+/** Internal team accounts are excluded from NPS tracking. */
+const INTERNAL_EMAIL_DOMAIN = "@asymmetrixintelligence.com";
+/** AuthProvider uses this placeholder until the real profile has loaded. */
+const PLACEHOLDER_EMAIL = "user@example.com";
+
+function isInternalEmail(email: string | null | undefined): boolean {
+  return (email ?? "").trim().toLowerCase().endsWith(INTERNAL_EMAIL_DOMAIN);
+}
+
 function isPlatformPath(pathname: string | null): boolean {
   if (!pathname) return false;
   return PLATFORM_PATH_PREFIXES.some(
@@ -55,7 +64,9 @@ function isPlatformPath(pathname: string | null): boolean {
  * server-side — this component is intentionally thin.
  */
 export default function NpsGate() {
-  const { isAuthenticated, loading, isMcpGuest, isContributor } = useAuth();
+  const { isAuthenticated, loading, isMcpGuest, isContributor, user } = useAuth();
+  const userEmail = user?.email?.trim().toLowerCase() ?? "";
+  const isInternalUser = isInternalEmail(userEmail);
   const pathname = usePathname();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const checkedForSessionRef = useRef(false);
@@ -70,6 +81,11 @@ export default function NpsGate() {
 
     // Skip guest/contributor sessions — they aren't regular users.
     if (isMcpGuest || isContributor) return;
+
+    // Wait for the real profile (AuthProvider uses a placeholder email at first),
+    // then never check or show NPS for internal team accounts.
+    if (!userEmail || userEmail === PLACEHOLDER_EMAIL) return;
+    if (isInternalUser) return;
 
     // Never check/show on public/marketing pages, even if authenticated.
     if (!isPlatformPath(pathname)) return;
@@ -94,14 +110,22 @@ export default function NpsGate() {
     return () => {
       isCancelled = true;
     };
-  }, [isAuthenticated, loading, isMcpGuest, isContributor, pathname]);
+  }, [
+    isAuthenticated,
+    loading,
+    isMcpGuest,
+    isContributor,
+    pathname,
+    userEmail,
+    isInternalUser,
+  ]);
 
   // Close the modal immediately if the user navigates to a non-platform page.
   useEffect(() => {
-    if (!isPlatformPath(pathname) && isModalOpen) {
+    if ((!isPlatformPath(pathname) || isInternalUser) && isModalOpen) {
       setIsModalOpen(false);
     }
-  }, [pathname, isModalOpen]);
+  }, [pathname, isModalOpen, isInternalUser]);
 
   return <NpsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />;
 }
