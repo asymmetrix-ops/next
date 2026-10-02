@@ -50,6 +50,7 @@ import {
 } from "@/lib/articleCustomCompanyTableColumns";
 import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 const ARTICLE_PAGE_ROOT_CLASS = "ax-article-page";
@@ -1279,6 +1280,7 @@ const ArticleDetailPage = () => {
       return {
         id,
         name: toDisplayString(row.name) || `Company ${id}`,
+        logo: readLogoFromRecord(row),
         url: na(urlRaw),
         loc: na(hqLocation),
         year_founded: formatCompanyOfFocusYearFounded(
@@ -1384,9 +1386,11 @@ const ArticleDetailPage = () => {
 
   const handleExportTableCsv = () => {
     const activeRows = tableRows.filter((r) => selectedCompanyIds.has(r.id));
-    const activeColumns = ARTICLE_TABLE_ALL_COLUMNS.filter((c) =>
-      selectedColumnKeys.has(c.key)
-    );
+    const columnsByKey = new Map(ARTICLE_TABLE_ALL_COLUMNS.map((c) => [c.key, c]));
+    const activeColumns = Array.from(selectedColumnKeys).flatMap((key) => {
+      const col = columnsByKey.get(key);
+      return col ? [col] : [];
+    });
     if (!activeRows.length || !activeColumns.length) return;
 
     const sanitizeFilenamePart = (input: string): string => {

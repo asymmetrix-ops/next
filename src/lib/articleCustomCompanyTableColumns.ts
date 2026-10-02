@@ -3,6 +3,7 @@
 export interface ArticleTableCompanyRow {
   id: number;
   name: string;
+  logo?: string | null;
   url: string;
   loc: string;
   year_founded: string;

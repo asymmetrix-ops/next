@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ARTICLE_TABLE_ALL_COLUMNS,
   ARTICLE_TABLE_COL_GROUPS,
@@ -9,11 +8,19 @@ import {
   type ArticleTableCompanyRow,
 } from "@/lib/articleCustomCompanyTableColumns";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
+import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
+import {
+  namesToMultiValueItems,
+  splitCommaSeparatedValues,
+} from "@/components/search/searchMultiValueUtils";
+import { formatWebsiteLabel } from "@/lib/websiteUrl";
+import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
+import type { CompanyColumnCategory } from "@/components/companies/companiesColumnCategories";
 import {
   CARD_TITLE_STYLE,
   T,
-  finMetricsPeriodHeaderStyle,
-  kvLabelStyle,
 } from "@/components/redesign/primitives";
 
 type CustomCompanyTableModalProps = {
@@ -27,6 +34,36 @@ type CustomCompanyTableModalProps = {
   getCellValue: (row: ArticleTableCompanyRow, key: string) => string;
   onExportCsv: () => void;
 };
+
+const ARTICLE_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
+  {
+    id: "identity",
+    name: "Identity",
+    columns: [
+      {
+        id: "name",
+        columnKey: "name",
+        label: "Company Name",
+        type: "text",
+        locked: true,
+        defaultVisible: true,
+      },
+    ],
+  },
+  ...ARTICLE_TABLE_COL_GROUPS.map((group) => ({
+    id: group.group.toLowerCase().replace(/\s+/g, "-"),
+    name: group.group,
+    columns: group.cols.map((col) => ({
+      id: col.key,
+      columnKey: col.key,
+      label: col.label,
+      type: "text" as const,
+      defaultVisible: true,
+    })),
+  })),
+];
+
+const MULTI_VALUE_COLS = new Set(["primary_sectors", "secondary_sectors", "investors"]);
 
 const MODAL_STYLES = `
   .cct-overlay {
@@ -75,7 +112,7 @@ const MODAL_STYLES = `
   }
   .cct-layout {
     display: grid;
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
     flex: 1;
   }
@@ -169,6 +206,9 @@ const MODAL_STYLES = `
   .cct-preview .company-table-scroll {
     max-height: min(68vh, calc(92vh - 200px));
   }
+  .cct-preview .company-table tbody .company-table-select-cell input[type="checkbox"] {
+    opacity: 1;
+  }
   .cct-empty {
     margin: 0;
     font-size: 13px;
@@ -199,30 +239,6 @@ const MODAL_STYLES = `
   }
 `;
 
-function SidebarSection({
-  title,
-  allSelected,
-  onToggleAll,
-  children,
-}: {
-  title: string;
-  allSelected: boolean;
-  onToggleAll: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="cct-sidebar-section">
-      <div className="cct-sidebar-head">
-        <h4 className="cct-sidebar-title">{title}</h4>
-        <button type="button" className="cct-link-btn" onClick={onToggleAll}>
-          {allSelected ? "Deselect all" : "Select all"}
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export function CustomCompanyTableModal({
   onClose,
   tableLoading,
@@ -238,9 +254,24 @@ export function CustomCompanyTableModal({
   const columnCount = selectedColumnKeys.size + 1;
   const exportDisabled = selectedCount === 0 || selectedColumnKeys.size === 0;
 
-  const activeColumns = ARTICLE_TABLE_ALL_COLUMNS.filter((c) =>
-    selectedColumnKeys.has(c.key)
-  );
+  const [showColumns, setShowColumns] = useState(false);
+
+  // Follow the user's chosen order (Set keeps insertion order), not the config order.
+  const activeColumns = useMemo(() => {
+    const byKey = new Map(ARTICLE_TABLE_ALL_COLUMNS.map((c) => [c.key, c]));
+    return Array.from(selectedColumnKeys).flatMap((key) => {
+      const col = byKey.get(key);
+      return col ? [col] : [];
+    });
+  }, [selectedColumnKeys]);
+
+  const columnVisibility = useMemo(() => {
+    const out: Record<string, boolean> = { name: true };
+    for (const col of ARTICLE_TABLE_ALL_COLUMNS) {
+      out[col.key] = selectedColumnKeys.has(col.key);
+    }
+    return out;
+  }, [selectedColumnKeys]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -252,8 +283,6 @@ export function CustomCompanyTableModal({
 
   const allCompaniesSelected =
     tableRows.length > 0 && tableRows.every((r) => selectedCompanyIds.has(r.id));
-  const allColumnsSelected =
-    selectedColumnKeys.size === ARTICLE_TABLE_ALL_COLUMNS.length;
 
   return (
     <div
@@ -273,6 +302,12 @@ export function CustomCompanyTableModal({
             <span className="cct-meta">
               {selectedCount} companies · {columnCount} columns
             </span>
+            <SearchColumnsButton
+              active={showColumns}
+              count={columnCount}
+              total={ARTICLE_TABLE_ALL_COLUMNS.length + 1}
+              onClick={() => setShowColumns((v) => !v)}
+            />
             <button
               type="button"
               className="company-columns-button primary"
@@ -296,83 +331,6 @@ export function CustomCompanyTableModal({
         </header>
 
         <div className="cct-layout">
-          <aside className="cct-sidebar">
-            <SidebarSection
-              title="Companies"
-              allSelected={allCompaniesSelected}
-              onToggleAll={() => {
-                onSelectedCompanyIdsChange(
-                  allCompaniesSelected
-                    ? new Set()
-                    : new Set(tableRows.map((r) => r.id))
-                );
-              }}
-            >
-              {tableRows.length === 0 ? (
-                <p className="cct-empty">
-                  {tableLoading
-                    ? "Loading companies…"
-                    : "No companies available for this article."}
-                </p>
-              ) : (
-                <div className="cct-checklist">
-                  {tableRows.map((row) => (
-                    <label key={row.id} className="cct-check">
-                      <input
-                        type="checkbox"
-                        checked={selectedCompanyIds.has(row.id)}
-                        onChange={(e) => {
-                          const next = new Set(selectedCompanyIds);
-                          if (e.target.checked) next.add(row.id);
-                          else next.delete(row.id);
-                          onSelectedCompanyIdsChange(next);
-                        }}
-                      />
-                      <span style={kvLabelStyle}>{row.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </SidebarSection>
-
-            <SidebarSection
-              title="Columns"
-              allSelected={allColumnsSelected}
-              onToggleAll={() => {
-                onSelectedColumnKeysChange(
-                  allColumnsSelected
-                    ? new Set()
-                    : new Set(ARTICLE_TABLE_ALL_COLUMNS.map((c) => c.key))
-                );
-              }}
-            >
-              <div className="cct-checklist">
-                {ARTICLE_TABLE_COL_GROUPS.map((group) => (
-                  <div key={group.group}>
-                    <p className="cct-group-label" style={finMetricsPeriodHeaderStyle}>
-                      {group.group}
-                    </p>
-                    {group.cols.map((column) => (
-                      <label key={column.key} className="cct-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedColumnKeys.has(column.key)}
-                          onChange={(e) => {
-                            const next = new Set(selectedColumnKeys);
-                            if (e.target.checked) next.add(column.key);
-                            else next.delete(column.key);
-                            onSelectedColumnKeysChange(next);
-                          }}
-                        />
-                        <span>{column.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </SidebarSection>
-          </aside>
-
           <div className="cct-preview">
             {tableLoading ? (
               <p className="cct-empty">Preparing table data…</p>
@@ -381,7 +339,29 @@ export function CustomCompanyTableModal({
                 <table className="company-table">
                   <thead>
                     <tr>
-                      <th className="company-table-sticky-frozen">Company Name</th>
+                      <th
+                        className="company-table-select-cell"
+                        style={{ minWidth: 44, width: 44, textAlign: "center", background: "#F5F7FD" }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={allCompaniesSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = !allCompaniesSelected && selectedCount > 0;
+                          }}
+                          onChange={() =>
+                            onSelectedCompanyIdsChange(
+                              allCompaniesSelected
+                                ? new Set()
+                                : new Set(tableRows.map((r) => r.id))
+                            )
+                          }
+                          aria-label="Select all companies"
+                        />
+                      </th>
+                      <th className="company-table-sticky-frozen" style={{ left: 44 }}>
+                        Company Name
+                      </th>
                       {activeColumns.map((column) => (
                         <th
                           key={column.key}
@@ -397,18 +377,36 @@ export function CustomCompanyTableModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows
-                      .filter((r) => selectedCompanyIds.has(r.id))
-                      .map((row) => (
-                        <tr key={row.id}>
-                          <td className="company-table-sticky-frozen">
-                            <Link
+                    {tableRows.map((row) => {
+                      const isSelected = selectedCompanyIds.has(row.id);
+                      return (
+                        <tr
+                          key={row.id}
+                          className={isSelected ? "company-table-row-selected" : undefined}
+                        >
+                          <td
+                            className="company-table-select-cell"
+                            style={{ minWidth: 44, width: 44, textAlign: "center" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const next = new Set(selectedCompanyIds);
+                                if (e.target.checked) next.add(row.id);
+                                else next.delete(row.id);
+                                onSelectedCompanyIdsChange(next);
+                              }}
+                              aria-label={`Select ${row.name}`}
+                            />
+                          </td>
+                          <td className="company-table-sticky-frozen" style={{ left: 44 }}>
+                            <SearchEntityIdentityCell
+                              name={row.name}
+                              logo={row.logo}
+                              subtitle={row.loc !== "-" ? row.loc : undefined}
                               href={`/company/${row.id}`}
-                              prefetch={false}
-                              className="company-table-entity-name company-table-entity-name-link"
-                            >
-                              {row.name}
-                            </Link>
+                            />
                           </td>
                           {activeColumns.map((column) => {
                             const value = getCellValue(row, column.key);
@@ -427,10 +425,18 @@ export function CustomCompanyTableModal({
                                     href={value}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    style={{ color: T.azure, wordBreak: "break-all" }}
+                                    className="company-website-link"
+                                    style={{ color: "#3b82f6", textDecoration: "none" }}
                                   >
-                                    {value}
+                                    {formatWebsiteLabel(value)}
                                   </a>
+                                ) : MULTI_VALUE_COLS.has(column.key) && value !== "-" ? (
+                                  <SearchEntityMultiValueCell
+                                    items={namesToMultiValueItems(
+                                      splitCommaSeparatedValues(value),
+                                      `${row.id}-${column.key}`
+                                    )}
+                                  />
                                 ) : (
                                   value
                                 )}
@@ -438,7 +444,8 @@ export function CustomCompanyTableModal({
                             );
                           })}
                         </tr>
-                      ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -446,6 +453,25 @@ export function CustomCompanyTableModal({
           </div>
         </div>
       </div>
+      {showColumns && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ColumnsControlRoom
+            initial={columnVisibility}
+            initialOrder={["name", ...activeColumns.map((c) => c.key)]}
+            categories={ARTICLE_COLUMN_CATEGORIES}
+            defaultVisibleColumnKeys={ARTICLE_TABLE_ALL_COLUMNS.map((c) => c.key)}
+            reorderHint="Drag rows to reorder. Company Name stays fixed as the first column."
+            onCancel={() => setShowColumns(false)}
+            onApply={(visible, order) => {
+              const ordered = (order ?? []).filter(
+                (key) => key !== "name" && visible[key] !== false
+              );
+              onSelectedColumnKeysChange(new Set(ordered));
+              setShowColumns(false);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
