@@ -11,7 +11,6 @@ import {
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
 import { SimplePager } from "@/components/shared/SimplePager";
-import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import { formatDate } from "@/utils/individualHelpers";
 
 type KeyPerson = {
@@ -24,6 +23,7 @@ type KeyPerson = {
 };
 
 const PER_PAGE = 25;
+const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 const ROW_GRID = "minmax(0, 1.4fr) minmax(0, 1.2fr) 80px minmax(110px, auto)";
 
 export function AdvisorKeyPeoplePanel({ advisorId }: { advisorId: number }) {
@@ -42,7 +42,7 @@ export function AdvisorKeyPeoplePanel({ advisorId }: { advisorId: number }) {
         ? localStorage.getItem("asymmetrix_auth_token")
         : null;
     fetch(
-      `${ADVISORS_API_BASE}/advisor/key_people?company_id=${advisorId}&page=${page}&per_page=${PER_PAGE}`,
+      `${API_BASE}/advisor/key_people?company_id=${advisorId}&page=${page}&per_page=${PER_PAGE}`,
       { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
     )
       .then((res) => {
