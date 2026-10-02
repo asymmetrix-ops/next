@@ -58,7 +58,7 @@ function useScopedAdvisorsSearch(
         );
 
         if (!data) {
-          throw new Error("Failed to fetch advisors - authentication required");
+          throw new Error("Failed to fetch advisors. Please try again or adjust your filters.");
         }
 
         if (requestId === lastRequestIdRef.current) {

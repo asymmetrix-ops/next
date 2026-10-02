@@ -139,7 +139,7 @@ function useScopedCompaniesSearch() {
         const data = await fetchCompaniesServer(page, serverFilters);
 
         if (!data) {
-          throw new Error("Failed to fetch companies - authentication required");
+          throw new Error("Failed to fetch companies. Please try again or adjust your filters.");
         }
 
         if (requestId === lastRequestIdRef.current) {

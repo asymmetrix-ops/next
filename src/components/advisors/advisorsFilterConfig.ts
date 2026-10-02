@@ -190,8 +190,12 @@ export function mapCountsToAdvisorsRoleCounts(
       : 0;
   };
 
+  // get_all_advisors_counts returns { sql, lambda: { companiesByRole, total } }.
+  const lambdaTotal = (data?.lambda as Record<string, unknown> | undefined)?.total;
   const resolvedTotal =
-    typeof data?.totalCount === "number" && Number.isFinite(data.totalCount) && data.totalCount > 0
+    typeof lambdaTotal === "number" && Number.isFinite(lambdaTotal)
+      ? lambdaTotal
+      : typeof data?.totalCount === "number" && Number.isFinite(data.totalCount) && data.totalCount > 0
       ? data.totalCount
       : typeof data?.itemsTotal === "number" && Number.isFinite(data.itemsTotal) && data.itemsTotal > 0
         ? data.itemsTotal

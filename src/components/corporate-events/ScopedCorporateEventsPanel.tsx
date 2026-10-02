@@ -136,7 +136,7 @@ function useScopedCorporateEventsSearch(userId: number | null) {
 
         if (!data) {
           throw new Error(
-            "Failed to fetch corporate events - authentication required"
+            "Failed to fetch corporate events. Please try again or adjust your filters."
           );
         }
 
