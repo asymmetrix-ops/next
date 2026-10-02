@@ -1597,6 +1597,7 @@ const InvestorDetailPage = () => {
               investorId={investorId}
               investorName={Investor.name}
               avgHoldingPeriodDisplay={avgHoldingPeriod?.display}
+              avgHoldingPeriodCoverage={avgHoldingPeriod?.coverage}
             />
           ) : activeProfileTab === "Corporate Events" ? (
             <CorporateEventsPageContent

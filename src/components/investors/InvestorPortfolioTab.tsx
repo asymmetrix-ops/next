@@ -32,6 +32,7 @@ import {
   getScopedPortfolioIds,
   type InvestmentStatusFilter,
 } from "@/lib/investorPortfolioFilters";
+import type { HoldingPeriodCoverage } from "@/lib/holdingPeriod";
 import { PortfolioHeadstatsRow } from "@/components/investors/PortfolioHeadstatsRow";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
@@ -46,6 +47,7 @@ export type InvestorPortfolioTabProps = {
   investorId: string;
   investorName: string;
   avgHoldingPeriodDisplay?: string | null;
+  avgHoldingPeriodCoverage?: HoldingPeriodCoverage | null;
 };
 
 function useInvestorPortfolioSearch(
@@ -283,6 +285,7 @@ export function InvestorPortfolioTab({
   investorId,
   investorName,
   avgHoldingPeriodDisplay,
+  avgHoldingPeriodCoverage,
 }: InvestorPortfolioTabProps) {
   const { currencyId: preferredCurrencyId, currency: platformCurrency } =
     usePlatformCurrency();
@@ -460,6 +463,8 @@ export function InvestorPortfolioTab({
         loading={headstatsLoading && !headstats}
         currencyCode={platformCurrency}
         avgHoldingPeriodDisplay={avgHoldingPeriodDisplay}
+        avgHoldingPeriodCoverage={avgHoldingPeriodCoverage}
+        totalCompanies={headstats?.n_companies_in_scope}
       />
 
       <div

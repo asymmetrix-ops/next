@@ -39,10 +39,17 @@ export interface InvestorHoldingPeriodsResponse {
   per_page: number;
 }
 
+export interface HoldingPeriodCoverage {
+  covered: number;
+  total: number;
+  label: string;
+}
+
 export interface InvestorHoldingPeriodAverageResponse {
   display: string | null;
   completed_exits: number;
   low_sample_size: boolean;
+  coverage?: HoldingPeriodCoverage | null;
 }
 
 export interface CompanyHoldingPeriodResponse {
@@ -128,8 +135,9 @@ export function computeActiveHoldingPeriodAverage(
   items: Pick<HoldingPeriodItem, "status" | "acquisition_date">[],
   now: Date = new Date()
 ): InvestorHoldingPeriodAverageResponse | null {
-  const times = items
-    .filter((i) => i.status === "current" && i.acquisition_date)
+  const currentItems = items.filter((i) => i.status === "current");
+  const times = currentItems
+    .filter((i) => i.acquisition_date)
     .map((i) => new Date(i.acquisition_date as string).getTime())
     .filter((t) => Number.isFinite(t) && t <= now.getTime());
   if (times.length === 0) return null;
@@ -141,5 +149,14 @@ export function computeActiveHoldingPeriodAverage(
 
   const display = formatMonthsAsHoldingDisplay(months);
   if (!display) return null;
-  return { display, completed_exits: 0, low_sample_size: times.length < 3 };
+  return {
+    display,
+    completed_exits: 0,
+    low_sample_size: times.length < 3,
+    coverage: {
+      covered: times.length,
+      total: currentItems.length,
+      label: `${times.length} / ${currentItems.length} companies`,
+    },
+  };
 }
