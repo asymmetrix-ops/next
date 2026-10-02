@@ -13,7 +13,6 @@ export type InvestorFocusSector = {
 
 export type InvestorOverviewCardProps = {
   focusSectors?: InvestorFocusSector[];
-  type?: string | null;
   yearFounded?: string | number | null;
   website?: string | null;
   websiteLabel?: string | null;
@@ -75,7 +74,6 @@ function StatusTag({ label }: { label: string }) {
 
 export function InvestorOverviewCard({
   focusSectors = [],
-  type,
   yearFounded,
   website,
   websiteLabel,
@@ -93,8 +91,7 @@ export function InvestorOverviewCard({
   const hasEmployees = employees != null && employees > 0;
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    { k: "Focus", show: focusSectors.length > 0, v: <FocusTags sectors={focusSectors} /> },
-    { k: "Type", show: !isEmptyDisplayValue(type ?? null), v: displayText(type) },
+    { k: "Sectors", show: focusSectors.length > 0, v: <FocusTags sectors={focusSectors} /> },
     { k: "Year Founded", show: !isEmptyDisplayValue(yearFounded ?? null), v: displayText(yearFounded) },
     { k: "HQ", show: !isEmptyDisplayValue(hq ?? null), v: displayText(hq) },
     {

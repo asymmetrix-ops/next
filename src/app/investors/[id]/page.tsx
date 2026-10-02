@@ -81,6 +81,7 @@ interface Investor {
 interface FocusSector {
   id: number;
   sector_name: string;
+  sector_importance?: string;
 }
 
 /** Top-level, API-resolved location (replaces `Investor._locations`). */
@@ -95,11 +96,6 @@ interface ResolvedLocation {
 interface ResolvedYearsFounded {
   id: number | null;
   Year: string | null;
-}
-
-interface BusinessFocusEntry {
-  id: number;
-  business_focus: string;
 }
 
 interface TeamMember {
@@ -262,8 +258,12 @@ interface InvestorData {
   Location?: ResolvedLocation;
   LinkedIn_Data?: LinkedInData;
   Years_founded?: ResolvedYearsFounded;
-  Primary_Business_Focus?: BusinessFocusEntry[];
+  /** Primary sector only (usually a broad bucket such as "Financial"). */
   Focus: FocusSector[];
+  /** Direct secondary sector tags (e.g. "Private Equity", "Venture Capital"). */
+  Secondary?: FocusSector[];
+  /** All direct sector tags, any importance. Preferred when the API returns it. */
+  Sectors?: FocusSector[];
   Invested_DA_sectors: FocusSector[];
   Investment_Team_Roles_current: TeamMember[];
   Investment_Team_Roles_past: TeamMember[];
@@ -1155,21 +1155,18 @@ const InvestorDetailPage = () => {
     Location,
     LinkedIn_Data,
     Years_founded,
-    Primary_Business_Focus,
     Focus,
+    Secondary,
+    Sectors,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
   } = investorData;
 
   const investorRaw = Investor as Investor & Record<string, unknown>;
-  const investorType =
-    (Primary_Business_Focus && Primary_Business_Focus.length > 0
-      ? Primary_Business_Focus.map((f) => f.business_focus)
-          .filter(Boolean)
-          .join(", ")
-      : null) ||
-    extractOptionalString(investorRaw, ["investor_type", "type"]) ||
-    extractOptionalString(investorData as unknown, ["investor_type"]);
+  // Prefer granular direct tags (PE, VC, focus areas) over the broad primary sector.
+  const sectorTags = [Sectors, Secondary, Focus].find(
+    (list) => Array.isArray(list) && list.some((f) => f?.sector_name)
+  ) ?? [];
   const investorOwnership =
     extractOptionalString(investorRaw, ["ownership", "ownership_type"]) ||
     (investorRaw._ownership_type && typeof investorRaw._ownership_type === "object"
@@ -1435,11 +1432,12 @@ const InvestorDetailPage = () => {
             <div className="investor-grid-overview" ref={overviewGridRef}>
               <InvestorOverviewCard
                 fillGridCell
-                focusSectors={Focus.filter((f) => f?.sector_name).map((f) => ({
-                  name: f.sector_name,
-                  href: f.id ? `/sector/${f.id}` : undefined,
-                }))}
-                type={investorType}
+                focusSectors={sectorTags
+                  .filter((f) => f?.sector_name)
+                  .map((f) => ({
+                    name: f.sector_name,
+                    href: f.id ? `/sector/${f.id}` : undefined,
+                  }))}
                 yearFounded={getYearFoundedDisplay(Investor, Years_founded)}
                 website={Investor.url}
                 websiteLabel={
