@@ -491,7 +491,7 @@ export const AdvisorSection = ({
           />
         );
       case "key_people":
-        return <AdvisorKeyPeopleCell advisorId={advisor.id} />;
+        return <AdvisorKeyPeopleCell advisorId={advisor.id} keyPeople={advisor.key_people} />;
       case "linkedin_members":
         return formatNumber(advisor.linkedin_members);
       case "country":

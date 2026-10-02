@@ -12,6 +12,8 @@ const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 type SearchEntityMultiValueCellProps = {
   items: SearchMultiValueItem[];
   maxVisible?: number;
+  /** Items not included in `items` (e.g. a server-capped list) to add to the "+n" tag. */
+  extraHiddenCount?: number;
   flagSize?: number;
   onLinkClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 };
@@ -58,6 +60,7 @@ function renderInlineValue(
 export function SearchEntityMultiValueCell({
   items,
   maxVisible = DEFAULT_MAX_VISIBLE,
+  extraHiddenCount = 0,
   flagSize = ENTITY_FLAG_SIZE_PX,
   onLinkClick,
 }: SearchEntityMultiValueCellProps) {
@@ -111,7 +114,8 @@ export function SearchEntityMultiValueCell({
   }
 
   const visibleItems = validItems.slice(0, maxVisible);
-  const hiddenCount = validItems.length - visibleItems.length;
+  const hiddenCount =
+    validItems.length - visibleItems.length + Math.max(0, extraHiddenCount);
 
   return (
     <>

@@ -32,6 +32,10 @@ export interface AdvisorListItem {
   linkedin_members?: number;
   country?: string;
   linkedin_logo?: string;
+  key_people?: {
+    total: number;
+    items: Array<{ individual_id: number; name: string }>;
+  } | null;
 }
 
 export interface AdvisorsListResponse {

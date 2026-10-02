@@ -22,6 +22,9 @@ type DealAdvised = {
   target_name: string | null;
   counterparty_company_id: number | null;
   counterparty_name: string | null;
+  counterparty_is_investor?: boolean;
+  counterparty_investor_id?: number | null;
+  counterparty_page_type?: string | null;
   advisor_company_id: number | null;
   advisor_firm_name: string | null;
   deal_value_m: number | string | null;
@@ -33,6 +36,13 @@ const PER_PAGE = 20;
 const ROW_GRID =
   "minmax(0, 1.4fr) minmax(92px, auto) minmax(100px, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(80px, auto)";
 const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
+
+function counterpartyHref(d: DealAdvised): string | undefined {
+  if (d.counterparty_is_investor && d.counterparty_investor_id) {
+    return `/investors/${d.counterparty_investor_id}`;
+  }
+  return d.counterparty_company_id ? `/company/${d.counterparty_company_id}` : undefined;
+}
 
 export function IndividualDealsAdvisedPanel({ individualId }: { individualId: number }) {
   const [page, setPage] = useState(1);
@@ -138,9 +148,9 @@ export function IndividualDealsAdvisedPanel({ individualId }: { individualId: nu
                 </div>
                 <div>{d.deal_type ? <DealTypeBadge dealType={d.deal_type} /> : "-"}</div>
                 <div style={{ minWidth: 0 }}>
-                  {d.counterparty_company_id && d.counterparty_name ? (
+                  {counterpartyHref(d) && d.counterparty_name ? (
                     <Link
-                      href={`/company/${d.counterparty_company_id}`}
+                      href={counterpartyHref(d)!}
                       prefetch={false}
                       style={{ color: T.azure, textDecoration: "underline" }}
                     >
