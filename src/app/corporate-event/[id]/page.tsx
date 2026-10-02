@@ -149,10 +149,7 @@ const CorporateEventDetail = ({
   useEffect(() => {
     if (!eventId) return;
     let cancelled = false;
-    const base =
-      process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
-        ? "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop"
-        : "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+    const base = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
     const token = localStorage.getItem("asymmetrix_auth_token");
     fetch(`${base}/corporate_event/advisors_key_people?event_id=${eventId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,

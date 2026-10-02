@@ -32,10 +32,7 @@ type DealAdvised = {
 const PER_PAGE = 20;
 const ROW_GRID =
   "minmax(0, 1.4fr) minmax(92px, auto) minmax(100px, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(80px, auto)";
-const API_BASE =
-  process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
-    ? "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop"
-    : "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop";
 
 export function IndividualDealsAdvisedPanel({ individualId }: { individualId: number }) {
   const [page, setPage] = useState(1);
