@@ -39,10 +39,60 @@ const isDataAnalyticsCompany = (candidate: unknown): boolean => {
 };
 
 const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+/** Matches `CorporateEventTransactionsPanel` default `maxInitial`. */
+const RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT = 5;
+/** Matches sector I&A fetch `slice(0, 5)` on this page. */
+const SECTOR_INSIGHTS_PDF_LIMIT = 5;
 const RELATED_PARTY_LINK_STYLE: React.CSSProperties = {
   color: "#2563eb",
   textDecoration: "underline",
 };
+
+type CorporateEventListItem = NonNullable<
+  Awaited<ReturnType<typeof corporateEventsService.getCorporateEvents>>["items"]
+>[number];
+
+type CorporateEventTransactionExportRow = {
+  id: number;
+  title: string;
+  date?: string;
+  dealType?: string;
+  target_label?: string;
+  investor_labels?: string[];
+};
+
+function mapCorporateEventToExportTransaction(
+  e: CorporateEventListItem,
+  formatDate: (dateString: string) => string
+): CorporateEventTransactionExportRow {
+  const targetNames: string[] = [];
+  if (Array.isArray(e.targets)) {
+    for (const target of e.targets) {
+      const name = target?.name?.trim();
+      if (name) targetNames.push(name);
+    }
+  } else if (e.target_counterparty?.new_company?.name) {
+    targetNames.push(e.target_counterparty.new_company.name.trim());
+  }
+
+  const investorNames: string[] = [];
+  if (Array.isArray(e.other_counterparties)) {
+    for (const counterparty of e.other_counterparties) {
+      const nc = counterparty?._new_company;
+      const name = nc?.name?.trim();
+      if (name && nc?._is_that_investor) investorNames.push(name);
+    }
+  }
+
+  return {
+    id: e.id,
+    title: e.description || "View event",
+    date: e.announcement_date ? formatDate(e.announcement_date) : undefined,
+    dealType: e.deal_type || undefined,
+    target_label: targetNames.length > 0 ? targetNames.join(", ") : undefined,
+    investor_labels: investorNames.length > 0 ? investorNames : undefined,
+  };
+}
 
 // Helper function to process logo URLs
   const buildLogoSrc = (raw?: string): string | undefined =>
@@ -214,6 +264,9 @@ const CorporateEventDetail = ({
 
   const [eventArticles, setEventArticles] = useState<ContentArticle[]>([]);
   const [relatedTransactions, setRelatedTransactions] = useState<CorporateEventTransactionRow[]>([]);
+  const [relatedTransactionsForExport, setRelatedTransactionsForExport] = useState<
+    CorporateEventTransactionExportRow[]
+  >([]);
   const [relatedInsights, setRelatedInsights] = useState<ContentArticle[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -610,8 +663,13 @@ const CorporateEventDetail = ({
           primary_sectors_ids: [primarySectorId],
         });
         const items = Array.isArray(tx?.items) ? tx.items : [];
-        const filtered = items
-          .filter((e) => (typeof corporateEventId === "number" ? e?.id !== corporateEventId : true))
+        const sectorPeerEvents = items.filter((e) =>
+          typeof corporateEventId === "number" ? e?.id !== corporateEventId : true
+        );
+        setRelatedTransactionsForExport(
+          sectorPeerEvents.map((e) => mapCorporateEventToExportTransaction(e, formatDate))
+        );
+        const filtered = sectorPeerEvents
           .map((e) => {
             const investors = Array.isArray(e?.other_counterparties)
               ? (() => {
@@ -838,7 +896,20 @@ const CorporateEventDetail = ({
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      const endpoint = "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf";
+      const endpoint =
+        "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf?version=v2";
+
+      const toInsightRow = (article: ContentArticle) => ({
+        id: article.id,
+        tag: (article.Content_Type || "Article").trim() || "Article",
+        date: article.Publication_Date
+          ? new Date(article.Publication_Date).toLocaleDateString()
+          : undefined,
+        title: article.Headline || "Untitled",
+        content: article.Strapline || "",
+      });
+      const sectorInsightsForExport = (relatedInsights || []).map(toInsightRow);
+      const insightsForEventForExport = (insightsForEvent || []).map(toInsightRow);
       
       // Prepare the full data payload
       const payload = {
@@ -849,15 +920,13 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        related_insights: (relatedInsights || []).map((article) => ({
-          id: article.id,
-          tag: (article.Content_Type || "Article").trim() || "Article",
-          date: article.Publication_Date
-            ? new Date(article.Publication_Date).toLocaleDateString()
-            : undefined,
-          title: article.Headline || "Untitled",
-          content: article.Strapline || "",
-        })),
+        related_insights: sectorInsightsForExport,
+        insights_and_analysis: insightsForEventForExport,
+        sector_insights_and_analysis: sectorInsightsForExport.slice(0, SECTOR_INSIGHTS_PDF_LIMIT),
+        recent_sector_transactions: relatedTransactionsForExport.slice(
+          0,
+          RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT
+        ),
         xano_auth_token: token,
       };
 
@@ -898,7 +967,16 @@ const CorporateEventDetail = ({
     } finally {
       setIsExportingPdf(false);
     }
-  }, [corporateEventId, event?.description, data, eventArticles, relatedTransactions, relatedInsights]);
+  }, [
+    corporateEventId,
+    event?.description,
+    data,
+    eventArticles,
+    relatedTransactions,
+    relatedTransactionsForExport,
+    relatedInsights,
+    insightsForEvent,
+  ]);
 
   const eventTitle = event?.description || "Corporate Event";
   const eventDescription = event?.long_description || "";

@@ -449,7 +449,7 @@ export default function AdvisorProfilePage() {
     try {
       const payload = { advisor: buildAdvisorPageSnapshot() };
       const res = await fetch(
-        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf",
+        "https://asymmetrix-pdf-service.fly.dev/api/export-advisor-pdf?version=v2",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

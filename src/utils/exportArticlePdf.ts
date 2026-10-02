@@ -188,11 +188,12 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       })),
     };
 
-    const endpoint =
+    const endpointBase =
       (typeof process !== "undefined" &&
         (process as unknown as { env?: { [k: string]: string | undefined } })
           .env?.NEXT_PUBLIC_PDF_SERVICE_URL) ||
       "https://asymmetrix-pdf-service.fly.dev/api/export-article-pdf";
+    const endpoint = `${endpointBase}${endpointBase.includes("?") ? "&" : "?"}version=v2`;
 
     // Log payload and endpoint to browser console
     try {
