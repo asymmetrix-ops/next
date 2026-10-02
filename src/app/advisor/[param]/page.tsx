@@ -866,6 +866,7 @@ export default function AdvisorProfilePage() {
                 current={peopleCurrent}
                 past={peoplePast}
                 dealCounts={dealCounts}
+                advisorId={advisorId}
               />
             </div>
           </div>

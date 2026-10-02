@@ -32,6 +32,9 @@ export interface CorporateEventsFilters {
   filter_investor_ids?: number[];
   filter_sector_ids?: number[];
   filter_individual_ids?: number[];
+  /** Only deals this individual advised on (optionally narrowed to one advisor firm). */
+  advised_by_individual_id?: number;
+  advised_by_company_id?: number;
   EV_min?: string;
   EV_max?: string;
   Amount_min?: string;

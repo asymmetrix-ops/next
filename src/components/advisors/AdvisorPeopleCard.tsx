@@ -31,6 +31,8 @@ type Props = {
   fillGridCell?: boolean;
   /** individual id → deals advised; adds a Deals column on the Current tab. */
   dealCounts?: Record<number, number>;
+  /** Advisor firm id; scopes the Deals link to deals advised for this firm. */
+  advisorId?: number;
 };
 
 const COL_GAP = 6;
@@ -55,16 +57,27 @@ function ColHeader({ showDeals }: { showDeals: boolean }) {
   );
 }
 
+function dealsHref(person: AdvisorPerson, advisorId?: number): string {
+  const params = new URLSearchParams({
+    advised_by_individual_id: String(person.individualId),
+    advised_by_name: person.name,
+  });
+  if (advisorId) params.set("advised_by_company_id", String(advisorId));
+  return `/corporate-events?${params.toString()}`;
+}
+
 function PersonRow({
   person,
   last,
   showDeals,
   deals,
+  advisorId,
 }: {
   person: AdvisorPerson;
   last: boolean;
   showDeals: boolean;
   deals?: number;
+  advisorId?: number;
 }) {
   return (
     <div
@@ -138,7 +151,7 @@ function PersonRow({
         <div style={{ textAlign: "center", paddingTop: 1 }}>
           {deals && person.individualId ? (
             <Link
-              href={`/individual/${person.individualId}#deals-advised`}
+              href={dealsHref(person, advisorId)}
               prefetch={false}
               style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
             >
@@ -189,6 +202,7 @@ export function AdvisorPeopleCard({
   past = [],
   fillGridCell = false,
   dealCounts,
+  advisorId,
 }: Props) {
   const [tab, setTab] = useState<Tab>("current");
 
@@ -235,6 +249,7 @@ export function AdvisorPeopleCard({
               person={person}
               last={index === activeList.length - 1}
               showDeals={showDeals}
+              advisorId={advisorId}
               deals={person.individualId ? dealCounts?.[person.individualId] : undefined}
             />
           ))

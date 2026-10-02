@@ -228,6 +228,50 @@ function CorporateEventsPageInner() {
     setInitialSearch(params.get("search") || undefined);
   }, []);
 
+  // "Advised by" deep link (e.g. from the advisor People card Deals count).
+  const advisedByClearedRef = useRef(false);
+  const [advisedBy, setAdvisedBy] = useState<{ name: string } | null>(null);
+
+  const readAdvisedByFromUrl = useCallback(() => {
+    if (advisedByClearedRef.current || typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const individualId = Number(params.get("advised_by_individual_id"));
+    if (!Number.isFinite(individualId) || individualId <= 0) return null;
+    const companyId = Number(params.get("advised_by_company_id"));
+    return {
+      individualId,
+      companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : undefined,
+      name: params.get("advised_by_name") || `Individual ${individualId}`,
+    };
+  }, []);
+
+  useEffect(() => {
+    const active = readAdvisedByFromUrl();
+    setAdvisedBy(active ? { name: active.name } : null);
+  }, [readAdvisedByFromUrl]);
+
+  const withAdvisedBy = useCallback(
+    (filters: Filters): Filters => {
+      const active = readAdvisedByFromUrl();
+      if (!active) {
+        const {
+          advised_by_individual_id: _i,
+          advised_by_company_id: _c,
+          ...rest
+        } = filters;
+        void _i;
+        void _c;
+        return rest as Filters;
+      }
+      return {
+        ...filters,
+        advised_by_individual_id: active.individualId,
+        advised_by_company_id: active.companyId,
+      };
+    },
+    [readAdvisedByFromUrl]
+  );
+
   const handleSearch = useCallback(
     (
       listFilters: Filters,
@@ -236,10 +280,29 @@ function CorporateEventsPageInner() {
       refreshCounts: boolean = true
     ) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      void fetchCorporateEvents(1, listFilters, countsFilters, refreshCounts);
+      void fetchCorporateEvents(
+        1,
+        withAdvisedBy(listFilters),
+        withAdvisedBy(countsFilters),
+        refreshCounts
+      );
     },
-    [fetchCorporateEvents]
+    [fetchCorporateEvents, withAdvisedBy]
   );
+
+  const clearAdvisedBy = useCallback(() => {
+    advisedByClearedRef.current = true;
+    setAdvisedBy(null);
+    const url = new URL(window.location.href);
+    ["advised_by_individual_id", "advised_by_company_id", "advised_by_name"].forEach(
+      (key) => url.searchParams.delete(key)
+    );
+    window.history.replaceState(null, "", url.toString());
+    if (currentFilters) {
+      const cleaned = withAdvisedBy(currentFilters);
+      void fetchCorporateEvents(1, cleaned, cleaned);
+    }
+  }, [currentFilters, fetchCorporateEvents, withAdvisedBy]);
 
   useEffect(() => {
     if (!preferredCurrencyReadyRef.current) {
@@ -284,6 +347,40 @@ function CorporateEventsPageInner() {
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
       />
+      {advisedBy ? (
+        <div style={{ padding: "0 24px 8px", fontSize: 12.5 }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: "#eef5ff",
+              color: "#0075df",
+              fontWeight: 500,
+            }}
+          >
+            Advised by {advisedBy.name}
+            <button
+              type="button"
+              onClick={clearAdvisedBy}
+              aria-label="Clear advised-by filter"
+              style={{
+                border: "none",
+                background: "none",
+                color: "inherit",
+                cursor: "pointer",
+                fontSize: 14,
+                lineHeight: 1,
+                padding: 0,
+              }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      ) : null}
       <CorporateEventsSearchSection
         events={events}
         loading={loading}

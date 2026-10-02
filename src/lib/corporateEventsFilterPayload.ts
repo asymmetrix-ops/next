@@ -386,6 +386,13 @@ function appendSharedCorporateEventFilterParams(
     (filters.filter_sector_ids?.length ?? 0) > 0 ||
     (filters.filter_individual_ids?.length ?? 0) > 0;
 
+  if (filters.advised_by_individual_id) {
+    params.append("advised_by_individual_id", String(filters.advised_by_individual_id));
+    if (filters.advised_by_company_id) {
+      params.append("advised_by_company_id", String(filters.advised_by_company_id));
+    }
+  }
+
   if (filters.show_followed || hasSpecificEntityFilters) {
     params.append("show_followed", "true");
     if (filters.user_id != null && Number.isFinite(filters.user_id)) {
