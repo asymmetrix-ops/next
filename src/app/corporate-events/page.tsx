@@ -65,11 +65,9 @@ const useCorporateEventsAPI = (userId: number | null) => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
           }
-          setSummaryStats((current) => ({
-            ...countsData,
-            totalCount:
-              countsData.totalCount > 0 ? countsData.totalCount : current.totalCount,
-          }));
+          // A failed request returns null (handled above), so a 0 here is a real
+          // "no matches" result and must replace the previous total.
+          setSummaryStats(countsData);
         })
         .catch((countsError) => {
           console.error("Error fetching corporate event counts:", countsError);
@@ -123,7 +121,7 @@ const useCorporateEventsAPI = (userId: number | null) => {
 
         if (!data) {
           throw new Error(
-            "Failed to fetch corporate events - authentication required"
+            "Failed to fetch corporate events. Please try again or adjust your filters."
           );
         }
 

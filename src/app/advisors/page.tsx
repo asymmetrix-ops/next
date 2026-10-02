@@ -61,13 +61,8 @@ const useAdvisorsAPI = () => {
           if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
             return;
           }
-          setRoleCounts((current) => ({
-            ...countsData,
-            totalCount:
-              countsData.totalCount > 0
-                ? countsData.totalCount
-                : current.totalCount,
-          }));
+          // A failed request returns null (handled above), so 0 is a real "no matches".
+          setRoleCounts(countsData);
         })
         .catch((countsError) => {
           console.error("Error fetching advisor role counts:", countsError);
@@ -111,7 +106,7 @@ const useAdvisorsAPI = () => {
         const data = await fetchAdvisorsServer({ ...filtersToUse, page });
 
         if (!data) {
-          throw new Error("Failed to fetch advisors - authentication required");
+          throw new Error("Failed to fetch advisors. Please try again or adjust your filters.");
         }
 
         if (requestId === lastRequestIdRef.current) {

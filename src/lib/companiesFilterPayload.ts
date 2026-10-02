@@ -496,6 +496,17 @@ export function buildCompaniesSearchPayload(args: {
     }
 
     // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
+    // "Recurring Revenue" (%) — filter id arr_growth, backed by Subscription_revenue_pc.
+    // Without this case the filter was shown in the picker but never sent to the API.
+    if (item.id === "arr_growth" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_pc",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
     if (item.id === "churn" && hasRangeValue(v)) {
       pushClause({
         id: item.key,

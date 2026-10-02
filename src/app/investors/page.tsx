@@ -103,7 +103,7 @@ const useInvestorsAPI = () => {
         const data = await fetchInvestorsServer({ ...filtersToUse, page });
 
         if (!data) {
-          throw new Error("Failed to fetch investors - authentication required");
+          throw new Error("Failed to fetch investors. Please try again or adjust your filters.");
         }
 
         if (requestId === lastRequestIdRef.current) {

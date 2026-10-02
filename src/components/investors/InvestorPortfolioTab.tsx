@@ -216,7 +216,7 @@ function useInvestorPortfolioSearch(
         const data = await fetchCompaniesServer(page, listFilters);
 
         if (!data) {
-          throw new Error("Failed to fetch portfolio companies - authentication required");
+          throw new Error("Failed to fetch portfolio companies. Please try again or adjust your filters.");
         }
 
         if (requestId === lastRequestIdRef.current) {
