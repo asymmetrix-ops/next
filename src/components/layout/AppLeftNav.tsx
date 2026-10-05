@@ -338,7 +338,7 @@ export default function AppLeftNav() {
           transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
         }}
       >
-      <div className="flex shrink-0 flex-col items-start gap-2 border-b border-gray-100 px-3 py-3">
+      <div className="flex shrink-0 flex-col items-start gap-1.5 border-b border-gray-100 px-3 py-2">
         <Link
           href={DASHBOARD_HREF}
           className="flex h-8 w-8 shrink-0 items-center justify-center"
@@ -364,7 +364,7 @@ export default function AppLeftNav() {
         </button>
       </div>
 
-      <div className="shrink-0 border-b border-gray-100 px-2 py-2">
+      <div className="shrink-0 border-b border-gray-100 px-2 py-1.5">
         {open ? (
           <GlobalSearchTrigger variant="sidebar" />
         ) : (
@@ -372,7 +372,7 @@ export default function AppLeftNav() {
             type="button"
             onClick={openSearch}
             aria-label="Search"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
           >
             <svg
               width={16}
@@ -391,7 +391,10 @@ export default function AppLeftNav() {
         )}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2 pt-3">
+      <nav
+        className="min-h-0 flex-1 space-y-px overflow-y-auto overflow-x-hidden px-2 pb-2 pt-2"
+        style={{ scrollbarWidth: "thin", scrollbarColor: "#d1d5db transparent" }}
+      >
         <NavRow
           open={open}
           href={DASHBOARD_HREF}
@@ -424,7 +427,7 @@ export default function AppLeftNav() {
 
       <div
         className={`flex shrink-0 border-t border-gray-100 p-2 ${
-          open ? "flex-row items-center gap-1" : "flex-col items-center gap-2"
+          open ? "flex-row items-center gap-1" : "flex-col items-center gap-1"
         }`}
       >
         <Link
@@ -486,11 +489,11 @@ function NavRow({
   if (comingSoon) {
     return (
       <div
-        title={!open ? `${label} (coming soon)` : undefined}
+        title={`${label} (coming soon)`}
         aria-disabled="true"
-        className="flex min-h-[40px] cursor-not-allowed items-center rounded-full py-2 pl-2 pr-2.5 text-sm font-medium text-gray-400"
+        className="flex h-9 cursor-not-allowed items-center rounded-full py-0 pl-2 pr-2.5 text-sm font-medium text-gray-400"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
           <Icon className="h-[18px] w-[18px] shrink-0 opacity-60" />
         </span>
         <span
@@ -512,14 +515,14 @@ function NavRow({
   return (
     <Link
       href={href}
-      title={!open ? label : undefined}
-      className={`group flex min-h-[40px] items-center rounded-full py-2 pl-2 pr-2.5 text-sm font-medium transition-colors ${
+      title={label}
+      className={`group flex h-9 items-center rounded-full py-0 pl-2 pr-2.5 text-sm font-medium transition-colors ${
         active
           ? "bg-blue-50 text-blue-600"
           : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center">
         <Icon
           className={`h-[18px] w-[18px] shrink-0 ${
             active ? "opacity-100" : "opacity-60 group-hover:opacity-100"
@@ -534,9 +537,9 @@ function NavRow({
         }}
         aria-hidden={!open}
       >
-        <span className="truncate">{label}</span>
-        {count && (
-          <span className="ml-auto shrink-0 text-[10.5px] font-bold tabular-nums text-gray-400 opacity-0 transition-opacity group-hover:text-blue-600 group-hover:opacity-100 group-focus-visible:opacity-100">
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {count && open && (
+          <span className="invisible ml-auto min-w-[2.75rem] shrink-0 text-right text-[10.5px] font-bold tabular-nums text-gray-400 opacity-0 transition-opacity duration-150 [@media(hover:hover)]:visible [@media(hover:hover)]:group-hover:text-blue-600 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-visible:opacity-100">
             {count}
           </span>
         )}
