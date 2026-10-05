@@ -349,7 +349,7 @@ function sortItems(items: DealRadarDashboardItem[], key: SortKey | null, dir: So
     .map((x) => x.it);
 }
 
-function dealRadarStatusLabel(id: number, fallback: string): string | undefined {
+function dealRadarStatusLabel(id: number): string | undefined {
   return TRANSACTION_STATUS_OPTIONS.find((o) => o.id === id)?.label ?? undefined;
 }
 
@@ -1096,7 +1096,7 @@ export default function DealRadarDashboardPage() {
                                 <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
-                                    label={dealRadarStatusLabel(item.transaction_status_id, item.transaction_status)}
+                                    label={dealRadarStatusLabel(item.transaction_status_id)}
                                     className="inline-block max-w-[11rem]"
                                     allowWrap
                                   />
