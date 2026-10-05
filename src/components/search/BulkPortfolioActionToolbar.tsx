@@ -160,7 +160,9 @@ export function BulkPortfolioActionToolbar({
   if (count === 0) return null;
 
   return (
-    <div className="search-bulk-action-toolbar">
+    <div
+      className={`search-bulk-action-toolbar${exportOnly ? " search-bulk-action-toolbar-compact" : ""}`}
+    >
       <div className="search-bulk-action-toolbar-summary">
         <span className="search-bulk-action-toolbar-count">
           {count.toLocaleString()} selected
