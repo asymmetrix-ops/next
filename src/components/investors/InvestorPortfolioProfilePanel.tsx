@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import CompactPagination from "@/components/ui/CompactPagination";
 import {
@@ -23,6 +24,8 @@ export type InvestorPortfolioCompany = {
   relatedIndividuals?: Array<{ id: number; name: string }>;
   country?: string | null;
   logo?: string | null;
+  /** Not a D&A company: show name as plain text with explanatory tooltip. */
+  nonDa?: boolean;
 };
 
 type Pagination = {
@@ -276,19 +279,31 @@ export function InvestorPortfolioProfilePanel({
                     }}
                   >
                     <CompanyLogo logo={company.logo} name={company.name} size={24} />
-                    <Link
-                      href={`/company/${company.id}`}
-                      prefetch={false}
-                      style={{
-                        color: T.azure,
-                        textDecoration: "underline",
-                        fontWeight: 500,
-                        minWidth: 0,
-                        wordBreak: "break-word" as const,
-                      }}
-                    >
-                      {company.name}
-                    </Link>
+                    {company.nonDa ? (
+                      <NonDaCompanyName
+                        style={{
+                          fontWeight: 500,
+                          minWidth: 0,
+                          wordBreak: "break-word" as const,
+                        }}
+                      >
+                        {company.name}
+                      </NonDaCompanyName>
+                    ) : (
+                      <Link
+                        href={`/company/${company.id}`}
+                        prefetch={false}
+                        style={{
+                          color: T.azure,
+                          textDecoration: "underline",
+                          fontWeight: 500,
+                          minWidth: 0,
+                          wordBreak: "break-word" as const,
+                        }}
+                      >
+                        {company.name}
+                      </Link>
+                    )}
                   </div>
                   <div
                     style={{

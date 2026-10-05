@@ -10,6 +10,7 @@ import {
   readHqCountryIso2,
 } from "@/lib/dealRadar";
 import { cn } from "@/utils/cn";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 
 type CountryFlagImgProps = {
   iso2: string | null | undefined;
@@ -109,9 +110,9 @@ export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = (
   }
 
   return (
-    <span className={linkClassName} style={linkStyle}>
+    <NonDaCompanyName className={linkClassName} style={linkStyle}>
       {content}
-    </span>
+    </NonDaCompanyName>
   );
 };
 
@@ -184,8 +185,8 @@ export const CorporateEventTargetLink: React.FC<CorporateEventTargetLinkProps> =
   }
 
   return (
-    <span className={stackClassName} style={linkStyle}>
+    <NonDaCompanyName className={stackClassName} style={linkStyle}>
       {content}
-    </span>
+    </NonDaCompanyName>
   );
 };

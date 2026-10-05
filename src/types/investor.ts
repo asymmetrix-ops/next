@@ -56,6 +56,8 @@ export interface PortfolioCompany {
     Country: string;
   };
   _is_that_investor: boolean;
+  /** False => not a D&A company (no profile). Undefined => unknown (keep link). */
+  _is_that_data_analytic_company?: boolean;
   _linkedin_data_of_new_company: {
     linkedin_employee: number;
     linkedin_logo: string;

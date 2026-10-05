@@ -105,6 +105,8 @@ interface PortfolioCompany {
     Country: string;
   };
   _is_that_investor: boolean;
+  /** False => not a D&A company (no profile). */
+  _is_that_data_analytic_company?: boolean;
   _linkedin_data_of_new_company: {
     linkedin_employee: number;
     linkedin_logo: string;
@@ -682,6 +684,10 @@ const InvestorDetailPage = () => {
       _is_that_investor: Boolean(
         (obj["_is_that_investor"] as boolean) ?? false
       ),
+      _is_that_data_analytic_company:
+        typeof obj["_is_that_data_analytic_company"] === "boolean"
+          ? (obj["_is_that_data_analytic_company"] as boolean)
+          : undefined,
       _linkedin_data_of_new_company: {
         linkedin_employee: Number(linkedinDataNew?.linkedin_employee ?? 0),
         linkedin_logo: String(linkedinDataNew?.linkedin_logo ?? ""),
@@ -1360,6 +1366,9 @@ const InvestorDetailPage = () => {
     relatedIndividuals: company.related_to_investor_individuals,
     country: company._locations?.Country,
     logo: company._linkedin_data_of_new_company?.linkedin_logo,
+    nonDa:
+      company._is_that_data_analytic_company === false &&
+      !company._is_that_investor,
   });
 
   const currentPortfolioRows = portfolioCompanies.map((c) =>

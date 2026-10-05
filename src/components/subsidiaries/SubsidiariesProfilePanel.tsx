@@ -1,5 +1,6 @@
 "use client";
 
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import {
@@ -35,6 +36,8 @@ export type SubsidiaryProfileRecord = {
     id?: number;
   }>;
   _locations?: { Country?: string };
+  /** False => not a D&A company (no profile page). */
+  _is_that_data_analytic_company?: boolean;
   _linkedin_data_of_new_company?: {
     linkedin_employee?: number | null;
     linkedin_logo?: string;
@@ -314,15 +317,21 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     whiteSpace: narrow ? "nowrap" : undefined,
                   }}
                 >
-                  {createClickableElement(
-                    `/company/${subsidiary.id}`,
-                    subsidiary.name,
-                    undefined,
-                    {
-                      color: T.azure,
-                      fontWeight: 500,
-                      textDecoration: "underline",
-                    }
+                  {subsidiary._is_that_data_analytic_company === false ? (
+                    <NonDaCompanyName style={{ fontWeight: 500 }}>
+                      {subsidiary.name}
+                    </NonDaCompanyName>
+                  ) : (
+                    createClickableElement(
+                      `/company/${subsidiary.id}`,
+                      subsidiary.name,
+                      undefined,
+                      {
+                        color: T.azure,
+                        fontWeight: 500,
+                        textDecoration: "underline",
+                      }
+                    )
                   )}
                 </span>
               </div>

@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
@@ -160,7 +161,7 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                         ) : null}
                       </Link>
                     ) : (
-                      <span
+                      <NonDaCompanyName
                         style={{
                           fontSize: 12,
                           minWidth: 0,
@@ -182,7 +183,7 @@ export function CorporateEventCounterpartiesPanel({ counterparties }: Props) {
                         {cp.hqIso2 ? (
                           <CountryFlagImg iso2={cp.hqIso2} size={ENTITY_FLAG_SIZE_PX} />
                         ) : null}
-                      </span>
+                      </NonDaCompanyName>
                     )}
                   </div>
                   <div

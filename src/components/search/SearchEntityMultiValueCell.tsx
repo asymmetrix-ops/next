@@ -4,6 +4,7 @@ import React, { useCallback, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
 
 const DEFAULT_MAX_VISIBLE = 10;
@@ -52,6 +53,10 @@ function renderInlineValue(
         {renderEntityLabel(item, flagSize)}
       </a>
     );
+  }
+
+  if (item.isCompany) {
+    return <NonDaCompanyName>{renderEntityLabel(item, flagSize)}</NonDaCompanyName>;
   }
 
   return renderEntityLabel(item, flagSize);

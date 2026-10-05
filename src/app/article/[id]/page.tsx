@@ -181,6 +181,8 @@ interface CompanyCompetitorItem {
   id: number;
   name: string;
   linkedin_logo?: string;
+  /** False => not a D&A company (no profile). */
+  _is_that_data_analytic_company?: boolean;
 }
 
 interface CompanyCompetitorsResponse {
@@ -2308,7 +2310,8 @@ const ArticleDetailPage = () => {
                           <EntityChip
                             key={`peer-${c.id}`}
                             kind="company"
-                            href={`/company/${c.id}`}
+                            href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
+                            nonDa={c._is_that_data_analytic_company === false}
                             label={c.name}
                           />
                         ))}
@@ -2332,7 +2335,8 @@ const ArticleDetailPage = () => {
                             <EntityChip
                               key={`acq-${c.id}`}
                               kind="company"
-                              href={`/company/${c.id}`}
+                              href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
+                            nonDa={c._is_that_data_analytic_company === false}
                               label={c.name}
                             />
                           ))}
@@ -2357,7 +2361,8 @@ const ArticleDetailPage = () => {
                             <EntityChip
                               key={`tgt-${c.id}`}
                               kind="company"
-                              href={`/company/${c.id}`}
+                              href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
+                            nonDa={c._is_that_data_analytic_company === false}
                               label={c.name}
                             />
                           ))}

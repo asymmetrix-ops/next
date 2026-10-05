@@ -35,6 +35,9 @@ export interface RoleCompany {
     linkedin_logo: string;
   };
   _is_that_investor: boolean;
+  /** False => not a D&A company (no profile). Undefined => unknown (keep link). */
+  _is_that_data_analytic_company?: boolean;
+  _page_type?: "company" | "investor" | "advisor";
   _linkedin_data_of_new_company: {
     linkedin_logo: string; // Base64 encoded
   };

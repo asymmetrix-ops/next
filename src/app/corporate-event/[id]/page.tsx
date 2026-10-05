@@ -27,6 +27,7 @@ import {
   CorporateEventInsightsPanel,
   type CorporateEventInsight,
 } from "@/components/corporate-events/CorporateEventInsightsPanel";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { resolveCompanyLogoSrcBlockingLinkedIn } from "@/lib/companyLogo";
@@ -681,8 +682,10 @@ const CorporateEventDetail = ({
                       linkStyle={RELATED_PARTY_LINK_STYLE}
                       flagSize={ENTITY_FLAG_SIZE_PX}
                     />
+                  ) : name ? (
+                    <NonDaCompanyName>{name}</NonDaCompanyName>
                   ) : (
-                    <span>{name || "-"}</span>
+                    <span>-</span>
                   );
                 return (
                   <span key={typeof id === "number" ? id : idx}>

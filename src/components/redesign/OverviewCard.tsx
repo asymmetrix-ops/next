@@ -6,6 +6,7 @@
  */
 import React from "react";
 import Link from "next/link";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
@@ -43,7 +44,7 @@ export type OverviewCardProps = {
   totalAmountRaised?: string | null;
   employees?: number | null;
   employeesYoY?: string | null;
-  parentCompany?: { id?: number; name: string } | null;
+  parentCompany?: { id?: number; name: string; nonDa?: boolean } | null;
   investors?: OverviewInvestor[];
   investorsLoading?: boolean;
   /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
@@ -300,10 +301,12 @@ export function OverviewCard({
       k: "Parent company",
       show: hasParent,
       v: parentCompany ? (
-        parentCompany.id ? (
+        parentCompany.id && !parentCompany.nonDa ? (
           <Link href={`/company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone="neutral">{parentCompany.name}</Pill>
           </Link>
+        ) : parentCompany.nonDa ? (
+          <NonDaCompanyName>{parentCompany.name}</NonDaCompanyName>
         ) : (
           <span>{parentCompany.name}</span>
         )

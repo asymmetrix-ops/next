@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import {
   profileTableColAlign,
@@ -84,9 +85,13 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                 role.new_company?.linkedin_data?.linkedin_logo ||
                 "";
               const isCurrent = role.Status === "Current";
+              const isNonDaCompany =
+                role.new_company?._is_that_data_analytic_company === false &&
+                !role.new_company?._is_that_investor &&
+                role.new_company?._page_type !== "advisor";
               const companyHref = role.new_company?._is_that_investor
                 ? `/investors/${role.new_company.id}`
-                : role.new_company?.id
+                : role.new_company?.id && !isNonDaCompany
                   ? `/company/${role.new_company.id}`
                   : undefined;
 
@@ -129,8 +134,8 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                       >
                         {companyName}
                       </Link>
-                    ) : (
-                      <span
+                    ) : companyName !== "-" ? (
+                      <NonDaCompanyName
                         style={{
                           minWidth: 0,
                           overflow: "hidden",
@@ -139,7 +144,9 @@ export function IndividualRolesProfilePanel({ roles, maxInitial = 8 }: Props) {
                         }}
                       >
                         {companyName}
-                      </span>
+                      </NonDaCompanyName>
+                    ) : (
+                      <span>{companyName}</span>
                     )}
                   </div>
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>

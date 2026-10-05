@@ -4069,6 +4069,12 @@ const CompanyDetail = () => {
                     ? {
                         id: company.have_parent_company.Parant_companies[0].id,
                         name: (company.have_parent_company.Parant_companies[0].name || "").trim(),
+                        nonDa: (() => {
+                          const ids = extractPrimaryBusinessFocusIds(
+                            company.have_parent_company.Parant_companies[0].primary_business_focus_id
+                          );
+                          return ids.length > 0 && !ids.includes(75);
+                        })(),
                       }
                     : null
                 }

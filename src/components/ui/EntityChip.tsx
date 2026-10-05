@@ -15,6 +15,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { HoverTooltip } from "@/components/ui/HoverTooltip";
+import { NON_DA_TOOLTIP } from "@/components/ui/NonDaCompanyName";
 import { ENTITY_TONES, type EntityKind } from "@/lib/tagColors";
 
 export type { EntityKind };
@@ -27,6 +29,8 @@ export interface EntityChipProps {
   className?: string;
   style?: React.CSSProperties;
   title?: string;
+  /** Company without a D&A profile: no link, explanatory tooltip on hover / tap. */
+  nonDa?: boolean;
   children?: React.ReactNode; // e.g. a trailing flag icon
 }
 
@@ -70,6 +74,7 @@ export function EntityChip({
   className,
   style,
   title,
+  nonDa = false,
   children,
 }: EntityChipProps) {
   const computedStyle: React.CSSProperties = { ...baseStyle(kind), ...style };
@@ -82,6 +87,26 @@ export function EntityChip({
       {children}
     </>
   );
+
+  if (!href && nonDa) {
+    return (
+      <HoverTooltip content={NON_DA_TOOLTIP} tapToToggle>
+        <span
+          className={classes}
+          style={{
+            ...computedStyle,
+            cursor: "help",
+            textDecorationLine: "underline",
+            textDecorationStyle: "dotted",
+            textUnderlineOffset: 3,
+          }}
+          tabIndex={0}
+        >
+          {content}
+        </span>
+      </HoverTooltip>
+    );
+  }
 
   if (!href) {
     return (

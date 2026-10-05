@@ -437,6 +437,7 @@ export const IndividualSection = ({
                 key: `company-${companyId}-${index}`,
                 name: company.company_name,
                 href,
+                isCompany: true,
               };
             })}
           />

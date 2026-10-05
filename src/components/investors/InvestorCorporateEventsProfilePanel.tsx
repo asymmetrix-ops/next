@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import {
   LinkPanel,
   LinkedH,
@@ -314,7 +315,11 @@ function renderTargetCell(event: CorporateEvent): React.ReactNode {
         </a>
       );
     }
-    return <span style={{ fontWeight: 500 }}>{ne.target_company.name}</span>;
+    return (
+      <NonDaCompanyName style={{ fontWeight: 500 }}>
+        {ne.target_company.name}
+      </NonDaCompanyName>
+    );
   }
 
   if (isNonEmptyString(ne.target_label)) {
@@ -347,9 +352,9 @@ function CoinvestorChips({ coinvestors }: { coinvestors: Coinvestor[] }) {
             <Pill tone="ghost">{cp.name}</Pill>
           </Link>
         ) : (
-          <Pill key={`${cp.name}-${cp.id ?? "na"}`} tone="ghost">
-            {cp.name}
-          </Pill>
+          <NonDaCompanyName key={`${cp.name}-${cp.id ?? "na"}`}>
+            <Pill tone="ghost">{cp.name}</Pill>
+          </NonDaCompanyName>
         )
       )}
       {!expanded && hiddenCount > 0 ? (
