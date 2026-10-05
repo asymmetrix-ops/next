@@ -364,6 +364,7 @@ export default function AppLeftNav() {
         </button>
       </div>
 
+      {!pathname.startsWith("/home-user") && (
       <div className="shrink-0 border-b border-gray-100 px-2 py-1.5">
         {open ? (
           <GlobalSearchTrigger variant="sidebar" />
@@ -390,6 +391,7 @@ export default function AppLeftNav() {
           </button>
         )}
       </div>
+      )}
 
       <nav
         className="min-h-0 flex-1 space-y-px overflow-y-auto overflow-x-hidden px-2 pb-2 pt-2"
