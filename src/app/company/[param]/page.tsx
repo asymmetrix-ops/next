@@ -2183,9 +2183,21 @@ const CompanyDetail = () => {
       "Summary",
     ];
     if (showFinancialsTab) tabs.push("Financials");
-    tabs.push("Financial Intelligence");
+    if (hasFinancialMetricsCardData(financialMetricsCardRows)) {
+      tabs.push("Financial Intelligence");
+    }
     return tabs.map((tab) => ({ id: tab, label: tab }));
-  }, [showFinancialsTab]);
+  }, [showFinancialsTab, financialMetricsCardRows]);
+
+  useEffect(() => {
+    if (
+      activeProfileTab === "Financial Intelligence" &&
+      !financialMetricsCardLoading &&
+      !hasFinancialMetricsCardData(financialMetricsCardRows)
+    ) {
+      setActiveProfileTab("Summary");
+    }
+  }, [activeProfileTab, financialMetricsCardLoading, financialMetricsCardRows]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {

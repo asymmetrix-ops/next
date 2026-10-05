@@ -18,6 +18,9 @@ import {
   BanknotesIcon,
   BookmarkIcon,
   Cog6ToothIcon,
+  SignalIcon,
+  NewspaperIcon,
+  ScaleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -37,6 +40,9 @@ type NavCounts = {
   subSectors?: number;
   insightsAnalysis?: number;
   financialIntelligence?: number;
+  dealRadar?: number;
+  news?: number;
+  transactionComps?: number;
 };
 
 type NavSection = {
@@ -45,10 +51,26 @@ type NavSection = {
   href: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   isActive: (pathname: string) => boolean;
+  comingSoon?: boolean;
 };
 
 const SECTIONS: NavSection[] = [
-  // Deal Radar intentionally hidden from nav — page still exists, just not linked.
+  {
+    key: "dealRadar",
+    label: "Deal Radar",
+    href: "/deal-radar",
+    icon: SignalIcon,
+    isActive: () => false,
+    comingSoon: true,
+  },
+  {
+    key: "news",
+    label: "News",
+    href: "/news",
+    icon: NewspaperIcon,
+    isActive: () => false,
+    comingSoon: true,
+  },
   {
     key: "insightsAnalysis",
     label: "Insights & Analysis",
@@ -58,12 +80,37 @@ const SECTIONS: NavSection[] = [
       p.startsWith("/insights-analysis") || p.startsWith("/article/"),
   },
   {
+    key: "companies",
+    label: "Companies",
+    href: "/companies",
+    icon: BuildingOfficeIcon,
+    isActive: (p) =>
+      p.startsWith("/companies") ||
+      p.startsWith("/company/") ||
+      p.startsWith("/new_company/"),
+  },
+  {
+    key: "financialIntelligence",
+    label: "Financial Intelligence",
+    href: "/financial-intelligence",
+    icon: BanknotesIcon,
+    isActive: (p) => p.startsWith("/financial-intelligence"),
+  },
+  {
     key: "corporateEvents",
     label: "Corporate Events",
     href: "/corporate-events",
     icon: CalendarDaysIcon,
     isActive: (p) =>
       p.startsWith("/corporate-events") || p.startsWith("/corporate-event/"),
+  },
+  {
+    key: "transactionComps",
+    label: "Transaction Comps",
+    href: "/transaction-comps",
+    icon: ScaleIcon,
+    isActive: () => false,
+    comingSoon: true,
   },
   {
     key: "sectors",
@@ -79,16 +126,6 @@ const SECTIONS: NavSection[] = [
     icon: Squares2X2Icon,
     isActive: (p) =>
       p.startsWith("/sub-sectors") || p.startsWith("/sub-sector/"),
-  },
-  {
-    key: "companies",
-    label: "Companies",
-    href: "/companies",
-    icon: BuildingOfficeIcon,
-    isActive: (p) =>
-      p.startsWith("/companies") ||
-      p.startsWith("/company/") ||
-      p.startsWith("/new_company/"),
   },
   {
     key: "investors",
@@ -111,13 +148,6 @@ const SECTIONS: NavSection[] = [
     icon: UserGroupIcon,
     isActive: (p) =>
       p.startsWith("/individuals") || p.startsWith("/individual/"),
-  },
-  {
-    key: "financialIntelligence",
-    label: "Financial Intelligence",
-    href: "/financial-intelligence",
-    icon: BanknotesIcon,
-    isActive: (p) => p.startsWith("/financial-intelligence"),
   },
 ];
 
@@ -379,6 +409,7 @@ export default function AppLeftNav() {
             icon={s.icon}
             count={formatCount(counts[s.key])}
             active={s.isActive(pathname)}
+            comingSoon={s.comingSoon}
           />
         ))}
         <NavRow
@@ -442,6 +473,7 @@ function NavRow({
   icon: Icon,
   count,
   active,
+  comingSoon,
 }: {
   open: boolean;
   href: string;
@@ -449,7 +481,34 @@ function NavRow({
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   count: string | null;
   active?: boolean;
+  comingSoon?: boolean;
 }) {
+  if (comingSoon) {
+    return (
+      <div
+        title={!open ? `${label} (coming soon)` : undefined}
+        aria-disabled="true"
+        className="flex min-h-[40px] cursor-not-allowed items-center rounded-full py-2 pl-2 pr-2.5 text-sm font-medium text-gray-400"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <Icon className="h-[18px] w-[18px] shrink-0 opacity-60" />
+        </span>
+        <span
+          className={`flex min-w-0 flex-1 items-center gap-2 ${navRevealClass(open)}`}
+          style={{
+            transitionDuration: `${NAV_SLIDE_MS}ms`,
+            transitionTimingFunction: NAV_SLIDE_EASE,
+          }}
+          aria-hidden={!open}
+        >
+          <span className="truncate">{label}</span>
+          <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400">
+            Soon
+          </span>
+        </span>
+      </div>
+    );
+  }
   return (
     <Link
       href={href}
@@ -477,7 +536,7 @@ function NavRow({
       >
         <span className="truncate">{label}</span>
         {count && (
-          <span className="ml-auto shrink-0 text-[10.5px] font-bold tabular-nums text-gray-400 group-hover:text-blue-600">
+          <span className="ml-auto shrink-0 text-[10.5px] font-bold tabular-nums text-gray-400 opacity-0 transition-opacity group-hover:text-blue-600 group-hover:opacity-100 group-focus-visible:opacity-100">
             {count}
           </span>
         )}

@@ -3655,7 +3655,11 @@ const CompanyDetail = () => {
         <ProfileSubnav
           tabs={[
             "Summary", "Products", "Methodology", "People",
-            "Financials", "Financial Intelligence", "Insights", "Deals", "Ownership", "Market",
+            "Financials",
+            ...(hasFinancialMetricsCardData(financialMetricsCardRows)
+              ? ["Financial Intelligence"]
+              : []),
+            "Insights", "Deals", "Ownership", "Market",
           ].map((tab) => ({ id: tab, label: tab }))}
           activeTab={activeProfileTab}
           onChange={(tab) => {
@@ -3669,7 +3673,8 @@ const CompanyDetail = () => {
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Financial Intelligence" ? (
+          {activeProfileTab === "Financial Intelligence" &&
+          hasFinancialMetricsCardData(financialMetricsCardRows) ? (
             <FinancialIntelligenceWorkspace
               initialCompanyId={company?.id ?? null}
               embedded
