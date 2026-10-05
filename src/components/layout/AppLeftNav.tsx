@@ -405,7 +405,7 @@ export default function AppLeftNav() {
           count={null}
           active={pathname.startsWith("/home-user")}
         />
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => !s.comingSoon).map((s) => (
           <NavRow
             key={s.key}
             open={open}
