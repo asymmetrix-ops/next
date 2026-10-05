@@ -256,8 +256,7 @@ export const TRANSACTION_SIGNAL_TONES: Record<string, TagTone> = {
 
 /** User-facing copy for Deal Radar transaction-signal tooltips (tags.txt §8). */
 export const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  "long hold":
-    "An observation only — no active transaction signal. Indicates where the call came from, not where the deal is in its process.",
+  // "long hold": removed — previous copy was not approved. Pending approved copy from Piero.
   "asymmetrix assessment":
     "Asymmetrix's own view on the anticipated transaction — house assessment, not sourced externally.",
   "proprietary intel":

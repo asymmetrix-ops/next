@@ -9,6 +9,8 @@ import {
 
 type TransactionStatusPillProps = {
   status: string;
+  /** Overrides the default formatted label. */
+  label?: string;
   className?: string;
   style?: CSSProperties;
   /** Allow long labels (e.g. Anticipated within 6 months) to wrap in narrow columns. */
@@ -17,6 +19,7 @@ type TransactionStatusPillProps = {
 
 export function TransactionStatusPill({
   status,
+  label,
   className,
   style,
   allowWrap = false,
@@ -49,7 +52,7 @@ export function TransactionStatusPill({
           marginTop: allowWrap ? 5 : 0,
         }}
       />
-      {formatTransactionStatusLabel(status)}
+      {label ?? formatTransactionStatusLabel(status)}
     </span>
   );
 }

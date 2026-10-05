@@ -14,6 +14,8 @@ import {
   ENTITY_TONES,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,7 @@ interface ContentCta {
 interface DealRadarDashboardItem {
   company_id: number;
   name: string;
+  logo?: string | null;
   hq_country: string | null;
   ownership_type: string | null;
   owner_name: string | null;
@@ -125,19 +128,19 @@ const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
 const ANTICIPATED_18_MONTHS_ID = 1;
-const TABLE_COL_COUNT = 12;
+const TABLE_COL_COUNT = 11;
 
 const TRANSACTION_STATUS_OPTIONS = [
   { id: 3, label: "Reported in Market", totalsKey: "Reported in Market" },
   { id: 2, label: "Rumoured in Market", totalsKey: "Rumoured in Market" },
   {
     id: 1,
-    label: "Transaction Anticipated within 18 Months",
+    label: "Anticipated 18 months",
     totalsKey: "Transaction anticipated within 18 months",
   },
   {
     id: 6,
-    label: "Transaction Anticipated within 6 Months",
+    label: "Anticipated 6 months",
     totalsKey: "Transaction Anticipated within 6 Months",
   },
   { id: 5, label: "Process on Hold", totalsKey: "Process on Hold" },
@@ -146,12 +149,7 @@ const TRANSACTION_STATUS_OPTIONS = [
 const STATUS_FILTERS = [
   { label: "All", statusId: null, totalsKey: "" },
   ...TRANSACTION_STATUS_OPTIONS.map((o) => ({
-    label:
-      o.id === 6
-        ? "Anticipated within 6 months"
-        : o.id === 1
-          ? "Anticipated"
-          : o.label,
+    label: o.label,
     statusId: o.id,
     totalsKey: o.totalsKey,
   })),
@@ -298,6 +296,61 @@ function countActiveFilters(filters: DealRadarFilters): number {
     filters.processStages.length +
     filters.transactionSignals.length
   );
+}
+
+type SortKey =
+  | "name" | "hq" | "ownership" | "sector" | "status" | "stage"
+  | "intermediary" | "bidders" | "revenue" | "ev" | "acquirers";
+type SortDir = "asc" | "desc";
+
+/** Logical status order, not alphabetical (nearest-term / most advanced first). */
+const STATUS_ORDER: Record<number, number> = { 3: 0, 2: 1, 6: 2, 1: 3, 5: 4 };
+const STAGE_ORDER = PROCESS_STAGE_OPTIONS.map((o) => o.value);
+
+function parseMoney(v: ValSource): number | null {
+  if (isInvalidVal(v?.value)) return null;
+  const n = parseFloat(String(v.value).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function sortValue(item: DealRadarDashboardItem, key: SortKey): string | number | null {
+  switch (key) {
+    case "name": return item.name?.toLowerCase() ?? null;
+    case "hq": return item.hq_country?.toLowerCase() || null;
+    case "ownership": return item.ownership_type?.toLowerCase() || null;
+    case "sector": return item.primary_sectors[0] ? cleanSectorName(item.primary_sectors[0].name).toLowerCase() : null;
+    case "status": return STATUS_ORDER[item.transaction_status_id] ?? 99;
+    case "stage": {
+      const i = item.process_stage ? STAGE_ORDER.indexOf(item.process_stage) : -1;
+      return i >= 0 ? i : null;
+    }
+    case "intermediary": return (item.intermediary?.name || (item.intermediary_type !== "No Intermediary" ? item.intermediary_type : null))?.toLowerCase() || null;
+    case "bidders": return item.bidders[0]?.name.toLowerCase() ?? null;
+    case "revenue": return parseMoney(item.revenue);
+    case "ev": return parseMoney(item.ev);
+    case "acquirers": return item.potential_acquirers[0]?.name.toLowerCase() ?? null;
+  }
+}
+
+function sortItems(items: DealRadarDashboardItem[], key: SortKey | null, dir: SortDir) {
+  if (!key) return items;
+  const m = dir === "asc" ? 1 : -1;
+  return items
+    .map((it, i) => ({ it, i, v: sortValue(it, key) }))
+    .sort((a, b) => {
+      if (a.v === null && b.v === null) return a.i - b.i;
+      if (a.v === null) return 1; // empty values always last
+      if (b.v === null) return -1;
+      const c = typeof a.v === "number" && typeof b.v === "number"
+        ? a.v - b.v
+        : String(a.v).localeCompare(String(b.v), undefined, { numeric: true });
+      return c ? c * m : a.i - b.i;
+    })
+    .map((x) => x.it);
+}
+
+function dealRadarStatusLabel(id: number, fallback: string): string | undefined {
+  return TRANSACTION_STATUS_OPTIONS.find((o) => o.id === id)?.label ?? undefined;
 }
 
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
@@ -539,19 +592,45 @@ export default function DealRadarDashboardPage() {
     []
   );
 
+  const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({
+    key: null,
+    dir: "asc",
+  });
+  const sortedItems = useMemo(
+    () => sortItems(items, sort.key, sort.dir),
+    [items, sort]
+  );
+  const toggleSort = (key: SortKey) =>
+    setSort((p) => (p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
   const Th = ({
     label,
+    sortKey,
     className = "",
   }: {
     label: string;
+    sortKey: SortKey;
     className?: string;
-  }) => (
-    <th
-      className={`px-3 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 ${className}`}
-    >
-      {label}
-    </th>
-  );
+  }) => {
+    const active = sort.key === sortKey;
+    return (
+      <th
+        aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+        className={`px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider bg-gray-50 ${active ? "text-gray-900" : "text-gray-500"} ${className}`}
+      >
+        <button
+          type="button"
+          onClick={() => toggleSort(sortKey)}
+          className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-900"
+        >
+          {label}
+          <span aria-hidden className={active ? "text-blue-600" : "text-gray-300"}>
+            {active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  };
 
   const activeFilterCount = countActiveFilters(filters);
 
@@ -643,130 +722,6 @@ export default function DealRadarDashboardPage() {
           </div>
         </div>
 
-        {/* Filter panel */}
-        {filtersOpen && (
-          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Ownership type
-                </label>
-                <SearchableMultiSelect
-                  options={ownershipSelectOptions}
-                  selectedValues={filters.ownershipTypeIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ ownershipTypeIds: vals })
-                  }
-                  placeholder="All ownership types"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  HQ (country)
-                </label>
-                <SearchableMultiSelect
-                  options={countrySelectOptions}
-                  selectedValues={filters.hqCountries}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ hqCountries: vals })
-                  }
-                  placeholder="All countries"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Primary sector
-                </label>
-                <SearchableMultiSelect
-                  options={sectorSelectOptions}
-                  selectedValues={filters.sectorIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ sectorIds: vals })
-                  }
-                  placeholder="All sectors"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Transaction status
-                </label>
-                <SearchableMultiSelect
-                  options={transactionStatusSelectOptions}
-                  selectedValues={filters.transactionStatusIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionStatusIds: vals })
-                  }
-                  placeholder="All statuses"
-                />
-              </div>
-              <div
-                title={
-                  showAnticipatedSubFilters
-                    ? undefined
-                    : "Available when Transaction Anticipated within 18 Months is selected"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Process stage
-                </label>
-                <SearchableMultiSelect
-                  options={PROCESS_STAGE_OPTIONS}
-                  selectedValues={filters.processStages}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ processStages: vals })
-                  }
-                  placeholder="All stages"
-                  disabled={!showAnticipatedSubFilters}
-                />
-              </div>
-              <div
-                title={
-                  showAnticipatedSubFilters
-                    ? undefined
-                    : "Available when Transaction Anticipated within 18 Months is selected"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Transaction signal
-                </label>
-                <SearchableMultiSelect
-                  options={TRANSACTION_SIGNAL_OPTIONS}
-                  selectedValues={filters.transactionSignals}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionSignals: vals })
-                  }
-                  placeholder="All signals"
-                  disabled={!showAnticipatedSubFilters}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Status filter pills */}
         <div className="mb-4 flex flex-wrap gap-2">
           {STATUS_FILTERS.map((f) => {
@@ -832,6 +787,130 @@ export default function DealRadarDashboardPage() {
           })}
         </div>
 
+        {/* Filter panel */}
+        {filtersOpen && (
+          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                  Transaction status
+                </label>
+                <SearchableMultiSelect
+                  options={transactionStatusSelectOptions}
+                  selectedValues={filters.transactionStatusIds}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ transactionStatusIds: vals })
+                  }
+                  placeholder="All statuses"
+                />
+              </div>
+              <div
+                title={
+                  showAnticipatedSubFilters
+                    ? undefined
+                    : "Available when Anticipated 18 months is selected"
+                }
+              >
+                <label
+                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
+                    showAnticipatedSubFilters
+                      ? "text-gray-500"
+                      : "text-gray-400"
+                  }`}
+                >
+                  Process stage
+                </label>
+                <SearchableMultiSelect
+                  options={PROCESS_STAGE_OPTIONS}
+                  selectedValues={filters.processStages}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ processStages: vals })
+                  }
+                  placeholder="All stages"
+                  disabled={!showAnticipatedSubFilters}
+                />
+              </div>
+              <div
+                title={
+                  showAnticipatedSubFilters
+                    ? undefined
+                    : "Available when Anticipated 18 months is selected"
+                }
+              >
+                <label
+                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
+                    showAnticipatedSubFilters
+                      ? "text-gray-500"
+                      : "text-gray-400"
+                  }`}
+                >
+                  Transaction signal
+                </label>
+                <SearchableMultiSelect
+                  options={TRANSACTION_SIGNAL_OPTIONS}
+                  selectedValues={filters.transactionSignals}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ transactionSignals: vals })
+                  }
+                  placeholder="All signals"
+                  disabled={!showAnticipatedSubFilters}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                  Ownership type
+                </label>
+                <SearchableMultiSelect
+                  options={ownershipSelectOptions}
+                  selectedValues={filters.ownershipTypeIds}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ ownershipTypeIds: vals })
+                  }
+                  placeholder="All ownership types"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                  HQ (country)
+                </label>
+                <SearchableMultiSelect
+                  options={countrySelectOptions}
+                  selectedValues={filters.hqCountries}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ hqCountries: vals })
+                  }
+                  placeholder="All countries"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                  Primary sector
+                </label>
+                <SearchableMultiSelect
+                  options={sectorSelectOptions}
+                  selectedValues={filters.sectorIds}
+                  onSelectionChange={(vals) =>
+                    updateFilters({ sectorIds: vals })
+                  }
+                  placeholder="All sectors"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Table card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {error ? (
@@ -847,21 +926,20 @@ export default function DealRadarDashboardPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1500px] border-collapse">
+              <table className="w-full min-w-[1400px] border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-gray-200">
-                    <Th label="Company" className="min-w-[160px]" />
-                    <Th label="HQ" className="min-w-[100px]" />
-                    <Th label="Ownership" className="min-w-[120px]" />
-                    <Th label="Primary Sector(s)" className="min-w-[180px]" />
-                    <Th label="Transaction Status" className="min-w-[200px]" />
-                    <Th label="Process Stage" className="min-w-[130px]" />
-                    <Th label="Intermediary" className="min-w-[140px]" />
-                    <Th label="Bidders" className="min-w-[140px]" />
-                    <Th label="Revenue (m)" className="min-w-[110px]" />
-                    <Th label="EV (m)" className="min-w-[100px]" />
-                    <Th label="Potential Acquirers" className="min-w-[180px]" />
-                    <Th label="Corp. Event" className="min-w-[110px]" />
+                    <Th label="Company" sortKey="name" className="min-w-[160px]" />
+                    <Th label="HQ" sortKey="hq" className="min-w-[100px]" />
+                    <Th label="Ownership" sortKey="ownership" className="min-w-[120px]" />
+                    <Th label="Primary Sector(s)" sortKey="sector" className="min-w-[180px]" />
+                    <Th label="Transaction Status" sortKey="status" className="min-w-[200px]" />
+                    <Th label="Process Stage" sortKey="stage" className="min-w-[130px]" />
+                    <Th label="Intermediary" sortKey="intermediary" className="min-w-[140px]" />
+                    <Th label="Bidders" sortKey="bidders" className="min-w-[140px]" />
+                    <Th label="Revenue (m)" sortKey="revenue" className="min-w-[110px]" />
+                    <Th label="EV (m)" sortKey="ev" className="min-w-[100px]" />
+                    <Th label="Potential Acquirers" sortKey="acquirers" className="min-w-[180px]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -880,10 +958,7 @@ export default function DealRadarDashboardPage() {
                           </td>
                         </tr>
                       )
-                      : items.map((item) => {
-                          const isReportedInMarket = item.transaction_status
-                            .toLowerCase()
-                            .includes("reported");
+                      : sortedItems.map((item) => {
                           const sectors = item.primary_sectors.map((s) => ({
                             ...s,
                             name: cleanSectorName(s.name),
@@ -896,6 +971,9 @@ export default function DealRadarDashboardPage() {
                             >
                               {/* Company */}
                               <td className="px-3 py-3">
+                                <div className="company-table-entity-name-cell">
+                                <CompanyAvatar name={item.name} logo={item.logo} size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX} />
+                                <div className="company-table-entity-name-text">
                                 <a
                                   href={`/company/${item.company_id}`}
                                   onClick={(e) => {
@@ -941,6 +1019,8 @@ export default function DealRadarDashboardPage() {
                                     {getContentCtaLabel(item.content_cta)}
                                   </a>
                                 )}
+                                </div>
+                                </div>
                               </td>
 
                               {/* HQ */}
@@ -1016,6 +1096,7 @@ export default function DealRadarDashboardPage() {
                                 <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
+                                    label={dealRadarStatusLabel(item.transaction_status_id, item.transaction_status)}
                                     className="inline-block max-w-[11rem]"
                                     allowWrap
                                   />
@@ -1189,47 +1270,6 @@ export default function DealRadarDashboardPage() {
                                 )}
                               </td>
 
-                              {/* Corporate Event link (only when Reported in Market) */}
-                              <td className="px-3 py-3">
-                                {item.linked_event && isReportedInMarket ? (
-                                  <a
-                                    href={`/corporate-event/${item.linked_event.id}`}
-                                    onClick={(e) => {
-                                      if (
-                                        e.button !== 0 ||
-                                        e.metaKey ||
-                                        e.ctrlKey ||
-                                        e.shiftKey ||
-                                        e.altKey
-                                      )
-                                        return;
-                                      e.preventDefault();
-                                      router.push(
-                                        `/corporate-event/${item.linked_event!.id}`
-                                      );
-                                    }}
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
-                                  >
-                                    <svg
-                                      className="w-3 h-3 shrink-0"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                      <polyline points="15 3 21 3 21 9" />
-                                      <line x1="10" y1="14" x2="21" y2="3" />
-                                    </svg>
-                                    {formatDate(
-                                      item.linked_event.announcement_date
-                                    )}
-                                  </a>
-                                ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
-                                )}
-                              </td>
                             </tr>
                           );
                         })}
@@ -1307,10 +1347,6 @@ export default function DealRadarDashboardPage() {
               Prop.
             </abbr>
             Revenue / EV is proprietary data
-          </span>
-          <span className="text-gray-400">
-            Corporate event link shown when Transaction Status is Reported in
-            Market.
           </span>
         </div>
       </main>
