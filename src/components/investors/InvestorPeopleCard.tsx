@@ -90,7 +90,7 @@ function PersonRow({
   const roleTitle =
     person.roleTitle && !isEmptyDisplayValue(person.roleTitle)
       ? normalizeEmptyDisplay(person.roleTitle)
-      : "-";
+      : "";
 
   return (
     <div

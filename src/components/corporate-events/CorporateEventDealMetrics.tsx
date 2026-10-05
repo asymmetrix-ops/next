@@ -6,6 +6,7 @@ import { fundingStageBadgeStyle } from "@/lib/corporateEventDealTypeBadge";
 import { DealTypeBadge } from "./DealTypeBadge";
 import { formatPlatformDealMillions } from "@/lib/formatPlatformCurrency";
 import type { Currency } from "@/lib/fxRates";
+import { isNonEmptyDisplayString } from "@/lib/emptyDisplay";
 import { DEFAULT_PLATFORM_CURRENCY } from "@/lib/platformCurrency";
 
 const metricRowStyle = (
@@ -36,7 +37,7 @@ export interface CorporateEventDealMetricsProps {
 }
 
 const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
+  isNonEmptyDisplayString(value);
 
 const hasNumericAmount = (
   amount: number | string | null | undefined
@@ -86,6 +87,10 @@ export const CorporateEventDealMetrics: React.FC<
   const hasEvBand = isNonEmptyString(evBandFallback);
   const shouldShowEvRow = hasEvNumeric || hasEvDisplay || hasEvBand;
   const rowStyle = metricRowStyle(align);
+  const hasDealType = isNonEmptyString(dealType) || isNonEmptyString(fundingStage);
+  if (!hasDealType && (isPartnership || (!shouldShowAmountRow && !shouldShowEvRow))) {
+    return null;
+  }
 
   return (
     <div
@@ -97,6 +102,7 @@ export const CorporateEventDealMetrics: React.FC<
         minWidth: 0,
       }}
     >
+      {hasDealType && (
       <div style={rowStyle}>
         <strong>Deal Type:</strong>{" "}
         {isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
@@ -114,10 +120,9 @@ export const CorporateEventDealMetrics: React.FC<
               <span style={fundingStageBadgeStyle(fundingStage)}>{fundingStage}</span>
             )}
           </span>
-        ) : (
-          <span>Not Available</span>
-        )}
+        ) : null}
       </div>
+      )}
 
       {!isPartnership && (
         <>

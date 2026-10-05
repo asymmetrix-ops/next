@@ -113,7 +113,7 @@ function PersonRow({
           paddingTop: 1,
         }}
       >
-        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
+        {isEmptyDisplayValue(person.role) ? null : normalizeEmptyDisplay(person.role)}
       </div>
       <div
         style={{

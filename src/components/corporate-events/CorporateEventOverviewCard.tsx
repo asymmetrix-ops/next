@@ -2,7 +2,7 @@
 
 import React from "react";
 import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
-import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type CorporateEventSector = {
   id?: number;
@@ -65,6 +65,10 @@ function SubSectorTags({ sectors }: { sectors: CorporateEventSector[] }) {
   );
 }
 
+function hasValue(value?: string | null): boolean {
+  return !isEmptyDisplayValue(value ?? null);
+}
+
 function amountLine(amount?: string | null, currency?: string | null): React.ReactNode {
   if (!amount?.trim()) return faintDash();
   return currency?.trim() ? `${amount} ${currency}` : amount;
@@ -86,29 +90,36 @@ export function CorporateEventOverviewCard({
   fillGridCell = false,
 }: CorporateEventOverviewCardProps) {
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    { k: "Sector(s)", v: <SectorTags sectors={primarySectors} tone="coral" /> },
+    {
+      k: "Sector(s)",
+      v: <SectorTags sectors={primarySectors} tone="coral" />,
+      show: primarySectors.length > 0,
+    },
     {
       k: "Secondary sector(s)",
       v: <SubSectorTags sectors={subSectors} />,
       show: subSectors.length > 0,
     },
-    { k: "Date announced", v: displayText(dateAnnounced) },
-    { k: "Date closed", v: displayText(dateClosed) },
+    { k: "Date announced", v: displayText(dateAnnounced), show: hasValue(dateAnnounced) },
+    { k: "Date closed", v: displayText(dateClosed), show: hasValue(dateClosed) },
     {
       k: "Deal type",
       v: dealType?.trim() ? <Pill tone="azure">{dealType}</Pill> : faintDash(),
+      show: hasValue(dealType),
     },
     {
       k: "Deal stage",
       v: dealStage?.trim() ? displayText(dealStage) : faintDash(),
-      show: Boolean(dealStage?.trim()),
+      show: hasValue(dealStage),
     },
     {
       k: "Investment amount (m)",
       v: amountLine(investmentAmount, investmentCurrency),
+      show: hasValue(investmentAmount),
     },
     {
       k: "Enterprise value (m)",
+      show: hasValue(enterpriseValue),
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {amountLine(enterpriseValue, enterpriseValueCurrency)}
@@ -139,6 +150,7 @@ export function CorporateEventOverviewCard({
   ];
 
   const visible = rows.filter((r) => r.show !== false);
+  if (visible.length === 0) return null;
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
