@@ -27,10 +27,10 @@ function buildParams(q: TransactionCompsQuery): URLSearchParams {
   if (q.dealDateTo) params.set("deal_date_to", q.dealDateTo);
   const lists: [string, (string | number)[]][] = [
     ["sector_ids", q.sectorIds],
+    ["secondary_sector_ids", q.secondarySectorIds],
     ["countries", q.countries],
     ["ownership_ids", q.ownershipIds],
     ["deal_types", q.dealTypes],
-    ["deal_statuses", q.dealStatuses],
     ["acquirer_ids", q.acquirerIds],
     ["ce_ids", q.ceIds],
     ["ids", q.ids],

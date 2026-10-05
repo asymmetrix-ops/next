@@ -49,6 +49,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
             <Link
               href={`/company/${row.company_id}`}
               className="company-table-entity-name company-table-entity-name-link"
+              title={row.former_name ? `Formerly ${row.former_name}` : undefined}
               style={{ color: "#0A0E1A" }}
             >
               {row.company_name}

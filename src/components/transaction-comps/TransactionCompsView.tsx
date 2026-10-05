@@ -66,6 +66,7 @@ export function TransactionCompsView() {
   const [filterState, setFilterState] = useState<FilterBarState>(EMPTY_FILTER_STATE);
   const [options, setOptions] = useState<TransactionCompsFilterOptions>({
     sectors: [],
+    secondarySectors: [],
     ownershipTypes: [],
     countries: [],
     acquirers: [],
@@ -117,13 +118,15 @@ export function TransactionCompsView() {
   useEffect(() => {
     Promise.allSettled([
       locationsService.getPrimarySectors(),
+      locationsService.getAllSecondarySectors(),
       locationsService.getOwnershipTypes(),
       locationsService.getCountries(),
       fetchTransactionCompsOptionsServer("acquirer"),
       fetchTransactionCompsOptionsServer("corporate_event"),
-    ]).then(([sectors, ownership, countries, acquirers, events]) => {
+    ]).then(([sectors, secondary, ownership, countries, acquirers, events]) => {
       setOptions({
         sectors: sectors.status === "fulfilled" ? sectors.value : [],
+        secondarySectors: secondary.status === "fulfilled" ? secondary.value : [],
         ownershipTypes: ownership.status === "fulfilled" ? ownership.value : [],
         countries:
           countries.status === "fulfilled"
@@ -288,7 +291,7 @@ export function TransactionCompsView() {
                 state={filterState}
                 onStateChange={setFilterState}
                 totalCount={total}
-                entityLabel="companies"
+                entityLabel="transactions"
               />
             </div>
           </div>
@@ -302,6 +305,7 @@ export function TransactionCompsView() {
           {selectedIds.size > 0 && (
             <BulkPortfolioActionToolbar
               entityType="company"
+              exportOnly
               entityIds={Array.from(selectedIds)}
               onClearSelection={() => setSelectedIds(new Set())}
               exporting={exporting}

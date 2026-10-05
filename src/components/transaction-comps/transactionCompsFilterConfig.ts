@@ -17,16 +17,14 @@ export const TRANSACTION_COMPS_FILTER_CATEGORIES: FilterCategory[] = [
   { id: "financial_metrics", name: "Financial metrics" },
 ];
 
+/** Completed-deal types only: every transaction comp is a completed deal. */
 export const TRANSACTION_COMPS_DEAL_TYPES = [
   "Acquisition",
   "Investment",
   "IPO",
   "Sale",
-  "Partnership",
-  "Strategic Review",
   "Divestment",
 ];
-export const TRANSACTION_COMPS_DEAL_STATUSES = ["Completed", "Pending", "Rumoured"];
 
 /** Filter id -> API range param stem (`<stem>_min` / `<stem>_max`). */
 const RANGE_FILTERS: Record<string, string> = {
@@ -42,6 +40,7 @@ const RANGE_FILTERS: Record<string, string> = {
 
 export interface TransactionCompsFilterOptions {
   sectors: { id: number; sector_name: string }[];
+  secondarySectors: { id: number; sector_name: string }[];
   ownershipTypes: { id: number; ownership: string }[];
   countries: string[];
   acquirers: TransactionCompsOption[];
@@ -88,11 +87,11 @@ export function buildTransactionCompsFilterDefs(
     { id: "deal_date", label: "Deal date", fullLabel: "Deal date", category: "default", type: "date", editor: "date_range" },
     idList("acquirer_investor", "Acquirer / investor", "default", opts.acquirers),
     idList("corporate_events", "Corporate events", "default", opts.corporateEvents),
-    list("sector", "Sector", "overview", opts.sectors.map((s) => s.sector_name)),
+    list("sector", "Primary sector", "overview", opts.sectors.map((s) => s.sector_name)),
+    list("secondary_sector", "Secondary sector", "overview", opts.secondarySectors.map((s) => s.sector_name)),
     list("ownership", "Ownership", "overview", opts.ownershipTypes.map((o) => o.ownership)),
     list("hq_country", "HQ country", "overview", opts.countries),
     list("deal_type", "Deal type", "deal_details", TRANSACTION_COMPS_DEAL_TYPES),
-    list("deal_status", "Deal status", "deal_details", TRANSACTION_COMPS_DEAL_STATUSES),
     range("revenue", "Revenue (m)", "financial_metrics", "$", "$m", 10000),
     range("ebitda", "EBITDA (m)", "financial_metrics", "$", "$m", 10000),
     range("rev_growth", "Revenue growth", "financial_metrics", "%", "%", 200, -50),
@@ -115,10 +114,10 @@ export function filterStateToQuery(
     searchText: state.searchText,
     ranges: {},
     sectorIds: [],
+    secondarySectorIds: [],
     countries: [],
     ownershipIds: [],
     dealTypes: [],
-    dealStatuses: [],
     acquirerIds: [],
     ceIds: [],
   };
@@ -145,6 +144,12 @@ export function filterStateToQuery(
           if (id != null) q.sectorIds.push(id);
         }
         break;
+      case "secondary_sector":
+        for (const name of asStrings(f.value)) {
+          const id = opts.secondarySectors.find((s) => s.sector_name === name)?.id;
+          if (id != null) q.secondarySectorIds.push(id);
+        }
+        break;
       case "ownership":
         for (const name of asStrings(f.value)) {
           const id = opts.ownershipTypes.find((o) => o.ownership === name)?.id;
@@ -162,9 +167,6 @@ export function filterStateToQuery(
         break;
       case "deal_type":
         q.dealTypes.push(...asStrings(f.value));
-        break;
-      case "deal_status":
-        q.dealStatuses.push(...asStrings(f.value));
         break;
     }
   }

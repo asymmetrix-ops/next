@@ -17,12 +17,15 @@ const col = (
   ...extra,
 });
 
-/** 19 columns: 7 visible by default (Company + 6 Default), 12 hidden. All backed by GET /transaction_comps. */
+/** 19 columns: 8 visible by default (Company, Primary sector(s) + 6 Default), 11 hidden. All backed by GET /transaction_comps. */
 export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
   {
     id: "identity",
     name: "Identity",
-    columns: [col("company", "Company", "text", { locked: true, defaultVisible: true })],
+    columns: [
+      col("company", "Company", "text", { locked: true, defaultVisible: true }),
+      col("sector", "Primary sector(s)", "text", { defaultVisible: true }),
+    ],
   },
   {
     id: "default",
@@ -40,7 +43,6 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "overview",
     name: "Overview",
     columns: [
-      col("sector", "Sector", "text"),
       col("ownership", "Ownership", "text"),
       col("hq_city", "HQ city", "text"),
       col("hq_country", "HQ country", "text"),
@@ -82,7 +84,7 @@ export const DEFAULT_TRANSACTION_COMPS_COLUMN_KEYS: string[] =
 export const FROZEN_TRANSACTION_COMPS_COLUMN_KEYS = ["company"];
 
 export const TRANSACTION_COMPS_COLUMNS_STORAGE_KEY =
-  "asymmetrix_transaction_comps_columns_v2";
+  "asymmetrix_transaction_comps_columns_v3";
 
 /** Drops unknown keys, pins the frozen column first, falls back to defaults. */
 export function normalizeTransactionCompsColumnKeys(keys: string[]): string[] {

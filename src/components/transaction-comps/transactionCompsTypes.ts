@@ -18,6 +18,8 @@ export interface TransactionCompRow {
   deal_date?: string | null;
   deal_type?: string | null;
   deal_status?: string | null;
+  /** Name the target traded under before the deal, when it changed. */
+  former_name?: string | null;
   corporate_event?: { id: number; name: string } | null;
   acquirers?: { id: number; name: string }[] | null;
   primary_sectors?: { id: number; name: string }[] | null;
@@ -44,10 +46,10 @@ export interface TransactionCompsQuery {
   dealDateFrom?: string;
   dealDateTo?: string;
   sectorIds: number[];
+  secondarySectorIds: number[];
   countries: string[];
   ownershipIds: number[];
   dealTypes: string[];
-  dealStatuses: string[];
   acquirerIds: number[];
   ceIds: number[];
   ids: number[];
@@ -61,10 +63,10 @@ export const DEFAULT_TRANSACTION_COMPS_QUERY: TransactionCompsQuery = {
   sortDir: "desc",
   ranges: {},
   sectorIds: [],
+  secondarySectorIds: [],
   countries: [],
   ownershipIds: [],
   dealTypes: [],
-  dealStatuses: [],
   acquirerIds: [],
   ceIds: [],
   ids: [],
