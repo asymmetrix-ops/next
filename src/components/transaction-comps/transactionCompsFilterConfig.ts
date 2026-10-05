@@ -89,7 +89,7 @@ export function buildTransactionCompsFilterDefs(
     idList("corporate_events", "Corporate events", "default", opts.corporateEvents),
     list("sector", "Primary sector", "overview", opts.sectors.map((s) => s.sector_name)),
     list("secondary_sector", "Secondary sector", "overview", opts.secondarySectors.map((s) => s.sector_name)),
-    list("ownership", "Ownership", "overview", opts.ownershipTypes.map((o) => o.ownership)),
+    list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => o.ownership)),
     list("hq_country", "HQ country", "overview", opts.countries),
     list("deal_type", "Deal type", "deal_details", TRANSACTION_COMPS_DEAL_TYPES),
     range("revenue", "Revenue (m)", "financial_metrics", "$", "$m", 10000),

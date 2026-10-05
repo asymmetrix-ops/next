@@ -43,7 +43,7 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "overview",
     name: "Overview",
     columns: [
-      col("ownership", "Ownership", "text"),
+      col("ownership", "Acquirer type", "text"),
       col("hq_city", "HQ city", "text"),
       col("hq_country", "HQ country", "text"),
     ],

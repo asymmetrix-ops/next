@@ -25,6 +25,8 @@ function buildParams(q: TransactionCompsQuery): URLSearchParams {
   }
   if (q.dealDateFrom) params.set("deal_date_from", q.dealDateFrom);
   if (q.dealDateTo) params.set("deal_date_to", q.dealDateTo);
+  // Transaction comps are completed deals only (no UI filter for this).
+  params.set("deal_statuses", "Completed");
   const lists: [string, (string | number)[]][] = [
     ["sector_ids", q.sectorIds],
     ["secondary_sector_ids", q.secondarySectorIds],
@@ -81,13 +83,16 @@ export async function fetchTransactionCompsServer(
 export async function fetchTransactionCompsOptionsServer(
   type: TransactionCompsOptionType,
   q = "",
-  limit = 1000
+  limit = 1000,
+  /** For `secondary_sector`: restrict to secondary sectors under these primary sectors. */
+  sectorIds: number[] = []
 ): Promise<TransactionCompsOption[]> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("asymmetrix_auth_token")?.value;
     if (!token) return [];
     const params = new URLSearchParams({ type, q, limit: String(limit) });
+    if (sectorIds.length > 0) params.set("sector_ids", sectorIds.join(","));
     const response = await fetch(
       `${TRANSACTION_COMPS_API_BASE}/transaction_comps/options?${params.toString()}`,
       { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }

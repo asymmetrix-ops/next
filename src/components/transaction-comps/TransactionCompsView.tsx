@@ -118,15 +118,14 @@ export function TransactionCompsView() {
   useEffect(() => {
     Promise.allSettled([
       locationsService.getPrimarySectors(),
-      locationsService.getAllSecondarySectors(),
       locationsService.getOwnershipTypes(),
       locationsService.getCountries(),
       fetchTransactionCompsOptionsServer("acquirer"),
       fetchTransactionCompsOptionsServer("corporate_event"),
-    ]).then(([sectors, secondary, ownership, countries, acquirers, events]) => {
-      setOptions({
+    ]).then(([sectors, ownership, countries, acquirers, events]) => {
+      setOptions((prev) => ({
+        ...prev,
         sectors: sectors.status === "fulfilled" ? sectors.value : [],
-        secondarySectors: secondary.status === "fulfilled" ? secondary.value : [],
         ownershipTypes: ownership.status === "fulfilled" ? ownership.value : [],
         countries:
           countries.status === "fulfilled"
@@ -134,9 +133,35 @@ export function TransactionCompsView() {
             : [],
         acquirers: acquirers.status === "fulfilled" ? acquirers.value : [],
         corporateEvents: events.status === "fulfilled" ? events.value : [],
-      });
+      }));
     });
   }, []);
+
+  // Secondary sectors: only those present in trans comps, narrowed by the selected primary sectors.
+  const primarySectorIdsKey = useMemo(() => {
+    const names = filterState.filters.find((f) => f.id === "sector")?.value;
+    if (!Array.isArray(names)) return "";
+    return options.sectors
+      .filter((s) => names.includes(s.sector_name))
+      .map((s) => s.id)
+      .join(",");
+  }, [filterState.filters, options.sectors]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = primarySectorIdsKey ? primarySectorIdsKey.split(",").map(Number) : [];
+    fetchTransactionCompsOptionsServer("secondary_sector", "", 1000, ids).then(async (items) => {
+      let secondary = items.map((o) => ({ id: o.id, sector_name: o.label }));
+      // Endpoint not available yet: fall back to the full list (unfiltered case only).
+      if (secondary.length === 0 && ids.length === 0) {
+        secondary = await locationsService.getAllSecondarySectors().catch(() => []);
+      }
+      if (!cancelled) setOptions((prev) => ({ ...prev, secondarySectors: secondary }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [primarySectorIdsKey]);
 
   const filterDefs = useMemo(() => buildTransactionCompsFilterDefs(options), [options]);
 

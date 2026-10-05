@@ -72,7 +72,7 @@ export const DEFAULT_TRANSACTION_COMPS_QUERY: TransactionCompsQuery = {
   ids: [],
 };
 
-export type TransactionCompsOptionType = "acquirer" | "corporate_event";
+export type TransactionCompsOptionType = "acquirer" | "corporate_event" | "secondary_sector";
 
 export interface TransactionCompsOption {
   id: number;
