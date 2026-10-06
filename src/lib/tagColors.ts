@@ -256,7 +256,9 @@ export const TRANSACTION_SIGNAL_TONES: Record<string, TagTone> = {
 
 /** User-facing copy for Deal Radar transaction-signal tooltips (tags.txt §8). */
 export const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  // "long hold": removed — previous copy was not approved. Pending approved copy from Piero.
+  // "long hold": placeholder wording taken from the ticket rule; replace once Piero approves copy.
+  "long hold":
+    "Currently owned by a PE fund for more than six years, so a sale is anticipated.",
   "asymmetrix assessment":
     "Asymmetrix's own view on the anticipated transaction — house assessment, not sourced externally.",
   "proprietary intel":

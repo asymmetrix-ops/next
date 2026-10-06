@@ -39,9 +39,9 @@ interface LinkedEvent {
   announcement_date: string;
 }
 
-interface ContentCta {
+interface LinkedReport {
   id: number;
-  label: string;
+  headline: string;
   content_type: string;
   publication_date: string;
 }
@@ -67,7 +67,7 @@ interface DealRadarDashboardItem {
   ev: ValSource;
   potential_acquirers: NamedRef[];
   linked_event: LinkedEvent | null;
-  content_cta: ContentCta | null;
+  linked_reports: LinkedReport[];
 }
 
 interface Pagination {
@@ -128,6 +128,9 @@ const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
 const ANTICIPATED_18_MONTHS_ID = 1;
+/** Statuses for which Process Stage applies: Anticipated 18m (1), Rumoured (2), Reported (3), Anticipated 6m (6). */
+const PROCESS_STAGE_STATUS_IDS = [1, 2, 3, 6];
+const REPORTED_IN_MARKET_ID = 3;
 const TABLE_COL_COUNT = 11;
 
 const TRANSACTION_STATUS_OPTIONS = [
@@ -206,9 +209,10 @@ function formatVal(val: ValSource): React.ReactNode {
   const src = val?.source;
   if (isInvalidVal(v)) return <span className="text-gray-300">—</span>;
 
-  const isEst = src && src.startsWith("http");
-  const isProp =
-    src && !src.startsWith("http") && !isInvalidVal(src);
+  const srcLower = isInvalidVal(src) ? "" : src!.trim().toLowerCase();
+  const isEst = srcLower.startsWith("http") || srcLower.includes("estimate");
+  const isProp = !isEst && /proprietary|asymmetrix/.test(srcLower);
+  const isOther = !!srcLower && !isEst && !isProp;
 
   return (
     <span className="font-medium text-gray-800">
@@ -219,6 +223,14 @@ function formatVal(val: ValSource): React.ReactNode {
           className="ml-1 text-[10px] text-amber-600 border border-amber-300 rounded px-1 cursor-help no-underline"
         >
           Est.
+        </abbr>
+      )}
+      {isOther && (
+        <abbr
+          title={`Source: ${src}`}
+          className="ml-1 text-[10px] text-gray-500 border border-gray-300 rounded px-1 cursor-help no-underline"
+        >
+          Src.
         </abbr>
       )}
       {isProp && (
@@ -246,13 +258,16 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
-function getContentCtaLabel(cta: ContentCta): string {
-  const label = cta.label?.trim();
-  if (label) return label;
-  if (cta.content_type.toLowerCase().trim() === "news") {
-    return "Read our News";
-  }
-  return "Read our Research";
+/** Most recent linked report; "Read our News" only when that piece is News. */
+function getReportCta(
+  reports: LinkedReport[] | undefined
+): { id: number; label: string } | null {
+  if (!reports?.length) return null;
+  const latest = [...reports].sort((x, y) =>
+    String(y.publication_date).localeCompare(String(x.publication_date))
+  )[0];
+  const isNews = latest.content_type?.toLowerCase().trim() === "news";
+  return { id: latest.id, label: isNews ? "Read our News" : "Read our Research" };
 }
 
 function buildDashboardUrl(
@@ -349,10 +364,6 @@ function sortItems(items: DealRadarDashboardItem[], key: SortKey | null, dir: So
     .map((x) => x.it);
 }
 
-function dealRadarStatusLabel(id: number): string | undefined {
-  return TRANSACTION_STATUS_OPTIONS.find((o) => o.id === id)?.label ?? undefined;
-}
-
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
 
 function TransactionSignalLabel({ signal }: { signal: string }) {
@@ -417,8 +428,11 @@ export default function DealRadarDashboardPage() {
   const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
 
-  const showAnticipatedSubFilters = filters.transactionStatusIds.includes(
+  const showSignalFilter = filters.transactionStatusIds.includes(
     ANTICIPATED_18_MONTHS_ID
+  );
+  const showProcessStageFilter = filters.transactionStatusIds.some((id) =>
+    PROCESS_STAGE_STATUS_IDS.includes(id)
   );
 
   const activeStatusBubbleId =
@@ -535,12 +549,17 @@ export default function DealRadarDashboardPage() {
   const updateFilters = (patch: Partial<DealRadarFilters>) => {
     setFilters((prev) => {
       const next = { ...prev, ...patch };
-      if (
-        patch.transactionStatusIds &&
-        !patch.transactionStatusIds.includes(ANTICIPATED_18_MONTHS_ID)
-      ) {
-        next.processStages = [];
-        next.transactionSignals = [];
+      if (patch.transactionStatusIds) {
+        if (!patch.transactionStatusIds.includes(ANTICIPATED_18_MONTHS_ID)) {
+          next.transactionSignals = [];
+        }
+        if (
+          !patch.transactionStatusIds.some((id) =>
+            PROCESS_STAGE_STATUS_IDS.includes(id)
+          )
+        ) {
+          next.processStages = [];
+        }
       }
       return next;
     });
@@ -555,6 +574,18 @@ export default function DealRadarDashboardPage() {
   };
 
   const clearAllFilters = () => setFilters(EMPTY_FILTERS);
+
+  // Static known stages plus any other stage values the backend returns.
+  const processStageOptions = useMemo(() => {
+    const known = new Set(PROCESS_STAGE_OPTIONS.map((o) => o.value));
+    const extra = Array.from(
+      new Set(items.map((i) => i.process_stage?.trim()).filter(Boolean) as string[])
+    )
+      .filter((v) => !known.has(v))
+      .sort()
+      .map((v) => ({ value: v, label: v }));
+    return [...PROCESS_STAGE_OPTIONS, ...extra];
+  }, [items]);
 
   const ownershipSelectOptions = useMemo(
     () =>
@@ -818,14 +849,14 @@ export default function DealRadarDashboardPage() {
               </div>
               <div
                 title={
-                  showAnticipatedSubFilters
+                  showProcessStageFilter
                     ? undefined
-                    : "Available when Anticipated 18 months is selected"
+                    : "Available for Anticipated, Rumoured or Reported statuses"
                 }
               >
                 <label
                   className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
+                    showProcessStageFilter
                       ? "text-gray-500"
                       : "text-gray-400"
                   }`}
@@ -833,25 +864,25 @@ export default function DealRadarDashboardPage() {
                   Process stage
                 </label>
                 <SearchableMultiSelect
-                  options={PROCESS_STAGE_OPTIONS}
+                  options={processStageOptions}
                   selectedValues={filters.processStages}
                   onSelectionChange={(vals) =>
                     updateFilters({ processStages: vals })
                   }
                   placeholder="All stages"
-                  disabled={!showAnticipatedSubFilters}
+                  disabled={!showProcessStageFilter}
                 />
               </div>
               <div
                 title={
-                  showAnticipatedSubFilters
+                  showSignalFilter
                     ? undefined
                     : "Available when Anticipated 18 months is selected"
                 }
               >
                 <label
                   className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
+                    showSignalFilter
                       ? "text-gray-500"
                       : "text-gray-400"
                   }`}
@@ -865,7 +896,7 @@ export default function DealRadarDashboardPage() {
                     updateFilters({ transactionSignals: vals })
                   }
                   placeholder="All signals"
-                  disabled={!showAnticipatedSubFilters}
+                  disabled={!showSignalFilter}
                 />
               </div>
               <div>
@@ -964,6 +995,8 @@ export default function DealRadarDashboardPage() {
                             name: cleanSectorName(s.name),
                           }));
 
+                          const reportCta = getReportCta(item.linked_reports);
+
                           return (
                             <tr
                               key={item.company_id}
@@ -997,9 +1030,9 @@ export default function DealRadarDashboardPage() {
                                     {formatDate(item.active_status_set_at)}
                                   </p>
                                 )}
-                                {item.content_cta && (
+                                {reportCta && (
                                   <a
-                                    href={`/article/${item.content_cta.id}`}
+                                    href={`/article/${reportCta.id}`}
                                     onClick={(e) => {
                                       if (
                                         e.button !== 0 ||
@@ -1011,12 +1044,12 @@ export default function DealRadarDashboardPage() {
                                         return;
                                       e.preventDefault();
                                       router.push(
-                                        `/article/${item.content_cta!.id}`
+                                        `/article/${reportCta.id}`
                                       );
                                     }}
                                     className="mt-0.5 block text-[11.5px] font-medium text-gray-500 hover:text-blue-600 hover:underline"
                                   >
-                                    {getContentCtaLabel(item.content_cta)}
+                                    {reportCta.label}
                                   </a>
                                 )}
                                 </div>
@@ -1096,10 +1129,21 @@ export default function DealRadarDashboardPage() {
                                 <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
-                                    label={dealRadarStatusLabel(item.transaction_status_id)}
-                                    className="inline-block max-w-[11rem]"
+                                    className="inline-block"
                                     allowWrap
                                   />
+                                  {item.transaction_status_id === REPORTED_IN_MARKET_ID &&
+                                    item.linked_event && (
+                                      <a
+                                        href={`/corporate-event/${item.linked_event.id}`}
+                                        className="mt-1 text-[11px] font-medium text-blue-600 hover:underline"
+                                      >
+                                        View corporate event
+                                        {item.linked_event.announcement_date
+                                          ? ` · ${formatDate(item.linked_event.announcement_date)}`
+                                          : ""}
+                                      </a>
+                                    )}
                                   {item.transaction_signal && (
                                     <TransactionSignalLabel
                                       signal={item.transaction_signal}
