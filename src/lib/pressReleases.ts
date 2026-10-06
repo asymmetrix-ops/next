@@ -141,6 +141,88 @@ export const PRESS_RELEASES: PressRelease[] = [
       },
     ],
   },
+  {
+    slug: "news-desk-launch",
+    category: "Company News",
+    title: "Asymmetrix Launches News Desk",
+    strapline:
+      "Jordan Bintcliffe appointed to lead a dedicated news operation breaking M&A, fundraise and live deal stories across the Data & Analytics industry",
+    date: "2026-10-06",
+    location: "London",
+    sections: [
+      {
+        type: "paragraph",
+        text: "LONDON, 6 October 2026 — Asymmetrix, the intelligence platform for the Data & Analytics industry, today announces the appointment of Jordan Bintcliffe to lead the Asymmetrix News Desk. The desk will break news on M&A, fundraises and live deal processes involving Data & Analytics companies worldwide.",
+      },
+      {
+        type: "paragraph",
+        text: "The appointment formalises a news operation that has already broken a series of exclusive stories since August 2026. It also signals Asymmetrix's commitment to becoming the first place dealmakers, investors and operators look for market-moving information on the Data & Analytics sector.",
+      },
+      {
+        type: "heading",
+        text: "The Asymmetrix News Desk",
+      },
+      {
+        type: "paragraph",
+        text: "The News Desk exists to report Data & Analytics deals before they are announced. Its focus is sell-side mandates, live auctions, fundraises, recapitalisations, valuation expectations and the advisers and bidders behind them.",
+      },
+      {
+        type: "paragraph",
+        text: "The desk complements Asymmetrix's existing database of Data & Analytics companies, investors, advisers and corporate events, and its published research reports. News stories are linked to the companies, sectors and transactions they cover, so subscribers can move straight from a scoop to the underlying data.",
+      },
+      {
+        type: "paragraph",
+        text: "Since August 2026, the desk has broken exclusive stories on agreed acquisitions, stalled and relaunched auctions, sell-side adviser pitches and mandates, private credit recapitalisations, and early-stage fundraises. Coverage to date spans Data & Analytics sub-sectors including Data Centres and Digital Infrastructure, Energy & Commodities, Maritime, Wealth Management and Regulatory Technology. Under Jordan Bintcliffe's leadership the desk will broaden that coverage and increase its publishing frequency.",
+      },
+      {
+        type: "quote",
+        text: "Data & Analytics is one of the most active corners of the M&A market, but it has never had a dedicated news service. Jordan brings exactly the sourcing instincts and deal knowledge we need to change that. The news desk means our clients will be privy to exclusive and proprietary news on deals in or coming to market.",
+        attribution: "Alex Boden, CEO and Founder of Asymmetrix",
+      },
+      {
+        type: "quote",
+        text: "The Data & Analytics industry is full of stories that never make it into the mainstream financial press. I want the Asymmetrix News Desk to be where those stories are told first – and told accurately. I'm keen to hear from anyone who is also active in or following the market.",
+        attribution: "Jordan Bintcliffe",
+      },
+      {
+        type: "heading",
+        text: "Got a tip?",
+      },
+      {
+        type: "paragraph",
+        text: "Asymmetrix welcomes information from founders, executives, investors, advisers and other market participants about developments at Data & Analytics companies, such as transactions, fundraises, adviser appointments and leadership changes. Contact Jordan Bintcliffe: j.bintcliffe@asymmetrixintelligence.com or +44 204 634 2027.",
+      },
+      {
+        type: "heading",
+        text: "About Jordan Bintcliffe",
+      },
+      {
+        type: "paragraph",
+        text: "Jordan Bintcliffe is a London-based financial journalist with a background of breaking news in private credit and infrastructure project finance. Most recently he worked as an energy and infrastructure project finance journalist and has bylines in titles including London Stock Exchange Group's Project Finance International (PFI), Exile Group's Proximo, Green Street News, and Octus.",
+      },
+      {
+        type: "paragraph",
+        text: "Before joining Asymmetrix he founded Off Record Story, a specialist freelance news business covering energy and infrastructure project finance.",
+      },
+      {
+        type: "paragraph",
+        text: "Earlier in his career, Jordan Bintcliffe was senior reporter for Western Europe at PFI. He also covered debt issuers, high-yield issuers and distressed borrowers in EEMEA at Octus. Prior to those roles he was senior reporter, EMEA, at Green Street News. Across these roles he has built a track record of sourcing exclusive deal stories from bankers, advisers, investors, sponsors and founders.",
+      },
+      {
+        type: "heading",
+        text: "About Asymmetrix",
+      },
+      {
+        type: "paragraph",
+        text: "Asymmetrix is an intelligence platform dedicated to the Data & Analytics industry. It combines a proprietary database of Data & Analytics companies, investors, advisers and corporate events with company and sector analysis, deal perspectives, executive interviews and, now, breaking news from the Asymmetrix News Desk.",
+      },
+      {
+        type: "contact",
+        name: "Honor Crean",
+        email: "h.crean@asymmetrixintelligence.com",
+      },
+    ],
+  },
 ];
 
 export function getPressRelease(slug: string): PressRelease | undefined {
