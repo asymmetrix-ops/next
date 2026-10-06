@@ -432,7 +432,9 @@ export const IndividualSection = ({
             items={companies.map((company, index) => {
               const companyId = company.employee_new_company_id;
               const href =
-                companyId > 0 ? `/company/${companyId}` : undefined;
+                companyId > 0 && company.is_data_analytics !== false
+                  ? `/company/${companyId}`
+                  : undefined;
               return {
                 key: `company-${companyId}-${index}`,
                 name: company.company_name,

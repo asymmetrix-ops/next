@@ -47,6 +47,9 @@ function normalizeIndividualRole(raw: Record<string, unknown>) {
       locations_id: 0,
       sectors_id: [],
       _locations: null,
+      ...(typeof raw.is_data_analytics === "boolean"
+        ? { _is_that_data_analytic_company: raw.is_data_analytics }
+        : {}),
     },
   };
 }

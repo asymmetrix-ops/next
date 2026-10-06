@@ -65,7 +65,12 @@ interface ArticleDetail {
     sector_name: string;
     Sector_importance: string;
   }>;
-  companies_mentioned: Array<{ id: number; name: string }>;
+  companies_mentioned: Array<{
+    id: number;
+    name: string;
+    /** False => not a D&A company (no profile). */
+    is_data_analytics?: boolean;
+  }>;
   companies_of_focus?: Array<{
     id: number;
     name: string;
@@ -686,7 +691,7 @@ const ArticleDetailPage = () => {
             }>
           >(raw.sectors) || [],
         companies_mentioned:
-          tryParse<Array<{ id: number; name: string }>>(
+          tryParse<ContentArticle["companies_mentioned"]>(
             raw.companies_mentioned
           ) || [],
         companies_of_focus:
@@ -2399,7 +2404,12 @@ const ArticleDetailPage = () => {
                         <EntityChip
                           key={company.id}
                           kind="company"
-                          href={`/company/${company.id}`}
+                          href={
+                            company.is_data_analytics === false
+                              ? undefined
+                              : `/company/${company.id}`
+                          }
+                          nonDa={company.is_data_analytics === false}
                           label={company.name}
                         />
                       ))}

@@ -30,6 +30,8 @@ export interface Individual {
 export interface IndividualCurrentCompany {
   employee_new_company_id: number;
   company_name: string;
+  /** False => not a D&A company (no profile). Undefined => unknown (keep link). */
+  is_data_analytics?: boolean;
 }
 
 // Individual Location with region fields
@@ -68,6 +70,8 @@ export interface Company {
   locations_id: number;
   sectors_id: number[];
   _locations: Location | null;
+  /** False => not a D&A company (no profile). */
+  _is_that_data_analytic_company?: boolean;
 }
 
 // Location Interface

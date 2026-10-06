@@ -58,11 +58,20 @@ export function getIndividualCurrentCompanies(
     const href = resolveIndividualCompanyHref(individual);
     const companyIdMatch = href?.match(/\/company\/(\d+)/);
     const companyId = companyIdMatch ? Number(companyIdMatch[1]) : NaN;
+    const currentRole = Array.isArray(individual.roles)
+      ? individual.roles.find(
+          (r) =>
+            String(r.Status).toLowerCase() === "current" &&
+            r.new_company?.name === individual.current_company
+        )
+      : undefined;
+    const isDa = currentRole?.new_company?._is_that_data_analytic_company;
     if (Number.isFinite(companyId)) {
       return [
         {
           employee_new_company_id: companyId,
           company_name: individual.current_company,
+          ...(typeof isDa === "boolean" ? { is_data_analytics: isDa } : {}),
         },
       ];
     }
