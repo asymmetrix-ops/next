@@ -14,7 +14,7 @@ export type PressRelease = {
   sections: PressReleaseSection[];
 };
 
-export const PRESS_RELEASES: PressRelease[] = [
+const PRESS_RELEASES_CHRONOLOGICAL: PressRelease[] = [
   {
     slug: "seed-funding",
     category: "Seed Funding",
@@ -224,6 +224,13 @@ export const PRESS_RELEASES: PressRelease[] = [
     ],
   },
 ];
+
+// Newest press release first.
+export const PRESS_RELEASES: PressRelease[] = [
+  ...PRESS_RELEASES_CHRONOLOGICAL,
+].sort(
+  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+);
 
 export function getPressRelease(slug: string): PressRelease | undefined {
   return PRESS_RELEASES.find((release) => release.slug === slug);
