@@ -94,7 +94,19 @@ interface ArticleDetail {
     iso3: string | null;
     source: string;
   } | null;
-  companies_mentioned: Array<{ id: number; name: string }>;
+  companies_mentioned: Array<{
+    id: number;
+    name: string;
+    path?: string;
+    route?: string;
+    page_type?: string;
+    entity_type?: string;
+    type?: string;
+    is_investor?: boolean;
+    _is_that_investor?: boolean;
+    is_advisor?: boolean;
+    _is_that_advisor?: boolean;
+  }>;
   companies_of_focus?: Array<{
     id: number;
     name: string;
@@ -563,6 +575,41 @@ const ArticleDetailPage = () => {
     new Set(ARTICLE_TABLE_ALL_COLUMNS.map((c) => c.key))
   );
 
+  // Mentioned entities can be companies, investors or advisors; link each to
+  // its own page type rather than always /company/{id}.
+  const getMentionedEntityHref = (
+    entity: ArticleDetail["companies_mentioned"][number]
+  ): string => {
+    const hint = [
+      entity.path,
+      entity.route,
+      entity.page_type,
+      entity.entity_type,
+      entity.type,
+    ]
+      .map((v) => String(v ?? "").toLowerCase())
+      .join(" ");
+    const isAdvisorFromEvents = (article?.Related_Corporate_Event || []).some(
+      (ev) => (ev.advisors || []).some((a) => a._new_company?.id === entity.id)
+    );
+    if (
+      entity.is_advisor ||
+      entity._is_that_advisor ||
+      hint.includes("advisor") ||
+      isAdvisorFromEvents
+    ) {
+      return `/advisor/${entity.id}`;
+    }
+    if (
+      entity.is_investor ||
+      entity._is_that_investor ||
+      hint.includes("investor")
+    ) {
+      return `/investors/${entity.id}`;
+    }
+    return `/company/${entity.id}`;
+  };
+
   const fetchArticle = async () => {
     try {
       setLoading(true);
@@ -608,7 +655,7 @@ const ArticleDetailPage = () => {
             }>
           >(raw.sectors) || [],
         companies_mentioned:
-          tryParse<Array<{ id: number; name: string }>>(
+          tryParse<ArticleDetail["companies_mentioned"]>(
             raw.companies_mentioned
           ) || [],
         companies_of_focus:
@@ -2318,7 +2365,7 @@ const ArticleDetailPage = () => {
                         <EntityChip
                           key={company.id}
                           kind="company"
-                          href={`/company/${company.id}`}
+                          href={getMentionedEntityHref(company)}
                           label={company.name}
                         />
                       ))}
