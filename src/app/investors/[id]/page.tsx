@@ -30,7 +30,12 @@ import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTa
 import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
 import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
-import CompanyLogo from "@/components/investor/CompanyLogo";
+import {
+  EntityLogoTile,
+  EntityProfileHeader,
+  profileHeaderOutlineButtonStyle,
+  profileHeaderPrimaryButtonStyle,
+} from "@/components/profile/EntityProfileHeader";
 import { readEntityLogo } from "@/lib/companyLogo";
 
 // Only Summary + Portfolio are ready; the remaining sub-section tabs
@@ -1464,73 +1469,20 @@ const InvestorDetailPage = () => {
     <AppShell>
     <div className="investor-detail-page" style={styles.container}>
 
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            padding: "22px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
-            <CompanyLogo
-              logo={readEntityLogo(Investor) || ""}
-              name={Investor.name}
-              className="investor-profile-header-logo"
-            />
-            <div style={{ minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  color: T.ink,
-                  letterSpacing: "-0.4px",
-                  lineHeight: 1.2,
-                  fontFamily: T.sans,
-                }}
-              >
-                {Investor.name}
-              </span>
-              {(investorType || hq) && (
-                <div
-                  style={{
-                    marginTop: 3,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontFamily: T.sans,
-                    fontSize: 13,
-                    color: T.muted,
-                  }}
-                >
-                  {investorType && <span>{investorType}</span>}
-                  {hq && (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        height: 22,
-                        padding: "0 10px",
-                        borderRadius: 999,
-                        background: T.paper,
-                        border: `1px solid ${T.divider}`,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: T.ink,
-                      }}
-                    >
-                      {hq}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <EntityProfileHeader
+        logo={<EntityLogoTile logos={[readEntityLogo(Investor)]} name={Investor.name} />}
+        title={Investor.name}
+        subtitle={
+          investorType || hq ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {investorType && <span>{investorType}</span>}
+              {investorType && hq && <span aria-hidden>·</span>}
+              {hq && <span>{hq}</span>}
+            </span>
+          ) : undefined
+        }
+        actions={
+          <>
             {investorId && !Number.isNaN(Number(investorId)) && (
               <FollowButton
                 followKey="followed_investors"
@@ -1545,19 +1497,7 @@ const InvestorDetailPage = () => {
               onClick={handleExportPdf}
               disabled={exportingPdf || !investorData}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: T.sans,
-                fontSize: 13,
-                fontWeight: 700,
-                color: exportingPdf ? T.faint : T.azure,
-                backgroundColor: "#fff",
-                border: `1px solid ${exportingPdf ? T.divider : "#C6D1FB"}`,
-                borderRadius: 999,
-                height: 34,
-                padding: "0 16px",
-                boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
+                ...profileHeaderOutlineButtonStyle,
                 cursor: exportingPdf || !investorData ? "not-allowed" : "pointer",
               }}
             >
@@ -1568,74 +1508,17 @@ const InvestorDetailPage = () => {
               href={reportMailTo}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: T.sans,
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#fff",
-                backgroundColor: T.azure,
-                borderRadius: 999,
-                height: 34,
-                padding: "0 18px",
-                boxShadow: "0 6px 18px rgba(42, 70, 234, 0.32)",
-                textDecoration: "none",
-              }}
+              style={profileHeaderPrimaryButtonStyle}
             >
               <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
               Contribute Data
             </a>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 2,
-            padding: 5,
-            marginTop: 0,
-            marginBottom: 16,
-            borderRadius: 999,
-            background: T.paper,
-            border: `1px solid ${T.divider}`,
-            overflowX: "auto" as const,
-            scrollbarWidth: "none" as const,
-          }}
-        >
-          {INVESTOR_PROFILE_TABS.map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveProfileTab(tab)}
-                style={{
-                  height: 38,
-                  padding: "0 20px",
-                  fontFamily: T.sans,
-                  fontSize: "13px",
-                  fontWeight: active ? 700 : 600,
-                  color: active ? T.ink : T.muted,
-                  borderRadius: 999,
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms, background 120ms, box-shadow 120ms",
-                  background: active ? "#fff" : "transparent",
-                  boxShadow: active
-                    ? "0 1px 2px rgba(16, 28, 70, 0.06), 0 3px 10px rgba(16, 28, 70, 0.08)"
-                    : "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          </>
+        }
+        tabs={INVESTOR_PROFILE_TABS as readonly string[]}
+        activeTab={activeProfileTab}
+        onTabChange={setActiveProfileTab}
+      />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="investor-detail-content" style={styles.maxWidth}>

@@ -21,7 +21,12 @@ import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
 import type { AdvisorIndividual } from "@/types/advisor";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
-import CompanyLogo from "@/components/investor/CompanyLogo";
+import {
+  EntityLogoTile,
+  EntityProfileHeader,
+  profileHeaderOutlineButtonStyle,
+  profileHeaderPrimaryButtonStyle,
+} from "@/components/profile/EntityProfileHeader";
 import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
 import { useAdvisorDealCounts } from "@/hooks/useAdvisorDealCounts";
@@ -711,37 +716,11 @@ export default function AdvisorProfilePage() {
   return (
     <AppShell>
     <div className="advisor-detail-page" style={styles.container}>
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            padding: "22px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
-            <CompanyLogo
-              logo={readEntityLogo(Advisor) || ""}
-              name={Advisor.name}
-            />
-            <span
-              style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: T.ink,
-                letterSpacing: "-0.4px",
-                lineHeight: 1.2,
-                fontFamily: T.sans,
-              }}
-            >
-              {Advisor.name}
-            </span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <EntityProfileHeader
+        logo={<EntityLogoTile logos={[readEntityLogo(Advisor)]} name={Advisor.name} />}
+        title={Advisor.name}
+        actions={
+          <>
             {Advisor?.id != null && Number.isFinite(Advisor.id) && (
               <FollowButton
                 followKey="followed_advisors"
@@ -756,17 +735,7 @@ export default function AdvisorProfilePage() {
               onClick={exportAdvisorPdf}
               disabled={exportingPdf || !advisorData?.Advisor}
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: exportingPdf ? T.faint : "#475569",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 14px",
+                ...profileHeaderOutlineButtonStyle,
                 cursor: exportingPdf || !advisorData?.Advisor ? "not-allowed" : "pointer",
               }}
             >
@@ -777,26 +746,14 @@ export default function AdvisorProfilePage() {
               href={reportMailTo}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: T.emerald,
-                borderRadius: 6,
-                padding: "8px 14px",
-                textDecoration: "none",
-              }}
+              style={profileHeaderPrimaryButtonStyle}
             >
               <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
               Contribute Data
             </a>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="advisor-detail-content" style={styles.maxWidth}>
