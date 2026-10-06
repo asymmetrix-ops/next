@@ -3173,11 +3173,14 @@ const CompanyDetail = () => {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gap: "12px",
+      gridAutoRows: "4px",
+      gridAutoFlow: "dense",
+      columnGap: "12px",
+      rowGap: 0,
       flex: "1",
       maxWidth: "100%",
       overflow: "hidden",
-      alignItems: "stretch",
+      alignItems: "start",
     },
     "@media (max-width: 768px)": {
       responsiveGrid: {
