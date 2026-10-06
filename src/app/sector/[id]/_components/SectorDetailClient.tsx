@@ -1,5 +1,6 @@
 "use client";
 
+import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
@@ -526,6 +527,7 @@ const TABS = [
   { id: "public", name: "Public Companies" },
   { id: "subsectors", name: "Sub-Sectors" },
   { id: "transactions", name: "Transactions" },
+  { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
 ] as const;
@@ -2877,6 +2879,8 @@ const SectorDetailPage = ({
           />
         ) : activeTab === "transactions" ? (
           <ScopedCorporateEventsPanel primarySectorId={Number(sectorId)} embedded />
+        ) : activeTab === "transaction_comps" ? (
+          <TransactionCompsView embedded primarySectorId={Number(sectorId)} />
         ) : activeTab === "insights" ? (
           <SectorInsightsTab sectorId={sectorId} />
         ) : (

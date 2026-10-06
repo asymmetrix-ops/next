@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import type {
+  CorporateEventTransactionComp,
   TransactionCompsOption,
   TransactionCompsOptionType,
   TransactionCompsQuery,
@@ -106,6 +107,26 @@ export async function fetchTransactionCompsOptionsServer(
       .map((o) => ({ id: Number(o.id), label: o.label }));
   } catch (error) {
     console.error("fetchTransactionCompsOptionsServer error:", error);
+    return [];
+  }
+}
+
+export async function fetchCorporateEventTransactionCompsServer(
+  ceId: number
+): Promise<CorporateEventTransactionComp[]> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("asymmetrix_auth_token")?.value;
+    if (!token) return [];
+    const response = await fetch(
+      `${TRANSACTION_COMPS_API_BASE}/corporate_event_transaction_comps?ce_id=${encodeURIComponent(String(ceId))}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (!response.ok) return [];
+    const raw = (await response.json()) as { items?: CorporateEventTransactionComp[] };
+    return Array.isArray(raw.items) ? raw.items : [];
+  } catch (error) {
+    console.error("fetchCorporateEventTransactionCompsServer error:", error);
     return [];
   }
 }

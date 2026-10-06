@@ -6,6 +6,8 @@ import {
   type FilterBarState,
 } from "@/components/companies/CompaniesFilterBar";
 import { ColumnsControlRoom } from "@/components/companies/ColumnsControlRoom";
+import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { SearchExportMenu } from "@/components/search/SearchExportMenu";
 import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/types";
@@ -62,7 +64,20 @@ const SUB_TABS = [
 
 const PER_PAGE = DEFAULT_TRANSACTION_COMPS_QUERY.perPage;
 
-export function TransactionCompsView() {
+export interface TransactionCompsViewProps {
+  /** Embedded in a sector / sub-sector page: no page title or sub-tabs, scoped to the sector. */
+  embedded?: boolean;
+  /** Restrict to companies tagged to this primary sector. */
+  primarySectorId?: number;
+  /** Restrict to companies tagged to this secondary sector (sub-sector). */
+  secondarySectorId?: number;
+}
+
+export function TransactionCompsView({
+  embedded = false,
+  primarySectorId,
+  secondarySectorId,
+}: TransactionCompsViewProps = {}) {
   const [filterState, setFilterState] = useState<FilterBarState>(EMPTY_FILTER_STATE);
   const [options, setOptions] = useState<TransactionCompsFilterOptions>({
     sectors: [],
@@ -163,12 +178,24 @@ export function TransactionCompsView() {
     };
   }, [primarySectorIdsKey]);
 
-  const filterDefs = useMemo(() => buildTransactionCompsFilterDefs(options), [options]);
+  const filterDefs = useMemo(() => {
+    const defs = buildTransactionCompsFilterDefs(options);
+    // The sector scope is fixed by the page, so its own filters would only conflict.
+    if (primarySectorId != null) {
+      return defs.filter((d) => d.id !== "sector" && d.id !== "secondary_sector");
+    }
+    if (secondarySectorId != null) return defs.filter((d) => d.id !== "secondary_sector");
+    return defs;
+  }, [options, primarySectorId, secondarySectorId]);
 
   const buildQuery = useCallback(
-    (pageNum: number, perPage = PER_PAGE) =>
-      filterStateToQuery(filterState, options, { page: pageNum, perPage, sortBy, sortDir }),
-    [filterState, options, sortBy, sortDir]
+    (pageNum: number, perPage = PER_PAGE) => {
+      const q = filterStateToQuery(filterState, options, { page: pageNum, perPage, sortBy, sortDir });
+      if (primarySectorId != null) q.sectorIds = [primarySectorId];
+      if (secondarySectorId != null) q.secondarySectorIds = [secondarySectorId];
+      return q;
+    },
+    [filterState, options, sortBy, sortDir, primarySectorId, secondarySectorId]
   );
 
   // Any filter/sort change returns to page 1.
@@ -256,10 +283,32 @@ export function TransactionCompsView() {
     [buildQuery, columnKeys, rows, selectedIds]
   );
 
+  const headerActions = (
+    <>
+      <RequestDataResearchButton
+        label="Request a Comp"
+        context="transaction-comps"
+        sourcePage={embedded ? "Transaction Comps (sector)" : "Transaction Comps"}
+        className="inline-flex items-center justify-center"
+        style={SEARCH_HEADER_ACTION_BUTTON_STYLE}
+      />
+      <SearchColumnsButton
+        active={showColumns}
+        count={columnKeys.length}
+        total={ALL_TRANSACTION_COMPS_COLUMN_KEYS.length}
+        onClick={() => setShowColumns((v) => !v)}
+      />
+      <SearchExportMenu onExport={exportList} exporting={exporting} disabled={total === 0} />
+    </>
+  );
+
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
     <div className="bg-white">
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-end gap-2 px-7 pt-3">{headerActions}</div>
+      ) : (
       <div style={SEARCH_DASHBOARD_SHELL}>
         <div style={SEARCH_DASHBOARD_INNER}>
           <div style={SEARCH_DASHBOARD_HEADER_ROW}>
@@ -269,15 +318,7 @@ export function TransactionCompsView() {
               </div>
               <h1 style={SEARCH_DASHBOARD_TITLE}>Transaction Comps</h1>
             </div>
-            <div style={SEARCH_DASHBOARD_ACTIONS}>
-              <SearchColumnsButton
-                active={showColumns}
-                count={columnKeys.length}
-                total={ALL_TRANSACTION_COMPS_COLUMN_KEYS.length}
-                onClick={() => setShowColumns((v) => !v)}
-              />
-              <SearchExportMenu onExport={exportList} exporting={exporting} disabled={total === 0} />
-            </div>
+            <div style={SEARCH_DASHBOARD_ACTIONS}>{headerActions}</div>
           </div>
 
           <div className="flex gap-1">
@@ -305,6 +346,7 @@ export function TransactionCompsView() {
           </div>
         </div>
       </div>
+      )}
 
       <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
         <div style={SEARCH_DASHBOARD_FILTER_INNER}>

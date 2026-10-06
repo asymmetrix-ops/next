@@ -36,7 +36,7 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
       col("ev_ebitda", "EV / EBITDA", "number", { defaultVisible: true }),
       col("deal_date", "Deal date", "date", { defaultVisible: true }),
       col("acquirer_investor", "Acquirer / investor", "text", { defaultVisible: true }),
-      col("corporate_events", "Corporate events", "text", { defaultVisible: true }),
+      col("corporate_events", "Related Corporate Event", "text", { defaultVisible: true }),
     ],
   },
   {

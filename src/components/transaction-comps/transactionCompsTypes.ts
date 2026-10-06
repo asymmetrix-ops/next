@@ -78,3 +78,26 @@ export interface TransactionCompsOption {
   id: number;
   label: string;
 }
+
+/** One item of GET /corporate_event_transaction_comps?ce_id= (Xano api:lqZy8LiD). */
+export interface CorporateEventTransactionComp {
+  id: number;
+  company_id: number;
+  company_name: string;
+  logo?: string | null;
+  /** ISO date (YYYY-MM-DD). */
+  deal_date?: string | null;
+  financial_year?: number | null;
+  ev_m?: number | null;
+  ev_currency?: string | null;
+  ev_source_type?: string | null;
+  ev_m_usd?: number | null;
+  revenue_m_usd?: number | null;
+  ebitda_m_usd?: number | null;
+  ev_revenue?: number | null;
+  ev_ebitda?: number | null;
+  revenue_growth_pc?: number | null;
+  ebitda_margin_pc?: number | null;
+  rule_of_40?: number | null;
+  acquirers?: { id: number; name: string }[] | null;
+}

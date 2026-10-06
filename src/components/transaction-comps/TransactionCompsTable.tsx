@@ -20,8 +20,11 @@ const MIN_WIDTH: Record<string, number> = {
   company: COMPANY_COL_WIDTH,
   corporate_events: 300,
   acquirer_investor: 200,
-  sector: 200,
+  sector: 130,
 };
+
+/** Caps wide text columns so more columns fit; content wraps instead of widening. */
+const MAX_WIDTH: Record<string, number> = { sector: 150 };
 
 /**
  * Same table chrome as the Companies list (`company-table*` classes from
@@ -143,6 +146,8 @@ export function TransactionCompsTable({
                       className={key === "company" ? "company-table-sticky-frozen" : undefined}
                       style={{
                         minWidth: MIN_WIDTH[key],
+                        maxWidth: MAX_WIDTH[key],
+                        whiteSpace: MAX_WIDTH[key] ? "normal" : undefined,
                         textAlign: NUMERIC_COLUMNS.has(key) ? "right" : undefined,
                         fontVariantNumeric: NUMERIC_COLUMNS.has(key) ? "tabular-nums" : undefined,
                         ...stickyStyle(key, false, selected),

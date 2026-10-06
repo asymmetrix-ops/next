@@ -86,7 +86,7 @@ export function buildTransactionCompsFilterDefs(
     range("ev_ebitda", "EV / EBITDA", "default", "#", "x", 60),
     { id: "deal_date", label: "Deal date", fullLabel: "Deal date", category: "default", type: "date", editor: "date_range" },
     idList("acquirer_investor", "Acquirer / investor", "default", opts.acquirers),
-    idList("corporate_events", "Corporate events", "default", opts.corporateEvents),
+    idList("corporate_events", "Related Corporate Event", "default", opts.corporateEvents),
     list("sector", "Primary sector", "overview", opts.sectors.map((s) => s.sector_name)),
     list("secondary_sector", "Secondary sector", "overview", opts.secondarySectors.map((s) => s.sector_name)),
     list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => o.ownership)),

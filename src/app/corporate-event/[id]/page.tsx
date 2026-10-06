@@ -16,6 +16,7 @@ import { ContentArticle } from "@/types/insightsAnalysis";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
+import { CorporateEventTransactionCompsPanel } from "@/components/corporate-events/CorporateEventTransactionCompsPanel";
 import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { CorporateEventAdvisorsPanel } from "@/components/corporate-events/CorporateEventAdvisorsPanel";
@@ -1302,6 +1303,11 @@ const CorporateEventDetail = ({
               </div>
             ) : null}
           </div>
+          {eventId ? (
+            <div style={{ marginTop: 16 }}>
+              <CorporateEventTransactionCompsPanel eventId={eventId} />
+            </div>
+          ) : null}
         </div>
       </main>
     </div>

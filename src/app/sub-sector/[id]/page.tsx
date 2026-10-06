@@ -19,11 +19,13 @@ import {
   InsightsAnalysisResponse,
 } from "@/types/insightsAnalysis";
 import { CSVExporter } from "@/utils/csvExport";
+import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 
 const TABS = [
   { id: "all", name: "All Companies" },
   { id: "transactions", name: "Transactions" },
+  { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
 ] as const;
 
@@ -1552,6 +1554,10 @@ const SubSectorPage = () => {
 
         {activeTab === "transactions" && (
           <SubSectorTransactionsTab subSectorId={subSectorId} />
+        )}
+
+        {activeTab === "transaction_comps" && !Number.isNaN(subSectorId) && subSectorId > 0 && (
+          <TransactionCompsView embedded secondarySectorId={subSectorId} />
         )}
 
         {activeTab === "insights" && (
