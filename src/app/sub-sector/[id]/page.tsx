@@ -19,6 +19,7 @@ import {
   InsightsAnalysisResponse,
 } from "@/types/insightsAnalysis";
 import { CSVExporter } from "@/utils/csvExport";
+import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 
@@ -1381,6 +1382,7 @@ const SubSectorPage = () => {
   const params = useParams();
   const subSectorId = Number(params.id);
   const searchParams = useSearchParams();
+  const hasTransactionComps = useHasTransactionComps({ secondarySectorId: subSectorId }) === true;
   const [activeTab, setActiveTab] = useState<TabId>(
     (searchParams?.get("tab") as TabId) || "all"
   );
@@ -1528,7 +1530,7 @@ const SubSectorPage = () => {
         <div className="mb-8">
           <div className="border-b border-slate-200">
             <nav className="flex overflow-x-auto space-x-8">
-              {TABS.map((tab) => (
+              {TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setTab(tab.id)}
@@ -1556,7 +1558,7 @@ const SubSectorPage = () => {
           <SubSectorTransactionsTab subSectorId={subSectorId} />
         )}
 
-        {activeTab === "transaction_comps" && !Number.isNaN(subSectorId) && subSectorId > 0 && (
+        {activeTab === "transaction_comps" && hasTransactionComps && (
           <TransactionCompsView embedded secondarySectorId={subSectorId} />
         )}
 

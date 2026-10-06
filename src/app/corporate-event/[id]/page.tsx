@@ -16,6 +16,8 @@ import { ContentArticle } from "@/types/insightsAnalysis";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
+import { fetchCorporateEventTransactionCompsServer } from "@/app/transaction-comps/actions";
+import type { CorporateEventTransactionComp } from "@/components/transaction-comps/transactionCompsTypes";
 import { CorporateEventTransactionCompsPanel } from "@/components/corporate-events/CorporateEventTransactionCompsPanel";
 import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
@@ -142,6 +144,19 @@ const CorporateEventDetail = ({
   // Deal-level bankers per advisor row (CE → Advisor → Individual).
   type KeyPerson = { id: number; name: string; role?: string };
   const eventId = (event as { id?: number } | undefined)?.id;
+
+  const [eventComps, setEventComps] = useState<CorporateEventTransactionComp[]>([]);
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    fetchCorporateEventTransactionCompsServer(eventId).then((items) => {
+      if (!cancelled) setEventComps(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+  const hasEventComps = eventComps.length > 0;
   const [keyPeopleByRow, setKeyPeopleByRow] = useState<Map<number, KeyPerson[]>>(
     new Map()
   );
@@ -1096,7 +1111,8 @@ const CorporateEventDetail = ({
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-description { grid-column: 2 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-description { grid-column: 2 / span ${hasEventComps ? 1 : 2}; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-comps { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
@@ -1115,6 +1131,7 @@ const CorporateEventDetail = ({
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .ce-grid-overview,
       .ce-grid-description,
+      .ce-grid-comps,
       .ce-grid-counterparties,
       .ce-grid-advisors,
       .ce-grid-previous,
@@ -1246,6 +1263,12 @@ const CorporateEventDetail = ({
               />
             </div>
 
+            {hasEventComps ? (
+              <div className="ce-grid-comps">
+                <CorporateEventTransactionCompsPanel comps={eventComps} />
+              </div>
+            ) : null}
+
             {hasCounterparties ? (
               <div className="ce-grid-counterparties">
                 <LinkPanel fillGridCell>
@@ -1303,11 +1326,6 @@ const CorporateEventDetail = ({
               </div>
             ) : null}
           </div>
-          {eventId ? (
-            <div style={{ marginTop: 16 }}>
-              <CorporateEventTransactionCompsPanel eventId={eventId} />
-            </div>
-          ) : null}
         </div>
       </main>
     </div>

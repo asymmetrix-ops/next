@@ -1,6 +1,7 @@
 "use client";
 
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
+import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
 import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
 import {
   DEFAULT_TRANSACTION_COMPS_QUERY,
@@ -548,10 +549,12 @@ function TabNavigation({
   activeTab,
   setActiveTab,
   counts,
+  hasTransactionComps,
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
   counts: Partial<Record<(typeof TABS)[number]["id"], number>>;
+  hasTransactionComps: boolean;
 }) {
   return (
     <div
@@ -567,7 +570,7 @@ function TabNavigation({
         overflowX: "auto",
       }}
     >
-      {TABS.map((tab) => {
+      {TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => {
         const on = activeTab === tab.id;
         const count = counts[tab.id];
         return (
@@ -1675,6 +1678,9 @@ const SectorDetailPage = ({
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  // Transaction comps tab / overview tile only appear when comps are tagged to this sector.
+  const hasTransactionComps =
+    useHasTransactionComps({ primarySectorId: Number(sectorId) }) === true;
   const [mostActiveSubTab, setMostActiveSubTab] =
     useState<MostActiveSubTabId>("strategics");
 
@@ -2710,7 +2716,12 @@ const SectorDetailPage = ({
         </div>
       </div>
 
-      <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} counts={tabCounts} />
+      <TabNavigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        counts={tabCounts}
+        hasTransactionComps={hasTransactionComps}
+      />
 
       <main style={{ padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
@@ -2719,7 +2730,7 @@ const SectorDetailPage = ({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateColumns: hasTransactionComps ? "repeat(3, minmax(0, 1fr))" : "1.15fr 1fr",
                 gap: 14,
                 alignItems: "start",
               }}
@@ -2760,7 +2771,7 @@ const SectorDetailPage = ({
                   </div>
                 </div>
               )}
-              <RecentTransactionCompsCard sectorId={Number(sectorId)} />
+              {hasTransactionComps && <RecentTransactionCompsCard sectorId={Number(sectorId)} />}
             </div>
 
             {/* Market map cards */}
