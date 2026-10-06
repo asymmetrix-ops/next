@@ -56,6 +56,9 @@ const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 const ARTICLE_PAGE_ROOT_CLASS = "ax-article-page";
 
 // Types for the article detail page
+/** Transaction comps tab on the article financial card is develop-only for now. */
+const SHOW_ARTICLE_TRANSACTION_COMPS = false;
+
 interface ArticleDetail {
   id: number;
   created_at: number;
@@ -2093,6 +2096,7 @@ const ArticleDetailPage = () => {
                           >
                             Financial Overview
                           </button>
+                          {SHOW_ARTICLE_TRANSACTION_COMPS && (
                           <button
                             type="button"
                             role="tab"
@@ -2104,6 +2108,7 @@ const ArticleDetailPage = () => {
                           >
                             Transaction comps
                           </button>
+                          )}
                         </div>
                         <div
                           style={{
