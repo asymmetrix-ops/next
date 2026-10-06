@@ -3370,15 +3370,15 @@ const CompanyDetail = () => {
       align-self: start;
     }
     /* Everything below row 1 floats: spans are set by useMasonryGrid so cards fill any gaps. */
-    .company-grid-insights { grid-column: span 2; min-height: 0; align-self: start; display: flex; flex-direction: column; }
-    .company-grid-finance-secondary { grid-column: 3; order: -1; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
+    .company-grid-insights { grid-column: span 2; order: -1; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-finance-secondary { grid-column: 3; order: -2; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
     .company-grid-product-mix,
     .company-grid-product-users,
     .company-grid-ai-risk,
     .company-grid-headcount,
     .company-grid-management { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
-    .company-grid-subsidiaries { grid-column: span 2; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
+    .company-grid-subsidiaries { grid-column: span 2; order: -1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
