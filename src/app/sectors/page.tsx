@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
-import { SectorsHomeTiles } from "@/components/sector/SectorsHomeTiles";
 import { locationsService } from "@/lib/locationsService";
 // import { useRightClick } from "@/hooks/useRightClick";
 
@@ -547,8 +546,6 @@ const SectorsSection = () => {
           </h1>
         </div>
       </div>
-
-      <SectorsHomeTiles />
 
       {/* Controls card */}
       <div

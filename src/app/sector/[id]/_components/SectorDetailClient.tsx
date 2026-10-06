@@ -1,6 +1,11 @@
 "use client";
 
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
+import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
+import {
+  DEFAULT_TRANSACTION_COMPS_QUERY,
+  type TransactionCompRow,
+} from "@/components/transaction-comps/transactionCompsTypes";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 // import Image from "next/image";
@@ -1042,6 +1047,134 @@ function MostActiveTableCard({
 // ── Most Active tab ── (see @/components/sector/SectorMostActiveTab)
 
 // ── End Most Active tab ──────────────────────────────────────────────────────
+
+// Overview tile: latest transaction comps (deal-date multiples) for companies in this primary sector.
+function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
+  const [rows, setRows] = useState<TransactionCompRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTransactionCompsServer({
+      ...DEFAULT_TRANSACTION_COMPS_QUERY,
+      perPage: 10,
+      sectorIds: [sectorId],
+    })
+      .then((res) => {
+        if (!cancelled) setRows(res?.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sectorId]);
+
+  const mult = (v?: number | null) => (v == null ? "–" : `${v.toFixed(1)}x`);
+  const numCell: React.CSSProperties = {
+    padding: "11px 14px",
+    textAlign: "right",
+    borderBottom: `1px solid ${LINE_2}`,
+    fontVariantNumeric: "tabular-nums",
+  };
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: R_LG,
+        boxShadow: SH_SM,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: 535,
+        minWidth: 0,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>Transaction comps</h2>
+        <a
+          href="?tab=transaction_comps"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: BLUE_600,
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          View all →
+        </a>
+      </div>
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {rows === null ? (
+          <div style={{ padding: 24, textAlign: "center", color: MUTED, fontSize: 13 }}>Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", color: MUTED, fontSize: 13 }}>
+            No transaction comps for this sector yet
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Target", "EV / Rev", "EV / EBITDA"].map((h, i) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "9px 14px",
+                      textAlign: i === 0 ? "left" : "right",
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: MUTED,
+                      background: TINT,
+                      borderBottom: `1px solid ${LINE_2}`,
+                      position: "sticky",
+                      top: 0,
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={`${r.company_id}-${r.corporate_event?.id ?? ""}`}>
+                  <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                    <a
+                      href={`/company/${r.company_id}`}
+                      style={{ fontWeight: 700, color: BLUE_600, textDecoration: "none" }}
+                    >
+                      {r.company_name}
+                    </a>
+                    {r.deal_date && (
+                      <div style={{ fontSize: 12, color: MUTED_SOFT, marginTop: 2 }}>{r.deal_date}</div>
+                    )}
+                  </td>
+                  <td style={numCell}>{mult(r.ev_revenue)}</td>
+                  <td style={numCell}>{mult(r.ev_ebitda)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function RecentTransactionsCard({
   transactions,
@@ -2582,11 +2715,11 @@ const SectorDetailPage = ({
       <main style={{ padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Top row: Recent Insights + Recent Transactions */}
+            {/* Top row: Recent Insights + Recent Transactions + Transaction Comps */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.15fr 1fr",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                 gap: 14,
                 alignItems: "start",
               }}
@@ -2627,6 +2760,7 @@ const SectorDetailPage = ({
                   </div>
                 </div>
               )}
+              <RecentTransactionCompsCard sectorId={Number(sectorId)} />
             </div>
 
             {/* Market map cards */}
