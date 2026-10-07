@@ -56,6 +56,7 @@ export interface TransactionCompsQuery {
   countries: string[];
   ownershipIds: number[];
   dealTypes: string[];
+  evSourceTypes: string[];
   acquirerIds: number[];
   ceIds: number[];
   ids: number[];
@@ -73,6 +74,7 @@ export const DEFAULT_TRANSACTION_COMPS_QUERY: TransactionCompsQuery = {
   countries: [],
   ownershipIds: [],
   dealTypes: [],
+  evSourceTypes: [],
   acquirerIds: [],
   ceIds: [],
   ids: [],

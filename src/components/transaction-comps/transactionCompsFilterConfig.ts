@@ -18,6 +18,13 @@ export const TRANSACTION_COMPS_FILTER_CATEGORIES: FilterCategory[] = [
 ];
 
 /** Completed-deal types only: every transaction comp is a completed deal. */
+/** EV source values users can filter by (proprietary sources are not offered). */
+export const TRANSACTION_COMPS_EV_SOURCES = [
+  "Public - official document",
+  "Public - reported in media",
+  "Public - derived from official document with analyst judgment",
+];
+
 export const TRANSACTION_COMPS_DEAL_TYPES = [
   "Acquisition",
   "Investment",
@@ -81,6 +88,7 @@ export function buildTransactionCompsFilterDefs(
   });
 
   return [
+    list("deal_type", "Deal type", "default", TRANSACTION_COMPS_DEAL_TYPES),
     range("ev", "EV ($m)", "default", "$", "$m", 10000),
     range("ev_revenue", "EV / Revenue", "default", "#", "x", 30),
     range("ev_ebitda", "EV / EBITDA", "default", "#", "x", 60),
@@ -91,7 +99,7 @@ export function buildTransactionCompsFilterDefs(
     list("secondary_sector", "Secondary sector", "overview", opts.secondarySectors.map((s) => s.sector_name)),
     list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => o.ownership)),
     list("hq_country", "HQ country", "overview", opts.countries),
-    list("deal_type", "Deal type", "deal_details", TRANSACTION_COMPS_DEAL_TYPES),
+    list("ev_source", "EV source", "deal_details", TRANSACTION_COMPS_EV_SOURCES),
     range("revenue", "Revenue ($m)", "financial_metrics", "$", "$m", 10000),
     range("ebitda", "EBITDA ($m)", "financial_metrics", "$", "$m", 10000),
     range("rev_growth", "Revenue growth", "financial_metrics", "%", "%", 200, -50),
@@ -118,6 +126,7 @@ export function filterStateToQuery(
     countries: [],
     ownershipIds: [],
     dealTypes: [],
+    evSourceTypes: [],
     acquirerIds: [],
     ceIds: [],
   };
@@ -164,6 +173,9 @@ export function filterStateToQuery(
         break;
       case "corporate_events":
         q.ceIds.push(...asStrings(f.value).map(Number).filter(Number.isFinite));
+        break;
+      case "ev_source":
+        q.evSourceTypes.push(...asStrings(f.value));
         break;
       case "deal_type":
         q.dealTypes.push(...asStrings(f.value));

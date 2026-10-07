@@ -23,7 +23,8 @@ export const SORT_BY_COLUMN: Record<string, string> = {
   rule_of_40: "rule_of_40",
 };
 
-const dash = <span className="text-gray-300">–</span>;
+/** Empty values stay blank: a dash looks misaligned next to right-aligned numbers. */
+const dash = null;
 const num = (v: number | null | undefined, digits: number, suffix = "") =>
   v == null ? dash : `${v.toLocaleString(undefined, { maximumFractionDigits: digits })}${suffix}`;
 const text = (v?: string | number | null) => (v == null || v === "" ? dash : v);

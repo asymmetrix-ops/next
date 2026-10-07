@@ -12,6 +12,20 @@ import type { TransactionCompRow } from "./transactionCompsTypes";
 
 const LABELS = new Map(ALL_TRANSACTION_COMPS_COLUMN_META.map((c) => [c.columnKey, c.label]));
 
+/** Blue hover on sortable headers so users can tell they are clickable. */
+const SORTABLE_HEADER_HOVER_STYLES = `
+  .company-table thead th.company-table-th-sortable {
+    transition: color 0.12s, background-color 0.12s;
+  }
+  .company-table thead th.company-table-th-sortable:hover {
+    color: #2A46EA;
+    background: #E8EDFB;
+  }
+  .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
+    color: #2A46EA;
+  }
+`;
+
 /** Width of the checkbox column; the frozen Company column sticks right after it. */
 const SELECT_COL_WIDTH = 44;
 const COMPANY_COL_WIDTH = 260;
@@ -67,7 +81,7 @@ export function TransactionCompsTable({
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES }} />
       <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
         <table className="company-table">
           <thead>

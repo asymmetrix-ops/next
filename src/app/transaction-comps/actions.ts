@@ -34,6 +34,7 @@ function buildParams(q: TransactionCompsQuery): URLSearchParams {
     ["countries", q.countries],
     ["ownership_ids", q.ownershipIds],
     ["deal_types", q.dealTypes],
+    ["ev_source_types", q.evSourceTypes],
     ["acquirer_ids", q.acquirerIds],
     ["ce_ids", q.ceIds],
     ["ids", q.ids],
