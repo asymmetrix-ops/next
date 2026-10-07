@@ -408,7 +408,7 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   const tone = getTransactionSignalTone(signal);
   const description = getTransactionSignalDescription(signal);
   return (
-    <div className="mt-1 w-full text-center">
+    <div className="mt-1 w-full text-left">
       <span className="group relative inline-block">
       <p
         className="cursor-help inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold border"
@@ -1189,10 +1189,11 @@ export default function DealRadarDashboardPage() {
 
                               {/* Transaction Status + Signal */}
                               <td className="company-table-cell-wrap">
-                                <div className="inline-flex flex-col items-center">
+                                <div className="inline-flex flex-col items-start">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
                                     className="inline-block"
+                                    style={{ textAlign: "left" }}
                                     allowWrap
                                   />
                                   {item.transaction_status_id === REPORTED_IN_MARKET_ID &&
