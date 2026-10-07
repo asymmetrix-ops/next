@@ -165,13 +165,10 @@ export function TransactionCompsView({
   useEffect(() => {
     let cancelled = false;
     const ids = primarySectorIdsKey ? primarySectorIdsKey.split(",").map(Number) : [];
-    fetchTransactionCompsOptionsServer("secondary_sector", "", 1000, ids).then(async (items) => {
-      let secondary = items.map((o) => ({ id: o.id, sector_name: o.label }));
-      // Endpoint not available yet: fall back to the full list (unfiltered case only).
-      if (secondary.length === 0 && ids.length === 0) {
-        secondary = await locationsService.getAllSecondarySectors().catch(() => []);
-      }
-      if (!cancelled) setOptions((prev) => ({ ...prev, secondarySectors: secondary }));
+    fetchTransactionCompsOptionsServer("secondary_sector", "", 1000, ids).then((items) => {
+      if (cancelled) return;
+      const secondary = items.map((o) => ({ id: o.id, sector_name: o.label }));
+      setOptions((prev) => ({ ...prev, secondarySectors: secondary }));
     });
     return () => {
       cancelled = true;

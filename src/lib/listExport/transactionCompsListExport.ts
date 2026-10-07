@@ -9,8 +9,19 @@ const EXTRA_LEADING_COLUMNS: ExportColumnDef[] = [
   { key: "id", label: "ID", categoryName: "Identity", type: "number" },
 ];
 
+/** Export-only columns: the period each multiple is based on, kept next to the multiple. */
+const BASIS_COLUMNS: Record<string, { columnKey: string; label: string; type: string }> = {
+  ev_revenue: { columnKey: "ev_revenue_basis", label: "EV / Revenue basis", type: "text" },
+  ev_ebitda: { columnKey: "ev_ebitda_basis", label: "EV / EBITDA basis", type: "text" },
+};
+
+const withBasisColumns = <T extends { columnKey: string }>(columns: T[]) =>
+  columns.flatMap((c) => (BASIS_COLUMNS[c.columnKey] ? [c, BASIS_COLUMNS[c.columnKey] as unknown as T] : [c]));
+
 function cellValue(row: TransactionCompRow, column: ExportColumnDef): ExportCellValue {
   if (column.key === "id") return row.company_id;
+  if (column.key === "ev_revenue_basis") return row.ev_revenue_basis ?? null;
+  if (column.key === "ev_ebitda_basis") return row.ev_ebitda_basis ?? null;
   const v = transactionCompCsvValue(row, column.key);
   return v === "" ? null : v;
 }
@@ -28,9 +39,11 @@ export async function exportTransactionCompsList(
       filePrefix: "TransactionComps",
       categories: TRANSACTION_COMPS_COLUMN_CATEGORIES.map((c) => ({
         name: c.name,
-        columns: c.columns,
+        columns: withBasisColumns(c.columns),
       })),
-      visibleColumnKeys,
+      visibleColumnKeys: visibleColumnKeys.flatMap((k) =>
+        BASIS_COLUMNS[k] ? [k, BASIS_COLUMNS[k].columnKey] : [k]
+      ),
       extraLeadingColumns: EXTRA_LEADING_COLUMNS,
     },
     rows: rows as unknown as Record<string, unknown>[],

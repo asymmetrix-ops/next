@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
-import type { TransactionCompRow } from "./transactionCompsTypes";
+import type { MultipleBasis, TransactionCompRow } from "./transactionCompsTypes";
 
 export const NUMERIC_COLUMNS = new Set([
   "ev", "ev_revenue", "ev_ebitda", "revenue", "ebitda",
@@ -36,6 +36,29 @@ function fmtDate(v?: string | null) {
   return <span className="whitespace-nowrap">{`${m[3]} ${MONTHS[Number(m[2]) - 1] ?? m[2]} ${m[1]}`}</span>;
 }
 
+/** UI labels for the basis tag. Keep every label here; final wording is pending from Alex G. */
+const BASIS_LABELS: Record<MultipleBasis, string> = {
+  LTM: "LTM",
+  LFY: "LFY",
+  "LFY-1": "LFY-1",
+  Fwd: "Fwd",
+};
+
+/** A multiple with its basis tag; the tag only renders when the API gives a basis. */
+function multiple(v: number | null | undefined, basis?: MultipleBasis | null) {
+  if (v == null) return dash;
+  return (
+    <span className="whitespace-nowrap">
+      {num(v, 1, "x")}
+      {basis && (
+        <span className="ml-1.5 rounded bg-gray-100 px-1 py-px text-[10px] font-semibold text-gray-500">
+          {BASIS_LABELS[basis] ?? basis}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** A zero from the API means "not available" for monetary values. */
 const money = (v: number | null | undefined) => (v ? num(v, 1) : dash);
 
@@ -61,8 +84,8 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
         </div>
       );
     case "ev": return money(row.ev_m_usd);
-    case "ev_revenue": return num(row.ev_revenue, 1, "x");
-    case "ev_ebitda": return num(row.ev_ebitda, 1, "x");
+    case "ev_revenue": return multiple(row.ev_revenue, row.ev_revenue_basis);
+    case "ev_ebitda": return multiple(row.ev_ebitda, row.ev_ebitda_basis);
     case "deal_date": return fmtDate(row.deal_date);
     case "acquirer_investor":
       return row.acquirers?.length
@@ -84,7 +107,6 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
     case "hq_city": return text(row.hq_city);
     case "hq_country": return text(row.hq_country);
     case "deal_type": return text(row.deal_type);
-    case "deal_status": return text(row.deal_status);
     case "revenue": return money(row.revenue_m_usd);
     case "ebitda": return money(row.ebitda_m_usd);
     case "rev_growth": return num(row.revenue_growth_pc, 1, "%");
@@ -109,7 +131,6 @@ export function transactionCompCsvValue(row: TransactionCompRow, key: string): s
       case "hq_city": return row.hq_city;
       case "hq_country": return row.hq_country;
       case "deal_type": return row.deal_type;
-      case "deal_status": return row.deal_status;
       case "revenue": return row.revenue_m_usd;
       case "ebitda": return row.ebitda_m_usd;
       case "rev_growth": return row.revenue_growth_pc;

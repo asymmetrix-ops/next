@@ -17,7 +17,7 @@ const col = (
   ...extra,
 });
 
-/** 19 columns: 8 visible by default (Company, Primary sector(s) + 6 Default), 11 hidden. All backed by GET /transaction_comps. */
+/** 17 columns: 8 visible by default (Company, Primary sector(s) + 6 Default), 9 hidden. All backed by GET /transaction_comps. */
 export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
   {
     id: "identity",
@@ -53,7 +53,6 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     name: "Deal details",
     columns: [
       col("deal_type", "Deal type", "text"),
-      col("deal_status", "Deal status", "text"),
     ],
   },
   {

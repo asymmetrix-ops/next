@@ -1,3 +1,6 @@
+/** Period a multiple is based on, as returned by the API. */
+export type MultipleBasis = "LTM" | "LFY" | "LFY-1" | "Fwd";
+
 /** One item of GET /transaction_comps (Xano api:lqZy8LiD). */
 export interface TransactionCompRow {
   company_id: number;
@@ -7,7 +10,11 @@ export interface TransactionCompRow {
   hq_city?: string | null;
   ev_m_usd?: number | null;
   ev_revenue?: number | null;
+  /** Null when there is no EV / Revenue. */
+  ev_revenue_basis?: MultipleBasis | null;
   ev_ebitda?: number | null;
+  /** Null when there is no EV / EBITDA. */
+  ev_ebitda_basis?: MultipleBasis | null;
   revenue_m_usd?: number | null;
   ebitda_m_usd?: number | null;
   revenue_growth_pc?: number | null;
@@ -17,7 +24,6 @@ export interface TransactionCompRow {
   /** ISO date (YYYY-MM-DD). */
   deal_date?: string | null;
   deal_type?: string | null;
-  deal_status?: string | null;
   /** Name the target traded under before the deal, when it changed. */
   former_name?: string | null;
   corporate_event?: { id: number; name: string } | null;
