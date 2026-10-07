@@ -16,7 +16,7 @@ const TESTIMONIALS = [
       "We use a range of intelligence platforms across our investment process, and Asymmetrix stands out for its purpose-built approach to the way investors evaluate and track the Data & Analytics sector.",
     name: "Charles Teschner",
     title: "Motive Partners",
-    logoSrc: "/client_logos/motive-partners-testimonial.jpg",
+    logoSrc: "/client_logos/motive-trim.png",
   },
   {
     id: "raymond-james",
@@ -24,7 +24,7 @@ const TESTIMONIALS = [
       "Asymmetrix provides proprietary data on proprietary data businesses and is the go-to source for actionable intelligence.",
     name: "George Watson",
     title: "Raymond James",
-    logoSrc: "/client_logos/raymond-james-testimonial.jpg",
+    logoSrc: "/client_logos/raymond-james-trim.png",
   },
   {
     id: "endicott",
@@ -32,7 +32,7 @@ const TESTIMONIALS = [
       "The team at Asymmetrix do a fantastic job covering the Data and Information services world. Their subject matter expertise, strong network, and importantly, understanding of the nuances in this sector, shine through in the content, including accurate and detailed company classifications, market maps and overviews, and deal briefs and rumor coverage. Asymmetrix has quickly become a go-to resource for our team at Endicott.",
     name: "Mike Chinn",
     title: "Endicott Capital",
-    logoSrc: "/client_logos/endicott-testimonial.jpg",
+    logoSrc: "/client_logos/endicott.svg",
   },
 ];
 
