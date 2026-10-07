@@ -2,6 +2,7 @@
 
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
 import {
   DEFAULT_TRANSACTION_COMPS_QUERY,
@@ -1131,7 +1132,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
           <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
             <thead>
               <tr>
-                {["Target", "EV / Rev", "EV / EBITDA"].map((h, i) => (
+                {["Target", "EV ($m)", "EV / Rev", "EV / EBITDA"].map((h, i) => (
                   <th
                     key={h}
                     style={{
@@ -1146,6 +1147,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                       borderBottom: `1px solid ${LINE_2}`,
                       position: "sticky",
                       top: 0,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {h}
@@ -1154,23 +1156,32 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={`${r.company_id}-${r.corporate_event?.id ?? ""}`}>
-                  <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
-                    <a
-                      href={`/company/${r.company_id}`}
-                      style={{ fontWeight: 700, color: BLUE_600, textDecoration: "none" }}
-                    >
-                      {r.company_name}
-                    </a>
-                    {r.deal_date && (
-                      <div style={{ fontSize: 12, color: MUTED_SOFT, marginTop: 2 }}>{r.deal_date}</div>
-                    )}
-                  </td>
-                  <td style={numCell}>{mult(r.ev_revenue)}</td>
-                  <td style={numCell}>{mult(r.ev_ebitda)}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const acquirer = r.acquirers?.map((a) => a.name).join(", ");
+                return (
+                  <tr key={`${r.company_id}-${r.corporate_event?.id ?? ""}`}>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <CompanyAvatar name={r.company_name} logo={r.logo} size={30} />
+                        <div style={{ minWidth: 0 }}>
+                          <a
+                            href={`/company/${r.company_id}`}
+                            style={{ fontWeight: 700, color: BLUE_600, textDecoration: "none" }}
+                          >
+                            {r.company_name}
+                          </a>
+                          <div style={{ fontSize: 12, color: MUTED_SOFT, marginTop: 2 }}>
+                            {[r.deal_date, acquirer && `to ${acquirer}`].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={numCell}>{r.ev_m_usd ? r.ev_m_usd.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
+                    <td style={numCell}>{mult(r.ev_revenue)}</td>
+                    <td style={numCell}>{mult(r.ev_ebitda)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -31,7 +31,7 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "default",
     name: "Default",
     columns: [
-      col("ev", "EV", "currency", { defaultVisible: true }),
+      col("ev", "EV ($m)", "currency", { defaultVisible: true }),
       col("ev_revenue", "EV / Revenue", "number", { defaultVisible: true }),
       col("ev_ebitda", "EV / EBITDA", "number", { defaultVisible: true }),
       col("deal_date", "Deal date", "date", { defaultVisible: true }),
@@ -60,8 +60,8 @@ export const TRANSACTION_COMPS_COLUMN_CATEGORIES: CompanyColumnCategory[] = [
     id: "financial_metrics",
     name: "Financial metrics",
     columns: [
-      col("revenue", "Revenue (m)", "currency"),
-      col("ebitda", "EBITDA (m)", "currency"),
+      col("revenue", "Revenue ($m)", "currency"),
+      col("ebitda", "EBITDA ($m)", "currency"),
       col("rev_growth", "Revenue growth", "percent"),
       col("ebitda_margin", "EBITDA margin", "percent"),
       col("rule_of_40", "Rule of 40", "number"),

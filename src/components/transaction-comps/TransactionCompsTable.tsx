@@ -117,11 +117,11 @@ export function TransactionCompsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.map((row, rowIndex) => {
               const selected = selectedIds.has(row.company_id);
               return (
                 <tr
-                  key={`${row.company_id}-${row.corporate_event?.id ?? ""}`}
+                  key={`${row.company_id}-${row.corporate_event?.id ?? ""}-${rowIndex}`}
                   className={selected ? "company-table-row-selected" : undefined}
                 >
                   <td

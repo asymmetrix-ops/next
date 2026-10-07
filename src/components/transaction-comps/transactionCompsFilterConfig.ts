@@ -81,7 +81,7 @@ export function buildTransactionCompsFilterDefs(
   });
 
   return [
-    range("ev", "EV", "default", "$", "$m", 10000),
+    range("ev", "EV ($m)", "default", "$", "$m", 10000),
     range("ev_revenue", "EV / Revenue", "default", "#", "x", 30),
     range("ev_ebitda", "EV / EBITDA", "default", "#", "x", 60),
     { id: "deal_date", label: "Deal date", fullLabel: "Deal date", category: "default", type: "date", editor: "date_range" },
@@ -92,8 +92,8 @@ export function buildTransactionCompsFilterDefs(
     list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => o.ownership)),
     list("hq_country", "HQ country", "overview", opts.countries),
     list("deal_type", "Deal type", "deal_details", TRANSACTION_COMPS_DEAL_TYPES),
-    range("revenue", "Revenue (m)", "financial_metrics", "$", "$m", 10000),
-    range("ebitda", "EBITDA (m)", "financial_metrics", "$", "$m", 10000),
+    range("revenue", "Revenue ($m)", "financial_metrics", "$", "$m", 10000),
+    range("ebitda", "EBITDA ($m)", "financial_metrics", "$", "$m", 10000),
     range("rev_growth", "Revenue growth", "financial_metrics", "%", "%", 200, -50),
     range("ebitda_margin", "EBITDA margin", "financial_metrics", "%", "%", 100, -50),
     range("rule_of_40", "Rule of 40", "financial_metrics", "#", undefined, 150, -50),
