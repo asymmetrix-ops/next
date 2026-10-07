@@ -15,7 +15,21 @@ import {
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
-import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
+import {
+  SEARCH_TABLE_ENTITY_LOGO_SIZE_PX,
+  SEARCH_TABLE_STYLES,
+} from "@/components/search/searchTableStyles";
+import {
+  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_FILTER_INNER,
+  SEARCH_DASHBOARD_FILTER_SHELL,
+  SEARCH_DASHBOARD_HEADER_ROW,
+  SEARCH_DASHBOARD_INNER,
+  SEARCH_DASHBOARD_MATCH_COUNT,
+  SEARCH_DASHBOARD_SHELL,
+  SEARCH_DASHBOARD_TITLE,
+} from "@/components/search/searchDashboardLayout";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -374,6 +388,20 @@ function sortItems(items: DealRadarDashboardItem[], key: SortKey | null, dir: So
     .map((x) => x.it);
 }
 
+/** Same blue hover on sortable headers as the other list tables. */
+const SORTABLE_HEADER_HOVER_STYLES = `
+  .company-table thead th.company-table-th-sortable {
+    transition: color 0.12s, background-color 0.12s;
+  }
+  .company-table thead th.company-table-th-sortable:hover {
+    color: #2A46EA;
+    background: #E8EDFB;
+  }
+  .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
+    color: #2A46EA;
+  }
+`;
+
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
 
 function TransactionSignalLabel({ signal }: { signal: string }) {
@@ -428,7 +456,6 @@ export default function DealRadarDashboardPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [statusTotals, setStatusTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -513,7 +540,6 @@ export default function DealRadarDashboardPage() {
       activeFilters = EMPTY_FILTERS
     ) => {
       if (!append) setLoading(true);
-      else setLoadingMore(true);
       setError(null);
 
       try {
@@ -542,16 +568,20 @@ export default function DealRadarDashboardPage() {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     []
   );
 
-  // Re-fetch when search or filters change
+  // Numbered pages, like the other list tables. The page resets to 1 whenever search or filters change.
+  const filterKey = JSON.stringify([debouncedSearch, filters]);
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const page = pageState.key === filterKey ? pageState.page : 1;
+  const setPage = (next: number) => setPageState({ key: filterKey, page: next });
+
   useEffect(() => {
-    fetchData(0, false, debouncedSearch, filters);
-  }, [fetchData, debouncedSearch, filters]);
+    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters);
+  }, [fetchData, page, debouncedSearch, filters]);
 
   const statusCounts = useMemo<Record<string, number>>(() => {
     const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
@@ -649,28 +679,39 @@ export default function DealRadarDashboardPage() {
   const Th = ({
     label,
     sortKey,
-    className = "",
+    frozen = false,
+    minWidth,
   }: {
     label: string;
     sortKey: SortKey;
-    className?: string;
+    frozen?: boolean;
+    minWidth?: number;
   }) => {
     const active = sort.key === sortKey;
     return (
       <th
         aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-        className={`px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider bg-gray-50 ${active ? "text-gray-900" : "text-gray-500"} ${className}`}
+        className={`company-table-th-sortable${frozen ? " company-table-sticky-frozen" : ""}`}
+        style={{
+          minWidth,
+          ...(frozen
+            ? {
+                position: "sticky",
+                left: 0,
+                zIndex: 7,
+                boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+                background: "#F5F7FD",
+              }
+            : null),
+        }}
+        onClick={() => toggleSort(sortKey)}
       >
-        <button
-          type="button"
-          onClick={() => toggleSort(sortKey)}
-          className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-900"
-        >
-          {label}
-          <span aria-hidden className={active ? "text-blue-600" : "text-gray-300"}>
-            {active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+        {label}
+        {active && (
+          <span className="company-table-sort-indicator">
+            {sort.dir === "asc" ? " ↑" : " ↓"}
           </span>
-        </button>
+        )}
       </th>
     );
   };
@@ -679,40 +720,23 @@ export default function DealRadarDashboardPage() {
 
   return (
     <AppShell>
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <main className="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8">
-        {/* Page header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="2" />
-                <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
-                <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
-              </svg>
-            </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES }} />
+      <div style={SEARCH_DASHBOARD_SHELL}>
+        <div style={SEARCH_DASHBOARD_INNER}>
+          <div style={SEARCH_DASHBOARD_HEADER_ROW}>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+              <h1 style={SEARCH_DASHBOARD_TITLE}>
                 Deal Radar
+                {pagination && (
+                  <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+                    {pagination.total_items} active transactions
+                  </span>
+                )}
               </h1>
-              {pagination && (
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {pagination.total_items} active transactions
-                </p>
-              )}
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div style={SEARCH_DASHBOARD_ACTIONS}>
             {/* Filter toggle */}
             <button
               type="button"
@@ -762,11 +786,15 @@ export default function DealRadarDashboardPage() {
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+            </div>
           </div>
         </div>
+      </div>
 
+      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
+        <div style={SEARCH_DASHBOARD_FILTER_INNER}>
         {/* Status filter pills */}
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2">
           {STATUS_FILTERS.map((f) => {
             const count =
               f.totalsKey === ""
@@ -954,37 +982,41 @@ export default function DealRadarDashboardPage() {
           </div>
         )}
 
-        {/* Table card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        </div>
+      </div>
+
+      <main className="flex-1 w-full px-7 py-4">
+        {/* Table */}
+        <div>
           {error ? (
             <div className="p-8 text-center">
               <p className="text-sm text-red-600 font-medium">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchData(0, false, debouncedSearch, filters)}
+                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters)}
                 className="mt-3 text-sm text-blue-600 hover:underline"
               >
                 Retry
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1400px] border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-gray-200">
-                    <Th label="Company" sortKey="name" className="min-w-[160px]" />
-                    <Th label="Date Added" sortKey="date" className="min-w-[110px]" />
-                    <Th label="Ownership" sortKey="ownership" className="min-w-[120px]" />
-                    <Th label="Primary Sector(s)" sortKey="sector" className="min-w-[180px]" />
-                    <Th label="Transaction Status" sortKey="status" className="min-w-[200px]" />
-                    <Th label="Process Stage" sortKey="stage" className="min-w-[130px]" />
-                    <Th label="Intermediary" sortKey="intermediary" className="min-w-[140px]" />
-                    <Th label="Bidders" sortKey="bidders" className="min-w-[140px]" />
-                    <Th label="Revenue (m)" sortKey="revenue" className="min-w-[110px]" />
-                    <Th label="EV (m)" sortKey="ev" className="min-w-[100px]" />
+            <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
+              <table className="company-table">
+                <thead>
+                  <tr>
+                    <Th label="Company" sortKey="name" frozen minWidth={260} />
+                    <Th label="Date Added" sortKey="date" minWidth={110} />
+                    <Th label="Ownership" sortKey="ownership" minWidth={140} />
+                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={180} />
+                    <Th label="Transaction Status" sortKey="status" minWidth={200} />
+                    <Th label="Process Stage" sortKey="stage" minWidth={130} />
+                    <Th label="Intermediary" sortKey="intermediary" minWidth={140} />
+                    <Th label="Bidders" sortKey="bidders" minWidth={140} />
+                    <Th label="Revenue (m)" sortKey="revenue" minWidth={110} />
+                    <Th label="EV (m)" sortKey="ev" minWidth={100} />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {loading
                     ? Array.from({ length: 8 }).map((_, i) => (
                         <SkeletonRow key={i} />
@@ -1009,12 +1041,19 @@ export default function DealRadarDashboardPage() {
                           const reportCta = getReportCta(item.linked_reports);
 
                           return (
-                            <tr
-                              key={item.company_id}
-                              className="hover:bg-blue-50/30 transition-colors align-top group"
-                            >
+                            <tr key={item.company_id}>
                               {/* Company */}
-                              <td className="px-3 py-3">
+                              <td
+                                className="company-table-sticky-frozen"
+                                style={{
+                                  minWidth: 260,
+                                  position: "sticky",
+                                  left: 0,
+                                  zIndex: 3,
+                                  boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+                                  background: "#fff",
+                                }}
+                              >
                                 <div className="company-table-entity-name-cell">
                                 <CompanyAvatar name={item.name} logo={item.logo} size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX} />
                                 <div className="company-table-entity-name-text">
@@ -1068,7 +1107,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Date Added */}
-                              <td className="px-3 py-3 text-xs text-gray-700 whitespace-nowrap">
+                              <td className="text-xs text-gray-700">
                                 {item.active_status_set_at ? (
                                   formatDate(item.active_status_set_at)
                                 ) : (
@@ -1077,7 +1116,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Ownership */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="company-table-cell-wrap text-xs text-gray-700">
                                 {item.ownership_type ? (
                                   <div>
                                     <span className="font-medium">
@@ -1106,7 +1145,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Sectors */}
-                              <td className="px-3 py-3">
+                              <td className="company-table-cell-wrap">
                                 <div className="flex flex-wrap gap-1">
                                   {sectors.length > 0 ? (
                                     sectors.map((s) => (
@@ -1149,7 +1188,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Transaction Status + Signal */}
-                              <td className="px-3 py-3">
+                              <td className="company-table-cell-wrap">
                                 <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
@@ -1177,7 +1216,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Process Stage — hue varies by value, tags.txt §5 */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.process_stage ? (
                                   (() => {
                                     const tone = getProcessStageTone(item.process_stage);
@@ -1200,7 +1239,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Intermediary — tags.txt §6 */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.intermediary && item.intermediary.name ? (
                                   (() => {
                                     const tone = getIntermediaryTone(undefined);
@@ -1271,7 +1310,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Bidders — entity chip, tags.txt §10 (Companies · green) */}
-                              <td className="px-3 py-3">
+                              <td className="company-table-cell-wrap">
                                 {item.bidders.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {item.bidders.map((b) => (
@@ -1294,12 +1333,12 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Revenue */}
-                              <td className="px-3 py-3 text-xs">
+                              <td className="text-xs">
                                 {formatVal(item.revenue)}
                               </td>
 
                               {/* EV */}
-                              <td className="px-3 py-3 text-xs">
+                              <td className="text-xs">
                                 {formatVal(item.ev)}
                               </td>
                             </tr>
@@ -1310,58 +1349,18 @@ export default function DealRadarDashboardPage() {
             </div>
           )}
 
-          {/* Load more / Pagination footer */}
-          {!loading && !error && pagination?.has_next_page && (
-            <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                Showing {items.length} of {pagination.total_items} transactions
-              </p>
-              <button
-                type="button"
-                disabled={loadingMore}
-                onClick={() =>
-                  fetchData(
-                    pagination.next_offset ?? items.length,
-                    true,
-                    debouncedSearch,
-                    filters
-                  )
+          {!error && pagination && (
+            <SearchTablePagination
+              curPage={page}
+              pageTotal={Math.max(1, pagination.total_pages)}
+              nextPage={pagination.next_page}
+              onPageChange={(next) => {
+                if (next >= 1 && next <= Math.max(1, pagination.total_pages) && next !== page && !loading) {
+                  setPage(next);
                 }
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-              >
-                {loadingMore ? (
-                  <>
-                    <svg
-                      className="w-3.5 h-3.5 animate-spin"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Loading…
-                  </>
-                ) : (
-                  `Load more (${pagination.total_items - items.length} remaining)`
-                )}
-              </button>
-            </div>
-          )}
-          {!loading && !error && !pagination?.has_next_page && items.length > 0 && (
-            <div className="border-t border-gray-100 px-4 py-2.5 text-center text-xs text-gray-400">
-              All {pagination?.total_items ?? items.length} transactions loaded
-            </div>
+              }}
+              disabled={loading}
+            />
           )}
         </div>
 
