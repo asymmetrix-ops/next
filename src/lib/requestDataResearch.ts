@@ -5,6 +5,7 @@ export const DATA_REQUEST_TYPES = [
   "Advisor",
   "Individual",
   "Corporate Event",
+  "Transaction Comp",
   "Financial Metrics Estimates",
 ] as const;
 
@@ -46,6 +47,7 @@ export type RequestContext =
   | "advisor"
   | "individual"
   | "corporate-event"
+  | "transaction-comps"
   | "insights-analysis"
   | "insights-analysis-item";
 
@@ -69,6 +71,8 @@ export function getContextDefaults(context: RequestContext): ContextDefaults {
       return { defaultTab: "data", defaultDataType: "Individual", defaultResearchType: "" };
     case "corporate-event":
       return { defaultTab: "data", defaultDataType: "Corporate Event", defaultResearchType: "" };
+    case "transaction-comps":
+      return { defaultTab: "data", defaultDataType: "Transaction Comp", defaultResearchType: "" };
     case "insights-analysis":
     case "insights-analysis-item":
       return { defaultTab: "research", defaultDataType: "", defaultResearchType: "" };

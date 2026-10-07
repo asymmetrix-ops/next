@@ -47,6 +47,7 @@ export function BulkPortfolioActionToolbar({
   onExport,
   exporting = false,
   exportSingleMode,
+  exportOnly = false,
 }: {
   entityType: PortfolioEntityType;
   entityIds: number[];
@@ -55,6 +56,8 @@ export function BulkPortfolioActionToolbar({
   exporting?: boolean;
   /** When set, the export button always exports in this mode (no dropdown). */
   exportSingleMode?: ListExportMode;
+  /** Hides follow / add-to-list / new-list actions; keeps selection summary and export. */
+  exportOnly?: boolean;
 }) {
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
   const count = entityIds.length;
@@ -76,9 +79,9 @@ export function BulkPortfolioActionToolbar({
   }, []);
 
   useEffect(() => {
-    if (count === 0) return;
+    if (count === 0 || exportOnly) return;
     loadLists();
-  }, [count, loadLists]);
+  }, [count, exportOnly, loadLists]);
 
   const selectedListLabel = useMemo(
     () => lists.find((list) => list.id === selectedListId)?.label ?? "",
@@ -151,7 +154,7 @@ export function BulkPortfolioActionToolbar({
   if (count === 0) return null;
 
   return (
-    <div className="search-bulk-action-toolbar">
+    <div className={`search-bulk-action-toolbar${exportOnly ? " search-bulk-action-toolbar-compact" : ""}`}>
       <div className="search-bulk-action-toolbar-summary">
         <span className="search-bulk-action-toolbar-count">
           {count.toLocaleString()} selected
@@ -167,6 +170,8 @@ export function BulkPortfolioActionToolbar({
       </div>
 
       <div className="search-bulk-action-toolbar-actions">
+        {!exportOnly && (
+          <>
         <button
           type="button"
           className="search-bulk-action-toolbar-btn search-bulk-action-toolbar-btn-primary"
@@ -234,6 +239,9 @@ export function BulkPortfolioActionToolbar({
             Create &amp; add
           </button>
         </div>
+
+          </>
+        )}
 
         {onExport && (
           <div className="search-bulk-action-toolbar-export">
