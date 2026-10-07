@@ -101,7 +101,9 @@ export interface CorporateEventTransactionComp {
   revenue_m_usd?: number | null;
   ebitda_m_usd?: number | null;
   ev_revenue?: number | null;
+  ev_revenue_basis?: MultipleBasis | null;
   ev_ebitda?: number | null;
+  ev_ebitda_basis?: MultipleBasis | null;
   revenue_growth_pc?: number | null;
   ebitda_margin_pc?: number | null;
   rule_of_40?: number | null;

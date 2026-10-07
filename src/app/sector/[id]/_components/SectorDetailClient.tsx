@@ -4,8 +4,10 @@ import { TransactionCompsView } from "@/components/transaction-comps/Transaction
 import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
+import { MultipleBasisTag } from "@/components/transaction-comps/MultipleBasisTag";
 import {
   DEFAULT_TRANSACTION_COMPS_QUERY,
+  type MultipleBasis,
   type TransactionCompRow,
 } from "@/components/transaction-comps/transactionCompsTypes";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -1074,7 +1076,15 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
     };
   }, [sectorId]);
 
-  const mult = (v?: number | null) => (v == null ? "–" : `${v.toFixed(1)}x`);
+  const mult = (v?: number | null, basis?: MultipleBasis | null) =>
+    v == null ? (
+      "–"
+    ) : (
+      <>
+        {`${v.toFixed(1)}x`}
+        <MultipleBasisTag basis={basis} />
+      </>
+    );
   const numCell: React.CSSProperties = {
     padding: "11px 14px",
     textAlign: "right",
@@ -1177,8 +1187,8 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                       </div>
                     </td>
                     <td style={numCell}>{r.ev_m_usd ? r.ev_m_usd.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
-                    <td style={numCell}>{mult(r.ev_revenue)}</td>
-                    <td style={numCell}>{mult(r.ev_ebitda)}</td>
+                    <td style={numCell}>{mult(r.ev_revenue, r.ev_revenue_basis)}</td>
+                    <td style={numCell}>{mult(r.ev_ebitda, r.ev_ebitda_basis)}</td>
                   </tr>
                 );
               })}

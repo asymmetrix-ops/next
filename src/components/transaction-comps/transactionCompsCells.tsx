@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
+import { MultipleBasisTag } from "./MultipleBasisTag";
 import type { MultipleBasis, TransactionCompRow } from "./transactionCompsTypes";
 
 export const NUMERIC_COLUMNS = new Set([
@@ -36,25 +37,13 @@ function fmtDate(v?: string | null) {
   return <span className="whitespace-nowrap">{`${m[3]} ${MONTHS[Number(m[2]) - 1] ?? m[2]} ${m[1]}`}</span>;
 }
 
-/** UI labels for the basis tag. Keep every label here; final wording is pending from Alex G. */
-const BASIS_LABELS: Record<MultipleBasis, string> = {
-  LTM: "LTM",
-  LFY: "LFY",
-  "LFY-1": "LFY-1",
-  Fwd: "Fwd",
-};
-
 /** A multiple with its basis tag; the tag only renders when the API gives a basis. */
 function multiple(v: number | null | undefined, basis?: MultipleBasis | null) {
   if (v == null) return dash;
   return (
     <span className="whitespace-nowrap">
       {num(v, 1, "x")}
-      {basis && (
-        <span className="ml-1.5 rounded bg-gray-100 px-1 py-px text-[10px] font-semibold text-gray-500">
-          {BASIS_LABELS[basis] ?? basis}
-        </span>
-      )}
+      <MultipleBasisTag basis={basis} />
     </span>
   );
 }

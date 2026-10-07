@@ -2,7 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
-import type { CorporateEventTransactionComp } from "@/components/transaction-comps/transactionCompsTypes";
+import { MultipleBasisTag } from "@/components/transaction-comps/MultipleBasisTag";
+import type {
+  CorporateEventTransactionComp,
+  MultipleBasis,
+} from "@/components/transaction-comps/transactionCompsTypes";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 
 const fmt = (v: number | null | undefined, digits = 1, suffix = "") =>
@@ -10,10 +14,18 @@ const fmt = (v: number | null | undefined, digits = 1, suffix = "") =>
 /** A zero from the API means "not available" for monetary values. */
 const money = (v: number | null | undefined) => (v ? fmt(v) : null);
 
-function metricRows(r: CorporateEventTransactionComp): [string, string | null][] {
+const withBasis = (value: string | null, basis: MultipleBasis | null | undefined): React.ReactNode =>
+  value == null ? null : (
+    <>
+      {value}
+      <MultipleBasisTag basis={basis} />
+    </>
+  );
+
+function metricRows(r: CorporateEventTransactionComp): [string, React.ReactNode][] {
   return [
-    ["EV / Revenue", fmt(r.ev_revenue, 1, "x")],
-    ["EV / EBITDA", fmt(r.ev_ebitda, 1, "x")],
+    ["EV / Revenue", withBasis(fmt(r.ev_revenue, 1, "x"), r.ev_revenue_basis)],
+    ["EV / EBITDA", withBasis(fmt(r.ev_ebitda, 1, "x"), r.ev_ebitda_basis)],
     ["EV ($m)", money(r.ev_m_usd)],
     ["Revenue ($m)", money(r.revenue_m_usd)],
     ["EBITDA ($m)", money(r.ebitda_m_usd)],
