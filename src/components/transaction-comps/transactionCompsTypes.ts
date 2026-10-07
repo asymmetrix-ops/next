@@ -27,7 +27,7 @@ export interface TransactionCompRow {
   /** Name the target traded under before the deal, when it changed. */
   former_name?: string | null;
   corporate_event?: { id: number; name: string } | null;
-  acquirers?: { id: number; name: string }[] | null;
+  acquirers?: { id: number; name: string; logo?: string | null }[] | null;
   primary_sectors?: { id: number; name: string }[] | null;
   ownership?: string | null;
 }
@@ -109,5 +109,5 @@ export interface CorporateEventTransactionComp {
   revenue_growth_pc?: number | null;
   ebitda_margin_pc?: number | null;
   rule_of_40?: number | null;
-  acquirers?: { id: number; name: string }[] | null;
+  acquirers?: { id: number; name: string; logo?: string | null }[] | null;
 }

@@ -26,6 +26,7 @@
   import { resolveFiMetricKeyDisplayCurrency } from "@/lib/financialIntelligence/fieldCurrency";
   import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
   import type { Currency } from "@/lib/fxRates";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
 
   const FONT = "var(--font-sans)";
 
@@ -221,23 +222,32 @@
             {index + 1}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <span
-              style={{
-                width: 19,
-                height: 19,
-                borderRadius: 5,
-                flexShrink: 0,
-                background: avatarColorFor(entry.id),
-                color: "#fff",
-                fontSize: 7.5,
-                fontWeight: 800,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {initialsFor(entry.name)}
-            </span>
+            {entry.row.company_logo ? (
+              <CompanyAvatar
+                name={entry.name}
+                logo={entry.row.company_logo}
+                size={19}
+                fallbackColor={avatarColorFor(entry.id)}
+              />
+            ) : (
+              <span
+                style={{
+                  width: 19,
+                  height: 19,
+                  borderRadius: 5,
+                  flexShrink: 0,
+                  background: avatarColorFor(entry.id),
+                  color: "#fff",
+                  fontSize: 7.5,
+                  fontWeight: 800,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {initialsFor(entry.name)}
+              </span>
+            )}
             <span
               style={{
                 fontSize: 12.5,
