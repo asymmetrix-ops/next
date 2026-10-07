@@ -14,6 +14,7 @@ import {
   ENTITY_TONES,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { CappedPillTags } from "@/components/redesign/primitives";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ interface ContentCta {
 interface DealRadarDashboardItem {
   company_id: number;
   name: string;
+  logo?: string | null;
   hq_country: string | null;
   ownership_type: string | null;
   owner_name: string | null;
@@ -902,6 +904,13 @@ export default function DealRadarDashboardPage() {
                             >
                               {/* Company */}
                               <td className="px-3 py-3">
+                                <div className="flex items-start gap-2.5">
+                                  <CompanyAvatar
+                                    name={item.name}
+                                    logo={item.logo}
+                                    size={28}
+                                  />
+                                  <div className="min-w-0">
                                 <a
                                   href={`/company/${item.company_id}`}
                                   onClick={(e) => {
@@ -947,6 +956,8 @@ export default function DealRadarDashboardPage() {
                                     {getContentCtaLabel(item.content_cta)}
                                   </a>
                                 )}
+                                  </div>
+                                </div>
                               </td>
 
                               {/* HQ */}
