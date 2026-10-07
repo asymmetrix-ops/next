@@ -13,6 +13,13 @@ export const SEARCH_BULK_TOOLBAR_STYLES = `
       font-size: 13px;
       color: #1e3a8a;
     }
+    .search-bulk-action-toolbar-compact {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 14px;
+    }
     .search-bulk-action-toolbar-summary {
       display: flex;
       align-items: center;

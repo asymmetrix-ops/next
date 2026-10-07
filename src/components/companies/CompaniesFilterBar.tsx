@@ -49,6 +49,8 @@ export interface FilterDef {
   type: FilterTypeIcon;
   editor: FilterEditorType;
   options?: string[];
+  /** Display names for option values when the stored value differs (e.g. company ids). */
+  optionLabels?: Record<string, string>;
   unit?: string;
   min?: number;
   max?: number;
@@ -381,8 +383,10 @@ function summarize(
   if (value == null) return "";
   if (def.editor === "enum") {
     if (!Array.isArray(value) || value.length === 0) return "";
-    if (value.length === 1) return String(value[0]);
-    return `${String(value[0])} +${value.length - 1}`;
+    const first = String(value[0]);
+    const firstLabel = def.optionLabels?.[first] ?? first;
+    if (value.length === 1) return firstLabel;
+    return `${firstLabel} +${value.length - 1}`;
   }
   if (def.editor === "range") {
     if (def.id === "holding_period") {
@@ -763,7 +767,9 @@ function AddFilterPicker({
         d.label.toLowerCase().includes(ql) ||
         d.fullLabel.toLowerCase().includes(ql) ||
         d.category.toLowerCase().includes(ql) ||
-        (d.options ?? []).some((o) => String(o).toLowerCase().includes(ql))
+        (d.options ?? []).some((o) =>
+          String(d.optionLabels?.[o] ?? o).toLowerCase().includes(ql)
+        )
     );
   }, [q, availableDefs]);
 
@@ -1294,9 +1300,9 @@ function EnumEditor({
   const opts = useMemo(() => {
     if (!q) return def.options ?? [];
     return (def.options ?? []).filter((o) =>
-      o.toLowerCase().includes(q.toLowerCase())
+      (def.optionLabels?.[o] ?? o).toLowerCase().includes(q.toLowerCase())
     );
-  }, [q, def.options]);
+  }, [q, def.options, def.optionLabels]);
 
   const toggle = (o: string) => {
     const reserved = reservedValues?.has(o) && !picked.includes(o);
@@ -1452,7 +1458,7 @@ function EnumEditor({
                   </svg>
                 )}
               </span>
-              <span style={{ flex: 1 }}>{o}</span>
+              <span style={{ flex: 1 }}>{def.optionLabels?.[o] ?? o}</span>
             </button>
           );
         })}
