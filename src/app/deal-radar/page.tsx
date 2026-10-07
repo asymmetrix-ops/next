@@ -32,6 +32,8 @@ interface NamedRef {
 interface ValSource {
   value: string | null;
   source: string | null;
+  currency?: string | null;
+  period?: string | null;
 }
 
 interface LinkedEvent {
@@ -53,6 +55,7 @@ interface DealRadarDashboardItem {
   hq_country: string | null;
   ownership_type: string | null;
   owner_name: string | null;
+  owner_id?: number | null;
   primary_sectors: Sector[];
   transaction_status_id: number;
   transaction_status: string;
@@ -124,27 +127,28 @@ const EMPTY_FILTERS: DealRadarFilters = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+// `:develop` branch of the Deal Radar API: logo, owner_id, financial-metrics revenue/EV, sorting.
+const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
 const ANTICIPATED_18_MONTHS_ID = 1;
 /** Statuses for which Process Stage applies: Anticipated 18m (1), Rumoured (2), Reported (3), Anticipated 6m (6). */
 const PROCESS_STAGE_STATUS_IDS = [1, 2, 3, 6];
 const REPORTED_IN_MARKET_ID = 3;
-const TABLE_COL_COUNT = 11;
+const TABLE_COL_COUNT = 10;
 
 const TRANSACTION_STATUS_OPTIONS = [
   { id: 3, label: "Reported in Market", totalsKey: "Reported in Market" },
   { id: 2, label: "Rumoured in Market", totalsKey: "Rumoured in Market" },
   {
-    id: 1,
-    label: "Anticipated 18 months",
-    totalsKey: "Transaction anticipated within 18 months",
-  },
-  {
     id: 6,
     label: "Anticipated 6 months",
     totalsKey: "Transaction Anticipated within 6 Months",
+  },
+  {
+    id: 1,
+    label: "Anticipated 18 months",
+    totalsKey: "Transaction anticipated within 18 months",
   },
   { id: 5, label: "Process on Hold", totalsKey: "Process on Hold" },
 ];
@@ -204,6 +208,13 @@ function isInvalidVal(value: string | null | undefined): boolean {
   return v === "null" || v === "nan" || v === "";
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", GBP: "£" };
+function currencyPrefix(code: string | null | undefined): string {
+  const c = (code ?? "").trim().toUpperCase();
+  if (!c) return "";
+  return CURRENCY_SYMBOLS[c] ?? `${c} `;
+}
+
 function formatVal(val: ValSource): React.ReactNode {
   const v = val?.value;
   const src = val?.source;
@@ -216,7 +227,7 @@ function formatVal(val: ValSource): React.ReactNode {
 
   return (
     <span className="font-medium text-gray-800">
-      {v}m
+      {currencyPrefix(val?.currency)}{v}m
       {isEst && (
         <abbr
           title={`Estimate — source: ${src}`}
@@ -314,8 +325,8 @@ function countActiveFilters(filters: DealRadarFilters): number {
 }
 
 type SortKey =
-  | "name" | "hq" | "ownership" | "sector" | "status" | "stage"
-  | "intermediary" | "bidders" | "revenue" | "ev" | "acquirers";
+  | "name" | "date" | "ownership" | "sector" | "status" | "stage"
+  | "intermediary" | "bidders" | "revenue" | "ev";
 type SortDir = "asc" | "desc";
 
 /** Logical status order, not alphabetical (nearest-term / most advanced first). */
@@ -331,7 +342,7 @@ function parseMoney(v: ValSource): number | null {
 function sortValue(item: DealRadarDashboardItem, key: SortKey): string | number | null {
   switch (key) {
     case "name": return item.name?.toLowerCase() ?? null;
-    case "hq": return item.hq_country?.toLowerCase() || null;
+    case "date": return item.active_status_set_at ? Date.parse(item.active_status_set_at) || null : null;
     case "ownership": return item.ownership_type?.toLowerCase() || null;
     case "sector": return item.primary_sectors[0] ? cleanSectorName(item.primary_sectors[0].name).toLowerCase() : null;
     case "status": return STATUS_ORDER[item.transaction_status_id] ?? 99;
@@ -343,7 +354,6 @@ function sortValue(item: DealRadarDashboardItem, key: SortKey): string | number 
     case "bidders": return item.bidders[0]?.name.toLowerCase() ?? null;
     case "revenue": return parseMoney(item.revenue);
     case "ev": return parseMoney(item.ev);
-    case "acquirers": return item.potential_acquirers[0]?.name.toLowerCase() ?? null;
   }
 }
 
@@ -370,7 +380,8 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   const tone = getTransactionSignalTone(signal);
   const description = getTransactionSignalDescription(signal);
   return (
-    <div className="group relative mt-1 w-full text-center">
+    <div className="mt-1 w-full text-center">
+      <span className="group relative inline-block">
       <p
         className="cursor-help inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold border"
         style={{
@@ -392,6 +403,7 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
           </p>
         </div>
       ) : null}
+      </span>
     </div>
   );
 }
@@ -961,7 +973,7 @@ export default function DealRadarDashboardPage() {
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-gray-200">
                     <Th label="Company" sortKey="name" className="min-w-[160px]" />
-                    <Th label="HQ" sortKey="hq" className="min-w-[100px]" />
+                    <Th label="Date Added" sortKey="date" className="min-w-[110px]" />
                     <Th label="Ownership" sortKey="ownership" className="min-w-[120px]" />
                     <Th label="Primary Sector(s)" sortKey="sector" className="min-w-[180px]" />
                     <Th label="Transaction Status" sortKey="status" className="min-w-[200px]" />
@@ -970,7 +982,6 @@ export default function DealRadarDashboardPage() {
                     <Th label="Bidders" sortKey="bidders" className="min-w-[140px]" />
                     <Th label="Revenue (m)" sortKey="revenue" className="min-w-[110px]" />
                     <Th label="EV (m)" sortKey="ev" className="min-w-[100px]" />
-                    <Th label="Potential Acquirers" sortKey="acquirers" className="min-w-[180px]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1025,9 +1036,9 @@ export default function DealRadarDashboardPage() {
                                 >
                                   {item.name}
                                 </a>
-                                {item.active_status_set_at && (
-                                  <p className="text-[10px] text-gray-400 mt-0.5">
-                                    {formatDate(item.active_status_set_at)}
+                                {item.hq_country && (
+                                  <p className="text-[11px] text-gray-500 mt-0.5">
+                                    {item.hq_country}
                                   </p>
                                 )}
                                 {reportCta && (
@@ -1056,9 +1067,11 @@ export default function DealRadarDashboardPage() {
                                 </div>
                               </td>
 
-                              {/* HQ */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
-                                {item.hq_country ?? (
+                              {/* Date Added */}
+                              <td className="px-3 py-3 text-xs text-gray-700 whitespace-nowrap">
+                                {item.active_status_set_at ? (
+                                  formatDate(item.active_status_set_at)
+                                ) : (
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
@@ -1071,8 +1084,19 @@ export default function DealRadarDashboardPage() {
                                       {item.ownership_type}
                                     </span>
                                     {item.owner_name && (
-                                      <p className="text-[10px] text-gray-500 mt-0.5">
-                                        {item.owner_name}
+                                      <p className="text-[10.5px] mt-0.5">
+                                        {item.owner_id ? (
+                                          <a
+                                            href={`/investors/${item.owner_id}`}
+                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                          >
+                                            {item.owner_name}
+                                          </a>
+                                        ) : (
+                                          <span className="text-gray-500">
+                                            {item.owner_name}
+                                          </span>
+                                        )}
                                       </p>
                                     )}
                                   </div>
@@ -1278,42 +1302,6 @@ export default function DealRadarDashboardPage() {
                               <td className="px-3 py-3 text-xs">
                                 {formatVal(item.ev)}
                               </td>
-
-                              {/* Potential Acquirers */}
-                              <td className="px-3 py-3">
-                                {item.potential_acquirers.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {item.potential_acquirers.map((acq) => (
-                                      <a
-                                        key={acq.id}
-                                        href={`/company/${acq.id}`}
-                                        onClick={(e) => {
-                                          if (
-                                            e.button !== 0 ||
-                                            e.metaKey ||
-                                            e.ctrlKey ||
-                                            e.shiftKey ||
-                                            e.altKey
-                                          )
-                                            return;
-                                          e.preventDefault();
-                                          router.push(`/company/${acq.id}`);
-                                        }}
-                                        className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
-                                        style={{
-                                          backgroundColor: ENTITY_TONES.company.fill,
-                                          color: ENTITY_TONES.company.text,
-                                        }}
-                                      >
-                                        {acq.name}
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
-                                )}
-                              </td>
-
                             </tr>
                           );
                         })}
