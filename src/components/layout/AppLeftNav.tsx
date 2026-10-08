@@ -21,6 +21,7 @@ import {
   SignalIcon,
   NewspaperIcon,
   ScaleIcon,
+  ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
@@ -154,7 +155,7 @@ const MY_PORTFOLIO_HREF = "/my-portfolio";
 const DASHBOARD_HREF = "/home-user";
 
 /** Expanded / collapsed widths — keep in sync with Tailwind width transition. */
-const NAV_WIDTH_EXPANDED_PX = 264;
+const NAV_WIDTH_EXPANDED_PX = 240;
 const NAV_WIDTH_COLLAPSED_PX = 64;
 
 const NAV_SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
@@ -163,7 +164,7 @@ const NAV_SLIDE_MS = 320;
 const navRevealClass = (open: boolean) =>
   [
     "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] motion-reduce:transition-none",
-    open ? "max-w-[192px] opacity-100" : "max-w-0 opacity-0",
+    open ? "max-w-[182px] opacity-100" : "max-w-0 opacity-0",
   ].join(" ");
 
 function formatCount(n: number | undefined): string | null {
@@ -337,18 +338,18 @@ export default function AppLeftNav() {
           transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
         }}
       >
-      <div className="flex shrink-0 flex-col items-start gap-1.5 border-b border-gray-100 px-3 py-2">
+      <div className="flex shrink-0 flex-col items-start gap-1 overflow-x-hidden border-b border-gray-100 px-3 py-1.5">
         <Link
           href={DASHBOARD_HREF}
-          className="flex h-8 w-8 shrink-0 items-center justify-center"
+          className="flex h-7 w-7 shrink-0 items-center justify-center"
           aria-label="Asymmetrix Dashboard"
         >
           <Image
             src="/icons/logo.svg"
             alt="Asymmetrix"
-            width={28}
-            height={28}
-            style={{ width: 28, height: 28, objectFit: "contain" }}
+            width={24}
+            height={24}
+            style={{ width: 24, height: 24, objectFit: "contain" }}
             priority
           />
         </Link>
@@ -357,16 +358,16 @@ export default function AppLeftNav() {
           onClick={toggleOpen}
           aria-label={open ? "Collapse navigation" : "Expand navigation"}
           aria-expanded={open}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
         >
-          <Bars3Icon className="h-[18px] w-[18px]" />
+          <Bars3Icon className="h-4 w-4" />
         </button>
       </div>
 
       {/* Always rendered so the menu below keeps the same vertical position on the dashboard
           (/home-user has its own hero search): it is hidden, not removed, there. */}
       <div
-        className={`shrink-0 border-b border-gray-100 px-2 py-1.5${
+        className={`shrink-0 overflow-x-hidden border-b border-gray-100 px-2 py-1${
           pathname.startsWith("/home-user") ? " invisible" : ""
         }`}
         aria-hidden={pathname.startsWith("/home-user") ? true : undefined}
@@ -378,11 +379,11 @@ export default function AppLeftNav() {
             type="button"
             onClick={openSearch}
             aria-label="Search"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
           >
             <svg
-              width={16}
-              height={16}
+              width={15}
+              height={15}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -398,7 +399,7 @@ export default function AppLeftNav() {
       </div>
 
       <nav
-        className="min-h-0 flex-1 space-y-px overflow-y-auto overflow-x-hidden px-2 pb-2 pt-2"
+        className="min-h-0 min-w-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 pb-1 pt-1"
         style={{ scrollbarWidth: "thin", scrollbarColor: "#d1d5db transparent" }}
       >
         <NavRow
@@ -432,7 +433,7 @@ export default function AppLeftNav() {
       </nav>
 
       <div
-        className={`flex shrink-0 border-t border-gray-100 p-2 ${
+        className={`flex shrink-0 overflow-hidden border-t border-gray-100 p-1.5 ${
           open ? "flex-row items-center gap-1" : "flex-col items-center gap-1"
         }`}
       >
@@ -440,35 +441,45 @@ export default function AppLeftNav() {
           href="/settings"
           title="Settings"
           aria-label="Settings"
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
             pathname.startsWith("/settings")
               ? "bg-blue-50 text-blue-600"
               : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
           }`}
         >
-          <Cog6ToothIcon className="h-[18px] w-[18px]" />
+          <Cog6ToothIcon className="h-[17px] w-[17px]" />
         </Link>
         <Link
           href="/my-info"
           title="Your info"
           aria-label="Your info"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white transition-colors hover:bg-blue-700"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white transition-colors hover:bg-blue-700"
         >
           {getInitials(user?.name)}
         </Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={`ml-auto px-2 text-sm font-medium text-gray-500 transition-[max-width,opacity] hover:text-blue-600 motion-reduce:transition-none ${navRevealClass(open)}`}
-          style={{
-            transitionDuration: `${NAV_SLIDE_MS}ms`,
-            transitionTimingFunction: NAV_SLIDE_EASE,
-          }}
-          tabIndex={open ? 0 : -1}
-          aria-hidden={!open}
-        >
-          Log out
-        </button>
+        {open ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`ml-auto px-2 text-sm font-medium text-gray-500 transition-[max-width,opacity] hover:text-blue-600 motion-reduce:transition-none ${navRevealClass(open)}`}
+            style={{
+              transitionDuration: `${NAV_SLIDE_MS}ms`,
+              transitionTimingFunction: NAV_SLIDE_EASE,
+            }}
+          >
+            Log out
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Log out"
+            aria-label="Log out"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          >
+            <ArrowRightOnRectangleIcon className="h-[17px] w-[17px]" />
+          </button>
+        )}
       </div>
       </aside>
     </>
@@ -497,9 +508,11 @@ function NavRow({
       <div
         title={`${label} (coming soon)`}
         aria-disabled="true"
-        className="flex h-9 cursor-not-allowed items-center rounded-full py-0 pl-2 pr-2.5 text-sm font-medium text-gray-400"
+        className={`flex w-full min-w-0 cursor-not-allowed items-center rounded-full py-0 pl-2 pr-2 text-sm font-medium text-gray-400 ${
+          open ? "h-9" : "h-8"
+        }`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center">
           <Icon className="h-[18px] w-[18px] shrink-0 opacity-60" />
         </span>
         <span
@@ -522,13 +535,15 @@ function NavRow({
     <Link
       href={href}
       title={label}
-      className={`group flex h-9 items-center rounded-full py-0 pl-2 pr-2.5 text-sm font-medium transition-colors ${
+      className={`group flex w-full min-w-0 items-center rounded-full py-0 pl-2 pr-2 text-sm font-medium transition-colors ${
+        open ? "h-9" : "h-8"
+      } ${
         active
           ? "bg-blue-50 text-blue-600"
           : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
       }`}
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
         <Icon
           className={`h-[18px] w-[18px] shrink-0 ${
             active ? "opacity-100" : "opacity-60 group-hover:opacity-100"
