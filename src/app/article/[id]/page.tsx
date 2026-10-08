@@ -751,15 +751,14 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview|news)$/i.test(
         contentType
       );
 
-      const hasCompanyOfFocus =
-        (article as unknown as { Company_of_Focus?: unknown })
-          .Company_of_Focus != null;
-
-      if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
+      // The /content payload doesn't reliably carry Company_of_Focus (News
+      // items don't), so let the company_of_focus endpoint decide; it returns
+      // an empty list when nothing is tagged.
+      if (!isCompanyAnalysisOrExecInterview) {
         setCompanyOfFocus(null);
         setCompanyOfFocusCompanyId(null);
         setCompetitors(null);
@@ -1862,7 +1861,7 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview|news)$/i.test(
                 ct
               );
               if (!isCompanyAnalysisOrExecInterview) return null;
