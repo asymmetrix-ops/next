@@ -83,10 +83,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
         ? row.acquirers.map((a, i) => (
             <React.Fragment key={a.id}>
               {i > 0 && ", "}
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, verticalAlign: "middle" }}>
-                <CompanyAvatar name={a.name} logo={a.logo} size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX} />
-                <Link href={`/investors/${a.id}`} className="text-blue-700 hover:underline">{a.name}</Link>
-              </span>
+              <Link href={`/investors/${a.id}`} className="text-blue-700 hover:underline">{a.name}</Link>
             </React.Fragment>
           ))
         : dash;
