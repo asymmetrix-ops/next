@@ -52,6 +52,9 @@ const TC_TABLE_STYLES = `
     -webkit-box-orient: vertical;
     line-height: 1.3;
   }
+  .company-cards .company-table-entity-name { white-space: normal; }
+  .company-cards .company-card-header { margin-bottom: 10px; }
+  .company-cards .company-card-value { text-align: right; }
   .tc-table .tc-clamp {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -215,6 +218,36 @@ export function TransactionCompsTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone layout (<= 768px): the table above is hidden by SEARCH_TABLE_STYLES; show one card per comp. */}
+      <div className="company-cards" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
+        {rows.map((row, rowIndex) => (
+          <div
+            key={`card-${row.company_id}-${row.corporate_event?.id ?? ""}-${rowIndex}`}
+            className="company-card"
+          >
+            <div className="company-card-header">{renderTransactionCompCell(row, "company")}</div>
+            <div className="company-card-content">
+              {columnKeys
+                .filter((key) => key !== "company")
+                .map((key) => (
+                  <div key={key} className="company-card-row">
+                    <span className="company-card-label">{LABELS.get(key) ?? key}</span>
+                    <span className="company-card-value">{renderTransactionCompCell(row, key)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+        {!loading && rows.length === 0 && (
+          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>
+            No transactions match your filters.
+          </div>
+        )}
+        {loading && rows.length === 0 && (
+          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>Loading transaction comps…</div>
+        )}
       </div>
     </>
   );

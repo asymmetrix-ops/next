@@ -340,6 +340,176 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   );
 }
 
+/** Phone layout (< md): one compact card per transaction instead of the 1500px-wide table. */
+function DealRadarMobileCard({
+  item,
+  onNavigate,
+}: {
+  item: DealRadarDashboardItem;
+  onNavigate: (href: string) => void;
+}) {
+  const isReportedInMarket = item.transaction_status.toLowerCase().includes("reported");
+  const sectors = item.primary_sectors.map((s) => ({ ...s, name: cleanSectorName(s.name) }));
+  const dash = <span className="text-gray-300">—</span>;
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex items-start justify-between gap-3 py-1.5 text-xs">
+      <span className="w-24 shrink-0 font-medium text-gray-500">{label}</span>
+      <div className="min-w-0 flex-1 text-right text-gray-800">{value}</div>
+    </div>
+  );
+  const chip = (key: string | number, href: string, name: string) => (
+    <a
+      key={key}
+      href={href}
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onNavigate(href);
+      }}
+      className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5"
+      style={{ backgroundColor: ENTITY_TONES.company.fill, color: ENTITY_TONES.company.text }}
+    >
+      {name}
+    </a>
+  );
+  const stageTone = item.process_stage ? getProcessStageTone(item.process_stage) : null;
+  const intermediaryLabel =
+    item.intermediary?.name ??
+    (item.intermediary_type && item.intermediary_type !== "No Intermediary" ? item.intermediary_type : null) ??
+    (item.intermediary_type === "No Intermediary" ? "No Intermediary" : null);
+
+  return (
+    <div className="border-b border-gray-100 px-4 py-4">
+      <div className="flex items-start gap-3">
+        <CompanyAvatar name={item.name} logo={item.logo} size={36} />
+        <div className="min-w-0 flex-1">
+          <a
+            href={`/company/${item.company_id}`}
+            onClick={(e) => {
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onNavigate(`/company/${item.company_id}`);
+            }}
+            className="text-[15px] font-semibold leading-snug text-blue-700"
+          >
+            {item.name}
+          </a>
+          {item.active_status_set_at && (
+            <p className="mt-0.5 text-[10px] text-gray-400">{formatDate(item.active_status_set_at)}</p>
+          )}
+          {item.content_cta && (
+            <a
+              href={`/article/${item.content_cta.id}`}
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                onNavigate(`/article/${item.content_cta!.id}`);
+              }}
+              className="mt-0.5 block text-[11.5px] font-medium text-gray-500"
+            >
+              {getContentCtaLabel(item.content_cta)}
+            </a>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-end">
+          <TransactionStatusPill
+            status={item.transaction_status}
+            className="inline-block max-w-[9rem]"
+            allowWrap
+          />
+          {item.transaction_signal && <TransactionSignalLabel signal={item.transaction_signal} />}
+        </div>
+      </div>
+
+      <div className="mt-3 divide-y divide-gray-50">
+        {row("HQ", item.hq_country ?? dash)}
+        {row(
+          "Ownership",
+          item.ownership_type ? (
+            <>
+              <span className="font-medium">{item.ownership_type}</span>
+              {item.owner_name && <p className="text-[10px] text-gray-500">{item.owner_name}</p>}
+            </>
+          ) : (
+            dash
+          )
+        )}
+        {row(
+          "Sectors",
+          sectors.length > 0 ? (
+            <div className="flex justify-end">
+              <CappedPillTags
+                tone="azure"
+                items={sectors.map((s) => ({
+                  key: `${s.id}-${s.name}`,
+                  label: s.name,
+                  href: s.id > 0 ? `/sector/${s.id}` : undefined,
+                }))}
+              />
+            </div>
+          ) : (
+            dash
+          )
+        )}
+        {row(
+          "Process stage",
+          stageTone && item.process_stage ? (
+            <span
+              className="inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              style={{ backgroundColor: stageTone.fill, color: stageTone.text, borderColor: stageTone.border }}
+            >
+              {item.process_stage}
+            </span>
+          ) : (
+            dash
+          )
+        )}
+        {row("Intermediary", intermediaryLabel ?? <span className="text-gray-400">Unknown</span>)}
+        {row(
+          "Bidders",
+          item.bidders.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-1">
+              {item.bidders.map((b) => chip(b.id, `/company/${b.id}`, b.name))}
+            </div>
+          ) : (
+            dash
+          )
+        )}
+        {row("Revenue (m)", formatVal(item.revenue))}
+        {row("EV (m)", formatVal(item.ev))}
+        {row(
+          "Potential acquirers",
+          item.potential_acquirers.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-1">
+              {item.potential_acquirers.map((a) => chip(a.id, `/company/${a.id}`, a.name))}
+            </div>
+          ) : (
+            dash
+          )
+        )}
+        {row(
+          "Corp. event",
+          item.linked_event && isReportedInMarket ? (
+            <a
+              href={`/corporate-event/${item.linked_event.id}`}
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                onNavigate(`/corporate-event/${item.linked_event!.id}`);
+              }}
+              className="text-[11px] font-medium text-emerald-700"
+            >
+              {formatDate(item.linked_event.announcement_date)}
+            </a>
+          ) : (
+            dash
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SkeletonRow() {
   return (
     <tr className="animate-pulse border-b border-gray-100">
@@ -854,7 +1024,8 @@ export default function DealRadarDashboardPage() {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1500px] border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-gray-200">
@@ -1227,6 +1398,30 @@ export default function DealRadarDashboardPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Phone layout (< md): cards instead of the wide table */}
+            <div className="md:hidden">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="animate-pulse space-y-2 border-b border-gray-100 px-4 py-4">
+                    <div className="h-4 w-2/3 rounded bg-gray-200" />
+                    <div className="h-3 w-full rounded bg-gray-200" />
+                    <div className="h-3 w-5/6 rounded bg-gray-200" />
+                  </div>
+                ))
+              ) : items.length === 0 ? (
+                <p className="py-12 text-center text-sm text-gray-400">No transactions found</p>
+              ) : (
+                items.map((item) => (
+                  <DealRadarMobileCard
+                    key={item.company_id}
+                    item={item}
+                    onNavigate={(href) => router.push(href)}
+                  />
+                ))
+              )}
+            </div>
+            </>
           )}
 
           {/* Load more / Pagination footer */}
