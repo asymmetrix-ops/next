@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
 import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
 import { MultipleBasisTag } from "./MultipleBasisTag";
 import type { MultipleBasis, TransactionCompRow } from "./transactionCompsTypes";
@@ -95,7 +96,16 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
           {row.corporate_event.name}
         </Link>
       ) : dash;
-    case "sector": return text(row.primary_sectors?.map((s) => s.name).join(", "));
+    case "sector":
+      return row.primary_sectors?.length ? (
+        <SearchEntityMultiValueCell
+          items={row.primary_sectors.map((s) => ({
+            name: s.name,
+            href: `/sector/${s.id}`,
+            key: `sector-${s.id}`,
+          }))}
+        />
+      ) : dash;
     case "ownership": return text(row.ownership);
     case "hq_city": return text(row.hq_city);
     case "hq_country": return text(row.hq_country);
