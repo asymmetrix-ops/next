@@ -154,7 +154,7 @@ const MY_PORTFOLIO_HREF = "/my-portfolio";
 const DASHBOARD_HREF = "/home-user";
 
 /** Expanded / collapsed widths — keep in sync with Tailwind width transition. */
-const NAV_WIDTH_EXPANDED_PX = 240;
+const NAV_WIDTH_EXPANDED_PX = 264;
 const NAV_WIDTH_COLLAPSED_PX = 64;
 
 const NAV_SLIDE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
@@ -163,7 +163,7 @@ const NAV_SLIDE_MS = 320;
 const navRevealClass = (open: boolean) =>
   [
     "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] motion-reduce:transition-none",
-    open ? "max-w-[168px] opacity-100" : "max-w-0 opacity-0",
+    open ? "max-w-[192px] opacity-100" : "max-w-0 opacity-0",
   ].join(" ");
 
 function formatCount(n: number | undefined): string | null {
