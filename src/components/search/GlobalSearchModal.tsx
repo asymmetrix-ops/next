@@ -316,9 +316,14 @@ export function GlobalSearchModal() {
             }
             className="min-w-0 flex-1 border-0 bg-transparent text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
           />
-          <kbd className="shrink-0 rounded border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-400">
-            Esc
-          </kbd>
+          <button
+            type="button"
+            onClick={closeSearch}
+            aria-label="Close search"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-gray-300 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            <span className="text-lg leading-none" aria-hidden="true">&times;</span>
+          </button>
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2 border-b border-gray-100 px-5 py-3">
