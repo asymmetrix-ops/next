@@ -11,6 +11,8 @@ type SearchEntityIdentityCellProps = {
   href?: string;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   readOnly?: boolean;
+  /** Caps the name/subtitle width so very long names ellipsize instead of widening the column. */
+  maxTextWidth?: number;
 };
 
 function EntityLogo({
@@ -78,6 +80,7 @@ export function SearchEntityIdentityCell({
   href,
   onClick,
   readOnly = false,
+  maxTextWidth,
 }: SearchEntityIdentityCellProps) {
   const displayName = name || "-";
   const subtitleText = subtitle?.trim();
@@ -98,7 +101,10 @@ export function SearchEntityIdentityCell({
   return (
     <div className="company-table-entity-name-cell">
       <EntityLogo logo={logo} name={displayName} />
-      <div className="company-table-entity-name-text">
+      <div
+        className="company-table-entity-name-text"
+        style={maxTextWidth ? { maxWidth: maxTextWidth } : undefined}
+      >
         {nameContent}
         {subtitleText ? (
           <div className="company-table-entity-subtitle">{subtitleText}</div>

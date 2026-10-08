@@ -109,8 +109,7 @@ const SECTIONS: NavSection[] = [
     label: "Transaction Comps",
     href: "/transaction-comps",
     icon: ScaleIcon,
-    isActive: () => false,
-    comingSoon: true,
+    isActive: (p) => p.startsWith("/transaction-comps"),
   },
   {
     key: "sectors",
@@ -364,8 +363,14 @@ export default function AppLeftNav() {
         </button>
       </div>
 
-      {!pathname.startsWith("/home-user") && (
-      <div className="shrink-0 border-b border-gray-100 px-2 py-1.5">
+      {/* Always rendered so the menu below keeps the same vertical position on the dashboard
+          (/home-user has its own hero search): it is hidden, not removed, there. */}
+      <div
+        className={`shrink-0 border-b border-gray-100 px-2 py-1.5${
+          pathname.startsWith("/home-user") ? " invisible" : ""
+        }`}
+        aria-hidden={pathname.startsWith("/home-user") ? true : undefined}
+      >
         {open ? (
           <GlobalSearchTrigger variant="sidebar" />
         ) : (
@@ -391,7 +396,6 @@ export default function AppLeftNav() {
           </button>
         )}
       </div>
-      )}
 
       <nav
         className="min-h-0 flex-1 space-y-px overflow-y-auto overflow-x-hidden px-2 pb-2 pt-2"

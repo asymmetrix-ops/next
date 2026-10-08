@@ -38,7 +38,29 @@ const MIN_WIDTH: Record<string, number> = {
 };
 
 /** Caps wide text columns so more columns fit; content wraps instead of widening. */
-const MAX_WIDTH: Record<string, number> = { sector: 150 };
+const MAX_WIDTH: Record<string, number> = { sector: 150, company: 300 };
+
+/** Fixed row height: long company names wrap to two lines and sector lists clamp to three, so every row is the same height. */
+const TC_ROW_HEIGHT_PX = 80;
+const TC_TABLE_STYLES = `
+  .tc-table tbody tr,
+  .tc-table tbody td { height: ${TC_ROW_HEIGHT_PX}px; }
+  .tc-table .company-table-entity-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+  }
+  .tc-table .tc-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.5;
+  }
+`;
 
 /**
  * Same table chrome as the Companies list (`company-table*` classes from
@@ -81,9 +103,9 @@ export function TransactionCompsTable({
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES + TC_TABLE_STYLES }} />
       <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
-        <table className="company-table">
+        <table className="company-table tc-table">
           <thead>
             <tr>
               <th
@@ -167,7 +189,11 @@ export function TransactionCompsTable({
                         ...stickyStyle(key, false, selected),
                       }}
                     >
-                      {renderTransactionCompCell(row, key)}
+                      {key === "company" ? (
+                        renderTransactionCompCell(row, key)
+                      ) : (
+                        <div className="tc-clamp">{renderTransactionCompCell(row, key)}</div>
+                      )}
                     </td>
                   ))}
                 </tr>

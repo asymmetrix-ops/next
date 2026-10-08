@@ -480,6 +480,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               name={company.name || "-"}
               logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
               subtitle={subtitle}
+              maxTextWidth={260}
               href={
                 readOnlyGuestMode
                   ? MCP_GUEST_CONVERSION_PATH
