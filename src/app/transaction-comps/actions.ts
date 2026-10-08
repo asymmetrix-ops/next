@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 import type {
   CorporateEventTransactionComp,
   TransactionCompsOption,
@@ -53,8 +54,10 @@ export async function fetchTransactionCompsServer(
     const token = cookieStore.get("asymmetrix_auth_token")?.value;
     if (!token) return null;
 
+    const params = buildParams(query);
+    params.set("preferred_currency_id", String(await readPlatformCurrencyIdServer()));
     const response = await fetch(
-      `${TRANSACTION_COMPS_API_BASE}/transaction_comps?${buildParams(query).toString()}`,
+      `${TRANSACTION_COMPS_API_BASE}/transaction_comps?${params.toString()}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
