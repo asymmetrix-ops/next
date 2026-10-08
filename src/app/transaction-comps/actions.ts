@@ -54,7 +54,7 @@ export async function fetchTransactionCompsServer(
     if (!token) return null;
 
     const response = await fetch(
-      `${TRANSACTION_COMPS_API_BASE}/transaction_comps_list?${buildParams(query).toString()}`,
+      `${TRANSACTION_COMPS_API_BASE}/transaction_comps?${buildParams(query).toString()}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
