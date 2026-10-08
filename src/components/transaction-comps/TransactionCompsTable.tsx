@@ -9,6 +9,9 @@ import {
   renderTransactionCompCell,
 } from "./transactionCompsCells";
 import type { TransactionCompRow } from "./transactionCompsTypes";
+import { localizeCompsLabel } from "./currencyLabels";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 
 const LABELS = new Map(ALL_TRANSACTION_COMPS_COLUMN_META.map((c) => [c.columnKey, c.label]));
 
@@ -90,6 +93,8 @@ export function TransactionCompsTable({
   onToggleRow: (id: number) => void;
   onToggleAll: (checked: boolean) => void;
 }) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.company_id));
   const someSelected = rows.some((r) => selectedIds.has(r.company_id));
 
@@ -144,7 +149,7 @@ export function TransactionCompsTable({
                     }}
                     onClick={apiSort ? () => onSort(apiSort) : undefined}
                   >
-                    {LABELS.get(key)}
+                    {localizeCompsLabel(LABELS.get(key) ?? key, currencySymbol)}
                     {active && (
                       <span className="company-table-sort-indicator">
                         {sortDir === "asc" ? " ↑" : " ↓"}
@@ -233,7 +238,7 @@ export function TransactionCompsTable({
                 .filter((key) => key !== "company")
                 .map((key) => (
                   <div key={key} className="company-card-row">
-                    <span className="company-card-label">{LABELS.get(key) ?? key}</span>
+                    <span className="company-card-label">{localizeCompsLabel(LABELS.get(key) ?? key, currencySymbol)}</span>
                     <span className="company-card-value">{renderTransactionCompCell(row, key)}</span>
                   </div>
                 ))}

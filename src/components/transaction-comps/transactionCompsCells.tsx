@@ -74,7 +74,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
           </div>
         </div>
       );
-    case "ev": return money(row.ev_m_usd);
+    case "ev": return money(row.ev_m ?? row.ev_m_usd);
     case "ev_revenue": return multiple(row.ev_revenue, row.ev_revenue_basis);
     case "ev_ebitda": return multiple(row.ev_ebitda, row.ev_ebitda_basis);
     case "deal_date": return fmtDate(row.deal_date);
@@ -107,8 +107,8 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
     case "hq_city": return text(row.hq_city);
     case "hq_country": return text(row.hq_country);
     case "deal_type": return text(row.deal_type);
-    case "revenue": return money(row.revenue_m_usd);
-    case "ebitda": return money(row.ebitda_m_usd);
+    case "revenue": return money(row.revenue_m ?? row.revenue_m_usd);
+    case "ebitda": return money(row.ebitda_m ?? row.ebitda_m_usd);
     case "rev_growth": return num(row.revenue_growth_pc, 1, "%");
     case "ebitda_margin": return num(row.ebitda_margin_pc, 1, "%");
     case "rule_of_40": return num(row.rule_of_40, 0);
@@ -120,7 +120,7 @@ export function transactionCompCsvValue(row: TransactionCompRow, key: string): s
   const v: unknown = (() => {
     switch (key) {
       case "company": return row.company_name;
-      case "ev": return row.ev_m_usd;
+      case "ev": return row.ev_m ?? row.ev_m_usd;
       case "ev_revenue": return row.ev_revenue;
       case "ev_ebitda": return row.ev_ebitda;
       case "deal_date": return row.deal_date;
@@ -131,8 +131,8 @@ export function transactionCompCsvValue(row: TransactionCompRow, key: string): s
       case "hq_city": return row.hq_city;
       case "hq_country": return row.hq_country;
       case "deal_type": return row.deal_type;
-      case "revenue": return row.revenue_m_usd;
-      case "ebitda": return row.ebitda_m_usd;
+      case "revenue": return row.revenue_m ?? row.revenue_m_usd;
+      case "ebitda": return row.ebitda_m ?? row.ebitda_m_usd;
       case "rev_growth": return row.revenue_growth_pc;
       case "ebitda_margin": return row.ebitda_margin_pc;
       case "rule_of_40": return row.rule_of_40;
