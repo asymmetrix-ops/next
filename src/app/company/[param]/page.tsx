@@ -2,13 +2,19 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { EntityChip } from "@/components/ui/EntityChip";
-import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { useNavOpen } from "@/components/layout/NavOpenContext";
 import Footer from "@/components/Footer";
+import { useMasonryGrid } from "@/hooks/useMasonryGrid";
+import {
+  EntityLogoTile,
+  EntityProfileHeader,
+  profileHeaderOutlineButtonStyle,
+  profileHeaderPrimaryButtonStyle,
+} from "@/components/profile/EntityProfileHeader";
 import { FollowButton } from "@/components/FollowButton";
 import {
   BellIcon,
@@ -105,7 +111,6 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
-import ProfileSubnav from "@/components/ProfileSubnav";
 import { FinancialIntelligenceWorkspace } from "@/app/financial-intelligence/FinancialIntelligenceWorkspace";
 import {
   isCompanyMcpPopulated,
@@ -1204,69 +1209,6 @@ const getYearFoundedDisplay = (company: Company): string => {
   return EMPTY_DISPLAY;
 };
 
-// Company Logo Component
-const CompanyLogo = ({
-  logo,
-  fallbackLogo,
-  name,
-}: {
-  logo?: string | null;
-  fallbackLogo?: string | null;
-  name: string;
-}) => {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
-  const candidates = useMemo(() => {
-    const out: string[] = [];
-    for (const raw of [logo, fallbackLogo]) {
-      const resolved = resolveCompanyLogoSrc(raw);
-      if (resolved && !out.includes(resolved)) out.push(resolved);
-    }
-    return out;
-  }, [logo, fallbackLogo]);
-
-  const src =
-    candidates.find((candidate) => candidate !== failedSrc) ?? null;
-
-  useEffect(() => {
-    setFailedSrc(null);
-  }, [candidates]);
-
-  const logoStyle = {
-    objectFit: "contain" as const,
-    borderRadius: "8px",
-    width: 80,
-    height: 60,
-  };
-
-  const placeholderStyle = {
-    width: "80px",
-    height: "60px",
-    backgroundColor: "#f7fafc",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "12px",
-    color: "#6B7488",
-  };
-
-  if (src) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={`${name} logo`}
-        className="company-logo"
-        style={logoStyle}
-        onError={() => setFailedSrc(src)}
-      />
-    );
-  }
-
-  return <div style={placeholderStyle}>No Logo</div>;
-};
-
 // Main Company Detail Component
 const CompanyDetail = () => {
   const params = useParams();
@@ -1357,14 +1299,10 @@ const CompanyDetail = () => {
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
-  const [rowTwoCardHeight, setRowTwoCardHeight] = useState(0);
   const overviewGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
-  const insightsRowRef = useRef<HTMLDivElement | null>(null);
-  const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
-  const productMixRowRef = useRef<HTMLDivElement | null>(null);
-  const productUsersRowRef = useRef<HTMLDivElement | null>(null);
+  const profileGridRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
@@ -2250,6 +2188,10 @@ const CompanyDetail = () => {
   // the card at its one-time measured height, clipping content inside — e.g.
   // the Investors "+N" tag never actually revealed the rest, since expanding
   // it couldn't grow past the frozen max-height (LinkPanel clips overflow).
+  useMasonryGrid(profileGridRef, {
+    deps: [company?.id, activeProfileTab, isDescriptionExpanded],
+  });
+
   const rowOneHeightStyle = useMemo((): React.CSSProperties => {
     if (rowOneCardHeight <= 0) return {};
     return {
@@ -2320,57 +2262,6 @@ const CompanyDetail = () => {
     company?.have_parent_company,
   ]);
 
-  // Match Insights + Subscription/Other metrics to the taller card's natural content height
-  useEffect(() => {
-    setRowTwoCardHeight(0);
-  }, [
-    company?.id,
-    showInsights,
-    articlesLoading,
-    companyArticles.length,
-    insightsPage,
-    financialMetrics,
-  ]);
-
-  useEffect(() => {
-    if (rowTwoCardHeight !== 0 || typeof ResizeObserver === "undefined") return;
-
-    const financeEl = financeSecondaryRowRef.current;
-    if (!financeEl) return;
-
-    // Row 2's height leader, in priority order:
-    // 1. When Insights & Analysis is shown, it leads (paired with Other Metrics).
-    // 2. Otherwise the product cards (Core Products/Users, then Product Mix)
-    //    lead — Other Metrics conforms to them, not the other way around.
-    // 3. If none of those are present, Other Metrics keeps its own natural
-    //    height (no forcing).
-    const insightsEl = showInsights ? insightsRowRef.current : null;
-    const productUsersEl = !showInsights ? productUsersRowRef.current : null;
-    const productMixEl = !showInsights ? productMixRowRef.current : null;
-    const leaders = [insightsEl, productUsersEl, productMixEl].filter(
-      (el): el is HTMLDivElement => el != null
-    );
-
-    if (leaders.length === 0) return;
-
-    const measure = () => {
-      const leadHeight = Math.max(...leaders.map((el) => el.offsetHeight));
-      if (leadHeight > 0) setRowTwoCardHeight(leadHeight);
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    leaders.forEach((el) => ro.observe(el));
-    return () => ro.disconnect();
-  }, [
-    rowTwoCardHeight,
-    showInsights,
-    company?.id,
-    articlesLoading,
-    companyArticles.length,
-    insightsPage,
-    financialMetrics,
-  ]);
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -3316,7 +3207,10 @@ const CompanyDetail = () => {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gap: "12px",
+      gridAutoRows: "4px",
+      gridAutoFlow: "dense",
+      columnGap: "12px",
+      rowGap: 0,
       maxWidth: "100%",
       overflow: "hidden",
       alignItems: "start",
@@ -3458,18 +3352,7 @@ const CompanyDetail = () => {
   const productDataToggleDataRows = dataCollectionMethodRows;
 
   const companyMcpStatus = readCompanyMcpStatus(company);
-  const showCompanyMcp = isCompanyMcpPopulated(companyMcpStatus);
 
-  /** Dynamic grid rows — cards pack upward when optional sections are hidden */
-  const PRODUCT_ROW_START = showInsights ? 3 : 2;
-  /** Col 3 row 2 is always subscription/other metrics; headcount stacks below. */
-  const FINANCE_SECONDARY_ROW = 2;
-  /** AI Defensibility sits under both finance cards (col 3), never sharing row 2 with secondary metrics. */
-  const AI_RISK_ROW_START = FINANCE_SECONDARY_ROW + 1;
-  const AI_RISK_ROW_SPAN = 2;
-  const rightRailHeadcountRow = showInsights
-    ? PRODUCT_ROW_START
-    : FINANCE_SECONDARY_ROW + 1;
   const showProductType = productTypeRows.length > 0;
   const showRevenueModel = revenueModelRows.length > 0;
   const showCoreProducts =
@@ -3477,60 +3360,8 @@ const CompanyDetail = () => {
   const showDataCollection = dataCollectionMethodRows.length > 0;
   const showProductAttributes =
     showProductType ||
-    showCompanyMcp ||
     showRevenueModel ||
     showDataCollection;
-  const showAiRisk = aiRiskData != null && aiRiskData.axes.length > 0;
-  const showCorporateEvents =
-    corporateEventsLoading || ceTotal > 0 || corporateEvents.length > 0;
-
-  let productMixGridRow = 0;
-  let productMixGridSpan = 1;
-  let coreProductsGridRow = 0;
-  let coreProductsGridSpan = 1;
-  let headcountGridRow = 0;
-  let managementGridRow = 0;
-  let corporateEventsGridRow = 0;
-  let subsidiariesGridRow = 0;
-
-  if (showAiRisk) {
-    const col1Stack = showProductAttributes ? 1 : 0;
-    const col2Stack = showCoreProducts ? 1 : 0;
-    const productZoneHeight = Math.max(col1Stack, col2Stack, 2);
-    const wideSectionStartRow = PRODUCT_ROW_START + productZoneHeight;
-
-    productMixGridRow = showProductAttributes ? PRODUCT_ROW_START : 0;
-    productMixGridSpan = showProductAttributes ? productZoneHeight : 1;
-    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    coreProductsGridSpan = showCoreProducts ? productZoneHeight : 1;
-    headcountGridRow = Math.max(
-      wideSectionStartRow,
-      rightRailHeadcountRow,
-      AI_RISK_ROW_START + AI_RISK_ROW_SPAN
-    );
-    managementGridRow = hasManagement ? headcountGridRow + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
-    subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
-      : 0;
-  } else {
-    const leftTopStack = Math.max(
-      showProductAttributes ? 1 : 0,
-      showCoreProducts ? 1 : 0
-    );
-    const wideSectionStartRow = PRODUCT_ROW_START + leftTopStack;
-
-    productMixGridRow = showProductAttributes ? PRODUCT_ROW_START : 0;
-    productMixGridSpan = 1;
-    coreProductsGridRow = showCoreProducts ? PRODUCT_ROW_START : 0;
-    coreProductsGridSpan = 1;
-    headcountGridRow = rightRailHeadcountRow;
-    managementGridRow = hasManagement ? rightRailHeadcountRow + 1 : 0;
-    corporateEventsGridRow = showCorporateEvents ? wideSectionStartRow : 0;
-    subsidiariesGridRow = hasSubsidiaries
-      ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
-      : 0;
-  }
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; min-width: 0; }
@@ -3547,77 +3378,56 @@ const CompanyDetail = () => {
     .responsiveGrid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      grid-auto-rows: 4px;
+      grid-auto-flow: dense;
+      column-gap: 12px;
+      row-gap: 0;
       max-width: 100%;
-      align-items: stretch;
+      align-items: start;
     }
-    .responsiveGrid > * { min-width: 0; min-height: 0; }
+    .responsiveGrid > * { min-width: 0; min-height: 0; align-self: start; }
     .company-grid-overview {
       grid-column: 1;
-      grid-row: 1;
+      grid-row-start: 1;
       min-height: 0;
-      align-self: stretch;
+      align-self: start;
       display: flex;
       flex-direction: column;
     }
     .company-grid-description {
       grid-column: 2;
-      grid-row: 1;
+      grid-row-start: 1;
       min-height: 0;
-      align-self: stretch;
+      align-self: start;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .company-grid-finance-primary {
       grid-column: 3;
-      grid-row: 1;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      align-self: stretch;
-    }
-    .company-grid-finance-secondary {
-      grid-column: 3;
-      grid-row: ${FINANCE_SECONDARY_ROW};
+      grid-row-start: 1;
       min-width: 0;
       min-height: 0;
       display: flex;
       flex-direction: column;
       align-self: start;
     }
-    .company-grid-insights {
-      grid-column: 1 / span 2;
-      grid-row: 2;
-      min-height: 0;
-      align-self: start;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-product-mix { grid-column: 1; grid-row: ${productMixGridRow} / span ${productMixGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: flex-start; }
-    .company-grid-product-users { grid-column: 2; grid-row: ${coreProductsGridRow} / span ${coreProductsGridSpan}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-ai-risk { grid-column: 3; grid-row: ${AI_RISK_ROW_START} / span ${AI_RISK_ROW_SPAN}; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; }
-    .company-grid-corporate-events,
-    .company-grid-subsidiaries,
+    /* Everything below row 1 floats: spans are set by useMasonryGrid so cards fill any gaps. */
+    .company-grid-finance-secondary { grid-column: 3; order: -2; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
+    .company-grid-insights { grid-column: span 2; order: -1; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-product-mix,
+    .company-grid-product-users,
+    .company-grid-ai-risk,
     .company-grid-headcount,
-    .company-grid-management {
-      min-width: 0;
-      min-height: 0;
-      align-self: stretch;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-corporate-events { grid-column: 1 / span 2; grid-row: ${corporateEventsGridRow}; overflow: hidden; max-width: 100%; }
-    .company-grid-subsidiaries { grid-column: 1 / span 2; grid-row: ${subsidiariesGridRow}; overflow: hidden; max-width: 100%; }
+    .company-grid-management { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-corporate-events,
+    .company-grid-subsidiaries { grid-column: span 2; order: -1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
       max-width: 100%;
       width: 100%;
     }
-    .company-grid-headcount { grid-column: 3; grid-row: ${headcountGridRow}; }
-    .company-grid-management { grid-column: 3; grid-row: ${managementGridRow}; }
     .card {
       background: ${T.panel};
       border-radius: ${T.rLg}px;
@@ -3852,7 +3662,8 @@ const CompanyDetail = () => {
         grid-template-columns: 1fr !important;
         gap: 12px !important;
       }
-      .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
+      .responsiveGrid { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; row-gap: 12px !important; max-width: 100% !important; }
+      .responsiveGrid > * { grid-row: auto !important; grid-column: 1 / -1 !important; order: 0 !important; }
       .company-grid-overview,
       .company-grid-description,
       .company-grid-finance-primary,
@@ -3887,46 +3698,26 @@ const CompanyDetail = () => {
       className={`company-detail-page${navOpen ? " company-nav-open" : ""}`}
       style={styles.container}
     >
-      {/* ── Company profile header bar ── */}
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
-        {/* Top row: logo + name + badges + actions */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
-        }}>
-          {/* Left: logo + name */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
-                  <CompanyLogo
-                    logo={companyLinkedIn?.profile?.logo}
-                    fallbackLogo={
-                      company._linkedin_data_of_new_company?.linkedin_logo
-                    }
-                    name={company.name}
-                  />
-                  <div style={{ minWidth: 0 }}>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      fontSize: "24px", fontWeight: 600, color: T.ink,
-                      letterSpacing: "-0.4px", lineHeight: 1.2, fontFamily: T.sans,
-                    }}>
-                      {company.name}
-                      <CountryFlagImg
-                        iso2={hqCountryIso2}
-                        size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.5}
-                      />
-                    </span>
-                    {formerNameDisplay && (
-                      <div style={styles.formerName}>
-                        (Formerly {formerNameDisplay})
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-          {/* Right: action buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
+      <EntityProfileHeader
+        logo={
+          <EntityLogoTile
+            logos={[
+              companyLinkedIn?.profile?.logo,
+              company._linkedin_data_of_new_company?.linkedin_logo,
+            ]}
+            name={company.name}
+          />
+        }
+        title={company.name}
+        titleAdornment={
+          <CountryFlagImg
+            iso2={hqCountryIso2}
+            size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.5}
+          />
+        }
+        subtitle={formerNameDisplay ? `Formerly ${formerNameDisplay}` : undefined}
+        actions={
+          <>
                   {companyId && !Number.isNaN(Number(companyId)) && (
                     <FollowButton
                       followKey="followed_companies"
@@ -3944,16 +3735,9 @@ const CompanyDetail = () => {
                       aria-haspopup="menu"
                       aria-expanded={showPdfExportOptions}
                       style={{
-                  display: "inline-flex", alignItems: "center", gap: "6px",
-                  fontFamily: T.sans, fontSize: "13px", fontWeight: 700,
-                  color: exportingPdf ? T.faint : T.azure,
-                  backgroundColor: "#fff",
-                  border: `1px solid ${exportingPdf ? T.divider : "#C6D1FB"}`,
-                  borderRadius: 999,
-                  height: 34,
-                  padding: "0 16px",
-                  boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
-                  cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
+                        ...profileHeaderOutlineButtonStyle,
+                        color: exportingPdf ? T.faint : T.ink2,
+                        cursor: exportingPdf || !company?.id ? "not-allowed" : "pointer",
                       }}
                     >
                       <ArrowUpTrayIcon width={15} height={15} strokeWidth={2} aria-hidden />
@@ -3995,30 +3779,17 @@ const CompanyDetail = () => {
                     href="mailto:asymmetrix@asymmetrixintelligence.com?subject=Report%20Incorrect%20Company%20Data&body=Please%20describe%20the%20issue%20you%20found."
                     target="_blank"
                     rel="noopener noreferrer"
-              style={{
-                display: "inline-flex", alignItems: "center", gap: "6px",
-                fontFamily: T.sans, fontSize: "13px", fontWeight: 700,
-                color: "#fff", backgroundColor: T.azure,
-                borderRadius: 999, height: 34, padding: "0 18px",
-                boxShadow: "0 6px 18px rgba(42, 70, 234, 0.32)",
-                textDecoration: "none",
-              }}
+              style={profileHeaderPrimaryButtonStyle}
                   >
                     <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
                     Contribute Data
                   </a>
-                </div>
-              </div>
-
-        {/* Navigation tabs */}
-        <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-          <ProfileSubnav
-            tabs={companyProfileSubnavTabs}
-            activeTab={activeProfileTab}
-            onChange={(id) => setActiveProfileTab(id as typeof activeProfileTab)}
-          />
-        </div>
-      </div>
+          </>
+        }
+        tabs={companyProfileSubnavTabs}
+        activeTab={activeProfileTab}
+        onTabChange={(id) => setActiveProfileTab(id as typeof activeProfileTab)}
+      />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
@@ -4039,7 +3810,7 @@ const CompanyDetail = () => {
           ) : (
           <>
           {/* Desktop grid */}
-          <div style={styles.responsiveGrid} className="responsiveGrid">
+          <div ref={profileGridRef} style={styles.responsiveGrid} className="responsiveGrid">
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
@@ -4078,6 +3849,7 @@ const CompanyDetail = () => {
                 totalAmountRaised={totalAmountRaisedDisplay ?? undefined}
                 employees={overviewHeadcount}
                 employeesYoY={overviewEmployeesYoY ?? undefined}
+                mcpImplemented={companyMcpStatus === true}
                 ticker={tickerDisplay ?? undefined}
                 hasHoldingPeriod={Boolean(holdingPeriodData?.has_holding_period)}
                 holdingPeriod={
@@ -4520,17 +4292,14 @@ const CompanyDetail = () => {
             {/* ── Row 2: Insights (grid row 2, cols 1–2) — hidden when no I&A ── */}
             {showInsights && (
               <div
-                ref={insightsRowRef}
                 className="insights-summary-card company-grid-insights"
                 style={{
                   minHeight: 0,
                   display: "flex",
                   flexDirection: "column",
-                  ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
                 }}
               >
                 <InsightsCard
-                  fillGridCell={rowTwoCardHeight > 0}
                   articles={companyArticles}
                   loading={articlesLoading}
                   totalCount={insightsTotal}
@@ -4557,7 +4326,6 @@ const CompanyDetail = () => {
             {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
             {showProductAttributes && (
               <div
-                ref={productMixRowRef}
                 className="company-grid-product-mix"
               >
                 <ProductAttributesCard
@@ -4567,14 +4335,12 @@ const CompanyDetail = () => {
                     weight: r.value,
                   }))}
                   dataRows={productDataToggleDataRows}
-                  mcpStatus={companyMcpStatus}
                 />
               </div>
             )}
 
             {showCoreProducts && (
               <div
-                ref={productUsersRowRef}
                 className="company-grid-product-users"
               >
                 <ProductUsersListCard
@@ -4738,7 +4504,6 @@ const CompanyDetail = () => {
 
             {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights when shown) ══ */}
             <div
-              ref={financeSecondaryRowRef}
               className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
               style={{
                 minWidth: 0,
@@ -4746,11 +4511,9 @@ const CompanyDetail = () => {
                 display: "flex",
                 flexDirection: "column",
                 width: "100%",
-                ...(rowTwoCardHeight > 0 ? { height: rowTwoCardHeight } : {}),
               }}
             >
               <FinMetricsSecondaryCard
-                fillGridCell={rowTwoCardHeight > 0}
                 subscription={finMetricsData.subscription}
                 other={finMetricsData.other}
               />

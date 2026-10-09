@@ -20,7 +20,11 @@ import { IndividualOverviewCard } from "@/components/individuals/IndividualOverv
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
-import { getEntityInitials } from "@/utils/entityInitials";
+import {
+  EntityLogoTile,
+  EntityProfileHeader,
+  profileHeaderPrimaryButtonStyle,
+} from "@/components/profile/EntityProfileHeader";
 
 function mapIndividualEventsForProfile(
   events: IndividualCorporateEvent[]
@@ -76,28 +80,6 @@ function mapIndividualEventsForProfile(
   });
 }
 
-function PersonAvatar({ name }: { name: string }) {
-  return (
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        backgroundColor: T.inset,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 14,
-        fontWeight: 600,
-        color: T.muted,
-        border: `1px solid ${T.divider}`,
-        flexShrink: 0,
-      }}
-    >
-      {getEntityInitials(name)}
-    </div>
-  );
-}
 
 export default function IndividualProfilePage() {
   const params = useParams();
@@ -303,55 +285,11 @@ export default function IndividualProfilePage() {
   return (
     <AppShell>
     <div className="individual-detail-page" style={styles.container}>
-      <div
-        style={{
-          backgroundColor: T.paper,
-          borderBottom: `1px solid ${T.divider}`,
-          padding: "0 24px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            padding: "22px 0",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              minWidth: 0,
-              flex: 1,
-            }}
-          >
-            <PersonAvatar name={displayName || "?"} />
-            <span
-              style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: T.ink,
-                letterSpacing: "-0.4px",
-                lineHeight: 1.2,
-                fontFamily: T.sans,
-              }}
-            >
-              {displayName}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
+      <EntityProfileHeader
+        logo={<EntityLogoTile logos={[]} name={displayName || "?"} round />}
+        title={displayName}
+        actions={
+          <>
             {individualId && !Number.isNaN(individualId) && (
               <FollowButton
                 followKey="followed_individuals"
@@ -365,26 +303,14 @@ export default function IndividualProfilePage() {
               href={reportMailTo}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                fontFamily: T.sans,
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: "#fff",
-                backgroundColor: T.emerald,
-                borderRadius: 6,
-                padding: "8px 14px",
-                textDecoration: "none",
-              }}
+              style={profileHeaderPrimaryButtonStyle}
             >
               <PlusIcon width={15} height={15} strokeWidth={2} aria-hidden />
               Contribute Data
             </a>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="individual-detail-content" style={styles.maxWidth}>

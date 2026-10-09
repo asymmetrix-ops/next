@@ -1,38 +1,48 @@
 "use client";
 /**
- * ProductAttributesCard — Product Type, Revenue Model, and Data Collection Method
- * as three distinct stacked cards in the left column.
+ * ProductAttributesCard — one tabbed card (Product type | Revenue model) plus a
+ * separate Data Collection Method card. Tab UI is shared with the
+ * Core Products / Users & Use Cases card.
  */
-import React from "react";
-import { McpStatusCard } from "./McpStatusCard";
+import React, { useEffect, useState } from "react";
 import { ProductDataToggleCard } from "./ProductDataToggleCard";
-import { RevenueModelCard } from "./RevenueModelCard";
+import { TabHeader } from "./ProductUsersListCard";
+import { LinkPanel, WeightChip, T, descriptionBodyStyle } from "./primitives";
 import type { ProductBarRow } from "./ProductDataToggleCard";
 import type { RevenueModelRow } from "./RevenueModelCard";
 
 type DataMixRow = { label: string };
+type AttrTab = "product_type" | "revenue_model";
 
 type Props = {
   productRows: ProductBarRow[];
   revenueRows: RevenueModelRow[];
   dataRows: DataMixRow[];
-  mcpStatus?: boolean | null;
 };
 
 export function ProductAttributesCard({
   productRows,
   revenueRows,
   dataRows,
-  mcpStatus = null,
 }: Props) {
   const showProductType = productRows.length > 0;
-  const showMcp = typeof mcpStatus === "boolean";
   const showRevenueModel = revenueRows.length > 0;
   const showDataCollection = dataRows.length > 0;
 
-  if (!showProductType && !showMcp && !showRevenueModel && !showDataCollection) {
-    return null;
-  }
+  const tabs: { id: AttrTab; label: string }[] = [];
+  if (showProductType) tabs.push({ id: "product_type", label: "Product type" });
+  if (showRevenueModel) tabs.push({ id: "revenue_model", label: "Revenue model" });
+
+  const [activeTab, setActiveTab] = useState<AttrTab>("product_type");
+  const current: AttrTab | null = tabs.some((t) => t.id === activeTab)
+    ? activeTab
+    : tabs[0]?.id ?? null;
+
+  useEffect(() => {
+    if (current && current !== activeTab) setActiveTab(current);
+  }, [current, activeTab]);
+
+  if (!current && !showDataCollection) return null;
 
   return (
     <div
@@ -45,31 +55,63 @@ export function ProductAttributesCard({
         width: "100%",
       }}
     >
-      {(showProductType || showMcp) && (
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "stretch",
-            width: "100%",
-          }}
-        >
-          {showProductType ? (
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-              <ProductDataToggleCard
-                variant="product_type"
-                productRows={productRows}
-                dataRows={dataRows}
-                fillGridCell={false}
-              />
-            </div>
-          ) : null}
-          {showMcp ? <McpStatusCard status={mcpStatus} /> : null}
-        </div>
-      )}
-      {showRevenueModel && (
-        <RevenueModelCard rows={revenueRows} fillGridCell={false} />
+      {current && (
+        <LinkPanel fillGridCell={false}>
+          <TabHeader tabs={tabs} activeTab={current} onTabChange={setActiveTab} />
+          <div style={{ padding: "8px 16px 14px" }}>
+            {current === "product_type"
+              ? productRows.map((p, i) => (
+                  <div
+                    key={`${p.label}-${i}`}
+                    style={{
+                      padding: "9px 0",
+                      borderBottom:
+                        i === productRows.length - 1 ? "none" : `1px solid ${T.hair}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        ...descriptionBodyStyle,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 2,
+                          background: p.color,
+                          display: "inline-block",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {p.label}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              : revenueRows.map((row, i) => (
+                  <div
+                    key={row.name}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "9px 0",
+                      borderBottom:
+                        i < revenueRows.length - 1 ? `1px solid ${T.hair}` : "none",
+                    }}
+                  >
+                    <div style={descriptionBodyStyle}>{row.name}</div>
+                    <WeightChip weight={row.weight || ""} hideMinor />
+                  </div>
+                ))}
+          </div>
+        </LinkPanel>
       )}
       {showDataCollection && (
         <ProductDataToggleCard

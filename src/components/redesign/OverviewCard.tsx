@@ -55,6 +55,8 @@ export type OverviewCardProps = {
    */
   hasHoldingPeriod?: boolean;
   holdingPeriod?: OverviewHoldingPeriod | null;
+  /** Shown as the last row ("MCP: Implemented") only when true. */
+  mcpImplemented?: boolean | null;
   fillGridCell?: boolean;
 };
 
@@ -193,6 +195,7 @@ export function OverviewCard({
   ticker,
   hasHoldingPeriod = false,
   holdingPeriod,
+  mcpImplemented = null,
   fillGridCell = false,
 }: OverviewCardProps) {
   const hasParent = Boolean(parentCompany?.name);
@@ -335,6 +338,11 @@ export function OverviewCard({
       k: "Time since last investment",
       show: !hasParent && hasLastInvestment,
       v: lastInvestment,
+    },
+    {
+      k: "MCP",
+      show: mcpImplemented === true,
+      v: "Implemented",
     },
   ];
 

@@ -206,14 +206,14 @@ function SectionList({
   );
 }
 
-function TabHeader({
+export function TabHeader<TabId extends string>({
   tabs,
   activeTab,
   onTabChange,
 }: {
-  tabs: { id: ProductUsersTab; label: string }[];
-  activeTab: ProductUsersTab;
-  onTabChange: (tab: ProductUsersTab) => void;
+  tabs: { id: TabId; label: string }[];
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
 }) {
   return (
     <div role="tablist" style={FIN_METRICS_TAB_BAR_STYLE}>
