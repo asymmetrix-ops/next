@@ -11,19 +11,27 @@ import {
   getArticleCorrections,
 } from "@/lib/contentArticleDisplay";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import { hasInsightSummary } from "@/lib/insightSummary";
 
 type NewsArticleCardProps = {
   article: ContentArticle;
   className?: string;
+  onViewSummary?: (article: ContentArticle) => void;
 };
 
-export function NewsArticleCard({ article, className }: NewsArticleCardProps) {
+export function NewsArticleCard({
+  article,
+  className,
+  onViewSummary,
+}: NewsArticleCardProps) {
   const router = useRouter();
 
   const headline = decodeHtmlEntities(article.Headline || "") || "-";
   const strapline = decodeHtmlEntities(article.Strapline || "");
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(article);
+
+  const showSummaryBtn = !!onViewSummary && hasInsightSummary(article.summary);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (
@@ -124,18 +132,42 @@ export function NewsArticleCard({ article, className }: NewsArticleCardProps) {
         <ArticleCorrectionNotice corrections={corrections} variant="card" />
       ) : null}
 
-      <span
-        style={{
-          display: "inline-block",
-          marginTop: 10,
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#0075df",
-          textDecoration: "underline",
-        }}
-      >
-        Read more
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
+        <span
+          style={{
+            display: "inline-block",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#0075df",
+            textDecoration: "underline",
+          }}
+        >
+          Read more
+        </span>
+        {showSummaryBtn ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onViewSummary?.(article);
+            }}
+            style={{
+              background: "none",
+              border: "1px solid #d1d5db",
+              borderRadius: 4,
+              cursor: "pointer",
+              color: "#374151",
+              fontSize: 11.5,
+              fontWeight: 500,
+              padding: "2px 8px",
+              lineHeight: 1.5,
+            }}
+          >
+            View summary
+          </button>
+        ) : null}
+      </div>
     </a>
   );
 }

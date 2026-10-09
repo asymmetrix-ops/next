@@ -137,7 +137,7 @@ function ArticleRow({
   const strapline = decodeHtmlEntitiesLocal(article.Strapline?.trim() || "");
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(article);
-  const showSummaryBtn = !isNews && hasInsightSummary(article.summary);
+  const showSummaryBtn = hasInsightSummary(article.summary);
 
   return (
     <div

@@ -33,6 +33,8 @@ import { CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate
 import { normalizeEntityHref as sharedNormalizeEntityHref } from "@/lib/corporateEventEntityHref";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
+import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
+import { hasInsightSummary } from "@/lib/insightSummary";
 import { getNewsSubType, isNewsArticle } from "@/lib/contentArticleDisplay";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 import {
@@ -153,6 +155,7 @@ interface InsightArticle {
     };
     _is_that_investor: boolean;
   }>;
+  summary?: unknown;
   Transaction_status?: string;
   transaction_status?: string;
   hq_country_iso2?: string | null;
@@ -769,6 +772,9 @@ function HomeUserPageContent() {
     Record<string, number>
   >({});
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [summaryArticle, setSummaryArticle] = useState<InsightArticle | null>(
+    null
+  );
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
@@ -1446,6 +1452,12 @@ function HomeUserPageContent() {
             </div>
           </div>
 
+          {summaryArticle ? (
+            <InsightSummaryModal
+              article={summaryArticle}
+              onClose={() => setSummaryArticle(null)}
+            />
+          ) : null}
           {/* Insights & Analysis - first on mobile */}
           <div
             className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-1 lg:order-2"
@@ -1483,6 +1495,7 @@ function HomeUserPageContent() {
                         <NewsArticleCard
                           key={article.id}
                           article={article as unknown as ContentArticle}
+                          onViewSummary={() => setSummaryArticle(article)}
                         />
                       );
                     }
@@ -1572,6 +1585,15 @@ function HomeUserPageContent() {
                         >
                           Read full article <span aria-hidden="true">→</span>
                         </a>
+                        {hasInsightSummary(article.summary) ? (
+                          <button
+                            type="button"
+                            onClick={() => setSummaryArticle(article)}
+                            className="mt-3 ml-3 rounded border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            View Summary
+                          </button>
+                        ) : null}
                         </div>
                       </div>
                     );
