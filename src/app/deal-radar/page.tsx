@@ -1010,7 +1010,7 @@ export default function DealRadarDashboardPage() {
                     <Th label="Primary Sector(s)" sortKey="sector" minWidth={180} />
                     <Th label="Transaction Status" sortKey="status" minWidth={200} />
                     <Th label="Process Stage" sortKey="stage" minWidth={130} />
-                    <Th label="Intermediary" sortKey="intermediary" minWidth={140} />
+                    <Th label="Advisor" sortKey="intermediary" minWidth={140} />
                     <Th label="Bidders" sortKey="bidders" minWidth={140} />
                     <Th label="Revenue (m)" sortKey="revenue" minWidth={110} />
                     <Th label="EV (m)" sortKey="ev" minWidth={100} />
@@ -1287,7 +1287,7 @@ export default function DealRadarDashboardPage() {
                                           borderColor: tone.border,
                                         }}
                                       >
-                                        No Intermediary
+                                        No Advisor
                                       </span>
                                     );
                                   })()
