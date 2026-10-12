@@ -8,7 +8,6 @@ import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { useNavOpen } from "@/components/layout/NavOpenContext";
 import Footer from "@/components/Footer";
-import { useMasonryGrid } from "@/hooks/useMasonryGrid";
 import {
   EntityLogoTile,
   EntityProfileHeader,
@@ -2188,9 +2187,6 @@ const CompanyDetail = () => {
   // the card at its one-time measured height, clipping content inside — e.g.
   // the Investors "+N" tag never actually revealed the rest, since expanding
   // it couldn't grow past the frozen max-height (LinkPanel clips overflow).
-  useMasonryGrid(profileGridRef, {
-    deps: [company?.id, activeProfileTab, isDescriptionExpanded],
-  });
 
   const rowOneHeightStyle = useMemo((): React.CSSProperties => {
     if (rowOneCardHeight <= 0) return {};
@@ -3207,8 +3203,6 @@ const CompanyDetail = () => {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gridAutoRows: "4px",
-      gridAutoFlow: "dense",
       columnGap: "12px",
       rowGap: 0,
       maxWidth: "100%",
@@ -3378,8 +3372,6 @@ const CompanyDetail = () => {
     .responsiveGrid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-auto-rows: 4px;
-      grid-auto-flow: dense;
       column-gap: 12px;
       row-gap: 0;
       max-width: 100%;
@@ -3412,16 +3404,22 @@ const CompanyDetail = () => {
       flex-direction: column;
       align-self: start;
     }
-    /* Everything below row 1 floats: spans are set by useMasonryGrid so cards fill any gaps. */
-    .company-grid-finance-secondary { grid-column: 3; order: -2; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
-    .company-grid-insights { grid-column: span 2; order: -1; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
+    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .company-zone-pair:empty { display: none; }
+    .company-grid-finance-secondary,
+    .company-grid-insights,
     .company-grid-product-mix,
     .company-grid-product-users,
     .company-grid-ai-risk,
     .company-grid-headcount,
-    .company-grid-management { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-management,
     .company-grid-corporate-events,
-    .company-grid-subsidiaries { grid-column: span 2; order: -1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
+    .company-grid-subsidiaries { min-width: 0; min-height: 0; display: flex; flex-direction: column; max-width: 100%; }
+    .company-grid-corporate-events,
+    .company-grid-subsidiaries { overflow: hidden; }
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
@@ -3675,7 +3673,9 @@ const CompanyDetail = () => {
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
       .company-grid-headcount,
-      .company-grid-management {
+      .company-grid-management,
+      .company-zone-main,
+      .company-zone-rail {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
@@ -3688,6 +3688,7 @@ const CompanyDetail = () => {
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
+      .company-zone-pair { grid-template-columns: 1fr !important; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -4289,192 +4290,6 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* ── Row 2: Insights (grid row 2, cols 1–2) — hidden when no I&A ── */}
-            {showInsights && (
-              <div
-                className="insights-summary-card company-grid-insights"
-                style={{
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <InsightsCard
-                  articles={companyArticles}
-                  loading={articlesLoading}
-                  totalCount={insightsTotal}
-                  rangeStart={insightsShowingFrom}
-                  rangeEnd={insightsShowingTo}
-                  canPrev={canInsightPrev}
-                  canNext={canInsightNext}
-                  onPrev={() => {
-                    if (company?.id && insightsPage > 1) {
-                      fetchCompanyArticles(company.id, insightsPage - 1);
-                    }
-                  }}
-                  onNext={() => {
-                    if (company?.id && canInsightNext) {
-                      fetchCompanyArticles(company.id, insightsPage + 1);
-                    }
-                  }}
-                  companyId={company.id}
-                  companyName={company.name}
-                />
-              </div>
-            )}
-
-            {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
-            {showProductAttributes && (
-              <div
-                className="company-grid-product-mix"
-              >
-                <ProductAttributesCard
-                  productRows={productTypeBarRows}
-                  revenueRows={revenueModelRows.map((r) => ({
-                    name: r.label,
-                    weight: r.value,
-                  }))}
-                  dataRows={productDataToggleDataRows}
-                />
-              </div>
-            )}
-
-            {showCoreProducts && (
-              <div
-                className="company-grid-product-users"
-              >
-                <ProductUsersListCard
-                  sections={coreProductsSections}
-                  useCaseSections={usersUseCaseSections}
-                  fillGridCell
-                />
-              </div>
-            )}
-
-            {aiRiskData != null && aiRiskData.axes.length > 0 && (
-              <div className="company-grid-ai-risk">
-                <AIRiskCard
-                  fillGridCell
-                  axes={aiRiskData.axes}
-                  avgDefensibility={aiRiskData.avgDefensibility}
-                  tier={aiRiskData.tier}
-                  defaultActiveKey="data_moat"
-                />
-              </div>
-            )}
-
-            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Defensibility Index */}
-            {corporateEvents.length > 0 && (
-              <div className="company-grid-corporate-events">
-                <LinkPanel
-                  fillGridCell
-                  className="corporate-events-v3-card"
-                >
-                  <CorporateEventsProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    events={corporateEvents}
-                    loading={corporateEventsLoading}
-                    primarySectors={augmentedPrimarySectors}
-                    primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
-                    sectorNameToId={sectorNameToId}
-                    totalCount={ceTotal}
-                    rangeStart={ceShowingFrom}
-                    rangeEnd={ceShowingTo}
-                    canPrev={canCePrev}
-                    canNext={canCeNext}
-                    onPrev={() => {
-                      if (company?.id && cePage > 1) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
-                      }
-                    }}
-                    onNext={() => {
-                      if (company?.id && cePage < ceTotalPages) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
-                      }
-                    }}
-                    browseAllHref={
-                      company?.id
-                        ? `/corporate-events?new_company_id=${company.id}`
-                        : "/corporate-events"
-                    }
-                    fillGridCell
-                  />
-                </LinkPanel>
-              </div>
-            )}
-
-            {employeeData.length > 0 && (
-            <div className="company-grid-headcount">
-              <HeadcountCard
-                fillGridCell
-                data={employeeData.map((e) => e.employees_count)}
-                dates={employeeData.map((e) => e.date)}
-                count={currentEmployeeCount}
-                yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={employeeCountAsOf}
-                linkedinUrl={linkedinUrl}
-              />
-            </div>
-            )}
-
-            {hasSubsidiaries && (
-              <div className="company-grid-subsidiaries">
-                <LinkPanel
-                  fillGridCell
-                  className="subsidiaries-profile-card"
-                >
-                  <SubsidiariesProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                      up: T.up,
-                    }}
-                    subsidiaries={
-                      company.have_subsidiaries_companies
-                        ?.Subsidiaries_companies ?? []
-                    }
-                    acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
-                    sectorNameToId={sectorNameToId}
-                    maxInitial={3}
-                  />
-                  </LinkPanel>
-              </div>
-            )}
-
-            {hasManagement && (
-              <div className="company-grid-management">
-                <ManagementCard
-                  fillGridCell
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={4}
-                />
-              </div>
-            )}
-
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
               id="profile-financials"
@@ -4502,21 +4317,211 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights when shown) ══ */}
-            <div
-              className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-              }}
-            >
-              <FinMetricsSecondaryCard
-                subscription={finMetricsData.subscription}
-                other={finMetricsData.other}
-              />
+            {/* Fixed zones below row 1: main column (cols 1–2) and right rail (col 3) keep a set card order so positions never shift between profiles. */}
+            <div className="company-zone-main">
+              {showInsights && (
+                <div
+                  className="insights-summary-card company-grid-insights"
+                  style={{
+                    minHeight: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <InsightsCard
+                    articles={companyArticles}
+                    loading={articlesLoading}
+                    totalCount={insightsTotal}
+                    rangeStart={insightsShowingFrom}
+                    rangeEnd={insightsShowingTo}
+                    canPrev={canInsightPrev}
+                    canNext={canInsightNext}
+                    onPrev={() => {
+                      if (company?.id && insightsPage > 1) {
+                        fetchCompanyArticles(company.id, insightsPage - 1);
+                      }
+                    }}
+                    onNext={() => {
+                      if (company?.id && canInsightNext) {
+                        fetchCompanyArticles(company.id, insightsPage + 1);
+                      }
+                    }}
+                    companyId={company.id}
+                    companyName={company.name}
+                  />
+                </div>
+              )}
+
+              {corporateEvents.length > 0 && (
+                <div className="company-grid-corporate-events">
+                  <LinkPanel
+                    fillGridCell
+                    className="corporate-events-v3-card"
+                  >
+                    <CorporateEventsProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                      }}
+                      events={corporateEvents}
+                      loading={corporateEventsLoading}
+                      primarySectors={augmentedPrimarySectors}
+                      primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
+                      sectorNameToId={sectorNameToId}
+                      totalCount={ceTotal}
+                      rangeStart={ceShowingFrom}
+                      rangeEnd={ceShowingTo}
+                      canPrev={canCePrev}
+                      canNext={canCeNext}
+                      onPrev={() => {
+                        if (company?.id && cePage > 1) {
+                          void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
+                        }
+                      }}
+                      onNext={() => {
+                        if (company?.id && cePage < ceTotalPages) {
+                          void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
+                        }
+                      }}
+                      browseAllHref={
+                        company?.id
+                          ? `/corporate-events?new_company_id=${company.id}`
+                          : "/corporate-events"
+                      }
+                      fillGridCell
+                    />
+                  </LinkPanel>
+                </div>
+              )}
+
+              {hasSubsidiaries && (
+                <div className="company-grid-subsidiaries">
+                  <LinkPanel
+                    fillGridCell
+                    className="subsidiaries-profile-card"
+                  >
+                    <SubsidiariesProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                        up: T.up,
+                      }}
+                      subsidiaries={
+                        company.have_subsidiaries_companies
+                          ?.Subsidiaries_companies ?? []
+                      }
+                      acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
+                      sectorNameToId={sectorNameToId}
+                      maxInitial={3}
+                    />
+                    </LinkPanel>
+                </div>
+              )}
+
+              <div className="company-zone-pair">
+                {employeeData.length > 0 && (
+                <div className="company-grid-headcount">
+                  <HeadcountCard
+                    fillGridCell
+                    data={employeeData.map((e) => e.employees_count)}
+                    dates={employeeData.map((e) => e.date)}
+                    count={currentEmployeeCount}
+                    yoyLabel={overviewEmployeesYoY || undefined}
+                    asOf={employeeCountAsOf}
+                    linkedinUrl={linkedinUrl}
+                  />
+                </div>
+                )}
+                {hasManagement && (
+                  <div className="company-grid-management">
+                    <ManagementCard
+                      fillGridCell
+                      current={managementCurrentPeople}
+                      past={managementPastPeople}
+                      maxVisible={4}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="company-zone-rail">
+              {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights when shown) ══ */}
+              <div
+                className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
+                style={{
+                  minWidth: 0,
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
+                <FinMetricsSecondaryCard
+                  subscription={finMetricsData.subscription}
+                  other={finMetricsData.other}
+                />
+              </div>
+
+              {showProductAttributes && (
+                <div
+                  className="company-grid-product-mix"
+                >
+                  <ProductAttributesCard
+                    productRows={productTypeBarRows}
+                    revenueRows={revenueModelRows.map((r) => ({
+                      name: r.label,
+                      weight: r.value,
+                    }))}
+                    dataRows={productDataToggleDataRows}
+                  />
+                </div>
+              )}
+
+              {showCoreProducts && (
+                <div
+                  className="company-grid-product-users"
+                >
+                  <ProductUsersListCard
+                    sections={coreProductsSections}
+                    useCaseSections={usersUseCaseSections}
+                    fillGridCell
+                  />
+                </div>
+              )}
+
+              {aiRiskData != null && aiRiskData.axes.length > 0 && (
+                <div className="company-grid-ai-risk">
+                  <AIRiskCard
+                    fillGridCell
+                    axes={aiRiskData.axes}
+                    avgDefensibility={aiRiskData.avgDefensibility}
+                    tier={aiRiskData.tier}
+                    defaultActiveKey="data_moat"
+                  />
+                </div>
+              )}
+
             </div>
 
             {/* Market Overview removed */}
