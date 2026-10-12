@@ -401,7 +401,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
         {/* Transaction status */}
         {article.Transaction_status && (
-          <TransactionStatusPill status={article.Transaction_status} />
+          <TransactionStatusPill
+            status={article.Transaction_status}
+            style={{ alignSelf: "flex-start", width: "fit-content" }}
+          />
         )}
 
         {/* Summary */}
