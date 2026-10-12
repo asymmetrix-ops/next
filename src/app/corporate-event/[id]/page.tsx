@@ -643,6 +643,7 @@ const CorporateEventDetail = ({
                       entity={inv as unknown as Record<string, unknown>}
                       linkStyle={RELATED_PARTY_LINK_STYLE}
                       flagSize={ENTITY_FLAG_SIZE_PX}
+                      hideFlag
                     />
                   ) : (
                     <span>{name || "-"}</span>
@@ -720,6 +721,7 @@ const CorporateEventDetail = ({
                                 }
                                 linkStyle={RELATED_PARTY_LINK_STYLE}
                                 flagSize={ENTITY_FLAG_SIZE_PX}
+                                hideFlag
                               />
                               {idx < investorsArray.length - 1 && ", "}
                       </span>
@@ -733,6 +735,7 @@ const CorporateEventDetail = ({
                                 (nc ?? c) as unknown as Record<string, unknown>
                               }
                               flagSize={ENTITY_FLAG_SIZE_PX}
+                              hideFlag
                             />
                             {idx < investorsArray.length - 1 && ", "}
                             </span>

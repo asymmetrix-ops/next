@@ -56,6 +56,7 @@ type CorporateEventPartyLinkProps = {
   entity?: Record<string, unknown> | null;
   hqIso2?: string | null;
   flagSize?: number;
+  hideFlag?: boolean;
   /** Keeps comma on the name line when lists wrap in narrow columns. */
   trailingComma?: boolean;
 };
@@ -68,11 +69,12 @@ export const CorporateEventPartyLink: React.FC<CorporateEventPartyLinkProps> = (
   entity,
   hqIso2: hqIso2Prop,
   flagSize = COUNTRY_FLAG_INLINE_SIZE_PX,
+  hideFlag = false,
   trailingComma = false,
 }) => {
   const resolvedIso2 =
     hqIso2Prop ?? (entity ? readHqCountryIso2(entity) : null);
-  const flagEl = resolvedIso2 ? (
+  const flagEl = resolvedIso2 && !hideFlag ? (
     <CountryFlagImg iso2={resolvedIso2} size={flagSize} />
   ) : null;
 
