@@ -27,7 +27,7 @@ type Props = {
 };
 
 const ROW_GRID =
-  "minmax(0, 28%) minmax(0, 14%) minmax(0, 16%) minmax(0, 22%) minmax(0, 20%)";
+  "minmax(0, 26%) minmax(124px, 17%) minmax(0, 14%) minmax(0, 22%) minmax(0, 21%)";
 const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
 
