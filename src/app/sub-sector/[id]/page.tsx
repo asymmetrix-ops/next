@@ -13,10 +13,13 @@ import { ContentArticle, InsightsAnalysisResponse } from "@/types/insightsAnalys
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
+import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 
 const TABS = [
   { id: "all", name: "All Companies" },
   { id: "transactions", name: "Transactions" },
+  { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
 ] as const;
 
@@ -35,6 +38,8 @@ const SubSectorPage = () => {
   const params = useParams();
   const subSectorId = Number(params.id);
   const searchParams = useSearchParams();
+  // Transaction comps tab only appears when comps are tagged to this sub-sector.
+  const hasTransactionComps = useHasTransactionComps({ secondarySectorId: subSectorId }) === true;
   const [activeTab, setActiveTab] = useState<TabId>(
     (searchParams?.get("tab") as TabId) || "all"
   );
@@ -270,7 +275,7 @@ const SubSectorPage = () => {
         <div style={{ padding: "0 20px", background: T.panel }}>
           <ProfileSubnav
             sticky
-            tabs={TABS.map((tab) => ({ id: tab.id, label: tab.name }))}
+            tabs={TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => ({ id: tab.id, label: tab.name }))}
             activeTab={activeTab}
             onChange={(id) => setTab(id as TabId)}
           />
@@ -286,6 +291,10 @@ const SubSectorPage = () => {
               secondarySectorId={subSectorId}
               embedded
             />
+          )}
+
+          {activeTab === "transaction_comps" && hasTransactionComps && hasValidId && (
+            <TransactionCompsView embedded secondarySectorId={subSectorId} />
           )}
 
           {activeTab === "insights" && (

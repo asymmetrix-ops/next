@@ -22,6 +22,9 @@ import {
   CorporateEventTransactionsPanel,
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
+import { fetchCorporateEventTransactionCompsServer } from "@/app/transaction-comps/actions";
+import type { CorporateEventTransactionComp } from "@/components/transaction-comps/transactionCompsTypes";
+import { CorporateEventTransactionCompsPanel } from "@/components/corporate-events/CorporateEventTransactionCompsPanel";
 import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
@@ -269,6 +272,20 @@ const CorporateEventDetail = ({
   >([]);
   const [relatedInsights, setRelatedInsights] = useState<ContentArticle[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const [eventComps, setEventComps] = useState<CorporateEventTransactionComp[]>([]);
+  useEffect(() => {
+    const id = event?.id;
+    if (!id) return;
+    let cancelled = false;
+    fetchCorporateEventTransactionCompsServer(id).then((items) => {
+      if (!cancelled) setEventComps(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [event?.id]);
+  const hasEventComps = eventComps.length > 0;
 
   useEffect(() => {
     const run = async () => {
@@ -1039,7 +1056,8 @@ const CorporateEventDetail = ({
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-description { grid-column: 2 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-description { grid-column: 2 / span ${hasEventComps ? 1 : 2}; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-comps { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
@@ -1058,6 +1076,7 @@ const CorporateEventDetail = ({
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .ce-grid-overview,
       .ce-grid-description,
+      .ce-grid-comps,
       .ce-grid-counterparties,
       .ce-grid-advisors,
       .ce-grid-previous,
@@ -1189,6 +1208,12 @@ const CorporateEventDetail = ({
                 fillGridCell
               />
             </div>
+
+            {hasEventComps ? (
+              <div className="ce-grid-comps">
+                <CorporateEventTransactionCompsPanel comps={eventComps} />
+              </div>
+            ) : null}
 
             {hasCounterparties ? (
               <div className="ce-grid-counterparties">

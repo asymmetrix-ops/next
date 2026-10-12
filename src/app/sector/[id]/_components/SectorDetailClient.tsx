@@ -9,6 +9,18 @@ import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPane
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
 import CompactPagination from "@/components/ui/CompactPagination";
 import ProfileSubnav from "@/components/ProfileSubnav";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
+import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
+import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
+import { MultipleBasisTag } from "@/components/transaction-comps/MultipleBasisTag";
+import {
+  DEFAULT_TRANSACTION_COMPS_QUERY,
+  type MultipleBasis,
+  type TransactionCompRow,
+} from "@/components/transaction-comps/transactionCompsTypes";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import {
   SectorMostActiveTab,
   type MostActiveSubTabId,
@@ -493,6 +505,7 @@ const TABS = [
   { id: "public", name: "Public Companies" },
   { id: "subsectors", name: "Secondary Sectors" },
   { id: "transactions", name: "Transactions" },
+  { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
 ] as const;
@@ -508,16 +521,18 @@ function TabNavigation({
   activeTab,
   setActiveTab,
   counts,
+  hasTransactionComps,
 }: {
   activeTab: string;
   setActiveTab: (id: string) => void;
   counts: Partial<Record<(typeof TABS)[number]["id"], number>>;
+  hasTransactionComps: boolean;
 }) {
   return (
     <div style={{ padding: "0 20px", background: "#fff" }}>
       <ProfileSubnav
         sticky
-        tabs={TABS.map((tab) => ({
+        tabs={TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => ({
           id: tab.id,
           label: tab.name,
           count: counts[tab.id],
@@ -954,6 +969,154 @@ function MostActiveTableCard({
 // ── Most Active tab ── (see @/components/sector/SectorMostActiveTab)
 
 // ── End Most Active tab ──────────────────────────────────────────────────────
+
+// Overview tile: latest transaction comps (deal-date multiples) for companies in this primary sector.
+function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+  const [rows, setRows] = useState<TransactionCompRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTransactionCompsServer({
+      ...DEFAULT_TRANSACTION_COMPS_QUERY,
+      perPage: 10,
+      sectorIds: [sectorId],
+    })
+      .then((res) => {
+        if (!cancelled) setRows(res?.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sectorId]);
+
+  const mult = (v?: number | null, basis?: MultipleBasis | null) =>
+    v == null ? (
+      "–"
+    ) : (
+      <>
+        {`${v.toFixed(1)}x`}
+        <MultipleBasisTag basis={basis} />
+      </>
+    );
+  const numCell: React.CSSProperties = {
+    padding: "11px 14px",
+    textAlign: "right",
+    borderBottom: `1px solid ${LINE_2}`,
+    fontVariantNumeric: "tabular-nums",
+  };
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: `1px solid ${LINE}`,
+        borderRadius: R_LG,
+        boxShadow: SH_SM,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: 535,
+        minWidth: 0,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>Transaction comps</h2>
+        <a
+          href="?tab=transaction_comps"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: BLUE_600,
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          View all →
+        </a>
+      </div>
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {rows === null ? (
+          <div style={{ padding: 24, textAlign: "center", color: MUTED, fontSize: 13 }}>Loading…</div>
+        ) : rows.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", color: MUTED, fontSize: 13 }}>
+            No transaction comps for this sector yet
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Target", `EV (${currencySymbol}m)`, "EV / Rev", "EV / EBITDA"].map((h, i) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "9px 14px",
+                      textAlign: i === 0 ? "left" : "right",
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: MUTED,
+                      background: TINT,
+                      borderBottom: `1px solid ${LINE_2}`,
+                      position: "sticky",
+                      top: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const acquirer = r.acquirers?.map((a) => a.name).join(", ");
+                return (
+                  <tr key={`${r.company_id}-${r.corporate_event?.id ?? ""}`}>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <CompanyAvatar name={r.company_name} logo={r.logo} size={30} />
+                        <div style={{ minWidth: 0 }}>
+                          <a
+                            href={`/company/${r.company_id}`}
+                            style={{ fontWeight: 700, color: BLUE_600, textDecoration: "none" }}
+                          >
+                            {r.company_name}
+                          </a>
+                          <div style={{ fontSize: 12, color: MUTED_SOFT, marginTop: 2 }}>
+                            {[r.deal_date, acquirer && `to ${acquirer}`].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={numCell}>{r.ev_m ? r.ev_m.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
+                    <td style={numCell}>{mult(r.ev_revenue, r.ev_revenue_basis)}</td>
+                    <td style={numCell}>{mult(r.ev_ebitda, r.ev_ebitda_basis)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function RecentTransactionsCard({
   transactions,
@@ -1430,6 +1593,9 @@ const SectorDetailPage = ({
 }: SectorDetailPageProps) => {
   const params = useParams();
   const sectorId = params.id as string;
+  // Transaction comps tab / overview tile only appear when comps are tagged to this sector.
+  const hasTransactionComps =
+    useHasTransactionComps({ primarySectorId: Number(sectorId) }) === true;
 
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(
     initialSectorData as SectorStatistics | null
@@ -2376,16 +2542,21 @@ const SectorDetailPage = ({
         </div>
       </div>
 
-      <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} counts={tabCounts} />
+      <TabNavigation
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        counts={tabCounts}
+        hasTransactionComps={hasTransactionComps}
+      />
 
       <main style={{ flex: 1, padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Top row: Recent Insights + Recent Transactions */}
+            {/* Top row: Recent Insights + Recent Transactions + Transaction Comps */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.15fr 1fr",
+                gridTemplateColumns: hasTransactionComps ? "repeat(3, minmax(0, 1fr))" : "1.15fr 1fr",
                 gap: 14,
                 alignItems: "start",
               }}
@@ -2435,6 +2606,7 @@ const SectorDetailPage = ({
                   </div>
                 </div>
               )}
+              {hasTransactionComps && <RecentTransactionCompsCard sectorId={Number(sectorId)} />}
             </div>
 
             {/* Market map cards */}
@@ -2687,6 +2859,8 @@ const SectorDetailPage = ({
           />
         ) : activeTab === "transactions" ? (
           <ScopedCorporateEventsPanel primarySectorId={Number(sectorId)} embedded />
+        ) : activeTab === "transaction_comps" ? (
+          <TransactionCompsView embedded primarySectorId={Number(sectorId)} />
         ) : activeTab === "insights" ? (
           <SectorInsightsTab
             sectorId={sectorId}
