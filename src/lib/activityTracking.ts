@@ -19,7 +19,10 @@ export function isActivityTrackingBlockedEmail(email?: string | null): boolean {
   if (!e) return false;
   // On the develop deployment, staff (asymmetrixintelligence.com) are tracked so the
   // Section Insights events can be tested. The dashboard filters them out of the numbers.
-  if (isDevelopDeployment() && e.endsWith("@asymmetrixintelligence.com")) {
+  if (
+    isDevelopDeployment() &&
+    (e.endsWith("@asymmetrixintelligence.com") || e === "tucha.dev@gmail.com")
+  ) {
     return false;
   }
   return (
