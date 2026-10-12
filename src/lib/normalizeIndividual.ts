@@ -89,7 +89,12 @@ export function normalizeIndividualFromApi(
 
   return {
     id: Number(raw.id),
-    advisor_individuals: String(raw.advisor_individuals ?? "").trim(),
+    advisor_individuals: String(
+      raw.advisor_individuals ??
+        raw.name ??
+        raw.full_name ??
+        ([raw.first_name, raw.last_name].filter(Boolean).join(" ") || "")
+    ).trim(),
     current_company:
       raw.current_company == null || String(raw.current_company).trim() === ""
         ? null

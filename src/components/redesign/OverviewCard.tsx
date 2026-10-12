@@ -146,15 +146,6 @@ function TransactionStatusHighlight({ label }: { label: string }) {
           height: 24,
         }}
       >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: tone.dot,
-            flexShrink: 0,
-          }}
-        />
         {label}
       </span>
     </div>

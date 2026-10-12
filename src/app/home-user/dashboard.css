@@ -238,13 +238,6 @@
   white-space: nowrap;
 }
 
-.dash-chip .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: none;
-}
-
 /* ---------------- insights feed ---------------- */
 .dash-art {
   border: 1px solid var(--dash-line);
@@ -377,11 +370,11 @@
   font-weight: 700;
 }
 
-/* ---------------- new tag design (pill + dot) ---------------- */
+/* ---------------- new tag design (pill) ---------------- */
 .dash-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   height: 20px;
   padding: 0 8px;
   border-radius: var(--dash-r-pill);
@@ -393,49 +386,35 @@
   border: 1px solid var(--nbd, var(--dash-blue-100));
 }
 
-.dash-tag i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex: none;
-  background: var(--ndot, var(--dash-blue-500));
-}
-
 .dash-tag-fund {
   --nfg: #1f35c4;
   --nbg: #f1f4fe;
   --nbd: #c6d1fb;
-  --ndot: #3d5bf3;
 }
 .dash-tag-sale {
   --nfg: #7a5605;
   --nbg: #fef6e0;
   --nbd: #f6e3b4;
-  --ndot: #e0a32e;
 }
 .dash-tag-close {
   --nfg: #0f7040;
   --nbg: #e4f5ec;
   --nbd: #c3e7d3;
-  --ndot: #17a05c;
 }
 .dash-tag-carve {
   --nfg: #0a5e75;
   --nbg: #e1f3f8;
   --nbd: #bce2ec;
-  --ndot: #1898b8;
 }
 .dash-tag-ipo {
   --nfg: #523793;
   --nbg: #f1ebfc;
   --nbd: #ddcef7;
-  --ndot: #7a5bd0;
 }
 .dash-tag-lead {
   --nfg: #3d4657;
   --nbg: #f5f7fd;
   --nbd: #e4e8f2;
-  --ndot: #8a93a8;
 }
 
 /* ---------------- news banner ---------------- */

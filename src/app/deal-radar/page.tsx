@@ -989,12 +989,6 @@ export default function DealRadarDashboardPage() {
                     : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                {f.statusId !== null && style && (
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: active ? style.dot : "#D1D5DB" }}
-                  />
-                )}
                 {f.label}
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${

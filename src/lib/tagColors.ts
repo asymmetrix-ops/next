@@ -65,11 +65,9 @@ export const TRANSACTION_STATUS_TONES: Record<string, TagTone> = {
     dot: "#17A05C",
     border: "transparent",
   },
-  "rumoured in market": {
-    text: "#7A5605",
-    fill: "#FEF6E0",
-    dot: "#E0A32E",
-    border: "transparent",
+  // Same colours as "Reported in Market" — both mean the company is in market.
+  get "rumoured in market"(): TagTone {
+    return TRANSACTION_STATUS_TONES["reported in market"];
   },
   "anticipated within 6 months": {
     text: "#182A9B",
@@ -323,12 +321,12 @@ export function pillStyleFromTone(
   };
 }
 
-/** Dotted status pill (Transaction status, News subtypes) — no visible border. */
+/** Status pill (Transaction status, News subtypes) — no dot, no visible border. */
 export function dotPillStyleFromTone(tone: TagTone, bordered = false): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
     fontSize: 11.5,
     lineHeight: 1,
     padding: "5px 10px",

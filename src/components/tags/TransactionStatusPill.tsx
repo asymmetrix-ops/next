@@ -4,7 +4,6 @@ import type { CSSProperties } from "react";
 import {
   formatTransactionStatusLabel,
   getTransactionStatusPillStyle,
-  getTransactionStatusTone,
 } from "@/lib/transactionStatusBadge";
 
 type TransactionStatusPillProps = {
@@ -21,8 +20,6 @@ export function TransactionStatusPill({
   style,
   allowWrap = false,
 }: TransactionStatusPillProps) {
-  const { dot } = getTransactionStatusTone(status);
-
   return (
     <span
       className={className}
@@ -32,23 +29,11 @@ export function TransactionStatusPill({
           ? {
               whiteSpace: "normal",
               textAlign: "center",
-              alignItems: "flex-start",
             }
           : null),
         ...style,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          backgroundColor: dot,
-          flexShrink: 0,
-          marginTop: allowWrap ? 5 : 0,
-        }}
-      />
       {formatTransactionStatusLabel(status)}
     </span>
   );

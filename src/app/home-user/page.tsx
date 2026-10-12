@@ -205,6 +205,12 @@ const DEAL_STAGE_DEFINITIONS = [
     styleKey: "rumored",
   },
   {
+    label: "Anticipated within 6 months",
+    description:
+      "Based on proprietary intelligence obtained by Asymmetrix, a sale process is expected to launch within the next six months.",
+    styleKey: "anticipated",
+  },
+  {
     label: "Anticipated within 18 months",
     description:
       "Asymmetrix assessment that a transaction is expected in the near- to medium-term based on factors such as sponsor fund lifecycle, ownership hold period, increase in transaction activity in company's sector or market chatter.",
@@ -1207,7 +1213,6 @@ function HomeUserPageContent() {
                       <span className="dash-news-item-meta">
                         {newsSubType ? (
                           <span className={dashNewsSubtypeTagClass(newsSubType)}>
-                            <i aria-hidden="true" />
                             {newsSubType}
                           </span>
                         ) : null}

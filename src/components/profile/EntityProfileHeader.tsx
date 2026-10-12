@@ -154,7 +154,6 @@ export function EntityProfileHeader({
       className="entity-profile-header"
       style={{
         backgroundColor: "#fff",
-        borderBottom: `1px solid ${T.divider}`,
         padding: "0 24px",
       }}
     >
@@ -165,7 +164,9 @@ export function EntityProfileHeader({
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: 12,
-          padding: showTabs ? "20px 0 12px" : "20px 0",
+          minHeight: 80,
+          boxSizing: "border-box",
+          padding: showTabs ? 0 : "20px 0",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: "1 1 280px" }}>
@@ -213,7 +214,7 @@ export function EntityProfileHeader({
       </div>
 
       {showTabs ? (
-        <div style={{ marginBottom: 16 }}>
+        <div>
           <ProfileSubnav
             tabs={tabs!}
             activeTab={activeTab ?? ""}

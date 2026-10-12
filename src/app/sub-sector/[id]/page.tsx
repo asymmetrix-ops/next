@@ -173,7 +173,6 @@ const SubSectorPage = () => {
         <div
           style={{
             background: T.panel,
-            borderBottom: `1px solid ${T.divider}`,
             padding: "18px 20px 16px",
           }}
         >

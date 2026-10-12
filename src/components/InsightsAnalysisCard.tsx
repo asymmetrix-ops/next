@@ -294,16 +294,6 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 whiteSpace: "nowrap",
               }}
             >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 999,
-                  background: accent.fg,
-                  flexShrink: 0,
-                }}
-              />
               {effectiveContentType}
             </span>
           ) : (

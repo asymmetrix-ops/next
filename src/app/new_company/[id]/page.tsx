@@ -3539,11 +3539,11 @@ const CompanyDetail = () => {
     <div className="company-detail-page" style={styles.container}>
 
       {/* ── Company profile header bar ── */}
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+      <div style={{ backgroundColor: T.paper, padding: "0 24px" }}>
         {/* Top row: logo + name + badges + actions */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
+          flexWrap: "wrap" as const, gap: "12px", padding: "0", minHeight: 80, boxSizing: "border-box" as const,
         }}>
           {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>

@@ -462,6 +462,7 @@ export function LinkPanel({
         ...(fillGridCell
           ? {
               height: "100%",
+              flex: "1 1 auto",
               display: "flex" as const,
               flexDirection: "column" as const,
               minHeight: 0,

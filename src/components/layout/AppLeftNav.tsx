@@ -338,7 +338,7 @@ export default function AppLeftNav() {
           transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
         }}
       >
-      <div className="flex shrink-0 flex-col items-start gap-1 overflow-x-hidden border-b border-gray-100 px-3 py-1.5">
+      <div className="flex shrink-0 flex-col items-start gap-1 overflow-x-hidden px-3 py-1.5">
         <Link
           href={DASHBOARD_HREF}
           className="flex h-7 w-7 shrink-0 items-center justify-center"
@@ -367,7 +367,7 @@ export default function AppLeftNav() {
       {/* Always rendered so the menu below keeps the same vertical position on the dashboard
           (/home-user has its own hero search): it is hidden, not removed, there. */}
       <div
-        className={`shrink-0 overflow-x-hidden border-b border-gray-100 px-2 py-1${
+        className={`shrink-0 overflow-x-hidden flex h-[46px] items-center border-b border-gray-100 px-2${open ? " [&>*]:w-full" : ""}${
           pathname.startsWith("/home-user") ? " invisible" : ""
         }`}
         aria-hidden={pathname.startsWith("/home-user") ? true : undefined}
@@ -379,7 +379,7 @@ export default function AppLeftNav() {
             type="button"
             onClick={openSearch}
             aria-label="Search"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            className="ml-2 flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
           >
             <svg
               width={15}
