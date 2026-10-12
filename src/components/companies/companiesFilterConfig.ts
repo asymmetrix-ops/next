@@ -78,6 +78,7 @@ export function buildCompaniesFilterDefs({
   primarySectors,
   secondarySectors,
   ownershipTypes,
+  transactionStatusOptions,
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -87,6 +88,7 @@ export function buildCompaniesFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
+  transactionStatusOptions?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     region: { options: continentalRegions },
@@ -98,7 +100,11 @@ export function buildCompaniesFilterDefs({
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
     transaction: {
-      options: [...COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS],
+      options: [
+        ...(transactionStatusOptions && transactionStatusOptions.length > 0
+          ? transactionStatusOptions
+          : COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS),
+      ],
     },
     year_founded: {
       min: 1800,

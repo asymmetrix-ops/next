@@ -13,6 +13,7 @@ import {
   buildCompaniesSearchPayload,
 } from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
+import { fetchTransactionStatuses } from "@/lib/transactionStatuses";
 import {
   CompaniesFilterBar,
   FilterBarState,
@@ -24,6 +25,7 @@ import type { Filters } from "@/components/companies/CompanySection";
 import {
   FILTER_CATEGORIES,
   buildCompaniesFilterDefs,
+  COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS,
   OTHER_OWNERSHIP_TOOLTIP_LABELS,
   OWNERSHIP_OTHER_TOOLTIP_STYLES,
   OWNERSHIP_TAB_CONFIG,
@@ -152,6 +154,9 @@ export const CompanyDashboard = ({
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
+  const [transactionStatusOptions, setTransactionStatusOptions] = useState<string[]>([
+    ...COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS,
+  ]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
@@ -169,6 +174,13 @@ export const CompanyDashboard = ({
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
+    // Transaction statuses (populates the "Transaction Status" filter options)
+    fetchTransactionStatuses()
+      .then((statuses) => {
+        const labels = statuses.map((s) => s.label.trim()).filter(Boolean);
+        if (labels.length > 0) setTransactionStatusOptions(labels);
+      })
+      .catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -249,6 +261,7 @@ export const CompanyDashboard = ({
       primarySectors,
       secondarySectors,
       ownershipTypes,
+      transactionStatusOptions,
     });
     const merged = [...extraFilterDefs, ...defs].filter(
       (def) => def.id !== "state"
@@ -264,6 +277,7 @@ export const CompanyDashboard = ({
     primarySectors,
     secondarySectors,
     ownershipTypes,
+    transactionStatusOptions,
     excludeFilterIds,
     extraFilterDefs,
   ]);
