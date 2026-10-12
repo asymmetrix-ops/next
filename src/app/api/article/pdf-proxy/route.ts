@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,10 @@ export async function GET(req: NextRequest) {
   if (!rawUrl) {
     return new Response("Missing url parameter", { status: 400 });
   }
+  // Optional: forces the browser to save the file instead of rendering it
+  // inline, and lets us control the suggested filename (e.g. for the
+  // "Download PDF" button next to the embedded viewer).
+  const downloadName = req.nextUrl.searchParams.get("download");
 
   let target: URL;
   try {
@@ -61,6 +66,18 @@ export async function GET(req: NextRequest) {
     }
   });
 
+  // A plain <a download> navigation (used by the "Download PDF" button)
+  // can't attach an Authorization header. Fall back to the auth cookie so
+  // the download still works without requiring a fetch/blob round-trip.
+  if (!upstreamHeaders.has("authorization")) {
+    const cookieToken = (await cookies())
+      .get("asymmetrix_auth_token")
+      ?.value?.trim();
+    if (cookieToken) {
+      upstreamHeaders.set("Authorization", `Bearer ${cookieToken}`);
+    }
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(target.toString(), {
@@ -75,6 +92,14 @@ export async function GET(req: NextRequest) {
   for (const key of FORWARDED_RESPONSE_HEADERS) {
     const value = upstream.headers.get(key);
     if (value) responseHeaders.set(key, value);
+  }
+
+  if (downloadName) {
+    const safeName = downloadName.replace(/["\r\n]/g, "").trim() || "document.pdf";
+    responseHeaders.set(
+      "content-disposition",
+      `attachment; filename="${safeName}"`
+    );
   }
 
   return new Response(upstream.body, {

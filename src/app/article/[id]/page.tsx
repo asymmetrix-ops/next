@@ -1702,6 +1702,12 @@ const ArticleDetailPage = () => {
               );
               if (embeddablePdfDoc) {
                 const embeddedPdfUrl = getRelatedDocumentUrl(embeddablePdfDoc);
+                const pdfFileName =
+                  embeddablePdfDoc.name?.trim() ||
+                  `${article.Headline || "document"}.pdf`;
+                const downloadHref = `/api/article/pdf-proxy?url=${encodeURIComponent(
+                  embeddedPdfUrl
+                )}&download=${encodeURIComponent(pdfFileName)}`;
                 return (
                   <div
                     style={styles.body}
@@ -1710,6 +1716,8 @@ const ArticleDetailPage = () => {
                     <EmbeddedArticlePdf
                       url={embeddedPdfUrl}
                       title={embeddablePdfDoc.name || "Document"}
+                      downloadHref={downloadHref}
+                      downloadName={pdfFileName}
                     />
                   </div>
                 );
@@ -2566,6 +2574,46 @@ const ArticleDetailPage = () => {
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
           /* Embedded PDF viewer (vertical slider) shown in place of an empty body */
+          .article-body a.article-pdf-embed-download,
+          .article-pdf-embed-download {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+            padding: 9px 16px;
+            border-radius: 8px;
+            border: 1px solid #2A46EA;
+            background: #2A46EA;
+            color: #fff !important;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none !important;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(10, 14, 26, 0.18);
+            transition: background 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease;
+          }
+          .article-pdf-embed-download svg {
+            flex-shrink: 0;
+            display: block;
+          }
+          .article-body a.article-pdf-embed-download:hover,
+          .article-pdf-embed-download:hover {
+            background: #1F35C2;
+            border-color: #1F35C2;
+            box-shadow: 0 4px 12px rgba(10, 14, 26, 0.24);
+          }
+          .article-body a.article-pdf-embed-download:visited,
+          .article-pdf-embed-download:visited {
+            color: #fff !important;
+          }
           .article-pdf-embed {
             user-select: none;
             -webkit-user-select: none;
