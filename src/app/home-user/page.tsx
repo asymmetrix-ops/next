@@ -1641,7 +1641,10 @@ export default function HomeUserPage() {
   };
 
   return (
-    <div className="dash h-screen overflow-hidden flex">
+    <div
+      className="dash h-screen overflow-hidden flex"
+      data-entry-source="dashboard"
+    >
       <DashboardLeftNav
         open={leftNavOpen}
         onToggleOpen={() => setLeftNavOpen((v) => !v)}
@@ -1714,7 +1717,10 @@ export default function HomeUserPage() {
             />
 
             {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
-              <div className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg">
+              <div
+                data-entry-source="global_search"
+                className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg"
+              >
                 {searchLoading && searchResults.length === 0 ? (
                   <div className="px-3 py-3 text-xs text-gray-600">
                     Searching…
@@ -1897,6 +1903,7 @@ export default function HomeUserPage() {
             onClick={closeSearchPopup}
           >
             <div
+              data-entry-source="global_search"
               className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >

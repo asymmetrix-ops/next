@@ -287,6 +287,7 @@ export default function AppLeftNav() {
 
   return (
     <aside
+      data-entry-source="left_menu"
       className="sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none"
       style={{
         width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,

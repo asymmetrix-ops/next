@@ -3,9 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 type EventType =
   | "login"
   | "page_view"
+  | "key_action"
   | "logout"
   | "error"
-  | "platform_wide_search";
+  | "download_pdf"
+  | "platform_wide_search"
+  | "company_search";
+
+const ENTRY_SOURCES = [
+  "left_menu",
+  "global_search",
+  "dashboard",
+  "company_profile",
+  "other_section",
+  "daily_email",
+  "direct_url",
+] as const;
+const SECTIONS = ["transaction_comps", "deal_radar", "news"] as const;
+const TARGET_TYPES = ["company", "corporate_event", "article"] as const;
 
 interface UserActivityPayload {
   user_id: number;
@@ -14,6 +29,13 @@ interface UserActivityPayload {
   session_id: string;
   event_type: EventType;
   query?: string;
+  entry_source?: (typeof ENTRY_SOURCES)[number];
+  section?: (typeof SECTIONS)[number];
+  action?: string;
+  action_detail?: string;
+  target_type?: (typeof TARGET_TYPES)[number];
+  target_id?: number;
+  results_count?: number;
 }
 
 const XANO_ENDPOINT =
@@ -35,9 +57,12 @@ export async function POST(req: NextRequest) {
     const allowed: EventType[] = [
       "login",
       "page_view",
+      "key_action",
       "logout",
       "error",
+      "download_pdf",
       "platform_wide_search",
+      "company_search",
     ];
     if (!event_type || !allowed.includes(event_type as EventType)) {
       return NextResponse.json(
@@ -56,6 +81,28 @@ export async function POST(req: NextRequest) {
     const queryVal = body.query;
     if (queryVal != null && typeof queryVal === "string" && queryVal.trim() !== "") {
       payload.query = queryVal.trim();
+    }
+
+    // Section Insights fields: optional; strict enums are dropped when invalid so the event is not lost.
+    const pick = <T extends string>(v: unknown, list: readonly T[]) =>
+      typeof v === "string" && (list as readonly string[]).includes(v)
+        ? (v as T)
+        : undefined;
+    const entrySource = pick(body.entry_source, ENTRY_SOURCES);
+    if (entrySource) payload.entry_source = entrySource;
+    const section = pick(body.section, SECTIONS);
+    if (section) payload.section = section;
+    if (typeof body.action === "string" && /^[a-z_]{1,64}$/.test(body.action)) {
+      payload.action = body.action;
+    }
+    if (typeof body.action_detail === "string" && body.action_detail.trim()) {
+      payload.action_detail = body.action_detail.trim().slice(0, 128);
+    }
+    const targetType = pick(body.target_type, TARGET_TYPES);
+    if (targetType) payload.target_type = targetType;
+    if (Number.isInteger(body.target_id)) payload.target_id = body.target_id;
+    if (Number.isInteger(body.results_count) && (body.results_count as number) >= 0) {
+      payload.results_count = body.results_count;
     }
 
     const upstream = await fetch(XANO_ENDPOINT, {

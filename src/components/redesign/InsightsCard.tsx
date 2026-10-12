@@ -8,6 +8,7 @@ import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { hasInsightSummary } from "@/lib/insightSummary";
+import { trackKeyAction } from "@/lib/tracking";
 import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
 import {
   decodeHtmlEntities,
@@ -244,6 +245,16 @@ function ArticleRow({
           <Link
             href={`/article/${article.id}`}
             prefetch={false}
+            onClick={() => {
+              if (isNews) {
+                trackKeyAction({
+                  section: "news",
+                  action: "read_full_article_clicked",
+                  targetType: "article",
+                  targetId: article.id,
+                });
+              }
+            }}
             style={{ color: T.azure, fontSize: 13, fontWeight: 500, textDecoration: "none" }}
           >
             {isNews ? "Read more →" : "Open report →"}
@@ -361,7 +372,17 @@ export function InsightsCard({
     totalCount > 0 ? `${rangeStart}–${rangeEnd} of ${totalCount}` : "0 of 0";
 
   const [summaryArticle, setSummaryArticle] = useState<ContentArticle | null>(null);
-  const handleViewSummary = useCallback((a: ContentArticle) => setSummaryArticle(a), []);
+  const handleViewSummary = useCallback((a: ContentArticle) => {
+    if (isNewsArticle(a)) {
+      trackKeyAction({
+        section: "news",
+        action: "view_summary_opened",
+        targetType: "article",
+        targetId: a.id,
+      });
+    }
+    setSummaryArticle(a);
+  }, []);
   const handleCloseModal = useCallback(() => setSummaryArticle(null), []);
 
   const resolvedBrowseAllHref =
@@ -380,6 +401,16 @@ export function InsightsCard({
       <InsightSummaryModal
         article={summaryArticle}
         onClose={handleCloseModal}
+        onFullArticleClick={() => {
+          if (isNewsArticle(summaryArticle)) {
+            trackKeyAction({
+              section: "news",
+              action: "read_full_article_clicked",
+              targetType: "article",
+              targetId: summaryArticle.id,
+            });
+          }
+        }}
       />
     )}
     <LinkPanel fillGridCell={fillGridCell}>

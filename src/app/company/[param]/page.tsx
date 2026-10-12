@@ -3651,7 +3651,11 @@ const CompanyDetail = () => {
 
   return (
     <AppShell>
-    <div className="company-detail-page" style={styles.container}>
+    <div
+      className="company-detail-page"
+      data-entry-source="company_profile"
+      style={styles.container}
+    >
       <EntityProfileHeader
         logo={
           <EntityLogoTile

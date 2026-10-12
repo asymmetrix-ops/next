@@ -1,11 +1,48 @@
 export type TrackingEventType =
   | "login"
   | "page_view"
+  | "key_action"
   | "logout"
   | "error"
   | "download_pdf"
   | "platform_wide_search"
   | "company_search";
+
+/** Section Insights: where the user came from on a page view. Strict enum on the server. */
+export type EntrySource =
+  | "left_menu"
+  | "global_search"
+  | "dashboard"
+  | "company_profile"
+  | "other_section"
+  | "daily_email"
+  | "direct_url";
+
+export type TrackingSection = "transaction_comps" | "deal_radar" | "news";
+
+export type TrackingTargetType = "company" | "corporate_event" | "article";
+
+/** Free-text qualifiers: one fixed lowercase_underscore list per section, used everywhere. */
+export type TransactionCompsTab = "list_view" | "comp_set" | "comp_identifier";
+
+export type KeyActionName =
+  // transaction_comps
+  | "tab_opened"
+  | "filter_applied"
+  | "target_company_selected"
+  | "peer_set_saved"
+  | "peer_sets_compared"
+  | "comp_clicked_through"
+  | "export"
+  | "search"
+  // deal_radar
+  | "column_sorted"
+  | "company_clicked_through"
+  // news
+  | "article_opened"
+  | "view_summary_opened"
+  | "read_full_article_clicked"
+  | "company_of_focus_clicked";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 import { getDeviceType } from "@/lib/device";
@@ -18,6 +55,13 @@ export interface TrackingEventInput {
   eventType: TrackingEventType;
   query?: string | null;
   filtersUsed?: Record<string, unknown>;
+  entrySource?: EntrySource;
+  section?: TrackingSection;
+  action?: KeyActionName;
+  actionDetail?: string;
+  targetType?: TrackingTargetType;
+  targetId?: number;
+  resultsCount?: number;
 }
 
 const SESSION_KEY = "asym_session_id";
@@ -26,18 +70,85 @@ const recentEvents = new Map<string, number>();
 
 // NOTE: Global activity tracking block rule lives in `src/lib/activityTracking.ts`
 
+const LAST_ACTIVITY_KEY = "asym_last_activity";
+// Matches the server-side visit rule: a new visit starts after 30 minutes without activity.
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+
+function newSessionId(): string {
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+}
+
+/** Start a fresh session id (used on login and logout). */
+export function rotateSessionId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_KEY, newSessionId());
+    sessionStorage.removeItem(LAST_ACTIVITY_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
   try {
+    const now = Date.now();
     const existing = sessionStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const id = crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random()}`;
+    const last = Number(sessionStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+    // A tab left open overnight comes back with a new session id.
+    const id = existing && !(last && now - last > SESSION_IDLE_MS)
+      ? existing
+      : newSessionId();
     sessionStorage.setItem(SESSION_KEY, id);
+    sessionStorage.setItem(LAST_ACTIVITY_KEY, String(now));
     return id;
   } catch {
     return "";
+  }
+}
+
+const ENTRY_SOURCE_KEY = "asym_entry_source";
+// A stored source older than this belongs to a click that never navigated.
+const ENTRY_SOURCE_TTL_MS = 10_000;
+
+/** Remember the source of the navigation about to happen; the next page view reads and clears it. */
+export function setEntrySource(source: EntrySource): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      ENTRY_SOURCE_KEY,
+      JSON.stringify({ source, at: Date.now() })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+let lastPageEntrySource: EntrySource = "direct_url";
+/** Entry source of the most recent page view, for key actions that report where the user came from. */
+export function setLastPageEntrySource(source: EntrySource): void {
+  lastPageEntrySource = source;
+}
+export function getLastPageEntrySource(): EntrySource {
+  return lastPageEntrySource;
+}
+
+/** Read and clear the stored source. Falls back to direct_url when nothing fresh is stored. */
+export function consumeEntrySource(): EntrySource {
+  if (typeof window === "undefined") return "direct_url";
+  try {
+    const raw = sessionStorage.getItem(ENTRY_SOURCE_KEY);
+    sessionStorage.removeItem(ENTRY_SOURCE_KEY);
+    if (!raw) return "direct_url";
+    const { source, at } = JSON.parse(raw) as { source?: EntrySource; at?: number };
+    if (!source || typeof at !== "number" || Date.now() - at > ENTRY_SOURCE_TTL_MS) {
+      return "direct_url";
+    }
+    return source;
+  } catch {
+    return "direct_url";
   }
 }
 
@@ -338,6 +449,20 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     }`;
     if (!shouldSendOnce(key, 2000)) return;
   }
+  if (input.eventType === "key_action") {
+    // Guards double clicks and re-render double fires; identical actions 600ms apart count once.
+    const key = [
+      "key_action",
+      finalUserId,
+      input.section,
+      input.action,
+      input.actionDetail ?? "",
+      input.targetType ?? "",
+      input.targetId ?? "",
+      input.query ?? "",
+    ].join("|");
+    if (!shouldSendOnce(key, 600)) return;
+  }
   const payload = {
     user_id: finalUserId,
     page_visit: input.pageVisit ?? getPageVisit(),
@@ -361,10 +486,24 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     input.filtersUsed && typeof input.filtersUsed === "object"
       ? (input.filtersUsed as Record<string, unknown>)
       : {};
-  const payloadFinal =
+  const withFilters =
     input.eventType === "company_search"
       ? { ...withQuery, filters_used: filtersValue }
       : withQuery;
+  const payloadFinal = {
+    ...withFilters,
+    ...(input.entrySource ? { entry_source: input.entrySource } : {}),
+    ...(input.section ? { section: input.section } : {}),
+    ...(input.action ? { action: input.action } : {}),
+    ...(input.actionDetail ? { action_detail: input.actionDetail } : {}),
+    ...(input.targetType ? { target_type: input.targetType } : {}),
+    ...(typeof input.targetId === "number" && Number.isFinite(input.targetId)
+      ? { target_id: input.targetId }
+      : {}),
+    ...(typeof input.resultsCount === "number" && Number.isFinite(input.resultsCount)
+      ? { results_count: input.resultsCount }
+      : {}),
+  };
 
   try {
     await fetch("/api/user-activity", {
@@ -378,16 +517,47 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
   }
 }
 
-export function trackPageView(userId?: number): Promise<void> {
-  return trackEvent({ eventType: "page_view", userId });
+export function trackPageView(
+  userId?: number,
+  entrySource?: EntrySource
+): Promise<void> {
+  return trackEvent({ eventType: "page_view", userId, entrySource });
+}
+
+export interface KeyActionInput {
+  section: TrackingSection;
+  action: KeyActionName;
+  actionDetail?: string;
+  targetType?: TrackingTargetType;
+  targetId?: number | string | null;
+  query?: string;
+  resultsCount?: number;
+}
+
+/** Fire-and-forget: one event per user action, never blocks the UI. */
+export function trackKeyAction(input: KeyActionInput): void {
+  const id =
+    input.targetId == null ? undefined : Number.parseInt(String(input.targetId), 10);
+  void trackEvent({
+    eventType: "key_action",
+    section: input.section,
+    action: input.action,
+    actionDetail: input.actionDetail,
+    targetType: input.targetType,
+    targetId: Number.isFinite(id) ? id : undefined,
+    query: input.query,
+    resultsCount: input.resultsCount,
+  }).catch(() => {});
 }
 
 export function trackLogin(userId?: number): Promise<void> {
+  rotateSessionId();
   return trackEvent({ eventType: "login", userId });
 }
 
-export function trackLogout(userId?: number): Promise<void> {
-  return trackEvent({ eventType: "logout", userId });
+export async function trackLogout(userId?: number): Promise<void> {
+  await trackEvent({ eventType: "logout", userId });
+  rotateSessionId();
 }
 
 export function trackError(details: string, userId?: number): Promise<void> {

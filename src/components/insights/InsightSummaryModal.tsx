@@ -16,6 +16,8 @@ type Props = {
   onClose: () => void;
   articleHref?: string;
   footerLinkLabel?: string;
+  /** Fired when the user follows the link through to the full article. */
+  onFullArticleClick?: () => void;
 };
 
 export function InsightSummaryModal({
@@ -23,6 +25,7 @@ export function InsightSummaryModal({
   onClose,
   articleHref,
   footerLinkLabel = "Open full report →",
+  onFullArticleClick,
 }: Props) {
   const items = parseSummaryItems(article.summary);
   const headline = article.Headline?.trim() || "";
@@ -80,6 +83,7 @@ export function InsightSummaryModal({
             id="insight-summary-title"
             href={href}
             prefetch={false}
+            onClick={onFullArticleClick}
             style={{
               fontSize: 14,
               fontWeight: 600,
@@ -162,6 +166,7 @@ export function InsightSummaryModal({
           <Link
             href={href}
             prefetch={false}
+            onClick={onFullArticleClick}
             style={{
               color: T.azure,
               fontSize: 13,
