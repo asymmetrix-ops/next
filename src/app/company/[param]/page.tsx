@@ -3322,12 +3322,12 @@ const CompanyDetail = () => {
       align-self: stretch;
     }
     /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
-    /* Both zones stretch to the taller one; the last card in each grows so the columns end on the same line. */
-    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    /* Fixed zones: any leftover gap sits at the bottom-left (main column shorter than the rail). */
+    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    /* Rail stretches to the main column when that is taller, so a gap is never left bottom-right. */
     .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
-    .company-zone-main > :last-child,
     .company-zone-rail > :last-child { flex: 1 1 auto; }
-    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     .company-zone-pair:empty { display: none; }
     .company-grid-finance-secondary,
     .company-grid-insights,
@@ -4408,7 +4408,7 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "rail" as const, weight: 440, movable: true, show: Boolean(showProductAttributes), node: () => (
+                { id: "productmix", col: "rail" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => (
                 <div
                   className="company-grid-product-mix"
                 >
@@ -4422,7 +4422,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "coreproducts", col: "rail" as const, weight: 200, movable: true, show: Boolean(showCoreProducts), node: () => (
+                { id: "coreproducts", col: "rail" as const, weight: 200, movable: false, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
                 >
@@ -4433,7 +4433,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "airisk", col: "rail" as const, weight: 520, movable: true, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
+                { id: "airisk", col: "rail" as const, weight: 520, movable: false, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
                 <div className="company-grid-ai-risk">
                   <AIRiskCard
                     fillGridCell
@@ -4454,34 +4454,27 @@ const CompanyDetail = () => {
                 for (let k = 0; k < a.length; k += 2) t += Math.max(a[k].weight, a[k + 1]?.weight ?? 0);
                 return t;
               };
-              const order = (a: ZoneCard[]) => [...a].sort((x, y) => cards.indexOf(x) - cards.indexOf(y));
               let pairCards = [...pair];
               let railCards = [...rail];
               const mainH = (p: ZoneCard[]) => sum(wide) + pairWeight(p);
-              // Greedy balance: repeatedly make the single move (rail -> main pair grid
-              // or main pair grid -> rail) that most reduces the column height gap.
-              for (let guard = 0; guard < 8; guard++) {
-                const gap = Math.abs(sum(railCards) - mainH(pairCards));
-                let best: { gap: number; from: "rail" | "pair"; card: ZoneCard } | null = null;
-                for (const c of railCards) {
-                  if (!c.movable) continue;
-                  const g = Math.abs(sum(railCards) - c.weight - mainH(order([...pairCards, c])));
-                  if (g < gap && (!best || g < best.gap)) best = { gap: g, from: "rail", card: c };
-                }
+              // Positions are fixed: product / AI cards always live in the right rail.
+              // Only Headcount / Management may hop from the main column to the rail
+              // when the main column is taller, so any leftover gap is always in the
+              // bottom-left corner (main column shorter than the rail), never the right.
+              const cost = (mainHeight: number, railHeight: number) =>
+                mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
+              for (let guard = 0; guard < 4; guard++) {
+                const current = cost(mainH(pairCards), sum(railCards));
+                let best: { cost: number; card: ZoneCard } | null = null;
                 for (const c of pairCards) {
                   if (!c.movable) continue;
-                  const g = Math.abs(sum(railCards) + c.weight - mainH(pairCards.filter((x) => x !== c)));
-                  if (g < gap && (!best || g < best.gap)) best = { gap: g, from: "pair", card: c };
+                  const k = cost(mainH(pairCards.filter((x) => x !== c)), sum(railCards) + c.weight);
+                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c };
                 }
                 if (!best) break;
                 const moving = best.card;
-                if (best.from === "rail") {
-                  railCards = railCards.filter((x) => x !== moving);
-                  pairCards = order([...pairCards, moving]);
-                } else {
-                  pairCards = pairCards.filter((x) => x !== moving);
-                  railCards = [...railCards, moving];
-                }
+                pairCards = pairCards.filter((x) => x !== moving);
+                railCards = [...railCards, moving];
               }
               return (
                 <>
