@@ -3204,7 +3204,7 @@ const CompanyDetail = () => {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
       columnGap: "12px",
-      rowGap: 0,
+      rowGap: "12px",
       maxWidth: "100%",
       overflow: "hidden",
       alignItems: "start",
@@ -3373,7 +3373,7 @@ const CompanyDetail = () => {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       column-gap: 12px;
-      row-gap: 0;
+      row-gap: 12px;
       max-width: 100%;
       align-items: start;
     }
