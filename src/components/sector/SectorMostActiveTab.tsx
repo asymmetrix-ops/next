@@ -13,11 +13,14 @@ import {
 import { AdvisedEntitiesList } from "@/components/advisors/AdvisedEntitiesList";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import CompactPagination from "@/components/ui/CompactPagination";
-import { ADVISORS_API_BASE } from "@/lib/advisorsApiBase";
 import {
   advisorSearchPayloadToSearchParams,
   buildAdvisorSearchPayloadFromClauses,
 } from "@/lib/advisorFilterBuilder";
+import {
+  fetchSectorMostActiveAdvisorsServer,
+  fetchSectorMostActiveRankedServer,
+} from "@/app/sector/most-active-actions";
 import {
   type RankedEntity,
   mapRankedEntities,
@@ -28,7 +31,6 @@ import {
   getFirstMatchingNumber,
 } from "@/lib/sectorMostActiveRanked";
 
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
 
 export const MOST_ACTIVE_SUB_TABS = [
   { id: "strategics", label: "Strategic Acquirers" },
@@ -470,43 +472,23 @@ export function SectorMostActiveTab({
     async (page: number) => {
       setStrategicsState((prev) => ({ ...prev, loading: true }));
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setStrategicsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) {
           setStrategicsState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_strategic_acquirers?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const raw = await fetchSectorMostActiveRankedServer(
+          "strategics",
+          sectorIdNum,
+          page
         );
-
-        if (!resp.ok) {
+        if (!raw) {
           setStrategicsState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const data = await resp.json() as {
+        const data = raw as {
           items?: unknown[];
           total?: number;
           total_pages?: number;
@@ -530,43 +512,23 @@ export function SectorMostActiveTab({
     async (page: number) => {
       setPeState((prev) => ({ ...prev, loading: true }));
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setPeState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) {
           setPeState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_pe_investors?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const raw = await fetchSectorMostActiveRankedServer(
+          "pe",
+          sectorIdNum,
+          page
         );
-
-        if (!resp.ok) {
+        if (!raw) {
           setPeState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const data = await resp.json() as {
+        const data = raw as {
           items?: unknown[];
           total?: number;
           total_pages?: number;
@@ -590,43 +552,23 @@ export function SectorMostActiveTab({
     async (page: number) => {
       setVcState((prev) => ({ ...prev, loading: true }));
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setVcState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) {
           setVcState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const qs = new URLSearchParams();
-        qs.set("Sector_id", String(sectorIdNum));
-        qs.set("limit", "25");
-        qs.set("offset", String((page - 1) * 25));
-
-        const resp = await fetch(
-          `${SECTOR_API_BASE}/sectors_vc_investors?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const raw = await fetchSectorMostActiveRankedServer(
+          "venture",
+          sectorIdNum,
+          page
         );
-
-        if (!resp.ok) {
+        if (!raw) {
           setVcState((prev) => ({ ...prev, loading: false }));
           return;
         }
 
-        const data = await resp.json() as {
+        const data = raw as {
           items?: unknown[];
           total?: number;
           total_pages?: number;
@@ -650,15 +592,6 @@ export function SectorMostActiveTab({
     async (page: number) => {
       setAdvisorsState((prev) => ({ ...prev, loading: true }));
       try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("asymmetrix_auth_token")
-            : null;
-        if (!token) {
-          setAdvisorsState((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) {
           setAdvisorsState((prev) => ({ ...prev, loading: false }));
@@ -680,23 +613,11 @@ export function SectorMostActiveTab({
           include_sectors: true,
         });
 
-        const resp = await fetch(
-          `${ADVISORS_API_BASE}/get_all_advisors_list?${qs.toString()}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resp.ok) {
+        const data = await fetchSectorMostActiveAdvisorsServer(qs.toString());
+        if (!data) {
           setAdvisorsState((prev) => ({ ...prev, loading: false }));
           return;
         }
-
-        const data = await resp.json();
         const items = mapAdvisorEntities(data);
         const total = getAdvisorPaginationNumber(data, "itemsTotal") ?? items.length;
         const totalPages =
