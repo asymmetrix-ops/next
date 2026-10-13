@@ -4249,7 +4249,7 @@ const CompanyDetail = () => {
               // leave a blank hole under the main column move over to balance heights.
               type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 8, movable: false, show: Boolean(showInsights), node: () => (
+                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
                 <div
                   className="insights-summary-card company-grid-insights"
                   style={{
@@ -4281,7 +4281,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "events", col: "main" as const, weight: 8, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
+                { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
                 <div className="company-grid-corporate-events">
                   <LinkPanel
                     fillGridCell
@@ -4332,7 +4332,7 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                { id: "subsidiaries", col: "main" as const, weight: 6, movable: false, show: Boolean(hasSubsidiaries), node: () => (
+                { id: "subsidiaries", col: "main" as const, weight: 190, movable: false, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
                     fillGridCell
@@ -4365,7 +4365,7 @@ const CompanyDetail = () => {
                     </LinkPanel>
                 </div>
                 ) },
-                { id: "headcount", col: "pair" as const, weight: 10, movable: false, show: Boolean(employeeData.length > 0), node: () => (
+                { id: "headcount", col: "pair" as const, weight: 320, movable: true, show: Boolean(employeeData.length > 0), node: () => (
                 <div className="company-grid-headcount">
                   <HeadcountCard
                     fillGridCell
@@ -4378,7 +4378,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "management", col: "pair" as const, weight: 8, movable: false, show: Boolean(hasManagement), node: () => (
+                { id: "management", col: "pair" as const, weight: 200, movable: true, show: Boolean(hasManagement), node: () => (
                   <div className="company-grid-management">
                     <ManagementCard
                       fillGridCell
@@ -4388,7 +4388,7 @@ const CompanyDetail = () => {
                     />
                   </div>
                 ) },
-                { id: "fin2", col: "rail" as const, weight: 16, movable: false, show: Boolean(true), node: () => (
+                { id: "fin2", col: "rail" as const, weight: 370, movable: false, show: Boolean(true), node: () => (
               <div
                 className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
                 style={{
@@ -4405,7 +4405,7 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "rail" as const, weight: 14, movable: true, show: Boolean(showProductAttributes), node: () => (
+                { id: "productmix", col: "rail" as const, weight: 440, movable: true, show: Boolean(showProductAttributes), node: () => (
                 <div
                   className="company-grid-product-mix"
                 >
@@ -4419,7 +4419,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "coreproducts", col: "rail" as const, weight: 6, movable: true, show: Boolean(showCoreProducts), node: () => (
+                { id: "coreproducts", col: "rail" as const, weight: 200, movable: true, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
                 >
@@ -4430,7 +4430,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "airisk", col: "rail" as const, weight: 14, movable: true, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
+                { id: "airisk", col: "rail" as const, weight: 520, movable: true, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
                 <div className="company-grid-ai-risk">
                   <AIRiskCard
                     fillGridCell
@@ -4451,17 +4451,35 @@ const CompanyDetail = () => {
                 for (let k = 0; k < a.length; k += 2) t += Math.max(a[k].weight, a[k + 1]?.weight ?? 0);
                 return t;
               };
-              const moved: ZoneCard[] = [];
-              while (rail.length > 0) {
-                const last = rail[rail.length - 1];
-                if (!last.movable) break;
-                const mainW = sum(wide) + pairWeight([...pair, ...moved]);
-                const railW = sum(rail);
-                const nextMain = sum(wide) + pairWeight([...pair, last, ...moved]);
-                if (Math.abs(railW - last.weight - nextMain) >= Math.abs(railW - mainW)) break;
-                moved.unshift(rail.pop() as ZoneCard);
+              const order = (a: ZoneCard[]) => [...a].sort((x, y) => cards.indexOf(x) - cards.indexOf(y));
+              let pairCards = [...pair];
+              let railCards = [...rail];
+              const mainH = (p: ZoneCard[]) => sum(wide) + pairWeight(p);
+              // Greedy balance: repeatedly make the single move (rail -> main pair grid
+              // or main pair grid -> rail) that most reduces the column height gap.
+              for (let guard = 0; guard < 8; guard++) {
+                const gap = Math.abs(sum(railCards) - mainH(pairCards));
+                let best: { gap: number; from: "rail" | "pair"; card: ZoneCard } | null = null;
+                for (const c of railCards) {
+                  if (!c.movable) continue;
+                  const g = Math.abs(sum(railCards) - c.weight - mainH(order([...pairCards, c])));
+                  if (g < gap && (!best || g < best.gap)) best = { gap: g, from: "rail", card: c };
+                }
+                for (const c of pairCards) {
+                  if (!c.movable) continue;
+                  const g = Math.abs(sum(railCards) + c.weight - mainH(pairCards.filter((x) => x !== c)));
+                  if (g < gap && (!best || g < best.gap)) best = { gap: g, from: "pair", card: c };
+                }
+                if (!best) break;
+                const moving = best.card;
+                if (best.from === "rail") {
+                  railCards = railCards.filter((x) => x !== moving);
+                  pairCards = order([...pairCards, moving]);
+                } else {
+                  pairCards = pairCards.filter((x) => x !== moving);
+                  railCards = [...railCards, moving];
+                }
               }
-              const pairCards = [...pair, ...moved];
               return (
                 <>
                   <div className="company-zone-main">
@@ -4473,7 +4491,7 @@ const CompanyDetail = () => {
                     )}
                   </div>
                   <div className="company-zone-rail">
-                    {rail.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                   </div>
                 </>
               );
