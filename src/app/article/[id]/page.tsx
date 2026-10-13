@@ -1052,6 +1052,14 @@ const ArticleDetailPage = () => {
       name
     )}</figcaption></figure>`;
 
+  // The CMS tags dynamic entities (companies, investors, etc.) inside the
+  // body/summary HTML by prefixing their linked label with "@" (e.g.
+  // <a href="...">@LSEG</a>). That "@" is only an authoring marker — it
+  // should never be shown to readers, so strip it from the start of any
+  // link's visible text right before rendering.
+  const stripEntityTagMarker = (html: string): string =>
+    html ? html.replace(/(<a\b[^>]*>)(\s|&nbsp;)*@/gi, "$1") : html;
+
   // Replace placeholders like <image_1>, <image_2> with corresponding image attachments
   const replaceImagePlaceholders = (
     bodyHtml: string,
@@ -1678,7 +1686,9 @@ const ArticleDetailPage = () => {
                 ? replaceImagePlaceholders(rawSummary, allImageDocs)
                 : { html: "" };
 
-              const items = parseSummaryItems(summaryHtml || article.summary);
+              const items = parseSummaryItems(
+                summaryHtml ? stripEntityTagMarker(summaryHtml) : article.summary
+              );
               if (!items.length) return null;
               const visibleItems = summaryOpen ? items : [items[0]!];
 

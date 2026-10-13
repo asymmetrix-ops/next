@@ -3328,6 +3328,12 @@ const CompanyDetail = () => {
     .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
     .company-zone-rail > :last-child { flex: 1 1 auto; }
     .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
+    .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-top-right { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-low-left { grid-column: 1 / span 2; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-low-right { grid-column: 3; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-low-left:empty, .company-zone-low-right:empty { display: none; }
     .company-zone-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-pair:empty { display: none; }
     .company-grid-finance-secondary,
@@ -3596,7 +3602,11 @@ const CompanyDetail = () => {
       .company-grid-headcount,
       .company-grid-management,
       .company-zone-main,
-      .company-zone-rail {
+      .company-zone-rail,
+      .company-zone-top-left,
+      .company-zone-top-right,
+      .company-zone-low-left,
+      .company-zone-low-right {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
@@ -4467,6 +4477,13 @@ const CompanyDetail = () => {
               };
               let pairCards = [...pair];
               let railCards = [...rail];
+              const fin = rail.find((c) => c.id === "fin2");
+              const ai = rail.find((c) => c.id === "airisk");
+              // Aligned mode: when the AI card is shown and the top stack (Insights...) is about
+              // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
+              // AI sits level with Product type / Data Collection / Core Products. The shorter
+              // top block simply leaves extra space under it (nothing is cut or stretched).
+              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) - (fin?.weight ?? 0)) <= 130;
               const mainH = (p: ZoneCard[]) => sum(wide) + pairWeight(p);
               // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
               // Only Headcount / Management may hop from the main column to the rail
@@ -4474,7 +4491,7 @@ const CompanyDetail = () => {
               // bottom-left corner (main column shorter than the rail), never the right.
               const cost = (mainHeight: number, railHeight: number) =>
                 mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
-              for (let guard = 0; guard < 4; guard++) {
+              for (let guard = 0; guard < 4 && !aligned; guard++) {
                 const current = cost(mainH(pairCards), sum(railCards));
                 let best: { cost: number; card: ZoneCard } | null = null;
                 for (const c of pairCards) {
@@ -4487,19 +4504,37 @@ const CompanyDetail = () => {
                 pairCards = pairCards.filter((x) => x !== moving);
                 railCards = [...railCards, moving];
               }
+              const renderPair = (cardsIn: ZoneCard[]) =>
+                cardsIn.length > 0 && (
+                  <div className="company-zone-pair">
+                    {splitPair(cardsIn).map((col, i) => (
+                      <div key={i} className="company-zone-pair-col">
+                        {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                      </div>
+                    ))}
+                  </div>
+                );
+              if (aligned) {
+                return (
+                  <>
+                    <div className="company-zone-top-left">
+                      {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    </div>
+                    <div className="company-zone-top-right">{fin?.node()}</div>
+                    <div className="company-zone-low-left">{renderPair(pairCards)}</div>
+                    <div className="company-zone-low-right">
+                      {railCards
+                        .filter((c) => c.id !== "fin2")
+                        .map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    </div>
+                  </>
+                );
+              }
               return (
                 <>
                   <div className="company-zone-main">
                     {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {pairCards.length > 0 && (
-                      <div className="company-zone-pair">
-                        {splitPair(pairCards).map((col, i) => (
-                          <div key={i} className="company-zone-pair-col">
-                            {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {renderPair(pairCards)}
                   </div>
                   <div className="company-zone-rail">
                     {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
