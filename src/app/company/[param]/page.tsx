@@ -3322,9 +3322,12 @@ const CompanyDetail = () => {
       align-self: stretch;
     }
     /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
-    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    /* Both zones stretch to the taller one; the last card in each grows so the columns end on the same line. */
+    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    .company-zone-main > :last-child,
+    .company-zone-rail > :last-child { flex: 1 1 auto; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
     .company-zone-pair:empty { display: none; }
     .company-grid-finance-secondary,
     .company-grid-insights,
