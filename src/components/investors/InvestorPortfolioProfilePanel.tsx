@@ -235,9 +235,6 @@ export function InvestorPortfolioProfilePanel({
             }}
           />
         ))}
-        <div style={{ marginLeft: "auto", fontSize: 14, color: T.azure, fontWeight: 500, paddingBottom: 2 }}>
-          →
-        </div>
       </div>
 
       <div
@@ -412,7 +409,7 @@ export function InvestorPortfolioProfilePanel({
                 fontFamily: T.sans,
               }}
             >
-              View all {total.toLocaleString("en-US")} →
+              View all {total.toLocaleString("en-US")}
             </button>
           ) : showAll && total > pageSize ? (
             <button

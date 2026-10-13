@@ -25,6 +25,7 @@ import {
 import {
   InvestorFocusMixCard,
   type InvestorMixRow,
+  type InvestorMixTab,
 } from "@/components/investors/InvestorFocusMixCard";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
@@ -281,6 +282,13 @@ interface InvestorData {
   Investment_Team_Roles_past: TeamMember[];
 }
 
+// Mix-card tab → Portfolio table column that should lead after Name.
+const MIX_TAB_FOCUS_COLUMN: Record<InvestorMixTab, string> = {
+  sector: "primary_sectors",
+  stage: "lifecycle_stage",
+  geography: "hq",
+};
+
 const PDF_SERVICE_BASE_URL = "https://asymmetrix-pdf-service.fly.dev";
 
 function formatWebsiteDisplayLabel(raw: string): string {
@@ -529,6 +537,7 @@ const InvestorDetailPage = () => {
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
+  const [portfolioFocusColumn, setPortfolioFocusColumn] = useState<string | null>(null);
   const overviewGridRef = useRef<HTMLDivElement>(null);
   const focusMixGridRef = useRef<HTMLDivElement>(null);
   const descriptionGridRef = useRef<HTMLDivElement>(null);
@@ -1568,6 +1577,10 @@ const InvestorDetailPage = () => {
                 sectorMix={sectorMix}
                 stageFocus={stageFocus}
                 geography={geographyMix}
+                onViewPortfolio={(mixTab) => {
+                  setPortfolioFocusColumn(MIX_TAB_FOCUS_COLUMN[mixTab]);
+                  setActiveProfileTab("Portfolio");
+                }}
               />
             </div>
 
@@ -1595,7 +1608,10 @@ const InvestorDetailPage = () => {
                 onCurrentPageChange={handlePortfolioPageChange}
                 onPastPageChange={handlePastPortfolioPageChange}
                 pageSize={5}
-                onViewAllClick={() => setActiveProfileTab("Portfolio")}
+                onViewAllClick={() => {
+                  setPortfolioFocusColumn(null);
+                  setActiveProfileTab("Portfolio");
+                }}
               />
             </div>
 
@@ -1664,6 +1680,7 @@ const InvestorDetailPage = () => {
             <InvestorPortfolioTab
               investorId={investorId}
               investorName={Investor.name}
+              focusColumnKey={portfolioFocusColumn}
               avgHoldingPeriodDisplay={avgHoldingPeriod?.display}
               avgHoldingPeriodCoverage={avgHoldingPeriod?.coverage}
             />

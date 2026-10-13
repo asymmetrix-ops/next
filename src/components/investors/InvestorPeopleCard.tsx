@@ -170,7 +170,7 @@ export function InvestorPeopleCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow right={headerRight}>
+      <LinkedH right={headerRight}>
         Investment Team
       </LinkedH>
 
@@ -221,7 +221,7 @@ export function InvestorPeopleCard({
               fontFamily: T.sans,
             }}
           >
-            {expanded ? "Show less" : `Expand →`}
+            {expanded ? "Show less" : "Expand"}
           </button>
         </div>
       ) : null}

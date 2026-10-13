@@ -363,7 +363,7 @@ export function InvestorCorporateEventsProfilePanel({
   if (loading) {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <LinkedH showArrow>Corporate Events</LinkedH>
+        <LinkedH>Corporate Events</LinkedH>
         <div style={{ textAlign: "center", padding: "20px 16px", color: T.muted, fontSize: 12.5 }}>
           Loading corporate events…
         </div>
@@ -373,7 +373,7 @@ export function InvestorCorporateEventsProfilePanel({
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="corporate-events-v3-card">
-      <LinkedH showArrow>Corporate Events</LinkedH>
+      <LinkedH>Corporate Events</LinkedH>
 
       <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: fillGridCell ? 1 : undefined }}>
         {displayed.length > 0 ? (
@@ -501,7 +501,7 @@ export function InvestorCorporateEventsProfilePanel({
                 fontFamily: T.sans,
               }}
             >
-              View all {total} →
+              View all {total}
             </button>
           ) : showAll && total > maxInitialEvents ? (
             <button

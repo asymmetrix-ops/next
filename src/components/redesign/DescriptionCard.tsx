@@ -125,7 +125,7 @@ export function DescriptionCard({
               pointerEvents: "auto",
             }}
           >
-            Expand →
+            Expand
           </button>
         </div>
       ) : null}

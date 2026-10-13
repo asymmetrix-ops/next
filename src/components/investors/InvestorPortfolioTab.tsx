@@ -48,6 +48,8 @@ export type InvestorPortfolioTabProps = {
   investorName: string;
   avgHoldingPeriodDisplay?: string | null;
   avgHoldingPeriodCoverage?: HoldingPeriodCoverage | null;
+  /** Column to lead the table (right after Name), e.g. when arriving from a mix card. */
+  focusColumnKey?: string | null;
 };
 
 function useInvestorPortfolioSearch(
@@ -286,6 +288,7 @@ export function InvestorPortfolioTab({
   investorName,
   avgHoldingPeriodDisplay,
   avgHoldingPeriodCoverage,
+  focusColumnKey,
 }: InvestorPortfolioTabProps) {
   const { currencyId: preferredCurrencyId, currency: platformCurrency } =
     usePlatformCurrency();
@@ -418,7 +421,16 @@ export function InvestorPortfolioTab({
     [investorName]
   );
 
-  const columnsStorageKey = `investor-portfolio-column-keys-v2-${investorId}`;
+  const columnsStorageKey = `investor-portfolio-column-keys-v2-${investorId}${
+    focusColumnKey ? `-focus-${focusColumnKey}` : ""
+  }`;
+  const defaultColumnKeys = useMemo(() => {
+    if (!focusColumnKey) return PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS;
+    const rest = PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS.filter(
+      (k) => k !== "name" && k !== focusColumnKey
+    );
+    return ["name", focusColumnKey, ...rest];
+  }, [focusColumnKey]);
   const isInactiveTab = investmentStatusFilter === "past";
   const portfolioListTabs = useMemo(
     () => [
@@ -527,7 +539,7 @@ export function InvestorPortfolioTab({
           embedded
           columnsStorageKey={columnsStorageKey}
           columnsStorageScope={"session" as ColumnStorageScope}
-          defaultColumnKeys={PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS}
+          defaultColumnKeys={defaultColumnKeys}
           portfolioMode
           columnCategories={PORTFOLIO_COLUMN_CATEGORIES}
           prodDefaultColumnKeys={getPortfolioProdDefaultColumnKeys()}

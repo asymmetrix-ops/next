@@ -132,9 +132,7 @@ export function InvestorOverviewCard({
       show: hasEmployees,
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontFamily: T.mono }}>
-            {employees != null && Number.isFinite(employees) ? employees.toLocaleString("en-US") : "-"}
-          </span>
+          <span>{employees != null && Number.isFinite(employees) ? employees.toLocaleString("en-US") : "-"}</span>
           {employeesYoY ? <Delta value={employeesYoY} /> : null}
         </span>
       ),
@@ -166,7 +164,7 @@ export function InvestorOverviewCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow>Overview</LinkedH>
+      <LinkedH>Overview</LinkedH>
       <div
         style={{
           padding: "2px 14px 8px",

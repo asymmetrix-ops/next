@@ -610,7 +610,7 @@ export const CorporateEventsProfilePanel: React.FC<
                 fontSize: 13,
               }}
             >
-              Browse all {loading ? "-" : resolvedTotal} →
+              Browse all {loading ? "-" : resolvedTotal}
             </button>
           ) : (
             <Link
@@ -624,7 +624,7 @@ export const CorporateEventsProfilePanel: React.FC<
                 fontSize: 13,
               }}
             >
-              Browse all {loading ? "-" : resolvedTotal} →
+              Browse all {loading ? "-" : resolvedTotal}
             </Link>
           )}
         </div>
@@ -652,7 +652,7 @@ export const CorporateEventsProfilePanel: React.FC<
                 fontSize: "12.5px",
               }}
             >
-              View all {events.length} events →
+              View all {events.length} events
             </button>
           ) : (
             <span style={{ fontSize: "12.5px", color: T.muted, fontFamily: T.sans }}>

@@ -215,7 +215,6 @@ export function HeadcountCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        showArrow
         leftSlot={linkedinIcon}
       >
         LinkedIn employee count
