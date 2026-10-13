@@ -3327,7 +3327,9 @@ const CompanyDetail = () => {
     /* Rail stretches to the main column when that is taller, so a gap is never left bottom-right. */
     .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
     .company-zone-rail > :last-child { flex: 1 1 auto; }
-    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+    /* A lone last card sits in the right half, so the leftover gap is the bottom-left corner. */
+    .company-zone-pair > :last-child:nth-child(odd) { grid-column: 2; }
     .company-zone-pair:empty { display: none; }
     .company-grid-finance-secondary,
     .company-grid-insights,
@@ -3609,6 +3611,7 @@ const CompanyDetail = () => {
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
       .company-zone-pair { grid-template-columns: 1fr !important; }
+      .company-zone-pair > :last-child:nth-child(odd) { grid-column: auto !important; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -4408,7 +4411,7 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "rail" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => (
+                { id: "productmix", col: "pair" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => (
                 <div
                   className="company-grid-product-mix"
                 >
@@ -4422,7 +4425,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "coreproducts", col: "rail" as const, weight: 200, movable: false, show: Boolean(showCoreProducts), node: () => (
+                { id: "coreproducts", col: "pair" as const, weight: 200, movable: false, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
                 >
@@ -4446,7 +4449,10 @@ const CompanyDetail = () => {
                 ) },
               ].filter((c) => c.show);
               const wide = cards.filter((c) => c.col === "main");
-              const pair = cards.filter((c) => c.col === "pair");
+              const pairOrder = ["productmix", "coreproducts", "headcount", "management"];
+              const pair = cards
+                .filter((c) => c.col === "pair")
+                .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
               const rail = cards.filter((c) => c.col === "rail");
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
               const pairWeight = (a: ZoneCard[]) => {
@@ -4457,7 +4463,7 @@ const CompanyDetail = () => {
               let pairCards = [...pair];
               let railCards = [...rail];
               const mainH = (p: ZoneCard[]) => sum(wide) + pairWeight(p);
-              // Positions are fixed: product / AI cards always live in the right rail.
+              // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
               // Only Headcount / Management may hop from the main column to the rail
               // when the main column is taller, so any leftover gap is always in the
               // bottom-left corner (main column shorter than the rail), never the right.
