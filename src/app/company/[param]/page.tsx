@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
@@ -1297,12 +1297,8 @@ const CompanyDetail = () => {
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
-  const overviewGridRef = useRef<HTMLDivElement | null>(null);
-  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const profileGridRef = useRef<HTMLDivElement | null>(null);
-  const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
     useState<Record<number, string>>({});
@@ -2182,82 +2178,6 @@ const CompanyDetail = () => {
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
-
-  // Only a floor (`minHeight`), never `height`/`maxHeight`: those used to lock
-  // the card at its one-time measured height, clipping content inside — e.g.
-  // the Investors "+N" tag never actually revealed the rest, since expanding
-  // it couldn't grow past the frozen max-height (LinkPanel clips overflow).
-
-  const rowOneHeightStyle = useMemo((): React.CSSProperties => {
-    if (rowOneCardHeight <= 0) return {};
-    return {
-      minHeight: rowOneCardHeight,
-    };
-  }, [rowOneCardHeight]);
-
-  // The collapsed Description column is the one place that DOES need a hard
-  // cap: a `minHeight` alone never triggers its internal `overflow: hidden` /
-  // "Expand →" affordance, since the box just grows to fit a long description
-  // instead of clipping it. Overview/Finance keep the floor-only style above.
-  const descriptionCollapsedHeightStyle = useMemo((): React.CSSProperties => {
-    if (rowOneCardHeight <= 0) return {};
-    return {
-      height: rowOneCardHeight,
-      maxHeight: rowOneCardHeight,
-    };
-  }, [rowOneCardHeight]);
-
-  // Lock Overview + Description + Financial Metrics to the same height (driven by Overview / Finance, not description text)
-  useEffect(() => {
-    setRowOneCardHeight(0);
-  }, [
-    company?.id,
-    financialMetrics,
-    transactionStatusDisplayLabel,
-    apiInvestorsLoading,
-    company?.have_parent_company,
-  ]);
-
-  useEffect(() => {
-    if (!isDescriptionExpanded) {
-      setRowOneCardHeight(0);
-    }
-  }, [isDescriptionExpanded]);
-
-  useLayoutEffect(() => {
-    if (isDescriptionExpanded || rowOneCardHeight !== 0) return;
-
-    const overviewEl = overviewGridRef.current;
-    const financeEl = financePrimaryGridRef.current;
-    const descEl = descriptionGridRef.current;
-    if (!overviewEl || !financeEl || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    // Overview leads row 1: Description + Financial Metrics conform to
-    // Overview's own natural height instead of the tallest of the three.
-    const measure = () => {
-      const prevDisplay = descEl?.style.display ?? "";
-      if (descEl) descEl.style.display = "none";
-      const leadHeight = overviewEl.offsetHeight;
-      if (descEl) descEl.style.display = prevDisplay;
-      if (leadHeight > 0) setRowOneCardHeight(leadHeight);
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(overviewEl);
-    return () => ro.disconnect();
-  }, [
-    rowOneCardHeight,
-    isDescriptionExpanded,
-    company?.id,
-    financialMetrics,
-    transactionStatusDisplayLabel,
-    apiInvestorsLoading,
-    company?.have_parent_company,
-  ]);
-
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -3382,7 +3302,7 @@ const CompanyDetail = () => {
       grid-column: 1;
       grid-row-start: 1;
       min-height: 0;
-      align-self: start;
+      align-self: stretch;
       display: flex;
       flex-direction: column;
     }
@@ -3390,10 +3310,7 @@ const CompanyDetail = () => {
       grid-column: 2;
       grid-row-start: 1;
       min-height: 0;
-      align-self: start;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      align-self: stretch;
     }
     .company-grid-finance-primary {
       grid-column: 3;
@@ -3402,7 +3319,7 @@ const CompanyDetail = () => {
       min-height: 0;
       display: flex;
       flex-direction: column;
-      align-self: start;
+      align-self: stretch;
     }
     /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
     .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
@@ -3816,14 +3733,12 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
-              ref={overviewGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
                 width: "100%",
-                ...rowOneHeightStyle,
               }}
               className="overview-card company-grid-overview"
             >
@@ -4246,28 +4161,40 @@ const CompanyDetail = () => {
               </div>{/* end legacy hidden content */}
             </div>{/* end overview card wrapper */}
 
-            {/* ── Description card (grid row 1, col 2) ── */}
+            {/* ── Description card (grid row 1, col 2) ──
+                Collapsed: the card is absolutely positioned inside a stretched cell, so it
+                adds no height of its own — row 1 height comes from Overview / Financials. */}
             <div
-              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
                 width: "100%",
+                position: "relative",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
-                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >
-              <DescriptionCard
-                text={company.description ?? ""}
-                expanded={isDescriptionExpanded}
-                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
-                contentRef={descriptionRef}
-                fillGridCell={!isDescriptionExpanded}
-              />
+              <div
+                style={
+                  isDescriptionExpanded
+                    ? { display: "flex", flexDirection: "column" }
+                    : {
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                      }
+                }
+              >
+                <DescriptionCard
+                  text={company.description ?? ""}
+                  expanded={isDescriptionExpanded}
+                  onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
+                  contentRef={descriptionRef}
+                  fillGridCell={!isDescriptionExpanded}
+                />
+              </div>
             </div>
 
             {/* Mobile Financial Metrics — shown only below 768px, placed here so it
@@ -4294,7 +4221,6 @@ const CompanyDetail = () => {
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
               id="profile-financials"
-              ref={financePrimaryGridRef}
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
               style={{
                 minWidth: 0,
@@ -4303,7 +4229,6 @@ const CompanyDetail = () => {
                 flexDirection: "column",
                 width: "100%",
                 scrollMarginTop: 24,
-                ...rowOneHeightStyle,
               }}
             >
               <FinMetricsPrimaryCard
