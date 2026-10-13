@@ -53,6 +53,8 @@ type NavSection = {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   isActive: (pathname: string) => boolean;
   comingSoon?: boolean;
+  /** Tiny pill after the label, e.g. "New". */
+  badge?: string;
 };
 
 const SECTIONS: NavSection[] = [
@@ -110,6 +112,7 @@ const SECTIONS: NavSection[] = [
     label: "Transaction Comps",
     href: "/transaction-comps",
     icon: ScaleIcon,
+    badge: "New",
     isActive: (p) => p.startsWith("/transaction-comps"),
   },
   {
@@ -421,6 +424,7 @@ export default function AppLeftNav() {
             count={formatCount(counts[s.key])}
             active={s.isActive(pathname)}
             comingSoon={s.comingSoon}
+            badge={s.badge}
           />
         ))}
         <NavRow
@@ -495,6 +499,7 @@ function NavRow({
   count,
   active,
   comingSoon,
+  badge,
 }: {
   open: boolean;
   href: string;
@@ -503,6 +508,7 @@ function NavRow({
   count: string | null;
   active?: boolean;
   comingSoon?: boolean;
+  badge?: string;
 }) {
   if (comingSoon) {
     return (
@@ -559,8 +565,20 @@ function NavRow({
         }}
         aria-hidden={!open}
       >
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        {count && open && (
+        <span className={badge ? "whitespace-nowrap" : "min-w-0 flex-1 truncate"}>{label}</span>
+        {badge && (
+          // Same soft-blue pill as the dashboard eyebrow ("Live", "Weekly") and the landing chips.
+          <span
+            className={`inline-flex h-4 shrink-0 items-center rounded-full border px-1.5 text-[9px] font-extrabold uppercase leading-none tracking-[0.06em] text-[#2a46ea] ${
+              active
+                ? "border-[#c9d3fb] bg-white"
+                : "border-[#e2e8fd] bg-[#f1f4fe] group-hover:border-[#c9d3fb] group-hover:bg-white"
+            }`}
+          >
+            {badge}
+          </span>
+        )}
+        {count && open && !badge && (
           <span className="invisible ml-auto min-w-[2.75rem] shrink-0 text-right text-[10.5px] font-bold tabular-nums text-gray-400 opacity-0 transition-opacity duration-150 [@media(hover:hover)]:visible [@media(hover:hover)]:group-hover:text-blue-600 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-visible:opacity-100">
             {count}
           </span>
