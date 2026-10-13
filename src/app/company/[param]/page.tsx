@@ -3327,9 +3327,8 @@ const CompanyDetail = () => {
     /* Rail stretches to the main column when that is taller, so a gap is never left bottom-right. */
     .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
     .company-zone-rail > :last-child { flex: 1 1 auto; }
-    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
-    /* A lone last card sits in the right half, so the leftover gap is the bottom-left corner. */
-    .company-zone-pair > :last-child:nth-child(odd) { grid-column: 2; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .company-zone-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-pair:empty { display: none; }
     .company-grid-finance-secondary,
     .company-grid-insights,
@@ -3611,7 +3610,6 @@ const CompanyDetail = () => {
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
       .company-zone-pair { grid-template-columns: 1fr !important; }
-      .company-zone-pair > :last-child:nth-child(odd) { grid-column: auto !important; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -4425,7 +4423,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "coreproducts", col: "pair" as const, weight: 200, movable: false, show: Boolean(showCoreProducts), node: () => (
+                { id: "coreproducts", col: "pair" as const, weight: 170, movable: false, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
                 >
@@ -4455,10 +4453,17 @@ const CompanyDetail = () => {
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
               const rail = cards.filter((c) => c.col === "rail");
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
+              // The lower-main area is two independent vertical stacks; each card goes
+              // into the shorter stack (ties -> left), so nothing is stretched.
+              const splitPair = (a: ZoneCard[]): [ZoneCard[], ZoneCard[]] => {
+                const left: ZoneCard[] = [];
+                const right: ZoneCard[] = [];
+                for (const c of a) (sum(left) <= sum(right) ? left : right).push(c);
+                return [left, right];
+              };
               const pairWeight = (a: ZoneCard[]) => {
-                let t = 0;
-                for (let k = 0; k < a.length; k += 2) t += Math.max(a[k].weight, a[k + 1]?.weight ?? 0);
-                return t;
+                const [l, r] = splitPair(a);
+                return Math.max(sum(l), sum(r));
               };
               let pairCards = [...pair];
               let railCards = [...rail];
@@ -4488,7 +4493,11 @@ const CompanyDetail = () => {
                     {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     {pairCards.length > 0 && (
                       <div className="company-zone-pair">
-                        {pairCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                        {splitPair(pairCards).map((col, i) => (
+                          <div key={i} className="company-zone-pair-col">
+                            {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
