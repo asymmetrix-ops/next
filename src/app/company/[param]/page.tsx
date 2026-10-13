@@ -4322,9 +4322,9 @@ const CompanyDetail = () => {
             {(() => {
               // Card matrix: cards hide when empty, and tall rail cards that would
               // leave a blank hole under the main column move over to balance heights.
-              type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: React.ReactNode };
+              type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 8, movable: false, show: Boolean(showInsights), node: (
+                { id: "insights", col: "main" as const, weight: 8, movable: false, show: Boolean(showInsights), node: () => (
                 <div
                   className="insights-summary-card company-grid-insights"
                   style={{
@@ -4356,7 +4356,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "events", col: "main" as const, weight: 8, movable: false, show: Boolean(corporateEvents.length > 0), node: (
+                { id: "events", col: "main" as const, weight: 8, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
                 <div className="company-grid-corporate-events">
                   <LinkPanel
                     fillGridCell
@@ -4407,7 +4407,7 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                { id: "subsidiaries", col: "main" as const, weight: 6, movable: false, show: Boolean(hasSubsidiaries), node: (
+                { id: "subsidiaries", col: "main" as const, weight: 6, movable: false, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
                     fillGridCell
@@ -4440,7 +4440,7 @@ const CompanyDetail = () => {
                     </LinkPanel>
                 </div>
                 ) },
-                { id: "headcount", col: "pair" as const, weight: 10, movable: false, show: Boolean(employeeData.length > 0), node: (
+                { id: "headcount", col: "pair" as const, weight: 10, movable: false, show: Boolean(employeeData.length > 0), node: () => (
                 <div className="company-grid-headcount">
                   <HeadcountCard
                     fillGridCell
@@ -4453,7 +4453,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "management", col: "pair" as const, weight: 8, movable: false, show: Boolean(hasManagement), node: (
+                { id: "management", col: "pair" as const, weight: 8, movable: false, show: Boolean(hasManagement), node: () => (
                   <div className="company-grid-management">
                     <ManagementCard
                       fillGridCell
@@ -4463,7 +4463,7 @@ const CompanyDetail = () => {
                     />
                   </div>
                 ) },
-                { id: "fin2", col: "rail" as const, weight: 16, movable: false, show: Boolean(true), node: (
+                { id: "fin2", col: "rail" as const, weight: 16, movable: false, show: Boolean(true), node: () => (
               <div
                 className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
                 style={{
@@ -4480,7 +4480,7 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "rail" as const, weight: 14, movable: true, show: Boolean(showProductAttributes), node: (
+                { id: "productmix", col: "rail" as const, weight: 14, movable: true, show: Boolean(showProductAttributes), node: () => (
                 <div
                   className="company-grid-product-mix"
                 >
@@ -4494,7 +4494,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "coreproducts", col: "rail" as const, weight: 6, movable: true, show: Boolean(showCoreProducts), node: (
+                { id: "coreproducts", col: "rail" as const, weight: 6, movable: true, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
                 >
@@ -4505,7 +4505,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "airisk", col: "rail" as const, weight: 14, movable: true, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: (
+                { id: "airisk", col: "rail" as const, weight: 14, movable: true, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
                 <div className="company-grid-ai-risk">
                   <AIRiskCard
                     fillGridCell
@@ -4540,15 +4540,15 @@ const CompanyDetail = () => {
               return (
                 <>
                   <div className="company-zone-main">
-                    {wide.map((c) => <React.Fragment key={c.id}>{c.node}</React.Fragment>)}
+                    {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     {pairCards.length > 0 && (
                       <div className="company-zone-pair">
-                        {pairCards.map((c) => <React.Fragment key={c.id}>{c.node}</React.Fragment>)}
+                        {pairCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                       </div>
                     )}
                   </div>
                   <div className="company-zone-rail">
-                    {rail.map((c) => <React.Fragment key={c.id}>{c.node}</React.Fragment>)}
+                    {rail.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                   </div>
                 </>
               );
