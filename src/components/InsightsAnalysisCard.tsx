@@ -186,9 +186,19 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   const byline = isNews ? getArticleByline(article) : "";
   const plainSummary = decodeHtmlEntities(article.Strapline || "");
 
-  const hqCountryIso2 = getInsightHqCountryIso2(
-    article as unknown as Record<string, unknown>
-  );
+  // Only show the HQ flag when a company of focus is tagged to the piece.
+  const articleRecord = article as unknown as Record<string, unknown>;
+  const hasCompanyOfFocus = [
+    "companies_of_focus",
+    "Company_of_Focus",
+    "company_of_focus",
+  ].some((k) => {
+    const v = articleRecord[k];
+    return Array.isArray(v) ? v.length > 0 : Boolean(v);
+  });
+  const hqCountryIso2 = hasCompanyOfFocus
+    ? getInsightHqCountryIso2(articleRecord)
+    : null;
 
   const companyNames = getCompanyNames(article.companies_mentioned);
   const sectorNames = getSectorNames(article.sectors);
