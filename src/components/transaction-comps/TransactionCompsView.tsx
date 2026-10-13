@@ -15,6 +15,7 @@ import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProv
 import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/types";
 import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
+import { trackKeyAction } from "@/lib/tracking";
 import { locationsService } from "@/lib/locationsService";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
@@ -92,6 +93,36 @@ export function TransactionCompsView({
     acquirers: [],
     corporateEvents: [],
   });
+
+  // Filter ids double as the agreed action_detail values (lowercase, underscores).
+  const prevFiltersRef = useRef(new Map<string, string>());
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    const next = new Map<string, string>();
+    for (const f of filterState.filters) {
+      const v = JSON.stringify(f.value) ?? "";
+      next.set(f.id, v);
+      const empty = v === "" || v === "[]" || v === '""' || v === "null";
+      if (!empty && prev.get(f.id) !== v) {
+        trackKeyAction({
+          section: "transaction_comps",
+          action: "filter_applied",
+          actionDetail: f.id,
+        });
+      }
+    }
+    prevFiltersRef.current = next;
+  }, [filterState.filters]);
+
+  // One search event per settled search text, sent once its results are back.
+  const searchTrackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackedSearchRef = useRef("");
+  useEffect(
+    () => () => {
+      if (searchTrackTimerRef.current) clearTimeout(searchTrackTimerRef.current);
+    },
+    []
+  );
 
   const [rows, setRows] = useState<TransactionCompRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -238,6 +269,21 @@ export function TransactionCompsView({
         setRows(data.items);
         setTotal(data.total);
         setSelectedIds(new Set());
+        const searched = filterState.searchText.trim();
+        if (searchTrackTimerRef.current) clearTimeout(searchTrackTimerRef.current);
+        if (searched && searched !== lastTrackedSearchRef.current) {
+          const count = data.total;
+          searchTrackTimerRef.current = setTimeout(() => {
+            lastTrackedSearchRef.current = searched;
+            trackKeyAction({
+              section: "transaction_comps",
+              action: "search",
+              actionDetail: "list_view",
+              query: searched,
+              resultsCount: count,
+            });
+          }, 1200);
+        }
       } catch (e) {
         if (requestId === requestIdRef.current) {
           setError(e instanceof Error ? e.message : "Failed to load transaction comps");
@@ -279,6 +325,11 @@ export function TransactionCompsView({
   const exportList = useCallback(
     async (mode: ListExportMode) => {
       setExporting(true);
+      trackKeyAction({
+        section: "transaction_comps",
+        action: "export",
+        actionDetail: "xlsx",
+      });
       try {
         const source =
           selectedIds.size > 0
@@ -342,6 +393,13 @@ export function TransactionCompsView({
                 key={tab.id}
                 type="button"
                 disabled={tab.soon}
+                onClick={() =>
+                  trackKeyAction({
+                    section: "transaction_comps",
+                    action: "tab_opened",
+                    actionDetail: tab.id,
+                  })
+                }
                 aria-current={tab.id === "list" ? "page" : undefined}
                 title={tab.soon ? "Coming soon" : undefined}
                 className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold ${

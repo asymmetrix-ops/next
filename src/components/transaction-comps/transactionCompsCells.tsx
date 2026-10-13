@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
 import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
+import { trackKeyAction } from "@/lib/tracking";
 import { MultipleBasisTag } from "./MultipleBasisTag";
 import type { MultipleBasis, TransactionCompRow } from "./transactionCompsTypes";
 
@@ -64,6 +65,14 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
               href={`/company/${row.company_id}`}
               className="company-table-entity-name company-table-entity-name-link"
               title={row.former_name ? `Formerly ${row.former_name}` : undefined}
+              onClick={() =>
+                trackKeyAction({
+                  section: "transaction_comps",
+                  action: "comp_clicked_through",
+                  targetType: "company",
+                  targetId: row.company_id,
+                })
+              }
               style={{ color: "#0A0E1A" }}
             >
               {row.company_name}
@@ -89,7 +98,18 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
         : dash;
     case "corporate_events":
       return row.corporate_event ? (
-        <Link href={`/corporate-event/${row.corporate_event.id}`} className="font-medium text-blue-700 hover:underline">
+        <Link
+          href={`/corporate-event/${row.corporate_event.id}`}
+          className="font-medium text-blue-700 hover:underline"
+          onClick={() =>
+            trackKeyAction({
+              section: "transaction_comps",
+              action: "comp_clicked_through",
+              targetType: "corporate_event",
+              targetId: row.corporate_event?.id,
+            })
+          }
+        >
           {row.corporate_event.name}
         </Link>
       ) : dash;

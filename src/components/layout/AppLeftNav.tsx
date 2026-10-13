@@ -328,6 +328,7 @@ export default function AppLeftNav() {
         </button>
       )}
       <aside
+        data-entry-source="left_menu"
         className={`h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none ${
           open
             ? "fixed inset-y-0 left-0 z-50 flex md:sticky md:inset-auto md:top-0 md:z-auto"

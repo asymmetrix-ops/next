@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
+import { getLastPageEntrySource, trackKeyAction } from "@/lib/tracking";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries, ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
@@ -564,6 +565,32 @@ const ArticleDetailPage = () => {
   const fromHome = (searchParams?.get?.("from") ?? "") === "home";
 
   const articleId = String((params as Record<string, unknown>)?.id || "");
+
+  // News: where the user came from, reported once per opened article.
+  const openedTrackedRef = React.useRef("");
+  useEffect(() => {
+    if (!article || openedTrackedRef.current === articleId) return;
+    if (!isNewsArticle(article as unknown as ContentArticle)) return;
+    openedTrackedRef.current = articleId;
+    const entry = getLastPageEntrySource();
+    const source =
+      fromHome || entry === "dashboard"
+        ? "dashboard"
+        : entry === "daily_email"
+          ? "email"
+          : entry === "company_profile"
+            ? "company_profile"
+            : entry === "left_menu" || entry === "other_section"
+              ? "ia_page"
+              : "other";
+    trackKeyAction({
+      section: "news",
+      action: "article_opened",
+      actionDetail: source,
+      targetType: "article",
+      targetId: articleId,
+    });
+  }, [article, articleId, fromHome]);
   const ENABLE_PDF_EXPORT = true;
   const [showGenerateTableModal, setShowGenerateTableModal] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
@@ -1660,7 +1687,17 @@ const ArticleDetailPage = () => {
                   <button
                     type="button"
                     className="summary-header"
-                    onClick={() => setSummaryOpen((v) => !v)}
+                    onClick={() => {
+                      if (!summaryOpen && isNews) {
+                        trackKeyAction({
+                          section: "news",
+                          action: "view_summary_opened",
+                          targetType: "article",
+                          targetId: articleId,
+                        });
+                      }
+                      setSummaryOpen((v) => !v);
+                    }}
                     aria-expanded={summaryOpen}
                   >
                     <span className="summary-title">Summary</span>
@@ -2013,6 +2050,16 @@ const ArticleDetailPage = () => {
                                 flexWrap: "wrap",
                                 justifyContent: "flex-end",
                                 gap: "6px",
+                              }}
+                              onClick={() => {
+                                if (isNews) {
+                                  trackKeyAction({
+                                    section: "news",
+                                    action: "company_of_focus_clicked",
+                                    targetType: "company",
+                                    targetId: companyOfFocus.id,
+                                  });
+                                }
                               }}
                             >
                               <EntityChip

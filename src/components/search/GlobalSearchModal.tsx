@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { trackEvent } from "@/lib/tracking";
+import { setEntrySource, trackEvent } from "@/lib/tracking";
 import {
   type GlobalSearchResult,
   type SearchPageType,
@@ -184,6 +184,7 @@ export function GlobalSearchModal() {
         });
       }
       closeSearch();
+      setEntrySource("global_search");
       router.push(href);
     },
     [closeSearch, router]
@@ -202,6 +203,7 @@ export function GlobalSearchModal() {
         });
       }
       closeSearch();
+      setEntrySource("global_search");
       router.push(item.url);
     },
     [closeSearch, router]

@@ -3697,6 +3697,7 @@ const CompanyDetail = () => {
     <AppShell>
     <div
       className={`company-detail-page${navOpen ? " company-nav-open" : ""}`}
+      data-entry-source="company_profile"
       style={styles.container}
     >
       <EntityProfileHeader

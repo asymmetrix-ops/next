@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
+import { trackKeyAction } from "@/lib/tracking";
 import Footer from "@/components/Footer";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import {
@@ -112,6 +113,16 @@ interface DealRadarFilters {
   processStages: string[];
   transactionSignals: string[];
 }
+
+/** Agreed tracking names (lowercase, underscores) so a respelling never splits in the dashboard. */
+const DEAL_RADAR_FILTER_NAMES: Record<keyof DealRadarFilters, string> = {
+  ownershipTypeIds: "ownership_type",
+  hqCountries: "hq_country",
+  sectorIds: "sector",
+  transactionStatusIds: "transaction_status",
+  processStages: "process_stage",
+  transactionSignals: "transaction_signal",
+};
 
 const EMPTY_FILTERS: DealRadarFilters = {
   ownershipTypeIds: [],
@@ -386,6 +397,12 @@ function DealRadarMobileCard({
           <a
             href={`/company/${item.company_id}`}
             onClick={(e) => {
+              trackKeyAction({
+                section: "deal_radar",
+                action: "company_clicked_through",
+                targetType: "company",
+                targetId: item.company_id,
+              });
               if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
               e.preventDefault();
               onNavigate(`/company/${item.company_id}`);
@@ -658,6 +675,16 @@ export default function DealRadarDashboardPage() {
   }, [statusTotals]);
 
   const updateFilters = (patch: Partial<DealRadarFilters>) => {
+    for (const key of Object.keys(patch) as (keyof DealRadarFilters)[]) {
+      const next = patch[key] as unknown[] | undefined;
+      if (next && next.length > 0 && JSON.stringify(next) !== JSON.stringify(filters[key])) {
+        trackKeyAction({
+          section: "deal_radar",
+          action: "filter_applied",
+          actionDetail: DEAL_RADAR_FILTER_NAMES[key],
+        });
+      }
+    }
     setFilters((prev) => {
       const next = { ...prev, ...patch };
       if (
@@ -1079,6 +1106,12 @@ export default function DealRadarDashboardPage() {
                                 <a
                                   href={`/company/${item.company_id}`}
                                   onClick={(e) => {
+                                    trackKeyAction({
+                                      section: "deal_radar",
+                                      action: "company_clicked_through",
+                                      targetType: "company",
+                                      targetId: item.company_id,
+                                    });
                                     if (
                                       e.button !== 0 ||
                                       e.metaKey ||
@@ -1285,6 +1318,14 @@ export default function DealRadarDashboardPage() {
                                       <a
                                         key={b.id}
                                         href={`/company/${b.id}`}
+                                        onClick={() =>
+                                          trackKeyAction({
+                                            section: "deal_radar",
+                                            action: "company_clicked_through",
+                                            targetType: "company",
+                                            targetId: b.id,
+                                          })
+                                        }
                                         className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
                                         style={{
                                           backgroundColor: ENTITY_TONES.company.fill,
