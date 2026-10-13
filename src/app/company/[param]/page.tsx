@@ -3329,8 +3329,11 @@ const CompanyDetail = () => {
     .company-zone-rail > :last-child { flex: 1 1 auto; }
     .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
-    .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-top-right { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    .company-zone-top-right { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    /* The shorter top block grows so Insights and Financial Metrics end on the same line. */
+    .company-zone-top-left > :last-child,
+    .company-zone-top-right > :last-child { flex: 1 1 auto; }
     .company-zone-low-left { grid-column: 1 / span 2; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-low-right { grid-column: 3; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-low-left:empty, .company-zone-low-right:empty { display: none; }
@@ -4273,6 +4276,7 @@ const CompanyDetail = () => {
                   }}
                 >
                   <InsightsCard
+                    fillGridCell
                     articles={companyArticles}
                     loading={articlesLoading}
                     totalCount={insightsTotal}

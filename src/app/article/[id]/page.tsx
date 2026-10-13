@@ -1786,7 +1786,7 @@ const ArticleDetailPage = () => {
                 <div
                   style={styles.body}
                   className="article-body"
-                  dangerouslySetInnerHTML={{ __html: html }}
+                  dangerouslySetInnerHTML={{ __html: stripEntityTagMarker(html) }}
                 />
               );
             })()}
