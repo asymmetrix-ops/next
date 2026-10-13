@@ -363,7 +363,7 @@ const SubSectorsSection = () => {
         }
 
         const params = new URLSearchParams({
-          page: String(uiPage - 1),
+          page: String(uiPage),
           sort_by: SORT_BY_API_KEY[sortField],
           sort_dir: sortDirection,
         });
@@ -385,7 +385,7 @@ const SubSectorsSection = () => {
         const data: SecondarySectorsApiResponse = await resp.json();
 
         setSubSectors((data.items || []).map(mapApiItem));
-        setCurPage(data.page || uiPage);
+        setCurPage(uiPage);
         setPageTotal(data.total_pages || 1);
         setTotalCount(data.total_count || 0);
       } catch (err) {
