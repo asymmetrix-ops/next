@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import NewsCard from "@/components/news/NewsCard";
@@ -9,12 +9,9 @@ import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
 import {
-  buildSeriesIndex,
   fetchNewsFeed,
-  fetchNewsPage,
   fetchTopStories,
   NEWS_PAGE_SIZE,
-  sortNewest,
   type NewsArticle,
   type NewsFilter,
 } from "@/lib/news";
@@ -51,26 +48,23 @@ export default function NewsPage() {
     else setLoadingMore(true);
     setError(null);
     try {
-      if (nextFilter) {
-        const res = await fetchNewsPage({ page: nextPage, filter: nextFilter });
+      // Top Stories first (unfiltered only): their ids are excluded from the feed.
+      if (first && !nextFilter) {
+        const top = await fetchTopStories();
         if (req !== requestRef.current) return;
-        setArticles((prev) => sortNewest(first ? res.items : mergeById(prev, res.items)));
-        setTotal(res.total);
-        setHasMore(res.nextPage != null);
-      } else {
-        // Top Stories first: their ids are excluded from the feed.
-        if (first) {
-          const top = await fetchTopStories();
-          if (req !== requestRef.current) return;
-          topIdsRef.current = top.map((a) => a.id);
-          setTopStories(top);
-        }
-        const res = await fetchNewsFeed({ page: nextPage, excludeIds: topIdsRef.current });
-        if (req !== requestRef.current) return;
-        setArticles((prev) => (first ? res.items : mergeById(prev, res.items)));
-        const feedTotal = res.total ?? 0;
-        setHasMore(res.items.length > 0 && nextPage * NEWS_PAGE_SIZE < feedTotal);
+        topIdsRef.current = top.map((a) => a.id);
+        setTopStories(top);
       }
+      const res = await fetchNewsFeed({
+        page: nextPage,
+        filter: nextFilter,
+        excludeIds: nextFilter ? [] : topIdsRef.current,
+      });
+      if (req !== requestRef.current) return;
+      setArticles((prev) => (first ? res.items : mergeById(prev, res.items)));
+      const feedTotal = res.total ?? 0;
+      setTotal(feedTotal);
+      setHasMore(res.items.length > 0 && nextPage * NEWS_PAGE_SIZE < feedTotal);
       setPage(nextPage);
     } catch (e) {
       if (req !== requestRef.current) return;
@@ -93,9 +87,7 @@ export default function NewsPage() {
   const filtered = filter != null;
   const top = !filtered && topStories.length > 0 ? topStories : null;
   
-  // Filtered results come from the generic list endpoint, which has no series data.
-  const seriesIndex = useMemo(() => (filtered ? buildSeriesIndex(articles) : null), [filtered, articles]);
-  const seriesFor = (a: NewsArticle) => (a.series_others?.length ? a.series_others : seriesIndex?.get(a.id));
+  const seriesFor = (a: NewsArticle) => a.series_others;
 
   const feed = articles;
 

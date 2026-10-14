@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchGlobalSearchBySource, type GlobalSearchResult } from "@/lib/globalSearch";
 import { decodeHtmlEntities } from "@/lib/contentArticleDisplay";
-import { fetchNewsPage, type NewsFilter } from "@/lib/news";
+import { fetchNewsFeed, type NewsFilter } from "@/lib/news";
 
 type Item =
   | { group: string; key: string; label: string; filter: NewsFilter }
@@ -47,7 +47,7 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
           )
           .catch((): Item[] => []);
 
-      const articles = fetchNewsPage({
+      const articles = fetchNewsFeed({
         page: 1,
         perPage: MAX_PER_GROUP,
         filter: { kind: "text", label: q },
