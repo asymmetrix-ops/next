@@ -196,19 +196,30 @@ export async function fetchSearchSuggestions(q: string, signal?: AbortSignal): P
   };
 }
 
-// ── Follow news (v1: all news). Local stub until the backend ships. ──────
+// ── Follow news (v1: all news) ───────────────────────────────────────────
+// Goes through /api/news-follow, which holds the alerts-service key and takes
+// the user's identity from their login token.
 
-const FOLLOW_KEY = "asymmetrix_follow_news";
-
-export function getNewsFollowing(): boolean {
-  try {
-    return localStorage.getItem(FOLLOW_KEY) === "1";
-  } catch {
-    return false;
-  }
+function followHeaders(): Record<string, string> {
+  const token = localStorage.getItem("asymmetrix_auth_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "x-asym-token": token } : {}),
+  };
 }
 
-export async function setNewsFollowing(next: boolean): Promise<void> {
-  // TODO(backend): create/delete the user's follow-news subscription.
-  localStorage.setItem(FOLLOW_KEY, next ? "1" : "0");
+export async function fetchNewsFollowing(): Promise<boolean> {
+  const res = await fetch("/api/news-follow", { headers: followHeaders(), cache: "no-store" });
+  if (!res.ok) throw new Error(`Follow status failed (${res.status})`);
+  return Boolean(((await res.json()) as { is_following?: boolean }).is_following);
+}
+
+export async function setNewsFollowing(next: boolean): Promise<boolean> {
+  const res = await fetch("/api/news-follow", {
+    method: "POST",
+    headers: followHeaders(),
+    body: JSON.stringify({ action: next ? "follow" : "unfollow" }),
+  });
+  if (!res.ok) throw new Error(`Follow update failed (${res.status})`);
+  return Boolean(((await res.json()) as { is_following?: boolean }).is_following);
 }

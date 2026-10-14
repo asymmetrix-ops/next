@@ -2,20 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { getNewsFollowing, setNewsFollowing } from "@/lib/news";
+import { fetchNewsFollowing, setNewsFollowing } from "@/lib/news";
 
 /** Follow/unfollow News emails from email preferences (same state as the News page button). */
 export function NewsFollowSettings() {
   const [following, setFollowing] = useState(false);
+  const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => setFollowing(getNewsFollowing()), []);
+  useEffect(() => {
+    let cancelled = false;
+    fetchNewsFollowing()
+      .then((v) => !cancelled && setFollowing(v))
+      .catch(() => undefined)
+      .finally(() => !cancelled && setReady(true));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggle = async (next: boolean) => {
     setBusy(true);
     try {
-      await setNewsFollowing(next);
-      setFollowing(next);
+      setFollowing(await setNewsFollowing(next));
       toast.success(
         next
           ? "You'll get an email whenever we publish news."
@@ -41,7 +50,7 @@ export function NewsFollowSettings() {
           type="checkbox"
           className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
           checked={following}
-          disabled={busy}
+          disabled={busy || !ready}
           onChange={(e) => void toggle(e.target.checked)}
         />
         <div>

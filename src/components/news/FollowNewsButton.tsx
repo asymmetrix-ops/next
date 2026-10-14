@@ -2,20 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { getNewsFollowing, setNewsFollowing } from "@/lib/news";
+import { fetchNewsFollowing, setNewsFollowing } from "@/lib/news";
 
 export default function FollowNewsButton() {
   const [following, setFollowing] = useState(false);
+  const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => setFollowing(getNewsFollowing()), []);
+  useEffect(() => {
+    let cancelled = false;
+    fetchNewsFollowing()
+      .then((v) => !cancelled && setFollowing(v))
+      .catch(() => undefined) // button stays usable; actions report their own errors
+      .finally(() => !cancelled && setReady(true));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const apply = async (next: boolean) => {
     setBusy(true);
     try {
-      await setNewsFollowing(next);
-      setFollowing(next);
+      setFollowing(await setNewsFollowing(next));
       toast.success(next ? "You'll get an email whenever we publish news." : "You've stopped receiving news emails.");
     } catch {
       toast.error("Couldn't update your preference. Please try again.");
@@ -29,7 +38,7 @@ export default function FollowNewsButton() {
     <>
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || !ready}
         aria-pressed={following}
         className={`nw-btn ${following ? "nw-btn-following" : "nw-btn-outline"}`}
         onClick={() => (following ? setConfirming(true) : apply(true))}
