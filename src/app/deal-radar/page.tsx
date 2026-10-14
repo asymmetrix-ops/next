@@ -21,8 +21,10 @@ import {
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
-import { CappedPillTags } from "@/components/redesign/primitives";
-import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
+import {
+  SEARCH_MULTI_VALUE_STYLES,
+  SearchEntityMultiValueCell,
+} from "@/components/search/SearchEntityMultiValueCell";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
@@ -169,6 +171,53 @@ const DEAL_RADAR_FILTER_NAMES: Record<string, string> = {
   advisor: "advisor",
   banker: "banker",
 };
+
+type SortDir = "asc" | "desc";
+type SortKey =
+  | "name"
+  | "hq"
+  | "ownership"
+  | "sector"
+  | "status"
+  | "stage"
+  | "advisor"
+  | "buyer_type"
+  | "bidders"
+  | "revenue"
+  | "ev"
+  | "acquirers"
+  | "event";
+
+/** Agreed tracking names (lowercase, underscores). */
+const DEAL_RADAR_SORT_NAMES: Record<SortKey, string> = {
+  name: "company",
+  hq: "hq",
+  ownership: "ownership",
+  sector: "sector",
+  status: "transaction_status",
+  stage: "process_stage",
+  advisor: "advisor",
+  buyer_type: "buyer_type",
+  bidders: "bidders",
+  revenue: "revenue",
+  ev: "ev",
+  acquirers: "potential_acquirers",
+  event: "corporate_event",
+};
+
+/** Blue hover on sortable headers so users can tell they are clickable. */
+const SORTABLE_HEADER_HOVER_STYLES = `
+  .company-table thead th.company-table-th-sortable {
+    transition: color 0.12s, background-color 0.12s;
+  }
+  .company-table thead th.company-table-th-sortable:hover {
+    color: #2A46EA;
+    background: #E8EDFB;
+  }
+  .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
+    color: #2A46EA;
+  }
+`;
 
 const BUYER_TYPE_FILTER_OPTIONS = ["Trade", "Sponsor", "Growth Equity"];
 
@@ -360,7 +409,8 @@ function buildDashboardUrl(
   offset: number,
   search: string,
   statusId: number | null,
-  barFilters: DealRadarApiFilter[]
+  barFilters: DealRadarApiFilter[],
+  sort: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" }
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
   url.searchParams.set("limit", String(PAGE_SIZE));
@@ -372,6 +422,10 @@ function buildDashboardUrl(
   if (barFilters.length > 0) {
     url.searchParams.set("filters_json", JSON.stringify(barFilters));
   }
+  if (sort.key) {
+    url.searchParams.set("sort_by", sort.key);
+    url.searchParams.set("sort_dir", sort.dir);
+  }
   return url;
 }
 
@@ -382,7 +436,7 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   const description = getTransactionSignalDescription(signal);
   const [open, setOpen] = useState(false);
   return (
-    <div className="group relative mt-1 w-full text-center">
+    <div className="group relative mt-1 w-full text-left">
       <button
         type="button"
         onClick={() => description && setOpen((v) => !v)}
@@ -398,7 +452,7 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
       {description ? (
         <div
           role="tooltip"
-          className={`absolute left-1/2 top-full z-50 mt-2 w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block ${
+          className={`absolute left-0 top-full z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block ${
             open ? "block" : "hidden"
           }`}
         >
@@ -511,16 +565,13 @@ function DealRadarMobileCard({
         {row(
           "Sectors",
           sectors.length > 0 ? (
-            <div className="flex justify-end">
-              <CappedPillTags
-                tone="azure"
-                items={sectors.map((s) => ({
-                  key: `${s.id}-${s.name}`,
-                  label: s.name,
-                  href: s.id > 0 ? `/sector/${s.id}` : undefined,
-                }))}
-              />
-            </div>
+            <SearchEntityMultiValueCell
+              items={sectors.map((s) => ({
+                key: `${s.id}-${s.name}`,
+                name: s.name,
+                href: s.id > 0 ? `/sector/${s.id}` : undefined,
+              }))}
+            />
           ) : (
             dash
           )
@@ -611,6 +662,10 @@ export default function DealRadarDashboardPage() {
     INITIAL_FILTER_BAR_STATE
   );
   const [statusBubbleId, setStatusBubbleId] = useState<number | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({
+    key: null,
+    dir: "asc",
+  });
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -690,7 +745,8 @@ export default function DealRadarDashboardPage() {
       append = false,
       search = "",
       statusId: number | null = null,
-      barFilters: DealRadarApiFilter[] = []
+      barFilters: DealRadarApiFilter[] = [],
+      sortState: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" }
     ) => {
       setLoading(true);
       setError(null);
@@ -700,7 +756,7 @@ export default function DealRadarDashboardPage() {
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, statusId, barFilters);
+        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -786,13 +842,26 @@ export default function DealRadarDashboardPage() {
   // Back to page 1 whenever the filters change
   useEffect(() => {
     setPage(1);
-  }, [barFiltersKey, statusBubbleId]);
+  }, [barFiltersKey, statusBubbleId, sort]);
 
   // Re-fetch when the page, search or filters change
   useEffect(() => {
-    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters);
+    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters, sort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData, page, debouncedSearch, statusBubbleId, barFiltersKey]);
+  }, [fetchData, page, debouncedSearch, statusBubbleId, barFiltersKey, sort]);
+
+  const toggleSort = (key: SortKey) => {
+    trackKeyAction({
+      section: "deal_radar",
+      action: "column_sorted",
+      actionDetail: DEAL_RADAR_SORT_NAMES[key],
+    });
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
+    );
+  };
 
   const statusCounts = useMemo<Record<string, number>>(() => {
     const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
@@ -846,38 +915,50 @@ export default function DealRadarDashboardPage() {
 
   const Th = ({
     label,
+    sortKey,
     frozen = false,
     minWidth,
   }: {
     label: string;
+    sortKey: SortKey;
     frozen?: boolean;
     minWidth?: number;
-  }) => (
-    <th
-      className={frozen ? "company-table-sticky-frozen" : undefined}
-      style={{
-        minWidth,
-        ...(frozen
-          ? {
-              position: "sticky",
-              left: 0,
-              zIndex: 7,
-              boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
-              background: "#F5F7FD",
-            }
-          : null),
-      }}
-    >
-      {label}
-    </th>
-  );
+  }) => {
+    const active = sort.key === sortKey;
+    return (
+      <th
+        aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+        className={`company-table-th-sortable${frozen ? " company-table-sticky-frozen" : ""}`}
+        style={{
+          minWidth,
+          ...(frozen
+            ? {
+                position: "sticky",
+                left: 0,
+                zIndex: 7,
+                boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+                background: "#F5F7FD",
+              }
+            : null),
+        }}
+        onClick={() => toggleSort(sortKey)}
+      >
+        {label}
+        {active && (
+          <span className="company-table-sort-indicator">
+            {sort.dir === "asc" ? " ↑" : " ↓"}
+          </span>
+        )}
+      </th>
+    );
+  };
 
   return (
     <AppShell>
       <div className="min-h-screen flex flex-col bg-white">
         <style
           dangerouslySetInnerHTML={{
-            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES,
+            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES + SORTABLE_HEADER_HOVER_STYLES,
           }}
         />
         <div style={SEARCH_DASHBOARD_SHELL}>
@@ -926,7 +1007,7 @@ export default function DealRadarDashboardPage() {
               <p className="text-sm text-red-600 font-medium">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters)}
+                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters, sort)}
                 className="mt-3 text-sm text-blue-600 hover:underline"
               >
                 Retry
@@ -941,19 +1022,19 @@ export default function DealRadarDashboardPage() {
               <table className="company-table">
                 <thead>
                   <tr>
-                    <Th label="Company" frozen minWidth={260} />
-                    <Th label="HQ" minWidth={100} />
-                    <Th label="Ownership" minWidth={120} />
-                    <Th label="Primary Sector(s)" minWidth={180} />
-                    <Th label="Transaction Status" minWidth={200} />
-                    <Th label="Process Stage" minWidth={130} />
-                    <Th label="Advisor" minWidth={160} />
-                    <Th label="Buyer Type" minWidth={120} />
-                    <Th label="Bidders" minWidth={140} />
-                    <Th label="Revenue (m)" minWidth={110} />
-                    <Th label="EV (m)" minWidth={100} />
-                    <Th label="Potential Acquirers" minWidth={180} />
-                    <Th label="Corp. Event" minWidth={110} />
+                    <Th label="Company" sortKey="name" frozen minWidth={260} />
+                    <Th label="HQ" sortKey="hq" minWidth={100} />
+                    <Th label="Ownership" sortKey="ownership" minWidth={120} />
+                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={180} />
+                    <Th label="Transaction Status" sortKey="status" minWidth={200} />
+                    <Th label="Process Stage" sortKey="stage" minWidth={130} />
+                    <Th label="Advisor" sortKey="advisor" minWidth={160} />
+                    <Th label="Buyer Type" sortKey="buyer_type" minWidth={120} />
+                    <Th label="Bidders" sortKey="bidders" minWidth={140} />
+                    <Th label="Revenue (m)" sortKey="revenue" minWidth={110} />
+                    <Th label="EV (m)" sortKey="ev" minWidth={100} />
+                    <Th label="Potential Acquirers" sortKey="acquirers" minWidth={180} />
+                    <Th label="Corp. Event" sortKey="event" minWidth={110} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1085,11 +1166,10 @@ export default function DealRadarDashboardPage() {
                               {/* Sectors */}
                               <td>
                                 {sectors.length > 0 ? (
-                                  <CappedPillTags
-                                    tone="azure"
+                                  <SearchEntityMultiValueCell
                                     items={sectors.map((s) => ({
                                       key: `${s.id}-${s.name}`,
-                                      label: s.name,
+                                      name: s.name,
                                       href:
                                         s.id > 0 ? `/sector/${s.id}` : undefined,
                                     }))}
@@ -1101,7 +1181,7 @@ export default function DealRadarDashboardPage() {
 
                               {/* Transaction Status + Signal */}
                               <td>
-                                <div className="inline-flex flex-col items-center">
+                                <div className="inline-flex flex-col items-start">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
                                     className="inline-block max-w-[11rem]"
