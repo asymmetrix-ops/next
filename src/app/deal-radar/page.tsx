@@ -9,7 +9,7 @@ import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import {
   getTransactionStatusTone,
   getProcessStageTone,
-  getIntermediaryTone,
+  getBuyerTypeTone,
   getTransactionSignalTone,
   getTransactionSignalDescription,
   ENTITY_TONES,
@@ -17,6 +17,25 @@ import {
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { CappedPillTags } from "@/components/redesign/primitives";
+import { SEARCH_MULTI_VALUE_STYLES } from "@/components/search/SearchEntityMultiValueCell";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import {
+  SEARCH_TABLE_ENTITY_LOGO_SIZE_PX,
+  SEARCH_TABLE_STYLES,
+} from "@/components/search/searchTableStyles";
+import {
+  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_FILTER_INNER,
+  SEARCH_DASHBOARD_FILTER_SHELL,
+  SEARCH_DASHBOARD_HEADER_ROW,
+  SEARCH_DASHBOARD_INNER,
+  SEARCH_DASHBOARD_MATCH_COUNT,
+  SEARCH_DASHBOARD_SHELL,
+  SEARCH_DASHBOARD_TITLE,
+} from "@/components/search/searchDashboardLayout";
+import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,9 +49,19 @@ interface NamedRef {
   name: string;
 }
 
+interface AdvisorRef {
+  id: number;
+  name: string;
+  /** True when the firm has an Advisor profile page. */
+  has_profile: boolean;
+  /** Bankers tagged under this Advisor. */
+  bankers: NamedRef[];
+}
+
 interface ValSource {
   value: string | null;
   source: string | null;
+  currency?: string | null;
 }
 
 interface LinkedEvent {
@@ -63,6 +92,7 @@ interface DealRadarDashboardItem {
   buyer_type: string[];
   intermediary_type: string | null;
   intermediary: NamedRef | null;
+  advisors?: AdvisorRef[];
   bidders: NamedRef[];
   revenue: ValSource;
   ev: ValSource;
@@ -139,7 +169,70 @@ const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
 const ANTICIPATED_18_MONTHS_ID = 1;
-const TABLE_COL_COUNT = 12;
+const TABLE_COL_COUNT = 13;
+
+/** Advisors for a row; falls back to the single `intermediary` an older API response carries. */
+function advisorsOf(item: DealRadarDashboardItem): AdvisorRef[] {
+  if (Array.isArray(item.advisors)) return item.advisors;
+  return item.intermediary
+    ? [{ ...item.intermediary, has_profile: true, bankers: [] }]
+    : [];
+}
+
+/** Advisor column like other list views: plain links (no tags), each firm with its bankers underneath. */
+function AdvisorCell({ item, align = "left" }: { item: DealRadarDashboardItem; align?: "left" | "right" }) {
+  const advisors = advisorsOf(item);
+  if (advisors.length === 0) {
+    const type = item.intermediary_type;
+    return type === "No Intermediary" || type === "Not Yet Hired" ? <>{type}</> : <>{EMPTY_DISPLAY}</>;
+  }
+  const alignClass = align === "right" ? "items-end text-right" : "items-start text-left";
+  return (
+    <div className={`flex flex-col gap-1.5 text-xs leading-snug ${alignClass}`}>
+      {advisors.map((advisor) => (
+        <div key={advisor.id} className={`flex flex-col gap-0.5 ${alignClass}`}>
+          {advisor.has_profile ? (
+            <a href={`/advisor/${advisor.id}`} className="search-multi-value-link">
+              {advisor.name}
+            </a>
+          ) : (
+            <span className="text-gray-800">{advisor.name}</span>
+          )}
+          {(advisor.bankers ?? [])
+            .filter((banker) => banker.name)
+            .map((banker) => (
+              <a key={banker.id} href={`/individual/${banker.id}`} className="search-multi-value-link text-[11px]">
+                {banker.name}
+              </a>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Buyer Type column: one pill per recorded type, "-" when none. */
+function BuyerTypeCell({ types }: { types: string[] }) {
+  const list = (types ?? []).filter(Boolean);
+  if (list.length === 0) return <>{EMPTY_DISPLAY}</>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {list.map((type) => {
+        const tone = getBuyerTypeTone(type);
+        return (
+          <span
+            key={type}
+            className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+            style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
+          >
+            {type}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 
 const TRANSACTION_STATUS_OPTIONS = [
   { id: 3, label: "Reported in Market", totalsKey: "Reported in Market" },
@@ -217,36 +310,12 @@ function isInvalidVal(value: string | null | undefined): boolean {
   return v === "null" || v === "nan" || v === "";
 }
 
+/** Revenue / EV as plain text like the other list views (no Est./Prop. tags). */
 function formatVal(val: ValSource): React.ReactNode {
-  const v = val?.value;
-  const src = val?.source;
-  if (isInvalidVal(v)) return <span className="text-gray-300">—</span>;
-
-  const isEst = src && src.startsWith("http");
-  const isProp =
-    src && !src.startsWith("http") && !isInvalidVal(src);
-
-  return (
-    <span className="font-medium text-gray-800">
-      {v}m
-      {isEst && (
-        <abbr
-          title={`Estimate — source: ${src}`}
-          className="ml-1 text-[10px] text-amber-600 border border-amber-300 rounded px-1 cursor-help no-underline"
-        >
-          Est.
-        </abbr>
-      )}
-      {isProp && (
-        <abbr
-          title="Proprietary data"
-          className="ml-1 text-[10px] text-blue-600 border border-blue-300 rounded px-1 cursor-help no-underline"
-        >
-          Prop.
-        </abbr>
-      )}
-    </span>
-  );
+  if (isInvalidVal(val?.value)) return EMPTY_DISPLAY;
+  const plain = formatMetricMillionsPlain(val.value);
+  if (plain === EMPTY_DISPLAY) return EMPTY_DISPLAY;
+  return appendMetricCurrency(plain, val.currency ?? undefined);
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -361,7 +430,7 @@ function DealRadarMobileCard({
 }) {
   const isReportedInMarket = item.transaction_status.toLowerCase().includes("reported");
   const sectors = item.primary_sectors.map((s) => ({ ...s, name: cleanSectorName(s.name) }));
-  const dash = <span className="text-gray-300">—</span>;
+  const dash = <span>-</span>;
   const row = (label: string, value: React.ReactNode) => (
     <div className="flex items-start justify-between gap-3 py-1.5 text-xs">
       <span className="w-24 shrink-0 font-medium text-gray-500">{label}</span>
@@ -384,10 +453,6 @@ function DealRadarMobileCard({
     </a>
   );
   const stageTone = item.process_stage ? getProcessStageTone(item.process_stage) : null;
-  const intermediaryLabel =
-    item.intermediary?.name ??
-    (item.intermediary_type && item.intermediary_type !== "No Intermediary" ? item.intermediary_type : null) ??
-    (item.intermediary_type === "No Intermediary" ? "No Intermediary" : null);
 
   return (
     <div className="border-b border-gray-100 px-4 py-4">
@@ -481,7 +546,8 @@ function DealRadarMobileCard({
             dash
           )
         )}
-        {row("Intermediary", intermediaryLabel ?? <span className="text-gray-400">Unknown</span>)}
+        {row("Advisor", <AdvisorCell item={item} align="right" />)}
+        {row("Buyer type", <div className="flex justify-end"><BuyerTypeCell types={item.buyer_type} /></div>)}
         {row(
           "Bidders",
           item.bidders.length > 0 ? (
@@ -547,7 +613,7 @@ export default function DealRadarDashboardPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [statusTotals, setStatusTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -574,7 +640,10 @@ export default function DealRadarDashboardPage() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(
-      () => setDebouncedSearch(searchQuery.trim()),
+      () => {
+        setDebouncedSearch(searchQuery.trim());
+        setPage(1);
+      },
       300
     );
     return () => {
@@ -628,8 +697,7 @@ export default function DealRadarDashboardPage() {
       search = "",
       activeFilters = EMPTY_FILTERS
     ) => {
-      if (!append) setLoading(true);
-      else setLoadingMore(true);
+      setLoading(true);
       setError(null);
 
       try {
@@ -658,16 +726,15 @@ export default function DealRadarDashboardPage() {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     []
   );
 
-  // Re-fetch when search or filters change
+  // Re-fetch when the page, search or filters change
   useEffect(() => {
-    fetchData(0, false, debouncedSearch, filters);
-  }, [fetchData, debouncedSearch, filters]);
+    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters);
+  }, [fetchData, page, debouncedSearch, filters]);
 
   const statusCounts = useMemo<Record<string, number>>(() => {
     const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
@@ -685,6 +752,7 @@ export default function DealRadarDashboardPage() {
         });
       }
     }
+    setPage(1);
     setFilters((prev) => {
       const next = { ...prev, ...patch };
       if (
@@ -706,7 +774,10 @@ export default function DealRadarDashboardPage() {
     });
   };
 
-  const clearAllFilters = () => setFilters(EMPTY_FILTERS);
+  const clearAllFilters = () => {
+    setPage(1);
+    setFilters(EMPTY_FILTERS);
+  };
 
   const ownershipSelectOptions = useMemo(
     () =>
@@ -746,13 +817,27 @@ export default function DealRadarDashboardPage() {
 
   const Th = ({
     label,
-    className = "",
+    frozen = false,
+    minWidth,
   }: {
     label: string;
-    className?: string;
+    frozen?: boolean;
+    minWidth?: number;
   }) => (
     <th
-      className={`px-3 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 ${className}`}
+      className={frozen ? "company-table-sticky-frozen" : undefined}
+      style={{
+        minWidth,
+        ...(frozen
+          ? {
+              position: "sticky",
+              left: 0,
+              zIndex: 7,
+              boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+              background: "#F5F7FD",
+            }
+          : null),
+      }}
     >
       {label}
     </th>
@@ -762,40 +847,27 @@ export default function DealRadarDashboardPage() {
 
   return (
     <AppShell>
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <main className="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8">
-        {/* Page header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-              <svg
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="2" />
-                <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
-                <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Deal Radar
-              </h1>
-              {pagination && (
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {pagination.total_items} active transactions
-                </p>
-              )}
-            </div>
-          </div>
+      <div className="min-h-screen flex flex-col bg-white">
+        <style
+          dangerouslySetInnerHTML={{
+            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES,
+          }}
+        />
+        <div style={SEARCH_DASHBOARD_SHELL}>
+          <div style={SEARCH_DASHBOARD_INNER}>
+            <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+              <div>
+                <h1 style={SEARCH_DASHBOARD_TITLE}>
+                  Deal Radar
+                  {pagination && (
+                    <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+                      {pagination.total_items} active transactions
+                    </span>
+                  )}
+                </h1>
+              </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div style={SEARCH_DASHBOARD_ACTIONS}>
             {/* Filter toggle */}
             <button
               type="button"
@@ -845,7 +917,70 @@ export default function DealRadarDashboardPage() {
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
+          <div style={SEARCH_DASHBOARD_FILTER_INNER}>
+        {/* Status filter pills */}
+        <div className="mb-2 flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((f) => {
+            const count =
+              f.totalsKey === ""
+                ? (statusCounts[""] ?? 0)
+                : (statusCounts[f.totalsKey] ?? 0);
+            const active =
+              f.statusId === null
+                ? activeStatusBubbleId === null
+                : activeStatusBubbleId === f.statusId;
+            const style =
+              f.statusId !== null
+                ? getStatusStyle(
+                    TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)
+                      ?.label ?? ""
+                  )
+                : null;
+            const pillStyle: React.CSSProperties =
+              active && style
+                ? {
+                    backgroundColor: style.bg,
+                    color: style.text,
+                    borderColor: style.border,
+                  }
+                : active
+                  ? {
+                      backgroundColor: "#2A46EA",
+                      color: "#FFFFFF",
+                      borderColor: "#2A46EA",
+                    }
+                  : {};
+            return (
+              <button
+                key={f.statusId ?? "all"}
+                type="button"
+                onClick={() => handleStatusBubbleClick(f.statusId)}
+                style={pillStyle}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                  active
+                    ? "shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {f.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    active
+                      ? "bg-white/40 text-inherit"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Filter panel */}
@@ -972,73 +1107,16 @@ export default function DealRadarDashboardPage() {
           </div>
         )}
 
-        {/* Status filter pills */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {STATUS_FILTERS.map((f) => {
-            const count =
-              f.totalsKey === ""
-                ? (statusCounts[""] ?? 0)
-                : (statusCounts[f.totalsKey] ?? 0);
-            const active =
-              f.statusId === null
-                ? activeStatusBubbleId === null
-                : activeStatusBubbleId === f.statusId;
-            const style =
-              f.statusId !== null
-                ? getStatusStyle(
-                    TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)
-                      ?.label ?? ""
-                  )
-                : null;
-            const pillStyle: React.CSSProperties =
-              active && style
-                ? {
-                    backgroundColor: style.bg,
-                    color: style.text,
-                    borderColor: style.border,
-                  }
-                : active
-                  ? {
-                      backgroundColor: "#2A46EA",
-                      color: "#FFFFFF",
-                      borderColor: "#2A46EA",
-                    }
-                  : {};
-            return (
-              <button
-                key={f.statusId ?? "all"}
-                type="button"
-                onClick={() => handleStatusBubbleClick(f.statusId)}
-                style={pillStyle}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                  active
-                    ? "shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                    active
-                      ? "bg-white/40 text-inherit"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          </div>
         </div>
 
-        {/* Table card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <main className="flex-1 w-full px-7 py-4">
           {error ? (
             <div className="p-8 text-center">
               <p className="text-sm text-red-600 font-medium">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchData(0, false, debouncedSearch, filters)}
+                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters)}
                 className="mt-3 text-sm text-blue-600 hover:underline"
               >
                 Retry
@@ -1046,25 +1124,29 @@ export default function DealRadarDashboardPage() {
             </div>
           ) : (
             <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1500px] border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-gray-200">
-                    <Th label="Company" className="min-w-[160px]" />
-                    <Th label="HQ" className="min-w-[100px]" />
-                    <Th label="Ownership" className="min-w-[120px]" />
-                    <Th label="Primary Sector(s)" className="min-w-[180px]" />
-                    <Th label="Transaction Status" className="min-w-[200px]" />
-                    <Th label="Process Stage" className="min-w-[130px]" />
-                    <Th label="Intermediary" className="min-w-[140px]" />
-                    <Th label="Bidders" className="min-w-[140px]" />
-                    <Th label="Revenue (m)" className="min-w-[110px]" />
-                    <Th label="EV (m)" className="min-w-[100px]" />
-                    <Th label="Potential Acquirers" className="min-w-[180px]" />
-                    <Th label="Corp. Event" className="min-w-[110px]" />
+            <div
+              className="company-table-scroll hidden md:block"
+              style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}
+            >
+              <table className="company-table">
+                <thead>
+                  <tr>
+                    <Th label="Company" frozen minWidth={260} />
+                    <Th label="HQ" minWidth={100} />
+                    <Th label="Ownership" minWidth={120} />
+                    <Th label="Primary Sector(s)" minWidth={180} />
+                    <Th label="Transaction Status" minWidth={200} />
+                    <Th label="Process Stage" minWidth={130} />
+                    <Th label="Advisor" minWidth={160} />
+                    <Th label="Buyer Type" minWidth={120} />
+                    <Th label="Bidders" minWidth={140} />
+                    <Th label="Revenue (m)" minWidth={110} />
+                    <Th label="EV (m)" minWidth={100} />
+                    <Th label="Potential Acquirers" minWidth={180} />
+                    <Th label="Corp. Event" minWidth={110} />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {loading
                     ? Array.from({ length: 8 }).map((_, i) => (
                         <SkeletonRow key={i} />
@@ -1090,19 +1172,26 @@ export default function DealRadarDashboardPage() {
                           }));
 
                           return (
-                            <tr
-                              key={item.company_id}
-                              className="hover:bg-blue-50/30 transition-colors align-top group"
-                            >
+                            <tr key={item.company_id}>
                               {/* Company */}
-                              <td className="px-3 py-3">
-                                <div className="flex items-start gap-2.5">
+                              <td
+                                className="company-table-sticky-frozen"
+                                style={{
+                                  minWidth: 260,
+                                  position: "sticky",
+                                  left: 0,
+                                  zIndex: 3,
+                                  boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
+                                  background: "#fff",
+                                }}
+                              >
+                                <div className="company-table-entity-name-cell">
                                   <CompanyAvatar
                                     name={item.name}
                                     logo={item.logo}
-                                    size={28}
+                                    size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX}
                                   />
-                                  <div className="min-w-0">
+                                  <div className="company-table-entity-name-text">
                                 <a
                                   href={`/company/${item.company_id}`}
                                   onClick={(e) => {
@@ -1159,14 +1248,14 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* HQ */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.hq_country ?? (
-                                  <span className="text-gray-300">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Ownership */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.ownership_type ? (
                                   <div>
                                     <span className="font-medium">
@@ -1179,12 +1268,12 @@ export default function DealRadarDashboardPage() {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Sectors */}
-                              <td className="px-3 py-3">
+                              <td>
                                 {sectors.length > 0 ? (
                                   <CappedPillTags
                                     tone="azure"
@@ -1196,12 +1285,12 @@ export default function DealRadarDashboardPage() {
                                     }))}
                                   />
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Transaction Status + Signal */}
-                              <td className="px-3 py-3">
+                              <td>
                                 <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
@@ -1217,7 +1306,7 @@ export default function DealRadarDashboardPage() {
                               </td>
 
                               {/* Process Stage — hue varies by value, tags.txt §5 */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.process_stage ? (
                                   (() => {
                                     const tone = getProcessStageTone(item.process_stage);
@@ -1235,83 +1324,22 @@ export default function DealRadarDashboardPage() {
                                     );
                                   })()
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
-                              {/* Intermediary — tags.txt §6 */}
-                              <td className="px-3 py-3 text-xs text-gray-700">
-                                {item.intermediary && item.intermediary.name ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone(undefined);
-                                    return (
-                                      <a
-                                        href={`/advisor/${item.intermediary.id}`}
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        {item.intermediary.name}
-                                      </a>
-                                    );
-                                  })()
-                                ) : item.intermediary_type &&
-                                  item.intermediary_type !== "No Intermediary" ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone(item.intermediary_type);
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        {item.intermediary_type}
-                                      </span>
-                                    );
-                                  })()
-                                ) : item.intermediary_type === "No Intermediary" ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone("No Intermediary");
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        No Intermediary
-                                      </span>
-                                    );
-                                  })()
-                                ) : (
-                                  (() => {
-                                    const tone = getIntermediaryTone("Unknown");
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          border: `1px dashed ${tone.border}`,
-                                        }}
-                                      >
-                                        Unknown
-                                      </span>
-                                    );
-                                  })()
-                                )}
+                              {/* Advisor — each firm with its bankers underneath */}
+                              <td className="text-xs text-gray-700">
+                                <AdvisorCell item={item} />
+                              </td>
+
+                              {/* Buyer Type */}
+                              <td className="text-xs text-gray-700">
+                                <BuyerTypeCell types={item.buyer_type} />
                               </td>
 
                               {/* Bidders — entity chip, tags.txt §10 (Companies · green) */}
-                              <td className="px-3 py-3">
+                              <td>
                                 {item.bidders.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {item.bidders.map((b) => (
@@ -1337,22 +1365,22 @@ export default function DealRadarDashboardPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Revenue */}
-                              <td className="px-3 py-3 text-xs">
+                              <td className="text-xs">
                                 {formatVal(item.revenue)}
                               </td>
 
                               {/* EV */}
-                              <td className="px-3 py-3 text-xs">
+                              <td className="text-xs">
                                 {formatVal(item.ev)}
                               </td>
 
                               {/* Potential Acquirers */}
-                              <td className="px-3 py-3">
+                              <td>
                                 {item.potential_acquirers.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {item.potential_acquirers.map((acq) => (
@@ -1382,12 +1410,21 @@ export default function DealRadarDashboardPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Corporate Event link (only when Reported in Market) */}
-                              <td className="px-3 py-3">
+                              <td
+                                className={
+                                  item.linked_event && isReportedInMarket ? "cursor-pointer" : undefined
+                                }
+                                onClick={(e) => {
+                                  if (!item.linked_event || !isReportedInMarket) return;
+                                  if ((e.target as HTMLElement).closest("a")) return;
+                                  router.push(`/corporate-event/${item.linked_event.id}`);
+                                }}
+                              >
                                 {item.linked_event && isReportedInMarket ? (
                                   <a
                                     href={`/corporate-event/${item.linked_event.id}`}
@@ -1405,7 +1442,7 @@ export default function DealRadarDashboardPage() {
                                         `/corporate-event/${item.linked_event!.id}`
                                       );
                                     }}
-                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                                    className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
                                   >
                                     <svg
                                       className="w-3 h-3 shrink-0"
@@ -1424,7 +1461,7 @@ export default function DealRadarDashboardPage() {
                                     )}
                                   </a>
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
                             </tr>
@@ -1459,84 +1496,28 @@ export default function DealRadarDashboardPage() {
             </>
           )}
 
-          {/* Load more / Pagination footer */}
-          {!loading && !error && pagination?.has_next_page && (
-            <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                Showing {items.length} of {pagination.total_items} transactions
-              </p>
-              <button
-                type="button"
-                disabled={loadingMore}
-                onClick={() =>
-                  fetchData(
-                    pagination.next_offset ?? items.length,
-                    true,
-                    debouncedSearch,
-                    filters
-                  )
-                }
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-              >
-                {loadingMore ? (
-                  <>
-                    <svg
-                      className="w-3.5 h-3.5 animate-spin"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    Loading…
-                  </>
-                ) : (
-                  `Load more (${pagination.total_items - items.length} remaining)`
-                )}
-              </button>
-            </div>
-          )}
-          {!loading && !error && !pagination?.has_next_page && items.length > 0 && (
-            <div className="border-t border-gray-100 px-4 py-2.5 text-center text-xs text-gray-400">
-              All {pagination?.total_items ?? items.length} transactions loaded
-            </div>
-          )}
-        </div>
 
-        {/* Legend */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-gray-500">
-          <span className="font-semibold text-gray-600">Legend:</span>
-          <span>
-            <abbr className="no-underline border border-amber-300 text-amber-600 rounded px-1 mr-1">
-              Est.
-            </abbr>
-            Revenue / EV is an estimate (third-party source)
-          </span>
-          <span>
-            <abbr className="no-underline border border-blue-300 text-blue-600 rounded px-1 mr-1">
-              Prop.
-            </abbr>
-            Revenue / EV is proprietary data
-          </span>
-          <span className="text-gray-400">
-            Corporate event link shown when Transaction Status is Reported in
-            Market.
-          </span>
-        </div>
-      </main>
-      <Footer />
-    </div>
+          {!error && pagination && (
+            <SearchTablePagination
+              curPage={page}
+              pageTotal={Math.max(1, pagination.total_pages)}
+              nextPage={pagination.next_page}
+              onPageChange={(next) => {
+                if (
+                  next >= 1 &&
+                  next <= Math.max(1, pagination.total_pages) &&
+                  next !== page &&
+                  !loading
+                ) {
+                  setPage(next);
+                }
+              }}
+              disabled={loading}
+            />
+          )}
+        </main>
+        <Footer />
+      </div>
     </AppShell>
   );
 }
