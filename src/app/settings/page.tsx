@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { AlertCard } from "@/components/settings/AlertCard";
 import { EditAlertModal } from "@/components/settings/EditAlertModal";
 import { PlatformCurrencySettings } from "@/components/settings/PlatformCurrencySettings";
+import { NewsFollowSettings } from "@/components/settings/NewsFollowSettings";
 import AppShell from "@/components/layout/AppShell";
 
 export default function SettingsPage() {
@@ -170,6 +171,8 @@ export default function SettingsPage() {
         </div>
 
         <PlatformCurrencySettings />
+
+        <NewsFollowSettings />
 
         {isLoading && <LoadingSpinner />}
 

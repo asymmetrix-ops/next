@@ -5,7 +5,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { fetchGlobalSearchBySource } from "@/lib/globalSearch";
 
 const confirmationMessage =
-  "Thank you for your tip. The Asymmetrix team will review it and may follow up if you've said we can contact you.";
+  "Thank you for submitting a request. Asymmetrix will review your request and determine suitability for inclusion in our platform.";
 
 const labelStyle: React.CSSProperties = { display: "block", fontSize: 13, fontWeight: 600, color: "#334155", lineHeight: 1, margin: "0 0 6px" };
 const fieldStyle: React.CSSProperties = { width: "100%", border: "1px solid #cbd5e1", borderRadius: 8, padding: "9px 12px", fontSize: 14, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" };
@@ -155,7 +155,7 @@ export default function DealTipButton() {
 
             {submitted ? (
               <div style={{ padding: "20px 40px 24px 24px" }}>
-                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Tip submitted</h3>
+                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Request submitted</h3>
                 <p style={{ margin: 0, color: "#475569", fontSize: 14, lineHeight: 1.6 }}>{confirmationMessage}</p>
               </div>
             ) : (
