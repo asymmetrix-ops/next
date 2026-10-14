@@ -9,19 +9,26 @@ import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
 import {
+  addNewsFilter,
   fetchNewsFeed,
+  hasNewsFilters,
   fetchTopStories,
   NEWS_PAGE_SIZE,
   type NewsArticle,
   type NewsFilter,
+  type NewsFilters,
 } from "@/lib/news";
 
-const FILTER_KIND_LABEL: Record<NewsFilter["kind"], string> = {
-  company: "Company",
-  investor: "Investor",
-  sector: "Sector",
-  text: "Search",
-};
+const CHIP_ORDER = ["company", "investor", "sector", "text"] as const;
+const CHIP_LABEL = { company: "Company", investor: "Investor", sector: "Sector", text: "Search" } as const;
+
+function chipsOf(f: NewsFilters) {
+  return CHIP_ORDER.flatMap((kind) => {
+    const v = f[kind];
+    if (!v) return [];
+    return [{ kind, label: typeof v === "string" ? v : v.label }];
+  });
+}
 
 function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
   const seen = new Set(prev.map((a) => a.id));
@@ -29,7 +36,7 @@ function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
 }
 
 export default function NewsPage() {
-  const [filter, setFilter] = useState<NewsFilter | null>(null);
+  const [filters, setFilters] = useState<NewsFilters>({});
   const [topStories, setTopStories] = useState<NewsArticle[]>([]);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [page, setPage] = useState(1);
@@ -41,7 +48,7 @@ export default function NewsPage() {
   const requestRef = useRef(0);
   const topIdsRef = useRef<number[]>([]);
 
-  const load = useCallback(async (nextFilter: NewsFilter | null, nextPage: number) => {
+  const load = useCallback(async (nextFilters: NewsFilters, nextPage: number) => {
     const req = ++requestRef.current;
     const first = nextPage === 1;
     if (first) setLoading(true);
@@ -49,7 +56,7 @@ export default function NewsPage() {
     setError(null);
     try {
       // Top Stories first (unfiltered only): their ids are excluded from the feed.
-      if (first && !nextFilter) {
+      if (first && !hasNewsFilters(nextFilters)) {
         const top = await fetchTopStories();
         if (req !== requestRef.current) return;
         topIdsRef.current = top.map((a) => a.id);
@@ -57,8 +64,8 @@ export default function NewsPage() {
       }
       const res = await fetchNewsFeed({
         page: nextPage,
-        filter: nextFilter,
-        excludeIds: nextFilter ? [] : topIdsRef.current,
+        filters: nextFilters,
+        excludeIds: hasNewsFilters(nextFilters) ? [] : topIdsRef.current,
       });
       if (req !== requestRef.current) return;
       setArticles((prev) => (first ? res.items : mergeById(prev, res.items)));
@@ -81,10 +88,10 @@ export default function NewsPage() {
     setArticles([]);
     setTopStories([]);
     setHasMore(false);
-    void load(filter, 1);
-  }, [filter, load]);
+    void load(filters, 1);
+  }, [filters, load]);
 
-  const filtered = filter != null;
+  const filtered = hasNewsFilters(filters);
   const top = !filtered && topStories.length > 0 ? topStories : null;
   
   const seriesFor = (a: NewsArticle) => a.series_others;
@@ -107,17 +114,23 @@ export default function NewsPage() {
             </div>
           </div>
 
-          <NewsSearchBar onApplyFilter={setFilter} />
+          <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
 
-          {filter && (
+          {filtered && (
             <div className="nw-chips">
-              <span className="nw-chip">
-                <span className="nw-chip-kind">{FILTER_KIND_LABEL[filter.kind]}</span>
-                {filter.label}
-                <button type="button" aria-label={`Remove filter ${filter.label}`} onClick={() => setFilter(null)}>
-                  ×
-                </button>
-              </span>
+              {chipsOf(filters).map((chip) => (
+                <span className="nw-chip" key={chip.kind}>
+                  <span className="nw-chip-kind">{CHIP_LABEL[chip.kind]}</span>
+                  {chip.label}
+                  <button
+                    type="button"
+                    aria-label={`Remove filter ${chip.label}`}
+                    onClick={() => setFilters((cur) => ({ ...cur, [chip.kind]: undefined }))}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
               {!loading && <span className="nw-count">{total.toLocaleString()} {total === 1 ? "article" : "articles"}</span>}
             </div>
           )}
@@ -171,7 +184,7 @@ export default function NewsPage() {
 
               {hasMore && (
                 <div className="nw-more">
-                  <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={() => load(filter, page + 1)}>
+                  <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={() => load(filters, page + 1)}>
                     {loadingMore ? "Loading…" : "Load more"}
                   </button>
                 </div>

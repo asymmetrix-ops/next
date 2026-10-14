@@ -90,3 +90,4 @@
   .nw-card-top .nw-card-title { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) { .nw-card, .nw-skel { transition: none; animation: none; } .nw-card:hover { transform: none; } }
+.nw-suggest-count { color: #8a93a8; font-size: 12px; }

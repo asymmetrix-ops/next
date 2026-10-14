@@ -26,11 +26,32 @@ export type NewsArticle = ContentArticle & {
   series_others?: NewsRef[];
 };
 
+/** One filter the user picked (suggestion or Enter-to-search). */
 export type NewsFilter =
   | { kind: "company"; id: number; label: string }
   | { kind: "investor"; id: number; label: string }
   | { kind: "sector"; id: number; label: string }
   | { kind: "text"; label: string };
+
+type FilterRef = { id: number; label: string };
+
+/** Active filters: at most one per kind, combined with AND by the API. */
+export type NewsFilters = {
+  company?: FilterRef;
+  investor?: FilterRef;
+  sector?: FilterRef;
+  text?: string;
+};
+
+export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters {
+  return f.kind === "text"
+    ? { ...filters, text: f.label }
+    : { ...filters, [f.kind]: { id: f.id, label: f.label } };
+}
+
+export function hasNewsFilters(f: NewsFilters): boolean {
+  return Boolean(f.company || f.investor || f.sector || f.text);
+}
 
 function authHeaders(): Record<string, string> {
   const token =
@@ -132,20 +153,47 @@ export async function fetchNewsFeed(opts: {
   page: number;
   perPage?: number;
   excludeIds?: number[];
-  filter?: NewsFilter | null;
+  filters?: NewsFilters;
   signal?: AbortSignal;
 }): Promise<NewsFeedPage> {
   const perPage = opts.perPage ?? NEWS_PAGE_SIZE;
   const params = new URLSearchParams({ page: String(opts.page), per_page: String(perPage) });
-  const f = opts.filter;
-  if (f?.kind === "text") params.append("q", f.label);
-  if (f?.kind === "company") params.append("company_id", String(f.id));
-  if (f?.kind === "investor") params.append("investor_id", String(f.id));
-  if (f?.kind === "sector") params.append("sector_id", String(f.id));
+  const f = opts.filters;
+  if (f?.text) params.append("q", f.text);
+  if (f?.company) params.append("company_id", String(f.company.id));
+  if (f?.investor) params.append("investor_id", String(f.investor.id));
+  if (f?.sector) params.append("sector_id", String(f.sector.id));
   // Omit entirely when empty — the API rejects exclude_ids=null.
   for (const id of opts.excludeIds ?? []) params.append("exclude_ids[]", String(id));
   const rows = await getJson<Array<ApiNewsItem & { total_count?: number }>>("feed", params, opts.signal);
   return { items: rows.map(fromApiItem), total: rows[0]?.total_count ?? null };
+}
+
+// ── Search suggestions ───────────────────────────────────────────────────
+
+export type SuggestionEntity = { id: number; name: string; article_count?: number };
+export type SuggestionArticle = {
+  id: number;
+  Headline: string;
+  Publication_Date?: string;
+  News_Sub_Type?: string | null;
+};
+export type NewsSuggestions = {
+  companies: SuggestionEntity[];
+  investors: SuggestionEntity[];
+  sectors: SuggestionEntity[];
+  articles: SuggestionArticle[];
+};
+
+export async function fetchSearchSuggestions(q: string, signal?: AbortSignal): Promise<NewsSuggestions> {
+  const params = new URLSearchParams({ q: q.trim(), per_group: "5" });
+  const json = await getJson<Record<string, unknown>>("search_suggestions", params, signal);
+  return {
+    companies: parseArray<SuggestionEntity>(json?.companies),
+    investors: parseArray<SuggestionEntity>(json?.investors),
+    sectors: parseArray<SuggestionEntity>(json?.sectors),
+    articles: parseArray<SuggestionArticle>(json?.articles),
+  };
 }
 
 // ── Follow news (v1: all news). Local stub until the backend ships. ──────

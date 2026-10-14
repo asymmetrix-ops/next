@@ -2,15 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchGlobalSearchBySource, type GlobalSearchResult } from "@/lib/globalSearch";
 import { decodeHtmlEntities } from "@/lib/contentArticleDisplay";
-import { fetchNewsFeed, type NewsFilter } from "@/lib/news";
+import { fetchSearchSuggestions, type NewsFilter, type SuggestionEntity } from "@/lib/news";
 
 type Item =
-  | { group: string; key: string; label: string; filter: NewsFilter }
+  | { group: string; key: string; label: string; count?: number; filter: NewsFilter }
   | { group: string; key: string; label: string; articleId: number };
-
-const MAX_PER_GROUP = 5;
 
 type Props = {
   onApplyFilter: (filter: NewsFilter) => void;
@@ -35,44 +32,34 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
     const ac = new AbortController();
     setLoading(true);
     const timer = setTimeout(async () => {
-      const entity = (source: "company" | "investor" | "sector", group: string, kind: "company" | "investor" | "sector") =>
-        fetchGlobalSearchBySource(q, source, ac.signal)
-          .then(({ items: r }) =>
-            r.slice(0, MAX_PER_GROUP).map((x: GlobalSearchResult): Item => ({
-              group,
-              key: `${kind}-${x.id}`,
-              label: x.title,
-              filter: { kind, id: x.id, label: x.title },
-            }))
-          )
-          .catch((): Item[] => []);
-
-      const articles = fetchNewsFeed({
-        page: 1,
-        perPage: MAX_PER_GROUP,
-        filter: { kind: "text", label: q },
-        signal: ac.signal,
-      })
-        .then((p) =>
-          p.items.map((a): Item => ({
+      try {
+        const s = await fetchSearchSuggestions(q, ac.signal);
+        if (ac.signal.aborted) return;
+        const entity = (rows: SuggestionEntity[], group: string, kind: "company" | "investor" | "sector"): Item[] =>
+          rows.map((r) => ({
+            group,
+            key: `${kind}-${r.id}`,
+            label: r.name,
+            count: r.article_count,
+            filter: { kind, id: r.id, label: r.name },
+          }));
+        setItems([
+          ...entity(s.companies, "Companies", "company"),
+          ...entity(s.investors, "Investors", "investor"),
+          ...entity(s.sectors, "Sectors", "sector"),
+          ...s.articles.map((a): Item => ({
             group: "Articles",
             key: `article-${a.id}`,
             label: decodeHtmlEntities(a.Headline),
             articleId: a.id,
-          }))
-        )
-        .catch((): Item[] => []);
-
-      const groups = await Promise.all([
-        entity("company", "Companies", "company"),
-        entity("investor", "Investors", "investor"),
-        entity("sector", "Sectors", "sector"),
-        articles,
-      ]);
-      if (ac.signal.aborted) return;
-      setItems(groups.flat());
-      setActive(-1);
-      setLoading(false);
+          })),
+        ]);
+        setActive(-1);
+      } catch {
+        if (!ac.signal.aborted) setItems([]);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
     }, 250);
     return () => {
       clearTimeout(timer);
@@ -174,6 +161,7 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
                   onClick={() => choose(row)}
                 >
                   {row.label}
+                  {"count" in row && row.count ? <span className="nw-suggest-count"> · {row.count}</span> : null}
                 </button>
               ))}
             </div>
