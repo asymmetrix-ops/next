@@ -167,6 +167,7 @@ const DEAL_RADAR_FILTER_NAMES: Record<string, string> = {
   transaction_signal: "transaction_signal",
   buyer_type: "buyer_type",
   advisor: "advisor",
+  banker: "banker",
 };
 
 const BUYER_TYPE_FILTER_OPTIONS = ["Trade", "Sponsor", "Growth Equity"];
@@ -616,6 +617,7 @@ export default function DealRadarDashboardPage() {
   const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
   const [advisorOptions, setAdvisorOptions] = useState<AdvisorOption[]>([]);
+  const [bankerOptions, setBankerOptions] = useState<AdvisorOption[]>([]);
 
   // Debounce search input
   useEffect(() => {
@@ -645,11 +647,12 @@ export default function DealRadarDashboardPage() {
 
     async function loadFilterOptions() {
       try {
-        const [ownershipRes, sectorsRes, countriesRes, advisorsRes] = await Promise.all([
+        const [ownershipRes, sectorsRes, countriesRes, advisorsRes, bankersRes] = await Promise.all([
           fetch(`${FILTER_API}/get_all_ownership_types`, { headers }),
           fetch(`${FILTER_API}/get_all_primary_sectors_dropdown`, { headers }),
           fetch(`${FILTER_API}/locations_country`, { headers }),
           fetch(`${API_BASE}/get_deal_radar_advisor_options`, { headers }),
+          fetch(`${API_BASE}/get_deal_radar_banker_options`, { headers }),
         ]);
 
         if (ownershipRes.ok) {
@@ -667,6 +670,10 @@ export default function DealRadarDashboardPage() {
         if (advisorsRes.ok) {
           const data = (await advisorsRes.json()) as AdvisorOption[];
           setAdvisorOptions(Array.isArray(data) ? data : []);
+        }
+        if (bankersRes.ok) {
+          const data = (await bankersRes.json()) as AdvisorOption[];
+          setBankerOptions(Array.isArray(data) ? data : []);
         }
       } catch {
         // Filter options are optional — page still works without them
@@ -743,6 +750,8 @@ export default function DealRadarDashboardPage() {
         );
       } else if (item.id === "advisor") {
         values = idsByName(advisorOptions, names);
+      } else if (item.id === "banker") {
+        values = idsByName(bankerOptions, names);
       }
       if (values.length === 0) return;
       result.push({
@@ -753,7 +762,7 @@ export default function DealRadarDashboardPage() {
       });
     });
     return result;
-  }, [filterBarState.filters, filterBarState.filterLogic, ownershipTypes, sectorOptions, advisorOptions]);
+  }, [filterBarState.filters, filterBarState.filterLogic, ownershipTypes, sectorOptions, advisorOptions, bankerOptions]);
   const barFiltersKey = JSON.stringify(barFilters);
 
   // Track newly applied filter types
@@ -811,11 +820,12 @@ export default function DealRadarDashboardPage() {
       enumDef("transaction_signal", "Transaction Signal", "transaction", TRANSACTION_SIGNAL_FILTER_OPTIONS),
       enumDef("buyer_type", "Buyer Type", "transaction", BUYER_TYPE_FILTER_OPTIONS),
       enumDef("advisor", "Advisor", "transaction", unique(advisorOptions.map((a) => a.name))),
+      enumDef("banker", "Banker", "transaction", unique(bankerOptions.map((b) => b.name))),
       enumDef("ownership", "Ownership Type", "company", unique(ownershipTypes.map((o) => o.ownership))),
       enumDef("hq_country", "HQ Country", "company", unique(countryOptions.map((c) => c.locations_Country))),
       enumDef("sector", "Primary Sector", "company", unique(sectorOptions.map((o) => o.sector_name))),
     ];
-  }, [advisorOptions, ownershipTypes, countryOptions, sectorOptions]);
+  }, [advisorOptions, bankerOptions, ownershipTypes, countryOptions, sectorOptions]);
 
   const statusTabs = useMemo(
     () =>
