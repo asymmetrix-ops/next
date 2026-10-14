@@ -199,7 +199,8 @@ function AdvisorCell({ item, align = "left" }: { item: DealRadarDashboardItem; a
   const advisors = advisorsOf(item);
   if (advisors.length === 0) {
     const type = item.intermediary_type;
-    return type === "No Intermediary" || type === "Not Yet Hired" ? <>{type}</> : <>{EMPTY_DISPLAY}</>;
+    if (type === "No Intermediary") return <>No Advisor</>;
+    return type === "Not Yet Hired" ? <>{type}</> : <>{EMPTY_DISPLAY}</>;
   }
   const alignClass = align === "right" ? "items-end text-right" : "items-start text-left";
   return (
