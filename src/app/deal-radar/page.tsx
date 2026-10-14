@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { trackKeyAction } from "@/lib/tracking";
 import Footer from "@/components/Footer";
-import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+import {
+  CompaniesFilterBar,
+  type FilterBarState,
+  type FilterCategory,
+  type FilterDef,
+} from "@/components/companies/CompaniesFilterBar";
 import {
   getTransactionStatusTone,
   getProcessStageTone,
@@ -26,7 +31,8 @@ import {
   SEARCH_TABLE_STYLES,
 } from "@/components/search/searchTableStyles";
 import {
-  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_EYEBROW,
+  SearchListTabs,
   SEARCH_DASHBOARD_FILTER_INNER,
   SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
@@ -135,32 +141,41 @@ interface CountryOption {
   locations_Country: string;
 }
 
-interface DealRadarFilters {
-  ownershipTypeIds: number[];
-  hqCountries: string[];
-  sectorIds: number[];
-  transactionStatusIds: number[];
-  processStages: string[];
-  transactionSignals: string[];
+interface AdvisorOption {
+  id: number;
+  name: string;
 }
 
+/** One filter sent to get_deal_radar_dashboard (`filters_json`), combined left to right. */
+interface DealRadarApiFilter {
+  field: string;
+  values: Array<string | number>;
+  logic: "and" | "or";
+}
+
+const FILTER_CATEGORIES: FilterCategory[] = [
+  { id: "transaction", name: "Transaction" },
+  { id: "company", name: "Company" },
+];
+
 /** Agreed tracking names (lowercase, underscores) so a respelling never splits in the dashboard. */
-const DEAL_RADAR_FILTER_NAMES: Record<keyof DealRadarFilters, string> = {
-  ownershipTypeIds: "ownership_type",
-  hqCountries: "hq_country",
-  sectorIds: "sector",
-  transactionStatusIds: "transaction_status",
-  processStages: "process_stage",
-  transactionSignals: "transaction_signal",
+const DEAL_RADAR_FILTER_NAMES: Record<string, string> = {
+  ownership: "ownership_type",
+  hq_country: "hq_country",
+  sector: "sector",
+  process_stage: "process_stage",
+  transaction_signal: "transaction_signal",
+  buyer_type: "buyer_type",
+  advisor: "advisor",
 };
 
-const EMPTY_FILTERS: DealRadarFilters = {
-  ownershipTypeIds: [],
-  hqCountries: [],
-  sectorIds: [],
-  transactionStatusIds: [],
-  processStages: [],
-  transactionSignals: [],
+const BUYER_TYPE_FILTER_OPTIONS = ["Trade", "Sponsor", "Growth Equity"];
+
+const INITIAL_FILTER_BAR_STATE: FilterBarState = {
+  filters: [],
+  viewId: null,
+  searchText: "",
+  filterLogic: "and",
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -168,7 +183,6 @@ const EMPTY_FILTERS: DealRadarFilters = {
 const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
-const ANTICIPATED_18_MONTHS_ID = 1;
 const TABLE_COL_COUNT = 13;
 
 /** Advisors for a row; falls back to the single `intermediary` an older API response carries. */
@@ -264,18 +278,18 @@ const STATUS_FILTERS = [
   })),
 ];
 
-const PROCESS_STAGE_OPTIONS = [
-  { value: "Strategic Review", label: "Strategic Review" },
-  { value: "Banker Pitches", label: "Banker Pitches" },
-  { value: "Deal Prep", label: "Deal Prep" },
-  { value: "In Market", label: "In Market" },
-  { value: "In Exclusivity", label: "In Exclusivity" },
+const PROCESS_STAGE_FILTER_OPTIONS = [
+  "Strategic Review",
+  "Banker Pitches",
+  "Deal Prep",
+  "In Market",
+  "In Exclusivity",
 ];
 
-const TRANSACTION_SIGNAL_OPTIONS = [
-  { value: "Long Hold", label: "Long Hold" },
-  { value: "Asymmetrix Assessment", label: "Asymmetrix Assessment" },
-  { value: "Proprietary Intel", label: "Proprietary Intel" },
+const TRANSACTION_SIGNAL_FILTER_OPTIONS = [
+  "Long Hold",
+  "Asymmetrix Assessment",
+  "Proprietary Intel",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -343,44 +357,20 @@ function getContentCtaLabel(cta: ContentCta): string {
 function buildDashboardUrl(
   offset: number,
   search: string,
-  filters: DealRadarFilters
+  statusId: number | null,
+  barFilters: DealRadarApiFilter[]
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("offset", String(offset));
   if (search) url.searchParams.set("search", search);
-
-  filters.ownershipTypeIds.forEach((id) =>
-    url.searchParams.append("ownership_type_ids[]", String(id))
-  );
-  filters.hqCountries.forEach((c) =>
-    url.searchParams.append("hq_countries[]", c)
-  );
-  filters.sectorIds.forEach((id) =>
-    url.searchParams.append("sector_ids[]", String(id))
-  );
-  filters.transactionStatusIds.forEach((id) =>
-    url.searchParams.append("transaction_status_ids[]", String(id))
-  );
-  filters.processStages.forEach((s) =>
-    url.searchParams.append("process_stage[]", s)
-  );
-  filters.transactionSignals.forEach((s) =>
-    url.searchParams.append("transaction_signal[]", s)
-  );
-
+  if (statusId !== null) {
+    url.searchParams.append("transaction_status_ids[]", String(statusId));
+  }
+  if (barFilters.length > 0) {
+    url.searchParams.set("filters_json", JSON.stringify(barFilters));
+  }
   return url;
-}
-
-function countActiveFilters(filters: DealRadarFilters): number {
-  return (
-    filters.ownershipTypeIds.length +
-    filters.hqCountries.length +
-    filters.sectorIds.length +
-    filters.transactionStatusIds.length +
-    filters.processStages.length +
-    filters.transactionSignals.length
-  );
 }
 
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
@@ -615,33 +605,24 @@ export default function DealRadarDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>(
+    INITIAL_FILTER_BAR_STATE
+  );
+  const [statusBubbleId, setStatusBubbleId] = useState<number | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState<DealRadarFilters>(EMPTY_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipTypeOption[]>([]);
   const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
-
-  const showAnticipatedSubFilters = filters.transactionStatusIds.includes(
-    ANTICIPATED_18_MONTHS_ID
-  );
-
-  const activeStatusBubbleId =
-    filters.transactionStatusIds.length === 1
-      ? filters.transactionStatusIds[0]
-      : filters.transactionStatusIds.length === 0
-        ? null
-        : -1;
+  const [advisorOptions, setAdvisorOptions] = useState<AdvisorOption[]>([]);
 
   // Debounce search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(
       () => {
-        setDebouncedSearch(searchQuery.trim());
+        setDebouncedSearch(filterBarState.searchText.trim());
         setPage(1);
       },
       300
@@ -649,7 +630,7 @@ export default function DealRadarDashboardPage() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery]);
+  }, [filterBarState.searchText]);
 
   // Load filter dropdown options
   useEffect(() => {
@@ -664,10 +645,11 @@ export default function DealRadarDashboardPage() {
 
     async function loadFilterOptions() {
       try {
-        const [ownershipRes, sectorsRes, countriesRes] = await Promise.all([
+        const [ownershipRes, sectorsRes, countriesRes, advisorsRes] = await Promise.all([
           fetch(`${FILTER_API}/get_all_ownership_types`, { headers }),
           fetch(`${FILTER_API}/get_all_primary_sectors_dropdown`, { headers }),
           fetch(`${FILTER_API}/locations_country`, { headers }),
+          fetch(`${API_BASE}/get_deal_radar_advisor_options`, { headers }),
         ]);
 
         if (ownershipRes.ok) {
@@ -682,6 +664,10 @@ export default function DealRadarDashboardPage() {
           const data = (await countriesRes.json()) as CountryOption[];
           setCountryOptions(Array.isArray(data) ? data : []);
         }
+        if (advisorsRes.ok) {
+          const data = (await advisorsRes.json()) as AdvisorOption[];
+          setAdvisorOptions(Array.isArray(data) ? data : []);
+        }
       } catch {
         // Filter options are optional — page still works without them
       }
@@ -695,7 +681,8 @@ export default function DealRadarDashboardPage() {
       offset = 0,
       append = false,
       search = "",
-      activeFilters = EMPTY_FILTERS
+      statusId: number | null = null,
+      barFilters: DealRadarApiFilter[] = []
     ) => {
       setLoading(true);
       setError(null);
@@ -705,7 +692,7 @@ export default function DealRadarDashboardPage() {
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, activeFilters);
+        const url = buildDashboardUrl(offset, search, statusId, barFilters);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -731,88 +718,119 @@ export default function DealRadarDashboardPage() {
     []
   );
 
+  // Filter-bar items -> API filters (labels back to ids where the endpoint filters by id)
+  const barFilters = useMemo<DealRadarApiFilter[]>(() => {
+    const idsByName = (rows: Array<{ id: number; name: string }>, names: string[]) =>
+      rows.filter((row) => names.includes(row.name)).map((row) => row.id);
+    const result: DealRadarApiFilter[] = [];
+    filterBarState.filters.forEach((item, index) => {
+      const names = Array.isArray(item.value)
+        ? (item.value as unknown[]).filter((v): v is string => typeof v === "string")
+        : typeof item.value === "string" && item.value
+          ? [item.value]
+          : [];
+      if (names.length === 0) return;
+      let values: Array<string | number> = names;
+      if (item.id === "ownership") {
+        values = idsByName(
+          ownershipTypes.map((o) => ({ id: o.id, name: o.ownership })),
+          names
+        );
+      } else if (item.id === "sector") {
+        values = idsByName(
+          sectorOptions.map((o) => ({ id: o.id, name: o.sector_name })),
+          names
+        );
+      } else if (item.id === "advisor") {
+        values = idsByName(advisorOptions, names);
+      }
+      if (values.length === 0) return;
+      result.push({
+        field: item.id,
+        values,
+        logic:
+          index === 0 ? "and" : (item.combineLogic ?? filterBarState.filterLogic),
+      });
+    });
+    return result;
+  }, [filterBarState.filters, filterBarState.filterLogic, ownershipTypes, sectorOptions, advisorOptions]);
+  const barFiltersKey = JSON.stringify(barFilters);
+
+  // Track newly applied filter types
+  const trackedFieldsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const current = new Set(barFilters.map((f) => f.field));
+    current.forEach((field) => {
+      if (!trackedFieldsRef.current.has(field)) {
+        trackKeyAction({
+          section: "deal_radar",
+          action: "filter_applied",
+          actionDetail: DEAL_RADAR_FILTER_NAMES[field] ?? field,
+        });
+      }
+    });
+    trackedFieldsRef.current = current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barFiltersKey]);
+
+  // Back to page 1 whenever the filters change
+  useEffect(() => {
+    setPage(1);
+  }, [barFiltersKey, statusBubbleId]);
+
   // Re-fetch when the page, search or filters change
   useEffect(() => {
-    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters);
-  }, [fetchData, page, debouncedSearch, filters]);
+    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, page, debouncedSearch, statusBubbleId, barFiltersKey]);
 
   const statusCounts = useMemo<Record<string, number>>(() => {
     const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
     return { "": total, ...statusTotals };
   }, [statusTotals]);
 
-  const updateFilters = (patch: Partial<DealRadarFilters>) => {
-    for (const key of Object.keys(patch) as (keyof DealRadarFilters)[]) {
-      const next = patch[key] as unknown[] | undefined;
-      if (next && next.length > 0 && JSON.stringify(next) !== JSON.stringify(filters[key])) {
-        trackKeyAction({
-          section: "deal_radar",
-          action: "filter_applied",
-          actionDetail: DEAL_RADAR_FILTER_NAMES[key],
-        });
-      }
-    }
-    setPage(1);
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      if (
-        patch.transactionStatusIds &&
-        !patch.transactionStatusIds.includes(ANTICIPATED_18_MONTHS_ID)
-      ) {
-        next.processStages = [];
-        next.transactionSignals = [];
-      }
-      return next;
+  const filterDefs = useMemo<FilterDef[]>(() => {
+    const enumDef = (
+      id: string,
+      label: string,
+      category: string,
+      options: string[]
+    ): FilterDef => ({
+      id,
+      label,
+      fullLabel: label,
+      category,
+      type: "Aa",
+      editor: "enum",
+      options,
     });
-  };
+    const unique = (values: string[]) =>
+      Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+    return [
+      enumDef("process_stage", "Process Stage", "transaction", PROCESS_STAGE_FILTER_OPTIONS),
+      enumDef("transaction_signal", "Transaction Signal", "transaction", TRANSACTION_SIGNAL_FILTER_OPTIONS),
+      enumDef("buyer_type", "Buyer Type", "transaction", BUYER_TYPE_FILTER_OPTIONS),
+      enumDef("advisor", "Advisor", "transaction", unique(advisorOptions.map((a) => a.name))),
+      enumDef("ownership", "Ownership Type", "company", unique(ownershipTypes.map((o) => o.ownership))),
+      enumDef("hq_country", "HQ Country", "company", unique(countryOptions.map((c) => c.locations_Country))),
+      enumDef("sector", "Primary Sector", "company", unique(sectorOptions.map((o) => o.sector_name))),
+    ];
+  }, [advisorOptions, ownershipTypes, countryOptions, sectorOptions]);
 
-  const handleStatusBubbleClick = (statusId: number | null) => {
-    updateFilters({
-      transactionStatusIds: statusId ? [statusId] : [],
-      processStages: [],
-      transactionSignals: [],
-    });
-  };
-
-  const clearAllFilters = () => {
-    setPage(1);
-    setFilters(EMPTY_FILTERS);
-  };
-
-  const ownershipSelectOptions = useMemo(
+  const statusTabs = useMemo(
     () =>
-      ownershipTypes
-        .filter((o) => o.ownership?.trim())
-        .map((o) => ({ value: o.id, label: o.ownership })),
-    [ownershipTypes]
-  );
-
-  const sectorSelectOptions = useMemo(
-    () =>
-      sectorOptions
-        .filter((s) => s.sector_name?.trim())
-        .map((s) => ({ value: s.id, label: s.sector_name })),
-    [sectorOptions]
-  );
-
-  const countrySelectOptions = useMemo(
-    () =>
-      countryOptions
-        .filter((c) => c.locations_Country?.trim())
-        .map((c) => ({
-          value: c.locations_Country,
-          label: c.locations_Country,
-        })),
-    [countryOptions]
-  );
-
-  const transactionStatusSelectOptions = useMemo(
-    () =>
-      TRANSACTION_STATUS_OPTIONS.map((o) => ({
-        value: o.id,
-        label: o.label,
+      STATUS_FILTERS.map((f) => ({
+        id: f.statusId === null ? "all" : String(f.statusId),
+        label: f.label,
+        count: f.totalsKey === "" ? (statusCounts[""] ?? 0) : (statusCounts[f.totalsKey] ?? 0),
+        dot:
+          f.statusId === null
+            ? "#8A93A8"
+            : getStatusStyle(
+                TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)?.label ?? ""
+              ).dot,
       })),
-    []
+    [statusCounts]
   );
 
   const Th = ({
@@ -843,8 +861,6 @@ export default function DealRadarDashboardPage() {
     </th>
   );
 
-  const activeFilterCount = countActiveFilters(filters);
-
   return (
     <AppShell>
       <div className="min-h-screen flex flex-col bg-white">
@@ -857,256 +873,39 @@ export default function DealRadarDashboardPage() {
           <div style={SEARCH_DASHBOARD_INNER}>
             <div style={SEARCH_DASHBOARD_HEADER_ROW}>
               <div>
+                <div style={SEARCH_DASHBOARD_EYEBROW}>Deal Radar</div>
                 <h1 style={SEARCH_DASHBOARD_TITLE}>
-                  Deal Radar
+                  Deal Radar search
                   {pagination && (
                     <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
-                      {pagination.total_items} active transactions
+                      {pagination.total_items.toLocaleString()} matches
                     </span>
                   )}
                 </h1>
               </div>
 
-              <div style={SEARCH_DASHBOARD_ACTIONS}>
-            {/* Filter toggle */}
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((o) => !o)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                filtersOpen || activeFilterCount > 0
-                  ? "border-blue-300 bg-blue-50 text-blue-700"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-              </svg>
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="rounded-full bg-blue-600 text-white text-[10px] font-semibold px-1.5 py-0.5 min-w-[18px] text-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+            </div>
 
-            {/* Search */}
-            <div className="relative w-full sm:w-72">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search company, sector…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-              </div>
-            </div>
+            <SearchListTabs
+              tabs={statusTabs}
+              activeTabId={statusBubbleId === null ? "all" : String(statusBubbleId)}
+              onTabClick={(tabId) =>
+                setStatusBubbleId(tabId === "all" ? null : Number(tabId))
+              }
+            />
           </div>
         </div>
 
         <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
           <div style={SEARCH_DASHBOARD_FILTER_INNER}>
-        {/* Status filter pills */}
-        <div className="mb-2 flex flex-wrap gap-2">
-          {STATUS_FILTERS.map((f) => {
-            const count =
-              f.totalsKey === ""
-                ? (statusCounts[""] ?? 0)
-                : (statusCounts[f.totalsKey] ?? 0);
-            const active =
-              f.statusId === null
-                ? activeStatusBubbleId === null
-                : activeStatusBubbleId === f.statusId;
-            const style =
-              f.statusId !== null
-                ? getStatusStyle(
-                    TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)
-                      ?.label ?? ""
-                  )
-                : null;
-            const pillStyle: React.CSSProperties =
-              active && style
-                ? {
-                    backgroundColor: style.bg,
-                    color: style.text,
-                    borderColor: style.border,
-                  }
-                : active
-                  ? {
-                      backgroundColor: "#2A46EA",
-                      color: "#FFFFFF",
-                      borderColor: "#2A46EA",
-                    }
-                  : {};
-            return (
-              <button
-                key={f.statusId ?? "all"}
-                type="button"
-                onClick={() => handleStatusBubbleClick(f.statusId)}
-                style={pillStyle}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                  active
-                    ? "shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                    active
-                      ? "bg-white/40 text-inherit"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Filter panel */}
-        {filtersOpen && (
-          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Ownership type
-                </label>
-                <SearchableMultiSelect
-                  options={ownershipSelectOptions}
-                  selectedValues={filters.ownershipTypeIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ ownershipTypeIds: vals })
-                  }
-                  placeholder="All ownership types"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  HQ (country)
-                </label>
-                <SearchableMultiSelect
-                  options={countrySelectOptions}
-                  selectedValues={filters.hqCountries}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ hqCountries: vals })
-                  }
-                  placeholder="All countries"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Primary sector
-                </label>
-                <SearchableMultiSelect
-                  options={sectorSelectOptions}
-                  selectedValues={filters.sectorIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ sectorIds: vals })
-                  }
-                  placeholder="All sectors"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Transaction status
-                </label>
-                <SearchableMultiSelect
-                  options={transactionStatusSelectOptions}
-                  selectedValues={filters.transactionStatusIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionStatusIds: vals })
-                  }
-                  placeholder="All statuses"
-                />
-              </div>
-              <div
-                title={
-                  showAnticipatedSubFilters
-                    ? undefined
-                    : "Available when Transaction Anticipated within 18 Months is selected"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Process stage
-                </label>
-                <SearchableMultiSelect
-                  options={PROCESS_STAGE_OPTIONS}
-                  selectedValues={filters.processStages}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ processStages: vals })
-                  }
-                  placeholder="All stages"
-                  disabled={!showAnticipatedSubFilters}
-                />
-              </div>
-              <div
-                title={
-                  showAnticipatedSubFilters
-                    ? undefined
-                    : "Available when Transaction Anticipated within 18 Months is selected"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showAnticipatedSubFilters
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Transaction signal
-                </label>
-                <SearchableMultiSelect
-                  options={TRANSACTION_SIGNAL_OPTIONS}
-                  selectedValues={filters.transactionSignals}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionSignals: vals })
-                  }
-                  placeholder="All signals"
-                  disabled={!showAnticipatedSubFilters}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
+            <CompaniesFilterBar
+              filterDefs={filterDefs}
+              filterCategories={FILTER_CATEGORIES}
+              state={filterBarState}
+              onStateChange={setFilterBarState}
+              totalCount={pagination?.total_items ?? 0}
+              entityLabel="transactions"
+            />
           </div>
         </div>
 
@@ -1116,7 +915,7 @@ export default function DealRadarDashboardPage() {
               <p className="text-sm text-red-600 font-medium">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters)}
+                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters)}
                 className="mt-3 text-sm text-blue-600 hover:underline"
               >
                 Retry
