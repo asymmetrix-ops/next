@@ -3,7 +3,7 @@ import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 
 const CONTENT_ARTICLES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
-const CONTENT_BY_ID_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+const NEWS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/news";
 
 export const NEWS_PAGE_SIZE = 18;
 
@@ -23,6 +23,10 @@ export type NewsArticle = ContentArticle & {
   news_sub_type?: string;
   follow_up_to?: number | NewsRef | null;
   related_ia?: { id: number; headline?: string } | null;
+  /** From /news/top_stories: "Follow-up" | "Previously" | null. */
+  label?: "Follow-up" | "Previously" | null;
+  /** From /news/feed: other published articles in this article's series. */
+  series_others?: NewsRef[];
 };
 
 export type NewsFilter =
@@ -100,17 +104,85 @@ export async function fetchNewsPage(opts: {
   };
 }
 
-export async function fetchNewsArticleById(id: number): Promise<NewsArticle | null> {
-  try {
-    const res = await fetch(`${CONTENT_BY_ID_URL}/${id}`, {
-      headers: authHeaders(),
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as NewsArticle;
-  } catch {
-    return null;
+// ── Curated endpoints: /news/top_stories and /news/feed ──────────────────
+
+type ApiNewsItem = {
+  id: number;
+  Headline: string;
+  Strapline?: string;
+  Publication_Date: string;
+  Company_of_Focus?: unknown;
+  follow_up_to?: number | null;
+  label?: "Follow-up" | "Previously" | null;
+  in_series?: boolean;
+  series_others?: unknown;
+  ia_id?: number | null;
+  ia_headline?: string | null;
+};
+
+/** Raw-SQL endpoints can return arrays as JSON strings. */
+function parseArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
   }
+  return [];
+}
+
+function fromApiItem(item: ApiNewsItem): NewsArticle {
+  const others = parseArray<{ id: number; Headline: string; Publication_Date?: string }>(
+    item.series_others
+  ).map((o) => ({ id: o.id, headline: o.Headline, publication_date: o.Publication_Date }));
+  return {
+    id: item.id,
+    Headline: item.Headline,
+    Strapline: item.Strapline || "",
+    Publication_Date: item.Publication_Date,
+    Content_Type: "News",
+    follow_up_to: item.follow_up_to ?? null,
+    label: item.label ?? null,
+    related_ia: item.ia_id ? { id: item.ia_id, headline: item.ia_headline || undefined } : null,
+    series_others: item.in_series ? others : [],
+  } as unknown as NewsArticle;
+}
+
+async function getJson<T>(path: string, params?: URLSearchParams, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${NEWS_API}/${path}${params ? `?${params}` : ""}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    throw new Error(res.status === 401 ? "Authentication required" : `News request failed (${res.status})`);
+  }
+  return (await res.json()) as T;
+}
+
+/** Two Top Stories; the backend applies Rule A / Rule B. */
+export async function fetchTopStories(signal?: AbortSignal): Promise<NewsArticle[]> {
+  const rows = await getJson<Array<ApiNewsItem & { slot: number }>>("top_stories", undefined, signal);
+  return [...rows].sort((a, b) => a.slot - b.slot).map(fromApiItem);
+}
+
+export type NewsFeedPage = { items: NewsArticle[]; total: number | null };
+
+export async function fetchNewsFeed(opts: {
+  page: number;
+  perPage?: number;
+  excludeIds?: number[];
+  signal?: AbortSignal;
+}): Promise<NewsFeedPage> {
+  const perPage = opts.perPage ?? NEWS_PAGE_SIZE;
+  const params = new URLSearchParams({ page: String(opts.page), per_page: String(perPage) });
+  // Omit entirely when empty — the API rejects exclude_ids=null.
+  for (const id of opts.excludeIds ?? []) params.append("exclude_ids[]", String(id));
+  const rows = await getJson<Array<ApiNewsItem & { total_count?: number }>>("feed", params, opts.signal);
+  return { items: rows.map(fromApiItem), total: rows[0]?.total_count ?? null };
 }
 
 // ── Series ───────────────────────────────────────────────────────────────
@@ -195,31 +267,6 @@ export function buildSeriesIndex(items: NewsArticle[]): Map<number, NewsRef[]> {
     for (const m of members) out.set(m.id, members.filter((o) => o.id !== m.id));
   });
   return out;
-}
-
-export type TopStories = {
-  rule: "A" | "B";
-  primary: NewsArticle;
-  secondary: NewsArticle | null;
-  /** Rule A where the predecessor isn't in the loaded set and must be fetched. */
-  missingPredecessorId: number | null;
-};
-
-/** Top Story 1 = newest. Top Story 2 = direct predecessor (Rule A) or 2nd newest (Rule B). */
-export function resolveTopStories(
-  newestFirst: NewsArticle[],
-  fetchedPredecessor?: NewsArticle | null
-): TopStories | null {
-  const primary = newestFirst[0];
-  if (!primary) return null;
-  const predId = getPredecessorId(primary);
-  if (predId != null) {
-    const found =
-      newestFirst.find((a) => a.id === predId) ??
-      (fetchedPredecessor?.id === predId ? fetchedPredecessor : null);
-    return { rule: "A", primary, secondary: found ?? null, missingPredecessorId: found ? null : predId };
-  }
-  return { rule: "B", primary, secondary: newestFirst[1] ?? null, missingPredecessorId: null };
 }
 
 // ── Follow news (v1: all news). Local stub until the backend ships. ──────

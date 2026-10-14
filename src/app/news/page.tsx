@@ -10,9 +10,10 @@ import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
 import {
   buildSeriesIndex,
-  fetchNewsArticleById,
+  fetchNewsFeed,
   fetchNewsPage,
-  resolveTopStories,
+  fetchTopStories,
+  NEWS_PAGE_SIZE,
   sortNewest,
   type NewsArticle,
   type NewsFilter,
@@ -32,6 +33,7 @@ function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
 
 export default function NewsPage() {
   const [filter, setFilter] = useState<NewsFilter | null>(null);
+  const [topStories, setTopStories] = useState<NewsArticle[]>([]);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -39,8 +41,8 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [predecessor, setPredecessor] = useState<NewsArticle | null>(null);
   const requestRef = useRef(0);
+  const topIdsRef = useRef<number[]>([]);
 
   const load = useCallback(async (nextFilter: NewsFilter | null, nextPage: number) => {
     const req = ++requestRef.current;
@@ -49,12 +51,27 @@ export default function NewsPage() {
     else setLoadingMore(true);
     setError(null);
     try {
-      const res = await fetchNewsPage({ page: nextPage, filter: nextFilter });
-      if (req !== requestRef.current) return;
-      setArticles((prev) => sortNewest(first ? res.items : mergeById(prev, res.items)));
+      if (nextFilter) {
+        const res = await fetchNewsPage({ page: nextPage, filter: nextFilter });
+        if (req !== requestRef.current) return;
+        setArticles((prev) => sortNewest(first ? res.items : mergeById(prev, res.items)));
+        setTotal(res.total);
+        setHasMore(res.nextPage != null);
+      } else {
+        // Top Stories first: their ids are excluded from the feed.
+        if (first) {
+          const top = await fetchTopStories();
+          if (req !== requestRef.current) return;
+          topIdsRef.current = top.map((a) => a.id);
+          setTopStories(top);
+        }
+        const res = await fetchNewsFeed({ page: nextPage, excludeIds: topIdsRef.current });
+        if (req !== requestRef.current) return;
+        setArticles((prev) => (first ? res.items : mergeById(prev, res.items)));
+        const feedTotal = res.total ?? 0;
+        setHasMore(res.items.length > 0 && nextPage * NEWS_PAGE_SIZE < feedTotal);
+      }
       setPage(nextPage);
-      setTotal(res.total);
-      setHasMore(res.nextPage != null);
     } catch (e) {
       if (req !== requestRef.current) return;
       setError(e instanceof Error ? e.message : "Failed to load news");
@@ -68,41 +85,19 @@ export default function NewsPage() {
 
   useEffect(() => {
     setArticles([]);
-    setPredecessor(null);
+    setTopStories([]);
+    setHasMore(false);
     void load(filter, 1);
   }, [filter, load]);
 
   const filtered = filter != null;
-  const top = useMemo(
-    () => (filtered ? null : resolveTopStories(articles, predecessor)),
-    [filtered, articles, predecessor]
-  );
+  const top = !filtered && topStories.length > 0 ? topStories : null;
+  
+  // Filtered results come from the generic list endpoint, which has no series data.
+  const seriesIndex = useMemo(() => (filtered ? buildSeriesIndex(articles) : null), [filtered, articles]);
+  const seriesFor = (a: NewsArticle) => (a.series_others?.length ? a.series_others : seriesIndex?.get(a.id));
 
-  // Rule A: the predecessor may be older than anything loaded — fetch it.
-  const missingId = top?.missingPredecessorId ?? null;
-  useEffect(() => {
-    if (missingId == null) return;
-    let cancelled = false;
-    fetchNewsArticleById(missingId).then((a) => {
-      if (!cancelled && a) setPredecessor(a);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [missingId]);
-
-  const seriesIndex = useMemo(
-    () => buildSeriesIndex(predecessor ? [...articles, predecessor] : articles),
-    [articles, predecessor]
-  );
-
-  const feed = useMemo(() => {
-    if (filtered) return articles;
-    const shown = new Set([top?.primary.id, top?.secondary?.id]);
-    return articles.filter((a) => !shown.has(a.id));
-  }, [filtered, articles, top]);
-
-  const rel = top?.rule === "A";
+  const feed = articles;
 
   return (
     <AppShell>
@@ -149,14 +144,16 @@ export default function NewsPage() {
                 <section aria-labelledby="nw-top-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <h2 className="nw-section-title" id="nw-top-h">Top stories</h2>
                   <div className="nw-top">
-                    <NewsCard article={top.primary} variant="top" relation={rel ? "follow-up" : undefined} seriesLinks={seriesIndex.get(top.primary.id)} />
-                    {top.secondary ? (
-                      <NewsCard article={top.secondary} variant="top" relation={rel ? "previously" : undefined} seriesLinks={seriesIndex.get(top.secondary.id)} />
-                    ) : (
-                      <div className="nw-card nw-card-empty">
-                        {missingId != null ? "Loading the earlier story…" : "No other stories yet."}
-                      </div>
-                    )}
+                    {top.map((a) => (
+                      <NewsCard
+                        key={a.id}
+                        article={a}
+                        variant="top"
+                        relation={a.label === "Follow-up" ? "follow-up" : a.label === "Previously" ? "previously" : undefined}
+                        seriesLinks={seriesFor(a)}
+                      />
+                    ))}
+                    {top.length < 2 && <div className="nw-card nw-card-empty">No other stories yet.</div>}
                   </div>
                 </section>
               )}
@@ -171,14 +168,14 @@ export default function NewsPage() {
                   ) : (
                     <div className="nw-feed">
                       {feed.map((a) => (
-                        <NewsCard key={a.id} article={a} seriesLinks={seriesIndex.get(a.id)} />
+                        <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
                       ))}
                     </div>
                   )}
                 </section>
               )}
 
-              {!filtered && !top && !error && <div className="nw-state">No news published yet.</div>}
+              {!filtered && !top && feed.length === 0 && !error && <div className="nw-state">No news published yet.</div>}
 
               {hasMore && (
                 <div className="nw-more">
