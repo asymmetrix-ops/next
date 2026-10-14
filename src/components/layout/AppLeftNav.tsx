@@ -8,6 +8,7 @@ import {
   Bars3Icon,
   HomeIcon,
   ViewfinderCircleIcon,
+  NewspaperIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   UsersIcon,
@@ -35,6 +36,7 @@ type NavCounts = {
   sectors?: number;
   insightsAnalysis?: number;
   dealRadar?: number;
+  news?: number;
   financialIntelligence?: number;
   transactionComps?: number;
 };
@@ -48,6 +50,13 @@ type NavSection = {
 };
 
 const SECTIONS: NavSection[] = [
+  {
+    key: "news",
+    label: "News",
+    href: "/news",
+    icon: NewspaperIcon,
+    isActive: (p) => p.startsWith("/news"),
+  },
   {
     key: "dealRadar",
     label: "Deal Radar",
