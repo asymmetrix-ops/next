@@ -122,6 +122,7 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
 
   return (
     <div className="nw-search" ref={wrapRef}>
+      <div className="nw-search-row">
       <div className="nw-search-pill">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
@@ -142,6 +143,10 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
         />
+      </div>
+      <button type="button" className="nw-btn nw-btn-primary" onClick={submitText}>
+        Search
+      </button>
       </div>
 
       {showPanel && (

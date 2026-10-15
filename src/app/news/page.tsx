@@ -168,6 +168,9 @@ export default function NewsPage() {
               </h1>
             </div>
             <div className="nw-actions">
+              <button type="button" className="nw-btn nw-btn-outline" onClick={() => setFilters({})}>
+                Reset filters
+              </button>
               <FollowNewsButton />
               <DealTipButton />
             </div>
