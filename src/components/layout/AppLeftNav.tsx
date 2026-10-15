@@ -62,6 +62,7 @@ const SECTIONS: NavSection[] = [
     label: "Deal Radar",
     href: "/deal-radar",
     icon: ViewfinderCircleIcon,
+    badge: "New",
     isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
