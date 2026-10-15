@@ -30,7 +30,13 @@ export interface EmailAlert {
   id: number;
   created_at: number;
   user_id: number;
-  item_type: "corporate_events" | "insights_analysis" | "digest" | "deal_radar";
+  item_type:
+    | "corporate_events"
+    | "insights_analysis"
+    | "digest"
+    | "deal_radar"
+    | "weekly_news"
+    | "news";
   email_frequency: "as_added" | "daily" | "weekly";
   day_of_week: string | null;
   timezone: string;

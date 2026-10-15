@@ -56,6 +56,7 @@ export default function SettingsPage() {
     loadAlerts();
   }, [loadAlerts]);
 
+  const activeAlertCount = alerts.filter((a) => a.is_active).length;
   const corporateAlert = alerts.find((a) => a.item_type === "corporate_events");
   const insightsAlert = alerts.find((a) => a.item_type === "insights_analysis");
   const canSendTogether =
@@ -190,7 +191,10 @@ export default function SettingsPage() {
                 Email alerts
               </h2>
               <span className="text-xs text-gray-500">
-                {alerts.length} active
+                {activeAlertCount} active
+                {alerts.length !== activeAlertCount
+                  ? ` · ${alerts.length} total`
+                  : ""}
               </span>
               <button
                 type="button"

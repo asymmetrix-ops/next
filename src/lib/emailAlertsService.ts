@@ -40,13 +40,27 @@ function normalizeEntityFilters(
   return out;
 }
 
+function parseFiltersRaw(raw: unknown): unknown {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  return raw;
+}
+
 function parseStoredFilters(raw: unknown): EmailAlertFilters {
+  const parsed = parseFiltersRaw(raw);
   const out: EmailAlertFilters = {
-    ...normalizeEntityFilters(raw as EmailAlertFilters | null | undefined),
+    ...normalizeEntityFilters(parsed as EmailAlertFilters | null | undefined),
   };
 
   const source =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+    parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
 
   const dealTypes = parseCeFilterValues(
     source?.deal_types as string | string[] | undefined
@@ -159,11 +173,105 @@ interface EmailAlertsResponse {
   meta: EmailAlertsMeta;
 }
 
+function parseAlertsListPayload(payload: unknown): EmailAlert[] {
+  if (Array.isArray(payload)) {
+    return payload as EmailAlert[];
+  }
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.alerts)) {
+      return record.alerts as EmailAlert[];
+    }
+    if (Array.isArray(record.data)) {
+      return record.data as EmailAlert[];
+    }
+  }
+  return [];
+}
+
+function coerceIsActive(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1" || value === "true") {
+    return true;
+  }
+  if (value === false || value === 0 || value === "0" || value === "false") {
+    return false;
+  }
+  return Boolean(value);
+}
+
+function normalizeAlertRow(
+  raw: EmailAlert & { user_email_alerts_id?: number }
+): EmailAlert {
+  const id =
+    typeof raw.id === "number" && Number.isFinite(raw.id)
+      ? raw.id
+      : typeof raw.user_email_alerts_id === "number"
+        ? raw.user_email_alerts_id
+        : 0;
+  const createdAt =
+    typeof raw.created_at === "number" && Number.isFinite(raw.created_at)
+      ? raw.created_at
+      : 0;
+  return {
+    ...raw,
+    id,
+    created_at: createdAt,
+    user_id: Number(raw.user_id) || 0,
+    is_active: coerceIsActive(raw.is_active),
+    day_of_week: raw.day_of_week || null,
+    content_type: resolveContentTypeForApi(raw),
+    filters: parseStoredFilters(raw.filters),
+  };
+}
+
+export interface EmailAlertsListQuery {
+  item_type?: string;
+  email_frequency?: EmailAlert["email_frequency"];
+  is_active?: boolean;
+}
+
 class EmailAlertsService {
   private baseUrl: string;
 
   constructor() {
     this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu:develop";
+  }
+
+  private async requestAppRoute<T>(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const token = authService.getToken();
+    if (token) {
+      headers["x-asym-token"] = token;
+    }
+
+    const response = await fetch(path, {
+      ...options,
+      headers: { ...headers, ...(options.headers as Record<string, string>) },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        const user = authService.getUser();
+        const redirectTo = isMcpGuestSession(token, user)
+          ? MCP_GUEST_OTP_LOGIN_PATH
+          : "/login";
+        authService.logout();
+        window.location.href = redirectTo;
+        throw new Error("Authentication required");
+      }
+      const errorText = await response.text().catch(() => "");
+      throw new Error(
+        `API request failed: ${response.statusText}${errorText ? ` - ${errorText}` : ""}`
+      );
+    }
+
+    return response.json() as Promise<T>;
   }
 
   // Make authenticated API request
@@ -202,22 +310,31 @@ class EmailAlertsService {
     return response.json();
   }
 
-  // Get user's email alerts
-  async getEmailAlerts(userId: number): Promise<EmailAlertsResponse> {
-    const response = await this.request<EmailAlert[]>(
-      `/email-alerts?user_id=${userId}`,
-      {
-        method: "GET",
-      }
+  // Get user's email alerts (Fly email service via Next.js proxy)
+  async getEmailAlerts(
+    userId: number,
+    query?: EmailAlertsListQuery
+  ): Promise<EmailAlertsResponse> {
+    const params = new URLSearchParams({ user_id: String(userId) });
+    if (query?.item_type) {
+      params.set("item_type", query.item_type);
+    }
+    if (query?.email_frequency) {
+      params.set("email_frequency", query.email_frequency);
+    }
+    if (query?.is_active !== undefined) {
+      params.set("is_active", query.is_active ? "true" : "false");
+    }
+
+    const response = await this.requestAppRoute<unknown>(
+      `/api/email-alerts?${params.toString()}`,
+      { method: "GET" }
     );
 
-    const rawAlerts = Array.isArray(response) ? response : [];
-    const alerts: EmailAlert[] = rawAlerts.map((a) => ({
-      ...a,
-      day_of_week: a.day_of_week || null,
-      content_type: resolveContentTypeForApi(a),
-      filters: parseStoredFilters(a.filters),
-    }));
+    const rawAlerts = parseAlertsListPayload(response);
+    const alerts: EmailAlert[] = rawAlerts.map((a) =>
+      normalizeAlertRow(a as EmailAlert & { user_email_alerts_id?: number })
+    );
 
     const meta: EmailAlertsMeta = {
       enums: {
@@ -229,6 +346,8 @@ class EmailAlertsService {
             value: "digest",
             label: "Corporate Events, Insights & Analysis, and Deal Radar",
           },
+          { value: "weekly_news", label: "Weekly News" },
+          { value: "news", label: "News" },
         ],
         email_frequency: [
           { value: "as_added", label: "As they are added to platform" },
