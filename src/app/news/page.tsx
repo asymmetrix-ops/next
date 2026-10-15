@@ -5,6 +5,8 @@ import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import NewsSearchBar from "@/components/news/NewsSearchBar";
+import NewsFilterBar from "@/components/news/NewsFilterBar";
+import NewsCarousel from "@/components/news/NewsCarousel";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
@@ -19,8 +21,8 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-const CHIP_ORDER = ["company", "investor", "sector", "text"] as const;
-const CHIP_LABEL = { company: "Company", investor: "Investor", sector: "Sector", text: "Search" } as const;
+const CHIP_ORDER = ["company", "investor", "sector", "subType", "text"] as const;
+const CHIP_LABEL = { company: "Company", investor: "Investor", sector: "Sector", subType: "Type", text: "Search" } as const;
 
 function chipsOf(f: NewsFilters) {
   return CHIP_ORDER.flatMap((kind) => {
@@ -62,6 +64,24 @@ export default function NewsPage() {
         topIdsRef.current = top.map((a) => a.id);
         setTopStories(top);
       }
+      if (nextFilters.subType) {
+        // The feed doesn't filter by News sub-type yet, so page through the
+        // results and filter here. (Also correct once the API filters itself.)
+        const wanted = nextFilters.subType.toLowerCase();
+        const all: NewsArticle[] = [];
+        for (let p = 1; p <= 20; p += 1) {
+          const chunk = await fetchNewsFeed({ page: p, perPage: 50, filters: nextFilters });
+          if (req !== requestRef.current) return;
+          all.push(...chunk.items);
+          if (chunk.items.length === 0 || p * 50 >= (chunk.total ?? 0)) break;
+        }
+        const items = all.filter((a) => (a.News_Sub_Type || "").toLowerCase() === wanted);
+        setArticles(items);
+        setTotal(items.length);
+        setHasMore(false);
+        setPage(1);
+        return;
+      }
       const res = await fetchNewsFeed({
         page: nextPage,
         filters: nextFilters,
@@ -91,6 +111,10 @@ export default function NewsPage() {
     void load(filters, 1);
   }, [filters, load]);
 
+  const loadMore = useCallback(() => {
+    if (hasMore && !loadingMore && !loading) void load(filters, page + 1);
+  }, [hasMore, loadingMore, loading, load, filters, page]);
+
   const filtered = hasNewsFilters(filters);
   const top = !filtered && topStories.length > 0 ? topStories : null;
   
@@ -104,9 +128,8 @@ export default function NewsPage() {
         <div className="nw-shell">
           <div className="nw-head">
             <div>
-              <p className="nw-eyebrow">Latest</p>
+              <p className="nw-eyebrow">Reporting</p>
               <h1 className="nw-title">News</h1>
-              <p className="nw-sub">The latest Data &amp; Analytics deal news, and how each story develops.</p>
             </div>
             <div className="nw-actions">
               <FollowNewsButton />
@@ -115,6 +138,8 @@ export default function NewsPage() {
           </div>
 
           <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
+
+          <NewsFilterBar filters={filters} onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))} />
 
           {filtered && (
             <div className="nw-chips">
@@ -163,10 +188,18 @@ export default function NewsPage() {
                 </section>
               )}
 
-              {(feed.length > 0 || filtered) && (
+              {!filtered && feed.length > 0 && (
+                <NewsCarousel title="Recent news" onNearEnd={loadMore} loadingMore={loadingMore}>
+                  {feed.map((a) => (
+                    <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
+                  ))}
+                </NewsCarousel>
+              )}
+
+              {filtered && (
                 <section aria-labelledby="nw-feed-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="nw-section-row">
-                    <h2 className="nw-section-title" id="nw-feed-h">{filtered ? "Results" : "Recent news"}</h2>
+                    <h2 className="nw-section-title" id="nw-feed-h">Results</h2>
                   </div>
                   {feed.length === 0 ? (
                     <div className="nw-state">No news found for this filter.</div>
@@ -177,18 +210,17 @@ export default function NewsPage() {
                       ))}
                     </div>
                   )}
+                  {hasMore && (
+                    <div className="nw-more">
+                      <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={loadMore}>
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
                 </section>
               )}
 
               {!filtered && !top && feed.length === 0 && !error && <div className="nw-state">No news published yet.</div>}
-
-              {hasMore && (
-                <div className="nw-more">
-                  <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={() => load(filters, page + 1)}>
-                    {loadingMore ? "Loading…" : "Load more"}
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>

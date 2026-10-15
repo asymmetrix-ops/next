@@ -19,7 +19,7 @@ export type NewsArticle = ContentArticle & {
   News_Sub_Type?: string;
   news_sub_type?: string;
   follow_up_to?: number | NewsRef | null;
-  related_ia?: { id: number; headline?: string } | null;
+  related_ia?: { id: number; headline?: string; contentType?: string } | null;
   /** From /news/top_stories: "Follow-up" | "Previously" | null. */
   label?: "Follow-up" | "Previously" | null;
   /** From /news/feed: other published articles in this article's series. */
@@ -41,6 +41,8 @@ export type NewsFilters = {
   investor?: FilterRef;
   sector?: FilterRef;
   text?: string;
+  /** News sub-type from the filter bar (e.g. "Fundraise"). */
+  subType?: string;
 };
 
 export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters {
@@ -50,7 +52,7 @@ export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters 
 }
 
 export function hasNewsFilters(f: NewsFilters): boolean {
-  return Boolean(f.company || f.investor || f.sector || f.text);
+  return Boolean(f.company || f.investor || f.sector || f.text || f.subType);
 }
 
 function authHeaders(): Record<string, string> {
@@ -79,6 +81,7 @@ type ApiNewsItem = {
   series_others?: unknown;
   ia_id?: number | null;
   ia_headline?: string | null;
+  ia_content_type?: string | null;
   News_Sub_Type?: string | null;
   focus_companies?: unknown;
 };
@@ -120,7 +123,13 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
     companies_of_focus: focus,
     follow_up_to: item.follow_up_to ?? null,
     label: item.label ?? null,
-    related_ia: item.ia_id ? { id: item.ia_id, headline: item.ia_headline || undefined } : null,
+    related_ia: item.ia_id
+      ? {
+          id: item.ia_id,
+          headline: item.ia_headline || undefined,
+          contentType: item.ia_content_type || undefined,
+        }
+      : null,
     series_others: item.in_series ? others : [],
   } as unknown as NewsArticle;
 }
@@ -163,10 +172,33 @@ export async function fetchNewsFeed(opts: {
   if (f?.company) params.append("company_id", String(f.company.id));
   if (f?.investor) params.append("investor_id", String(f.investor.id));
   if (f?.sector) params.append("sector_id", String(f.sector.id));
+  if (f?.subType) params.append("news_sub_type", f.subType);
   // Omit entirely when empty — the API rejects exclude_ids=null.
   for (const id of opts.excludeIds ?? []) params.append("exclude_ids[]", String(id));
   const rows = await getJson<Array<ApiNewsItem & { total_count?: number }>>("feed", params, opts.signal);
   return { items: rows.map(fromApiItem), total: rows[0]?.total_count ?? null };
+}
+
+// ── I&A content type (for the "Read our …" link) ──────────────────────────
+// The feed doesn't return the I&A piece's type yet (ia_content_type). Until it
+// does, look it up once per piece and cache it.
+
+const CONTENT_BY_ID_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+const iaTypeCache = new Map<number, Promise<string>>();
+
+export function fetchIaContentType(id: number): Promise<string> {
+  let hit = iaTypeCache.get(id);
+  if (!hit) {
+    hit = fetch(`${CONTENT_BY_ID_URL}/${id}`, { headers: authHeaders(), cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const row = Array.isArray(json) ? json[0] : json;
+        return String(row?.Content_Type ?? row?.content_type ?? "").trim();
+      })
+      .catch(() => "");
+    iaTypeCache.set(id, hit);
+  }
+  return hit;
 }
 
 // ── Search suggestions ───────────────────────────────────────────────────
