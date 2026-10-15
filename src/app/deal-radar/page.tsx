@@ -183,9 +183,7 @@ type SortKey =
   | "buyer_type"
   | "bidders"
   | "revenue"
-  | "ev"
-  | "acquirers"
-  | "event";
+  | "ev";
 
 /** Agreed tracking names (lowercase, underscores). */
 const DEAL_RADAR_SORT_NAMES: Record<SortKey, string> = {
@@ -200,8 +198,6 @@ const DEAL_RADAR_SORT_NAMES: Record<SortKey, string> = {
   bidders: "bidders",
   revenue: "revenue",
   ev: "ev",
-  acquirers: "potential_acquirers",
-  event: "corporate_event",
 };
 
 /** Blue hover on sortable headers so users can tell they are clickable. */
@@ -232,7 +228,7 @@ const INITIAL_FILTER_BAR_STATE: FilterBarState = {
 const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 const PAGE_SIZE = 25;
-const TABLE_COL_COUNT = 13;
+const TABLE_COL_COUNT = 11;
 
 /** Advisors for a row; falls back to the single `intermediary` an older API response carries. */
 function advisorsOf(item: DealRadarDashboardItem): AdvisorRef[] {
@@ -449,7 +445,6 @@ function DealRadarMobileCard({
   item: DealRadarDashboardItem;
   onNavigate: (href: string) => void;
 }) {
-  const isReportedInMarket = item.transaction_status.toLowerCase().includes("reported");
   const sectors = item.primary_sectors.map((s) => ({ ...s, name: cleanSectorName(s.name) }));
   const dash = <span>-</span>;
   const row = (label: string, value: React.ReactNode) => (
@@ -578,34 +573,6 @@ function DealRadarMobileCard({
         )}
         {row("Revenue (m)", formatVal(item.revenue))}
         {row("EV (m)", formatVal(item.ev))}
-        {row(
-          "Potential acquirers",
-          item.potential_acquirers.length > 0 ? (
-            <div className="flex flex-wrap justify-end gap-1">
-              {item.potential_acquirers.map((a) => chip(a.id, `/company/${a.id}`, a.name))}
-            </div>
-          ) : (
-            dash
-          )
-        )}
-        {row(
-          "Corp. event",
-          item.linked_event && isReportedInMarket ? (
-            <a
-              href={`/corporate-event/${item.linked_event.id}`}
-              onClick={(e) => {
-                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                e.preventDefault();
-                onNavigate(`/corporate-event/${item.linked_event!.id}`);
-              }}
-              className="text-[11px] font-medium text-emerald-700"
-            >
-              {formatDate(item.linked_event.announcement_date)}
-            </a>
-          ) : (
-            dash
-          )
-        )}
       </div>
     </div>
   );
@@ -1008,8 +975,6 @@ export default function DealRadarDashboardPage() {
                     <Th label="Bidders" sortKey="bidders" minWidth={140} />
                     <Th label="Revenue (m)" sortKey="revenue" minWidth={110} />
                     <Th label="EV (m)" sortKey="ev" minWidth={100} />
-                    <Th label="Potential Acquirers" sortKey="acquirers" minWidth={180} />
-                    <Th label="Corp. Event" sortKey="event" minWidth={110} />
                   </tr>
                 </thead>
                 <tbody>
@@ -1029,9 +994,6 @@ export default function DealRadarDashboardPage() {
                         </tr>
                       )
                       : items.map((item) => {
-                          const isReportedInMarket = item.transaction_status
-                            .toLowerCase()
-                            .includes("reported");
                           const sectors = item.primary_sectors.map((s) => ({
                             ...s,
                             name: cleanSectorName(s.name),
@@ -1244,91 +1206,6 @@ export default function DealRadarDashboardPage() {
                                 {formatVal(item.ev)}
                               </td>
 
-                              {/* Potential Acquirers */}
-                              <td>
-                                {item.potential_acquirers.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {item.potential_acquirers.map((acq) => (
-                                      <a
-                                        key={acq.id}
-                                        href={`/company/${acq.id}`}
-                                        onClick={(e) => {
-                                          if (
-                                            e.button !== 0 ||
-                                            e.metaKey ||
-                                            e.ctrlKey ||
-                                            e.shiftKey ||
-                                            e.altKey
-                                          )
-                                            return;
-                                          e.preventDefault();
-                                          router.push(`/company/${acq.id}`);
-                                        }}
-                                        className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
-                                        style={{
-                                          backgroundColor: ENTITY_TONES.company.fill,
-                                          color: ENTITY_TONES.company.text,
-                                        }}
-                                      >
-                                        {acq.name}
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span>-</span>
-                                )}
-                              </td>
-
-                              {/* Corporate Event link (only when Reported in Market) */}
-                              <td
-                                className={
-                                  item.linked_event && isReportedInMarket ? "cursor-pointer" : undefined
-                                }
-                                onClick={(e) => {
-                                  if (!item.linked_event || !isReportedInMarket) return;
-                                  if ((e.target as HTMLElement).closest("a")) return;
-                                  router.push(`/corporate-event/${item.linked_event.id}`);
-                                }}
-                              >
-                                {item.linked_event && isReportedInMarket ? (
-                                  <a
-                                    href={`/corporate-event/${item.linked_event.id}`}
-                                    onClick={(e) => {
-                                      if (
-                                        e.button !== 0 ||
-                                        e.metaKey ||
-                                        e.ctrlKey ||
-                                        e.shiftKey ||
-                                        e.altKey
-                                      )
-                                        return;
-                                      e.preventDefault();
-                                      router.push(
-                                        `/corporate-event/${item.linked_event!.id}`
-                                      );
-                                    }}
-                                    className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
-                                  >
-                                    <svg
-                                      className="w-3 h-3 shrink-0"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                      <polyline points="15 3 21 3 21 9" />
-                                      <line x1="10" y1="14" x2="21" y2="3" />
-                                    </svg>
-                                    {formatDate(
-                                      item.linked_event.announcement_date
-                                    )}
-                                  </a>
-                                ) : (
-                                  <span>-</span>
-                                )}
-                              </td>
                             </tr>
                           );
                         })}
