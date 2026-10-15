@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { trackKeyAction } from "@/lib/tracking";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import Footer from "@/components/Footer";
 import {
   CompaniesFilterBar,
@@ -406,9 +407,13 @@ function buildDashboardUrl(
   search: string,
   statusId: number | null,
   barFilters: DealRadarApiFilter[],
-  sort: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" }
+  sort: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" },
+  preferredCurrencyId?: number
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
+  if (preferredCurrencyId) {
+    url.searchParams.set("preferred_currency_id", String(preferredCurrencyId));
+  }
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("offset", String(offset));
   if (search) url.searchParams.set("search", search);
@@ -612,6 +617,7 @@ function SkeletonRow() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DealRadarDashboardPage() {
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const router = useRouter();
   const [items, setItems] = useState<DealRadarDashboardItem[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
@@ -717,7 +723,7 @@ export default function DealRadarDashboardPage() {
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState);
+        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState, preferredCurrencyId);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -740,7 +746,7 @@ export default function DealRadarDashboardPage() {
         setLoading(false);
       }
     },
-    []
+    [preferredCurrencyId]
   );
 
   // Filter-bar items -> API filters (labels back to ids where the endpoint filters by id)
