@@ -706,6 +706,8 @@ export default function DealRadarDashboardPage() {
     loadFilterOptions();
   }, []);
 
+  // Latest request wins: the first fetch can go out with the default currency before the saved one loads.
+  const latestRequestRef = useRef(0);
   const fetchData = useCallback(
     async (
       offset = 0,
@@ -715,6 +717,7 @@ export default function DealRadarDashboardPage() {
       barFilters: DealRadarApiFilter[] = [],
       sortState: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" }
     ) => {
+      const requestId = ++latestRequestRef.current;
       setLoading(true);
       setError(null);
 
@@ -735,15 +738,17 @@ export default function DealRadarDashboardPage() {
         if (!res.ok) throw new Error(`Request failed: ${res.statusText}`);
 
         const data: DealRadarDashboardResponse = await res.json();
+        if (requestId !== latestRequestRef.current) return;
         setItems((prev) =>
           append ? [...prev, ...data.items] : data.items
         );
         setPagination(data.pagination);
         if (!append && data.status_totals) setStatusTotals(data.status_totals);
       } catch (err) {
+        if (requestId !== latestRequestRef.current) return;
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
-        setLoading(false);
+        if (requestId === latestRequestRef.current) setLoading(false);
       }
     },
     [preferredCurrencyId]
