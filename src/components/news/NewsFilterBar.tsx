@@ -3,9 +3,14 @@
 import { useEffect, useState } from "react";
 import { locationsService } from "@/lib/locationsService";
 import { dotPillStyleFromTone, getNewsSubtypeTone, NEWS_SUBTYPE_TONES } from "@/lib/tagColors";
-import type { NewsFilters } from "@/lib/news";
+import { fetchNewsSubTypes, type NewsFilters } from "@/lib/news";
 
-const SUB_TYPES = ["Sale process", "Deal close", "Carve-out", "Fundraise", "IPO", "Leadership"];
+// Platform order for the pills; any other type the API returns goes after these.
+const SUB_TYPE_ORDER = ["sale process", "deal close", "carve-out", "fundraise", "ipo", "leadership"];
+const rank = (value: string) => {
+  const i = SUB_TYPE_ORDER.indexOf(value.toLowerCase());
+  return i === -1 ? SUB_TYPE_ORDER.length : i;
+};
 
 type Props = {
   filters: NewsFilters;
@@ -15,6 +20,24 @@ type Props = {
 /** News sub-type pills and a primary-sector picker, above the results. */
 export default function NewsFilterBar({ filters, onChange }: Props) {
   const [sectors, setSectors] = useState<Array<{ id: number; sector_name: string }>>([]);
+  const [subTypes, setSubTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchNewsSubTypes()
+      .then((rows) => {
+        if (cancelled) return;
+        setSubTypes(
+          rows
+            .map((r) => r.value)
+            .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +64,7 @@ export default function NewsFilterBar({ filters, onChange }: Props) {
         >
           All types
         </button>
-        {SUB_TYPES.map((t) => {
+        {subTypes.map((t) => {
           const active = filters.subType?.toLowerCase() === t.toLowerCase();
           const tone = getNewsSubtypeTone(t);
           return (

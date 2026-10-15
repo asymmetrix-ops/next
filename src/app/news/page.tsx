@@ -64,24 +64,6 @@ export default function NewsPage() {
         topIdsRef.current = top.map((a) => a.id);
         setTopStories(top);
       }
-      if (nextFilters.subType) {
-        // The feed doesn't filter by News sub-type yet, so page through the
-        // results and filter here. (Also correct once the API filters itself.)
-        const wanted = nextFilters.subType.toLowerCase();
-        const all: NewsArticle[] = [];
-        for (let p = 1; p <= 20; p += 1) {
-          const chunk = await fetchNewsFeed({ page: p, perPage: 50, filters: nextFilters });
-          if (req !== requestRef.current) return;
-          all.push(...chunk.items);
-          if (chunk.items.length === 0 || p * 50 >= (chunk.total ?? 0)) break;
-        }
-        const items = all.filter((a) => (a.News_Sub_Type || "").toLowerCase() === wanted);
-        setArticles(items);
-        setTotal(items.length);
-        setHasMore(false);
-        setPage(1);
-        return;
-      }
       const res = await fetchNewsFeed({
         page: nextPage,
         filters: nextFilters,

@@ -131,3 +131,8 @@
 @container (min-width: 1120px) { .nw-carousel > .nw-card, .nw-carousel > .nw-carousel-item { flex-basis: calc((100% - 48px) / 4); } }
 @container (min-width: 1480px) { .nw-carousel > .nw-card, .nw-carousel > .nw-carousel-item { flex-basis: calc((100% - 64px) / 5); } }
 @media (prefers-reduced-motion: reduce) { .nw-carousel { scroll-behavior: auto; } }
+
+/* company-of-focus tags */
+.nw-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nw-sector { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid #e4e8f2; background: #fff; color: #566078; font-size: 11.5px; font-weight: 700; line-height: 1.4; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.nw-sector-more { color: #8a93a8; font-weight: 600; }

@@ -24,6 +24,8 @@ export type NewsArticle = ContentArticle & {
   label?: "Follow-up" | "Previously" | null;
   /** From /news/feed: other published articles in this article's series. */
   series_others?: NewsRef[];
+  /** Sector and Deal Radar stage of the first company of focus (card tags). */
+  focus_tags?: { primarySectors: string[]; processStage: string | null };
 };
 
 /** One filter the user picked (suggestion or Enter-to-search). */
@@ -92,6 +94,8 @@ type FocusCompany = {
   logo?: string | null;
   hq_country?: string | null;
   hq_iso2?: string | null;
+  primary_sectors?: unknown;
+  process_stage?: string | null;
 };
 
 /** Raw-SQL endpoints can return arrays as JSON strings. */
@@ -121,6 +125,14 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
     Content_Type: "News",
     News_Sub_Type: item.News_Sub_Type || undefined,
     companies_of_focus: focus,
+    focus_tags: focus[0]
+      ? {
+          primarySectors: parseArray<{ id: number; name: string }>(focus[0].primary_sectors)
+            .map((sector) => sector.name)
+            .filter(Boolean),
+          processStage: focus[0].process_stage?.trim() || null,
+        }
+      : undefined,
     follow_up_to: item.follow_up_to ?? null,
     label: item.label ?? null,
     related_ia: item.ia_id
@@ -172,11 +184,21 @@ export async function fetchNewsFeed(opts: {
   if (f?.company) params.append("company_id", String(f.company.id));
   if (f?.investor) params.append("investor_id", String(f.investor.id));
   if (f?.sector) params.append("sector_id", String(f.sector.id));
-  if (f?.subType) params.append("news_sub_type", f.subType);
+  if (f?.subType) params.append("sub_type", f.subType);
   // Omit entirely when empty — the API rejects exclude_ids=null.
   for (const id of opts.excludeIds ?? []) params.append("exclude_ids[]", String(id));
   const rows = await getJson<Array<ApiNewsItem & { total_count?: number }>>("feed", params, opts.signal);
   return { items: rows.map(fromApiItem), total: rows[0]?.total_count ?? null };
+}
+
+// ── Filter options ───────────────────────────────────────────────────────
+
+export type NewsSubTypeOption = { value: string; count: number };
+
+/** Sub-types that have published News (drives the filter pills). */
+export async function fetchNewsSubTypes(signal?: AbortSignal): Promise<NewsSubTypeOption[]> {
+  const json = await getJson<{ sub_types?: unknown }>("filters", undefined, signal);
+  return parseArray<NewsSubTypeOption>(json?.sub_types).filter((t) => t && t.value);
 }
 
 // ── I&A content type (for the "Read our …" link) ──────────────────────────

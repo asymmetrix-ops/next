@@ -12,6 +12,8 @@ import {
   dotPillStyleFromTone,
   getInsightsTypeTone,
   getNewsSubtypeTone,
+  getProcessStageTone,
+  researchPillStyleFromTone,
 } from "@/lib/tagColors";
 
 type Props = {
@@ -121,6 +123,25 @@ function IaLink({ ia, expanded }: { ia: NonNullable<NewsArticle["related_ia"]>; 
   );
 }
 
+/** Company-of-focus tags: Deal Radar process stage and primary sector(s). */
+function FocusTags({ tags }: { tags: NonNullable<NewsArticle["focus_tags"]> }) {
+  const [firstSector, ...otherSectors] = tags.primarySectors;
+  if (!tags.processStage && !firstSector) return null;
+  return (
+    <div className="nw-tags">
+      {tags.processStage && (
+        <span style={researchPillStyleFromTone(getProcessStageTone(tags.processStage))}>{tags.processStage}</span>
+      )}
+      {firstSector && (
+        <span className="nw-sector" title={tags.primarySectors.join(", ")}>
+          {firstSector}
+          {otherSectors.length > 0 && <span className="nw-sector-more">+{otherSectors.length}</span>}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function NewsCard({ article, variant = "feed", relation, seriesLinks }: Props) {
   const headline = decodeHtmlEntities(article.Headline || "") || "-";
   const strap = decodeHtmlEntities(article.Strapline || "");
@@ -167,6 +188,8 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
           </span>
         )}
+
+        {article.focus_tags && <FocusTags tags={article.focus_tags} />}
 
         {ia && variant === "top" && <IaLink ia={ia} expanded />}
 
