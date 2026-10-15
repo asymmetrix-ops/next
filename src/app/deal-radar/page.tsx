@@ -15,7 +15,6 @@ import {
   getTransactionStatusTone,
   getProcessStageTone,
   getBuyerTypeTone,
-  getTransactionSignalTone,
   getTransactionSignalDescription,
   ENTITY_TONES,
 } from "@/lib/tagColors";
@@ -432,41 +431,17 @@ function buildDashboardUrl(
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
 
 function TransactionSignalLabel({ signal }: { signal: string }) {
-  const tone = getTransactionSignalTone(signal);
   const description = getTransactionSignalDescription(signal);
-  const [open, setOpen] = useState(false);
   return (
-    <div className="group relative mt-1 w-full text-left">
-      <button
-        type="button"
-        onClick={() => description && setOpen((v) => !v)}
-        className="cursor-help inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold border"
-        style={{
-          backgroundColor: tone.fill,
-          color: tone.text,
-          borderColor: tone.border,
-        }}
-      >
-        {signal}
-      </button>
-      {description ? (
-        <div
-          role="tooltip"
-          className={`absolute left-0 top-full z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg group-hover:block ${
-            open ? "block" : "hidden"
-          }`}
-        >
-          <p className="text-[11px] font-semibold text-gray-900">{signal}</p>
-          <p className="mt-1.5 text-[10px] leading-snug text-gray-600">
-            {description}
-          </p>
-        </div>
-      ) : null}
-    </div>
+    <p
+      className="mt-1 text-left text-[11px] font-medium text-gray-600"
+      title={description || undefined}
+    >
+      {signal}
+    </p>
   );
 }
 
-/** Phone layout (< md): one compact card per transaction instead of the 1500px-wide table. */
 function DealRadarMobileCard({
   item,
   onNavigate,
