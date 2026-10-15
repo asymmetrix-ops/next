@@ -45,6 +45,11 @@ export type NewsFilters = {
   text?: string;
   /** News sub-type from the filter bar (e.g. "Fundraise"). */
   subType?: string;
+  /**
+   * Only articles whose company of focus the user follows. The feed has no
+   * such parameter yet, so the page applies this one itself.
+   */
+  followedOnly?: boolean;
 };
 
 export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters {
@@ -54,7 +59,7 @@ export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters 
 }
 
 export function hasNewsFilters(f: NewsFilters): boolean {
-  return Boolean(f.company || f.investor || f.sector || f.text || f.subType);
+  return Boolean(f.company || f.investor || f.sector || f.text || f.subType || f.followedOnly);
 }
 
 function authHeaders(): Record<string, string> {
@@ -248,6 +253,13 @@ export async function fetchSearchSuggestions(q: string, signal?: AbortSignal): P
     sectors: parseArray<SuggestionEntity>(json?.sectors),
     articles: parseArray<SuggestionArticle>(json?.articles),
   };
+}
+
+/** Articles whose company of focus is one of the followed companies. */
+export function keepFollowedCompanyNews(items: NewsArticle[], followedCompanyIds: Iterable<number>): NewsArticle[] {
+  const followed = new Set(followedCompanyIds);
+  if (followed.size === 0) return [];
+  return items.filter((a) => a.companies_of_focus?.some((c) => followed.has(c.id)));
 }
 
 // ── Follow news (v1: all news) ───────────────────────────────────────────

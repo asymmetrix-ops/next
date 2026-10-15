@@ -10,10 +10,13 @@ import NewsCarousel from "@/components/news/NewsCarousel";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
+import Link from "next/link";
+import { usePortfolioStore } from "@/store/portfolioStore";
 import {
   addNewsFilter,
   fetchNewsFeed,
   hasNewsFilters,
+  keepFollowedCompanyNews,
   fetchTopStories,
   NEWS_PAGE_SIZE,
   type NewsArticle,
@@ -21,14 +24,21 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-const CHIP_ORDER = ["company", "investor", "sector", "subType", "text"] as const;
-const CHIP_LABEL = { company: "Company", investor: "Investor", sector: "Sector", subType: "Type", text: "Search" } as const;
+const CHIP_ORDER = ["company", "investor", "sector", "subType", "followedOnly", "text"] as const;
+const CHIP_LABEL = {
+  company: "Company",
+  investor: "Investor",
+  sector: "Sector",
+  subType: "Type",
+  followedOnly: "Followed",
+  text: "Search",
+} as const;
 
 function chipsOf(f: NewsFilters) {
   return CHIP_ORDER.flatMap((kind) => {
     const v = f[kind];
     if (!v) return [];
-    return [{ kind, label: typeof v === "string" ? v : v.label }];
+    return [{ kind, label: v === true ? "Followed only" : typeof v === "string" ? v : v.label }];
   });
 }
 
@@ -47,8 +57,17 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allTotal, setAllTotal] = useState<number | null>(null);
   const requestRef = useRef(0);
   const topIdsRef = useRef<number[]>([]);
+  const followedCount = usePortfolioStore((st) => st.data?.followed_companies?.length ?? 0);
+
+  // Number of published News, for the "All types" pill and the title.
+  useEffect(() => {
+    fetchNewsFeed({ page: 1, perPage: 1 })
+      .then((res) => setAllTotal(res.total))
+      .catch(() => undefined);
+  }, []);
 
   const load = useCallback(async (nextFilters: NewsFilters, nextPage: number) => {
     const req = ++requestRef.current;
@@ -63,6 +82,34 @@ export default function NewsPage() {
         if (req !== requestRef.current) return;
         topIdsRef.current = top.map((a) => a.id);
         setTopStories(top);
+      }
+      if (nextFilters.followedOnly) {
+        // The feed can't filter by followed companies yet: page through the
+        // results (other filters still apply server-side) and keep the articles
+        // whose company of focus the user follows.
+        let portfolio = usePortfolioStore.getState();
+        if (!portfolio.lastFetched) {
+          await portfolio.fetchPortfolio();
+          portfolio = usePortfolioStore.getState();
+        }
+        if (req !== requestRef.current) return;
+        const followed = new Set(portfolio.data?.followed_companies ?? []);
+        const { followedOnly: _ignored, ...serverFilters } = nextFilters;
+        void _ignored;
+        const kept: NewsArticle[] = [];
+        if (followed.size > 0) {
+          for (let p = 1; p <= 20; p += 1) {
+            const chunk = await fetchNewsFeed({ page: p, perPage: 50, filters: serverFilters });
+            if (req !== requestRef.current) return;
+            kept.push(...keepFollowedCompanyNews(chunk.items, followed));
+            if (chunk.items.length === 0 || p * 50 >= (chunk.total ?? 0)) break;
+          }
+        }
+        setArticles(kept);
+        setTotal(kept.length);
+        setHasMore(false);
+        setPage(1);
+        return;
       }
       const res = await fetchNewsFeed({
         page: nextPage,
@@ -111,7 +158,14 @@ export default function NewsPage() {
           <div className="nw-head">
             <div>
               <p className="nw-eyebrow">Reporting</p>
-              <h1 className="nw-title">News</h1>
+              <h1 className="nw-title">
+                News
+                {allTotal != null && (
+                  <span className="nw-title-count">
+                    {allTotal.toLocaleString()} {allTotal === 1 ? "article" : "articles"}
+                  </span>
+                )}
+              </h1>
             </div>
             <div className="nw-actions">
               <FollowNewsButton />
@@ -119,9 +173,16 @@ export default function NewsPage() {
             </div>
           </div>
 
-          <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
-
-          <NewsFilterBar filters={filters} onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))} />
+          <div className="nw-controls">
+            <NewsFilterBar
+              filters={filters}
+              totalAll={allTotal}
+              onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))}
+            />
+            <div className="nw-controls-search">
+              <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
+            </div>
+          </div>
 
           {filtered && (
             <div className="nw-chips">
@@ -184,7 +245,21 @@ export default function NewsPage() {
                     <h2 className="nw-section-title" id="nw-feed-h">Results</h2>
                   </div>
                   {feed.length === 0 ? (
-                    <div className="nw-state">No news found for this filter.</div>
+                    <div className="nw-state">
+                      {filters.followedOnly && followedCount === 0 ? (
+                        <>
+                          You&apos;re not following any companies yet. Add companies to{" "}
+                          <Link href="/my-portfolio" style={{ color: "#2a46ea", fontWeight: 600, textDecoration: "underline" }}>
+                            My Portfolio
+                          </Link>{" "}
+                          to see their news here.
+                        </>
+                      ) : filters.followedOnly ? (
+                        "No news about the companies you follow matches these filters."
+                      ) : (
+                        "No news found for this filter."
+                      )}
+                    </div>
                   ) : (
                     <div className="nw-feed">
                       {feed.map((a) => (
