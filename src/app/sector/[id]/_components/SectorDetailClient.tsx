@@ -7,6 +7,7 @@ import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
+import DealRadarView from "@/components/deal-radar/DealRadarView";
 import CompactPagination from "@/components/ui/CompactPagination";
 import ProfileSubnav from "@/components/ProfileSubnav";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
@@ -501,10 +502,11 @@ function mapMarketMapToCompanies(raw: unknown): SectorCompany[] {
 // Tabs
 const TABS = [
   { id: "overview", name: "Overview" },
+  { id: "deal_radar", name: "Deal Radar" },
   { id: "most_active", name: "Most Active" },
   { id: "public", name: "Public Companies" },
   { id: "subsectors", name: "Secondary Sectors" },
-  { id: "transactions", name: "Transactions" },
+  { id: "transactions", name: "Corporate Events" },
   { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
   { id: "all", name: "All Companies" },
@@ -1149,7 +1151,7 @@ function RecentTransactionsCard({
         }}
       >
         <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
-          Recent transactions
+          Recent corporate events
         </h2>
         <a
           href="?tab=transactions"
@@ -2587,7 +2589,7 @@ const SectorDetailPage = ({
                   }}
                 >
                   <h2 style={{ margin: "0 0 12px", fontSize: 14.5, fontWeight: 800, color: INK }}>
-                    Recent transactions
+                    Recent corporate events
                   </h2>
                   <div
                     style={{
@@ -2857,6 +2859,8 @@ const SectorDetailPage = ({
             activeSubTab={mostActiveSubTab}
             setActiveSubTab={setMostActiveSubTab}
           />
+        ) : activeTab === "deal_radar" ? (
+          <DealRadarView fixedSectorId={Number(sectorId)} />
         ) : activeTab === "transactions" ? (
           <ScopedCorporateEventsPanel primarySectorId={Number(sectorId)} embedded />
         ) : activeTab === "transaction_comps" ? (
