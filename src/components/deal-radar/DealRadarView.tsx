@@ -30,6 +30,9 @@ import {
   SEARCH_DASHBOARD_TITLE,
 } from "@/components/search/searchDashboardLayout";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -221,52 +224,12 @@ function isInvalidVal(value: string | null | undefined): boolean {
   return v === "null" || v === "nan" || v === "";
 }
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", GBP: "£" };
-function currencyPrefix(code: string | null | undefined): string {
-  const c = (code ?? "").trim().toUpperCase();
-  if (!c) return "";
-  return CURRENCY_SYMBOLS[c] ?? `${c} `;
-}
-
+/** Revenue / EV as plain text like the other list views (no Est./Prop. tags). */
 function formatVal(val: ValSource): React.ReactNode {
-  const v = val?.value;
-  const src = val?.source;
-  if (isInvalidVal(v)) return <span className="text-gray-300">—</span>;
-
-  const srcLower = isInvalidVal(src) ? "" : src!.trim().toLowerCase();
-  const isEst = srcLower.startsWith("http") || srcLower.includes("estimate");
-  const isProp = !isEst && /proprietary|asymmetrix/.test(srcLower);
-  const isOther = !!srcLower && !isEst && !isProp;
-
-  return (
-    <span className="font-medium text-gray-800">
-      {currencyPrefix(val?.currency)}{v}m
-      {isEst && (
-        <abbr
-          title={`Estimate — source: ${src}`}
-          className="ml-1 text-[10px] text-amber-600 border border-amber-300 rounded px-1 cursor-help no-underline"
-        >
-          Est.
-        </abbr>
-      )}
-      {isOther && (
-        <abbr
-          title={`Source: ${src}`}
-          className="ml-1 text-[10px] text-gray-500 border border-gray-300 rounded px-1 cursor-help no-underline"
-        >
-          Src.
-        </abbr>
-      )}
-      {isProp && (
-        <abbr
-          title="Proprietary data"
-          className="ml-1 text-[10px] text-blue-600 border border-blue-300 rounded px-1 cursor-help no-underline"
-        >
-          Prop.
-        </abbr>
-      )}
-    </span>
-  );
+  if (isInvalidVal(val?.value)) return EMPTY_DISPLAY;
+  const plain = formatMetricMillionsPlain(val.value);
+  if (plain === EMPTY_DISPLAY) return EMPTY_DISPLAY;
+  return appendMetricCurrency(plain, val.currency ?? undefined);
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -1397,23 +1360,6 @@ export default function DealRadarView({
               disabled={loading}
             />
           )}
-        </div>
-
-        {/* Legend */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-gray-500">
-          <span className="font-semibold text-gray-600">Legend:</span>
-          <span>
-            <abbr className="no-underline border border-amber-300 text-amber-600 rounded px-1 mr-1">
-              Est.
-            </abbr>
-            Revenue / EV is an estimate (third-party source)
-          </span>
-          <span>
-            <abbr className="no-underline border border-blue-300 text-blue-600 rounded px-1 mr-1">
-              Prop.
-            </abbr>
-            Revenue / EV is proprietary data
-          </span>
         </div>
       </main>
       {!embedded && <Footer />}
