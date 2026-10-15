@@ -90,6 +90,7 @@ interface DealRadarDashboardItem {
   hq_country: string | null;
   ownership_type: string | null;
   owner_name: string | null;
+  owner_id?: number | null;
   primary_sectors: Sector[];
   transaction_status_id: number;
   transaction_status: string;
@@ -526,7 +527,25 @@ function DealRadarMobileCard({
           item.ownership_type ? (
             <>
               <span className="font-medium">{item.ownership_type}</span>
-              {item.owner_name && <p className="text-[10px] text-gray-500">{item.owner_name}</p>}
+              {item.owner_name && (
+                <p className="text-[10px] text-gray-500">
+                  {item.owner_id ? (
+                    <a
+                      href={`/investors/${item.owner_id}`}
+                      onClick={(e) => {
+                        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                        e.preventDefault();
+                        onNavigate(`/investors/${item.owner_id}`);
+                      }}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      {item.owner_name}
+                    </a>
+                  ) : (
+                    item.owner_name
+                  )}
+                </p>
+              )}
             </>
           ) : (
             dash
@@ -1091,7 +1110,16 @@ export default function DealRadarDashboardPage() {
                                     </span>
                                     {item.owner_name && (
                                       <p className="text-[10px] text-gray-500 mt-0.5">
-                                        {item.owner_name}
+                                        {item.owner_id ? (
+                                          <a
+                                            href={`/investors/${item.owner_id}`}
+                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                          >
+                                            {item.owner_name}
+                                          </a>
+                                        ) : (
+                                          item.owner_name
+                                        )}
                                       </p>
                                     )}
                                   </div>
