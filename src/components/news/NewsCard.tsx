@@ -6,6 +6,7 @@ import { LightBulbIcon } from "@heroicons/react/24/outline";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
+import { dotPillStyleFromTone, getNewsSubtypeTone } from "@/lib/tagColors";
 import { decodeHtmlEntities, formatArticleDate } from "@/lib/contentArticleDisplay";
 import type { NewsArticle, NewsRef } from "@/lib/news";
 
@@ -72,7 +73,23 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
         <div className="nw-card-meta">
           {relation === "follow-up" && <span className="nw-badge nw-badge-link">Follow-up</span>}
           {relation === "previously" && <span className="nw-badge nw-badge-prev">Previously</span>}
-          <span className="nw-badge">{subType || "News"}</span>
+          {subType ? (
+            <span style={dotPillStyleFromTone(getNewsSubtypeTone(subType))}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: getNewsSubtypeTone(subType).dot,
+                  flexShrink: 0,
+                }}
+              />
+              {subType}
+            </span>
+          ) : (
+            <span className="nw-badge">News</span>
+          )}
           <span>{formatArticleDate(article.Publication_Date)}</span>
         </div>
 
@@ -84,8 +101,8 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {focus && (
           <span className="nw-company">
-            {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
             {focus.name}
+            {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
           </span>
         )}
 
