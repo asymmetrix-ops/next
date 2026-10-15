@@ -219,9 +219,9 @@ function cleanSectorName(raw: string): string {
     .trim();
 }
 
-function isInvalidVal(value: string | null | undefined): boolean {
-  if (!value) return true;
-  const v = value.trim().toLowerCase();
+function isInvalidVal(value: string | number | null | undefined): boolean {
+  if (value === null || value === undefined || value === "") return true;
+  const v = String(value).trim().toLowerCase();
   return v === "null" || v === "nan" || v === "";
 }
 
