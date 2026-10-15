@@ -63,8 +63,8 @@ const SECTIONS: NavSection[] = [
     label: "Deal Radar",
     href: "/deal-radar",
     icon: SignalIcon,
-    isActive: () => false,
-    comingSoon: true,
+    badge: "New",
+    isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
     key: "news",
