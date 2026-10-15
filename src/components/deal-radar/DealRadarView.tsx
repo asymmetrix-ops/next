@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { trackKeyAction } from "@/lib/tracking";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import Footer from "@/components/Footer";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
 import {
@@ -260,9 +261,13 @@ function getReportCta(
 function buildDashboardUrl(
   offset: number,
   search: string,
-  filters: DealRadarFilters
+  filters: DealRadarFilters,
+  preferredCurrencyId?: number
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
+  if (preferredCurrencyId) {
+    url.searchParams.set("preferred_currency_id", String(preferredCurrencyId));
+  }
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("offset", String(offset));
   if (search) url.searchParams.set("search", search);
@@ -422,6 +427,7 @@ export default function DealRadarView({
 } = {}) {
   const embedded = fixedSectorId != null;
   const router = useRouter();
+  const { currencyId: preferredCurrencyId } = usePlatformCurrency();
   const [items, setItems] = useState<DealRadarDashboardItem[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [statusTotals, setStatusTotals] = useState<Record<string, number>>({});
@@ -521,7 +527,7 @@ export default function DealRadarView({
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, activeFilters);
+        const url = buildDashboardUrl(offset, search, activeFilters, preferredCurrencyId);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -544,7 +550,7 @@ export default function DealRadarView({
         setLoading(false);
       }
     },
-    []
+    [preferredCurrencyId]
   );
 
   // Numbered pages, like the other list tables. The page resets to 1 whenever search or filters change.
