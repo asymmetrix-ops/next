@@ -103,7 +103,6 @@ import {
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   fetchCompanyFinancialMetricsCard,
-  enrichFinancialMetricsRowWithLinkedInEmployees,
   hasFinancialMetricsCardData,
   mergeFinancialMetricsCardRows,
   resolveLatestFinancialMetricsRow,
@@ -2596,18 +2595,7 @@ const CompanyDetail = () => {
       return formatLinkedInEmployeeCountDate(latest.date);
     })();
 
-  const financialMetricsForDisplay = (() => {
-    if (!financialMetrics) return null;
-    const year =
-      getNumeric(financialMetrics.financial_year_text) ??
-      getNumeric(financialMetrics.Financial_Year);
-    if (year == null || employeeData.length === 0) return financialMetrics;
-    return enrichFinancialMetricsRowWithLinkedInEmployees(
-      financialMetrics as CompanyFinancialMetricsCardRow,
-      year,
-      employeeData
-    ) as CompanyFinancialMetrics;
-  })();
+  const financialMetricsForDisplay = financialMetrics;
 
   const finMetricsFxToggleConfig = resolveFxToggleConfig(
     financialMetricsForDisplay
@@ -3736,7 +3724,6 @@ const CompanyDetail = () => {
               companyName={company.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
-              employeeHistory={employeeData}
             />
           ) : activeProfileTab === "Financial Intelligence" ? (
             <FinancialIntelligenceWorkspace

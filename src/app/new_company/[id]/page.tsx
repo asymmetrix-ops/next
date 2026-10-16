@@ -3686,7 +3686,6 @@ const CompanyDetail = () => {
               companyName={company?.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
-              employeeHistory={employeeData}
             />
           ) : (
           <>
