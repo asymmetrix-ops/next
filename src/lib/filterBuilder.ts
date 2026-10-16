@@ -310,6 +310,10 @@ export interface CompanySearchPayload {
   /** Top-level date-added range — handled by Xano, not filters_sql. */
   created_at_from?: string;
   created_at_to?: string;
+  /** Top-level "any of" text[] filters (Xano Get_new_companies_dynamic_sql), AND'd with everything else. */
+  product_types?: string[];
+  revenue_models?: string[];
+  data_collection_methods?: string[];
   /** Restrict results to specific company IDs (e.g. exporting a row selection). AND'd with filters_sql. */
   company_ids?: number[];
   /** Investor profile portfolio tab — enables default Current/Past sort and holding_period_* hydration. */

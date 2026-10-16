@@ -59,6 +59,10 @@ export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   otherCompanies: 0,
 };
 
+export const PRODUCT_TYPES = ["Data","Research","Software","News / Other Media","Events","Consulting","Training","Executive Networks","Expert Networks","Other"];
+export const REVENUE_MODELS = ["Subscription","Consumption-Based / Usage-Based","Freemium","Consulting","Advertising","Sponsorship","Transaction Fees","Licensing","Other"];
+export const DATA_COLLECTION_METHODS = ["Crowd Sourced","Customer Data","Data Co-op","Data Exhaust","Give-to-Get / Contributory","Manual","Public Filings / Government Data","Purchased Data","Satellite Data","Sensor / IoT Data","Surveys","Transaction-Generated","Web Scraping","Telemetry"];
+
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "lists",        name: "Lists" },
   { id: "location",     name: "Location" },
@@ -99,6 +103,9 @@ export function buildCompaniesFilterDefs({
     primary_sector: { options: primarySectors.map((s) => s.sector_name) },
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
+    product_type: { options: PRODUCT_TYPES },
+    revenue_model: { options: REVENUE_MODELS },
+    data_collection_method: { options: DATA_COLLECTION_METHODS },
     transaction: {
       options: [
         ...(transactionStatusOptions && transactionStatusOptions.length > 0
