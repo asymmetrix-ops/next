@@ -322,10 +322,12 @@ interface CompanyInvestor {
 interface CompanyInvestorFromAPI {
   investor_id: number;
   investor_name: string;
-  counterparty_status: string;
-  event_id: number;
-  deal_type: string;
-  announcement_date: string;
+  /** "current" | "past" (company_investors endpoint) */
+  investor_status?: string;
+  counterparty_status?: string;
+  event_id?: number;
+  deal_type?: string;
+  announcement_date?: string;
 }
 
 // Investors list embedded on the company payload (Company._companies_investors)
@@ -1787,7 +1789,12 @@ const CompanyDetail = () => {
 
       const data = await res.json();
       if (Array.isArray(data)) {
-        setApiInvestors(data as CompanyInvestorFromAPI[]);
+        // Only current investors belong in the Investors row; past ones are excluded.
+        setApiInvestors(
+          (data as CompanyInvestorFromAPI[]).filter(
+            (inv) => String(inv?.investor_status ?? "").toLowerCase() !== "past"
+          )
+        );
       } else {
         setApiInvestors([]);
       }
