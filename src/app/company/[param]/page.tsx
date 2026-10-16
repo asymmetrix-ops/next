@@ -4448,9 +4448,17 @@ const CompanyDetail = () => {
                 ) },
               ].filter((c) => c.show);
               const wide = cards.filter((c) => c.col === "main");
-              const pairOrder = ["productmix", "coreproducts", "headcount", "management"];
+              const pairOrder = ["headcount", "management"];
+              // Product cards (Product type / Core products) sit above Corporate Events.
+              const productIds = ["productmix", "coreproducts"];
+              const productCards = cards
+                .filter((c) => productIds.includes(c.id))
+                .sort((x, y) => productIds.indexOf(x.id) - productIds.indexOf(y.id));
+              const eventsIdx = wide.findIndex((c) => c.id === "events");
+              const wideAbove = eventsIdx >= 0 ? wide.slice(0, eventsIdx) : wide;
+              const wideBelow = eventsIdx >= 0 ? wide.slice(eventsIdx) : [];
               const pair = cards
-                .filter((c) => c.col === "pair")
+                .filter((c) => c.col === "pair" && !productIds.includes(c.id))
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
               const rail = cards.filter((c) => c.col === "rail");
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
@@ -4474,8 +4482,8 @@ const CompanyDetail = () => {
               // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
               // AI sits level with Product type / Data Collection / Core Products. The shorter
               // top block simply leaves extra space under it (nothing is cut or stretched).
-              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) - (fin?.weight ?? 0)) <= 130;
-              const mainH = (p: ZoneCard[]) => sum(wide) + pairWeight(p);
+              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + sum(productCards) - (fin?.weight ?? 0)) <= 130;
+              const mainH = (p: ZoneCard[]) => sum(wide) + sum(productCards) + pairWeight(p);
               // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
               // Only Headcount / Management may hop from the main column to the rail
               // when the main column is taller, so any leftover gap is always in the
@@ -4509,7 +4517,9 @@ const CompanyDetail = () => {
                 return (
                   <>
                     <div className="company-zone-top-left">
-                      {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                      {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                      {renderPair(productCards)}
+                      {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     </div>
                     <div className="company-zone-top-right">{fin?.node()}</div>
                     <div className="company-zone-low-left">{renderPair(pairCards)}</div>
@@ -4524,7 +4534,9 @@ const CompanyDetail = () => {
               return (
                 <>
                   <div className="company-zone-main">
-                    {wide.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {renderPair(productCards)}
+                    {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     {renderPair(pairCards)}
                   </div>
                   <div className="company-zone-rail">

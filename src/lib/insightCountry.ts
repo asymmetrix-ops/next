@@ -21,6 +21,18 @@ export function getInsightHqCountryIso2(article: unknown): string | null {
   if (!article || typeof article !== "object") return null;
   const record = article as Record<string, unknown>;
 
+  // No company of focus tagged to the piece → no HQ flag.
+  const hasCompanyOfFocus = COMPANY_OF_FOCUS_KEYS.some((k) => {
+    const v = record[k];
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === "string") {
+      const t = v.trim();
+      return t !== "" && t !== "[]" && t !== "{}" && t !== "null";
+    }
+    return Boolean(v);
+  });
+  if (!hasCompanyOfFocus) return null;
+
   const fromPrimary = readPrimaryCompanyIso2(record);
   if (fromPrimary) return fromPrimary;
 
