@@ -1965,6 +1965,50 @@ function ContributionMetricRow({
   );
 }
 
+type SuggestSectionKey =
+  | "overview"
+  | "description"
+  | "peers"
+  | "management"
+  | "subsidiaries"
+  | "events";
+
+/** Field-row labels shown for each section when the form is opened from a pen icon. */
+const SUGGEST_SECTION_LABELS: Record<string, Set<string>> = {
+  overview: new Set([
+    "Primary Sector(s)",
+    "Secondary Sector(s)",
+    "Year Founded",
+    "Website",
+    "Ownership",
+    "HQ",
+    "Lifecycle Stage",
+    "Transaction status",
+    "Investors",
+    "Parent Company",
+    "Product Type",
+    "Revenue Model",
+    "Data Collection Method",
+  ]),
+  description: new Set(["Description"]),
+  peers: new Set(["Peers & Competitors", "Potential Acquirers", "Acquisition Targets"]),
+  // Record sections have no field rows.
+  management: new Set<string>(),
+  subsidiaries: new Set<string>(),
+  events: new Set<string>(),
+};
+
+const SUGGEST_SECTION_TITLES: Record<SuggestSectionKey, string> = {
+  overview: "Overview",
+  description: "Description",
+  peers: "Peers & Targets",
+  management: "Management",
+  subsidiaries: "Subsidiaries",
+  events: "Corporate Events",
+};
+
+const SuggestFocusContext = React.createContext<Set<string> | null>(null);
+
 function SuggestChangeFieldRow({
   label,
   currentValue,
@@ -1976,6 +2020,8 @@ function SuggestChangeFieldRow({
   children: React.ReactNode;
   helpText?: string;
 }) {
+  const focusLabels = React.useContext(SuggestFocusContext);
+  if (focusLabels && !focusLabels.has(label)) return null;
   return (
     <div
       className="suggest-change-row"
@@ -6348,14 +6394,20 @@ function SuggestBasicCompanyChangeForm({
   companyName,
   currentValues,
   autoExpandAll = false,
+  focusSection = null,
   onClose,
 }: {
   companyId: string;
   companyName: string;
   currentValues: SuggestChangeCurrentValues;
   autoExpandAll?: boolean;
+  /** Show only one section's fields (opened from a card's pen icon). */
+  focusSection?: SuggestSectionKey | null;
   onClose: () => void;
 }) {
+  const focusLabels = focusSection ? SUGGEST_SECTION_LABELS[focusSection] ?? null : null;
+  const focusAllowsBlock = (block: "management" | "subsidiaries" | "events") =>
+    !focusSection || focusSection === block;
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [contributorEmail, setContributorEmail] = useState("");
@@ -7242,7 +7294,7 @@ function SuggestBasicCompanyChangeForm({
   })();
 
   return (
-    <>
+    <SuggestFocusContext.Provider value={focusLabels}>
     <div
       className="suggest-change-form"
       style={{
@@ -7280,7 +7332,9 @@ function SuggestBasicCompanyChangeForm({
                 fontFamily: "Georgia, serif",
               }}
             >
-              Suggest a Change
+              {focusSection
+                ? `Edit ${SUGGEST_SECTION_TITLES[focusSection]}`
+                : "Suggest a Change"}
             </h3>
             <p style={{ margin: 0, color: "#475569", fontSize: "14px" }}>
               Review what we currently have in the middle column. Use the right
@@ -8053,6 +8107,7 @@ function SuggestBasicCompanyChangeForm({
           </div>
         </SuggestChangeFieldRow>
 
+        {focusAllowsBlock("management") && (
         <div style={{ paddingTop: "20px" }}>
           <div
             style={{
@@ -8298,7 +8353,9 @@ function SuggestBasicCompanyChangeForm({
             })}
           </div>
         </div>
+        )}
 
+        {focusAllowsBlock("subsidiaries") && (
         <div style={{ paddingTop: "20px" }}>
           <div
             style={{
@@ -8501,7 +8558,9 @@ function SuggestBasicCompanyChangeForm({
             </div>
           </div>
         </div>
+        )}
 
+        {focusAllowsBlock("events") && (
         <div style={{ paddingTop: "20px" }}>
           <div
             style={{
@@ -8676,6 +8735,7 @@ function SuggestBasicCompanyChangeForm({
             </div>
           </div>
         </div>
+        )}
 
         <div
           style={{
@@ -8878,7 +8938,7 @@ function SuggestBasicCompanyChangeForm({
         onClose={() => setNewCompanyModalTargetId(null)}
       />
     )}
-    </>
+    </SuggestFocusContext.Provider>
   );
 }
 
@@ -10963,6 +11023,37 @@ function MarketLandscapeCard({
   );
 }
 
+function SectionPen({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Suggest changes to ${label}`}
+      aria-label={`Suggest changes to ${label}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 28,
+        height: 28,
+        marginLeft: 8,
+        borderRadius: "50%",
+        border: "1px solid #bfdbfe",
+        background: "#eff6ff",
+        color: "#1d4ed8",
+        cursor: "pointer",
+        verticalAlign: "middle",
+        flexShrink: 0,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    </button>
+  );
+}
+
 const CompanyDetail = () => {
   const params = useParams();
   const companyId = params.companyId as string;
@@ -11032,6 +11123,7 @@ const CompanyDetail = () => {
   } | null>(null);
   const [competitorsPreloadLoading, setCompetitorsPreloadLoading] = useState(false);
   const [showSuggestChangeForm, setShowSuggestChangeForm] = useState(false);
+  const [editSection, setEditSection] = useState<SuggestSectionKey | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
@@ -13290,6 +13382,7 @@ const CompanyDetail = () => {
                       }}
                     >
                       {company.name}
+                      <SectionPen label="overview" onClick={() => setEditSection("overview")} />
                     </div>
                     {formerNameDisplay && (
                       <div style={{ ...styles.formerName, marginTop: "4px" }}>
@@ -13371,6 +13464,39 @@ const CompanyDetail = () => {
                   autoExpandAll={shouldOpenReview}
                   onClose={() => setShowSuggestChangeForm(false)}
                 />
+              )}
+              {editSection && (
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={() => setEditSection(null)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 1000,
+                    background: "rgba(15, 23, 42, 0.55)",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "center",
+                    padding: "5vh 16px",
+                    overflowY: "auto",
+                  }}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: "100%", maxWidth: "1100px" }}
+                  >
+                    <SuggestBasicCompanyChangeForm
+                      key={editSection}
+                      companyId={String(company.id)}
+                      companyName={company.name}
+                      currentValues={suggestChangeCurrentValues}
+                      focusSection={editSection}
+                      autoExpandAll={editSection === "management" || editSection === "subsidiaries"}
+                      onClose={() => setEditSection(null)}
+                    />
+                  </div>
+                </div>
               )}
               <div
                 style={{
@@ -13634,6 +13760,7 @@ const CompanyDetail = () => {
                     }}
                   >
                     Management
+                    <SectionPen label="management" onClick={() => setEditSection("management")} />
                   </h3>
 
                   {hasCurrentManagement && (
@@ -13686,12 +13813,16 @@ const CompanyDetail = () => {
                   {/* Description */}
                   <div
                     style={{
+                      position: "relative",
                       padding: "16px",
                       backgroundColor: "#f9fafb",
                       borderRadius: "8px",
                       border: "1px solid #e2e8f0",
                     }}
                   >
+                    <div style={{ position: "absolute", top: 8, right: 8 }}>
+                      <SectionPen label="description" onClick={() => setEditSection("description")} />
+                    </div>
                     <div
                       ref={descriptionRef}
                       style={{
@@ -13800,11 +13931,16 @@ const CompanyDetail = () => {
 
                   {/* Market Landscape card */}
                   {(peersCompetitorsOptions.length > 0 || potentialAcquirersOptions.length > 0 || competitorsPreloadLoading) && (
-                    <MarketLandscapeCard
-                      peers={peersCompetitorsOptions}
-                      acquirers={potentialAcquirersOptions}
-                      loading={competitorsPreloadLoading}
-                    />
+                    <div style={{ position: "relative" }}>
+                      <div style={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}>
+                        <SectionPen label="peers & targets" onClick={() => setEditSection("peers")} />
+                      </div>
+                      <MarketLandscapeCard
+                        peers={peersCompetitorsOptions}
+                        acquirers={potentialAcquirersOptions}
+                        loading={competitorsPreloadLoading}
+                      />
+                    </div>
                   )}
 
                   {/* Insights & Analysis (scrollable card) */}
@@ -14128,6 +14264,7 @@ const CompanyDetail = () => {
                       }}
                     >
                       Current Subsidiaries
+                      <SectionPen label="subsidiaries" onClick={() => setEditSection("subsidiaries")} />
                     </h3>
                     {company.have_subsidiaries_companies?.Subsidiaries_companies &&
                     company.have_subsidiaries_companies.Subsidiaries_companies
@@ -14343,6 +14480,13 @@ const CompanyDetail = () => {
             <div style={styles.card} className="card desktop-financial-metrics">
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
+                <SectionPen
+                  label="financial metrics"
+                  onClick={() => {
+                    setActiveTab("contribute-financial-metrics");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
               </h2>
               {financialMetricsPeriodDisplay && (
                 <div
@@ -14838,6 +14982,13 @@ const CompanyDetail = () => {
             >
               <h2 style={styles.sectionTitle}>
                 Financial Metrics{metricsCurrencySuffix}
+                <SectionPen
+                  label="financial metrics"
+                  onClick={() => {
+                    setActiveTab("contribute-financial-metrics");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
               </h2>
               {financialMetricsPeriodDisplay && (
                 <div
