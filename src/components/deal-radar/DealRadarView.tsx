@@ -1,5 +1,6 @@
 "use client";
 
+import { OwnershipChip } from "@/components/companies/CompanySection";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -533,7 +534,7 @@ function DealRadarMobileCard({
           "Ownership",
           item.ownership_type ? (
             <>
-              <span className="font-medium">{item.ownership_type}</span>
+              <OwnershipChip value={item.ownership_type} />
               {item.owner_name && (
                 <p className="text-[10px] text-gray-500">
                   {item.owner_id ? (
@@ -938,7 +939,7 @@ export default function DealRadarView({
   const Shell = embedded ? React.Fragment : AppShell;
   return (
     <Shell>
-      <div className={`${embedded ? "" : "min-h-screen "}flex flex-col bg-white`}>
+      <div className={`${embedded ? "" : "min-h-screen "}flex flex-col${embedded ? " bg-white" : ""}`}>
         <style
           dangerouslySetInnerHTML={{
             __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES + SORTABLE_HEADER_HOVER_STYLES,
@@ -1129,9 +1130,7 @@ export default function DealRadarView({
                               <td className="text-xs text-gray-700">
                                 {item.ownership_type ? (
                                   <div>
-                                    <span className="font-medium">
-                                      {item.ownership_type}
-                                    </span>
+                                    <OwnershipChip value={item.ownership_type} />
                                     {item.owner_name && (
                                       <p className="text-[10px] text-gray-500 mt-0.5">
                                         {item.owner_id ? (

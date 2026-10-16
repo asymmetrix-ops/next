@@ -355,7 +355,7 @@ const OWNERSHIP_CHIP_STYLES: Record<
 // with the ownership quick-filter tabs above the table.
 const OWNERSHIP_CHIP_FALLBACK = { bg: "#EEF0F4", fg: "#4A5468", dot: "#8A93A8" };
 
-const OwnershipChip = ({ value }: { value: string }) => {
+export const OwnershipChip = ({ value }: { value: string }) => {
   const label = value.trim();
   if (!label || label === "-") return <>-</>;
   const tone =

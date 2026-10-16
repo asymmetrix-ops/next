@@ -371,7 +371,7 @@ export function TransactionCompsView({
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <div className="bg-white">
+    <div className={embedded ? "bg-white" : ""}>
       {embedded ? (
         <div className="flex flex-wrap items-center justify-end gap-2 px-7 pt-3">{headerActions}</div>
       ) : (
