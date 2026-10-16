@@ -168,7 +168,10 @@ export function AdvisorPeopleCard({
   const [tab, setTab] = useState<Tab>("current");
 
   const fullList = tab === "current" ? current : past;
-  const activeList = maxVisible ? fullList.slice(0, maxVisible) : fullList;
+  const [expanded, setExpanded] = useState(false);
+  const needsToggle = Boolean(maxVisible) && fullList.length > (maxVisible ?? 0);
+  const activeList =
+    maxVisible && !expanded ? fullList.slice(0, maxVisible) : fullList;
 
   const tabs = useMemo(
     () => [
@@ -195,7 +198,10 @@ export function AdvisorPeopleCard({
             key={item.id}
             active={tab === item.id}
             label={item.label}
-            onClick={() => setTab(item.id)}
+            onClick={() => {
+              setTab(item.id);
+              setExpanded(false);
+            }}
           />
         ))}
       </div>
@@ -225,6 +231,32 @@ export function AdvisorPeopleCard({
           </div>
         )}
       </div>
+      {needsToggle && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "10px 0 14px",
+            borderTop: `1px solid ${T.hair}`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.azure,
+              textDecoration: "underline",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: T.sans,
+            }}
+          >
+            {expanded ? "Show less" : "See more"}
+          </button>
+        </div>
+      )}
     </LinkPanel>
   );
 }
