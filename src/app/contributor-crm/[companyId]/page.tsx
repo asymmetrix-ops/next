@@ -6358,6 +6358,8 @@ function SuggestBasicCompanyChangeForm({
 }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [contributorEmail, setContributorEmail] = useState("");
+  const isPublicContributor = !authService.getAuthToken();
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [expandedManagementPersonIds, setExpandedManagementPersonIds] = useState<
     string[]
@@ -6963,8 +6965,9 @@ function SuggestBasicCompanyChangeForm({
     setSubmitting(true);
     try {
       const token = authService.getAuthToken();
-      if (!token) {
-        throw new Error("Authentication required");
+      const normalizedContributorEmail = contributorEmail.trim().toLowerCase();
+      if (isPublicContributor && !/^\S+@\S+\.\S+$/.test(normalizedContributorEmail)) {
+        throw new Error("Please enter your email address.");
       }
 
       const companyDiff = buildCompanyChangeDiff({
@@ -7046,7 +7049,7 @@ function SuggestBasicCompanyChangeForm({
       const submittedBy =
         authService.getUser()?.email ||
         localStorage.getItem("outreach_crm_login_email") ||
-        "";
+        normalizedContributorEmail;
 
       await createChangeRequest({
         entity_type: "company",
@@ -8687,6 +8690,37 @@ function SuggestBasicCompanyChangeForm({
           <div style={{ fontSize: "13px", color: "#64748b" }}>
             {filledCount > 0 ? `${filledCount} field${filledCount === 1 ? "" : "s"} updated` : "No changes yet"}
           </div>
+          {isPublicContributor && (
+            <label style={{ display: "block", margin: "0 0 14px 0" }}>
+              <span
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: "#64748b",
+                }}
+              >
+                Your email address
+              </span>
+              <input
+                type="email"
+                value={contributorEmail}
+                onChange={(e) => setContributorEmail(e.target.value)}
+                placeholder="Enter your work email"
+                style={{
+                  width: "100%",
+                  maxWidth: "420px",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  fontSize: "14px",
+                }}
+              />
+            </label>
+          )}
           <div
             style={{
               display: "flex",
@@ -13111,7 +13145,7 @@ const CompanyDetail = () => {
             </div>
           </div>
 
-          {!isPublicContributorSession && (
+          {(
           <div
             style={{
               display: "flex",
@@ -13122,7 +13156,9 @@ const CompanyDetail = () => {
               overflowX: "auto",
             }}
           >
-            {CONTRIBUTOR_TABS.map((tab) => {
+            {CONTRIBUTOR_TABS.filter(
+              (tab) => !isPublicContributorSession || tab.key !== "sector-intelligence"
+            ).map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
@@ -13152,7 +13188,7 @@ const CompanyDetail = () => {
           </div>
           )}
 
-          {(isPublicContributorSession || activeTab === "contribute-financial-metrics") && (
+          {activeTab === "contribute-financial-metrics" && (
             <div style={{ display: "flex", justifyContent: "center" }}>
             <ContributeFinancialMetricsTab
               companyName={company.name}
@@ -13191,7 +13227,7 @@ const CompanyDetail = () => {
             />
           )}
 
-          {!isPublicContributorSession && activeTab === "company-profile" && (
+          {activeTab === "company-profile" && (
           <>
           {/* Desktop grid */}
           <div style={styles.responsiveGrid} className="responsiveGrid">
