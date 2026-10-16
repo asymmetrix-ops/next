@@ -75,41 +75,6 @@ function extractCreatedAtRange(state: FilterBarState): {
   });
 }
 
-const COMPANY_TEXT_ARRAY_FILTERS = [
-  ["product_type", "product_types"],
-  ["revenue_model", "revenue_models"],
-  ["data_collection_method", "data_collection_methods"],
-] as const;
-
-type CompanyTextArrayParams = Pick<
-  CompanySearchPayload,
-  "product_types" | "revenue_models" | "data_collection_methods"
->;
-
-function pickCompanyTextArrayParams(
-  source: CompanyTextArrayParams
-): CompanyTextArrayParams {
-  const out: CompanyTextArrayParams = {};
-  for (const [, key] of COMPANY_TEXT_ARRAY_FILTERS) {
-    const arr = source[key];
-    if (Array.isArray(arr) && arr.length > 0) out[key] = arr;
-  }
-  return out;
-}
-
-function extractTextArrayParams(state: FilterBarState): CompanyTextArrayParams {
-  const out: CompanyTextArrayParams = {};
-  for (const [filterId, key] of COMPANY_TEXT_ARRAY_FILTERS) {
-    const item = state.filters.find((f) => f.id === filterId);
-    if (!item || !Array.isArray(item.value)) continue;
-    const values = (item.value as unknown[]).filter(
-      (x): x is string => typeof x === "string" && x.trim() !== ""
-    );
-    if (values.length > 0) out[key] = values;
-  }
-  return out;
-}
-
 export function buildCompaniesCountsSearchPayload(
   args: Omit<
     Parameters<typeof buildCompaniesSearchPayload>[0],
@@ -144,7 +109,6 @@ export function normalizeCompanySearchPayload(
     preferred_currency_id:
       filters.preferred_currency_id ?? DEFAULT_PLATFORM_CURRENCY_ID,
     ...pickCompanyDateAddedParams(filters),
-    ...pickCompanyTextArrayParams(filters),
   };
 }
 
@@ -434,10 +398,6 @@ export function buildCompaniesSearchPayload(args: {
     if (item.id === "date_added" && hasDateRangeValue(v)) {
       continue;
     }
-    // Product type / revenue model / data collection: top-level params, not filters_sql.
-    if (COMPANY_TEXT_ARRAY_FILTERS.some(([id]) => id === item.id)) {
-      continue;
-    }
 
     // ── FINANCIAL METRICS ──────────────────────────────────────────────────
     if (item.id === "revenue" && hasRangeValue(v)) {
@@ -605,6 +565,22 @@ export function buildCompaniesSearchPayload(args: {
       continue;
     }
 
+    // ── TAG FILTERS (jsonb tag columns) ────────────────────────────────────
+    if (
+      (item.id === "product_type" ||
+        item.id === "revenue_model" ||
+        item.id === "data_collection_method") &&
+      Array.isArray(v)
+    ) {
+      pushClause({
+        id: item.key,
+        type: item.id,
+        value: { value: v as string[] },
+        op,
+      });
+      continue;
+    }
+
     // ── OTHER METRICS ──────────────────────────────────────────────────────
     if (item.id === "ebit" && hasRangeValue(v)) {
       pushClause({
@@ -690,7 +666,6 @@ export function buildCompaniesSearchPayload(args: {
     has_financial_filters,
     has_year_filter,
     ...createdAtRange,
-    ...extractTextArrayParams(state),
   };
 }
 
@@ -717,12 +692,6 @@ function appendSharedCompanyFilterParams(
   }
   if (payload.created_at_to?.trim()) {
     params.append("created_at_to", payload.created_at_to.trim());
-  }
-
-  for (const [, key] of COMPANY_TEXT_ARRAY_FILTERS) {
-    for (const value of payload[key] ?? []) {
-      params.append(`${key}[]`, value);
-    }
   }
 
   params.append("company_ids", JSON.stringify(payload.company_ids ?? []));

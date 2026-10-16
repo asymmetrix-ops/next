@@ -50,6 +50,9 @@ export type FilterType =
   | "holding_period_years"
   | "financial_year_range"
   | "linkedin_growth_range"
+  | "product_type"
+  | "revenue_model"
+  | "data_collection_method"
   | "has_mcp";
 
 export type FilterValue =
@@ -110,6 +113,29 @@ function buildRangeSql(field: string, min?: number, max?: number): string | null
   if (hasMin) return `(${field} IS NOT NULL AND ${field} >= ${min})`;
   if (hasMax) return `(${field} IS NOT NULL AND ${field} <= ${max})`;
   return null;
+}
+
+// JSONB tag columns on nc: [{ "<key>": "<value>", ... }]. Match any of the values.
+const TAG_FIELD_MAP: Record<string, { col: string; keys: string[] }> = {
+  product_type: { col: "Product_Type", keys: ["Product_Type"] },
+  revenue_model: { col: "Revenue_Model", keys: ["Revenue_Model_", "Revenue_Model"] },
+  data_collection_method: {
+    col: "Data_Collection_Method",
+    keys: ["Data_Collection_Method"],
+  },
+};
+
+// Values are stored with non-breaking hyphens (U+2011); normalise both sides.
+const normTagValue = (s: string) => String(s).trim().replace(/\u2011/g, "-");
+
+function buildTagSql(type: string, values: string[]): string | null {
+  const meta = TAG_FIELD_MAP[type];
+  const list = values.map(normTagValue).filter(Boolean);
+  if (!meta || list.length === 0) return null;
+  const arr = `ARRAY[${list.map((v) => esc(v)).join(",")}]::text[]`;
+  const pick = `COALESCE(${meta.keys.map((k) => `tag ->> '${k}'`).join(", ")})`;
+  const col = `nc."${meta.col}"::jsonb`;
+  return `EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(${col}) = 'array' THEN ${col} ELSE '[]'::jsonb END) AS tag WHERE replace(${pick}, chr(8209), '-') = ANY(${arr}))`;
 }
 
 // ─── CORE BUILDER ────────────────────────────────────────────────────────────
@@ -253,6 +279,10 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return `nc.primary_business_focus_id && ARRAY[${ids.join(",")}]::bigint[]`;
       }
 
+      case "product_type":
+      case "revenue_model":
+      case "data_collection_method":
+        return Array.isArray(val) ? buildTagSql(type, val.map(String)) : null;
       case "has_mcp":
         return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
 
@@ -310,10 +340,6 @@ export interface CompanySearchPayload {
   /** Top-level date-added range — handled by Xano, not filters_sql. */
   created_at_from?: string;
   created_at_to?: string;
-  /** Top-level "any of" text[] filters (Xano Get_new_companies_dynamic_sql), AND'd with everything else. */
-  product_types?: string[];
-  revenue_models?: string[];
-  data_collection_methods?: string[];
   /** Restrict results to specific company IDs (e.g. exporting a row selection). AND'd with filters_sql. */
   company_ids?: number[];
   /** Investor profile portfolio tab — enables default Current/Past sort and holding_period_* hydration. */
