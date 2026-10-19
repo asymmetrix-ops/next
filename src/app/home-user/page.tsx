@@ -44,7 +44,6 @@ import {
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
-import { buildDealRadarCompaniesViewAllHref } from "@/lib/companiesSearchUrl";
 import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks";
 import {
   entityLinksToMultiValueItems,
@@ -1272,13 +1271,13 @@ function HomeUserPageContent() {
                   persistDismissal
                   side="right"
                 >
-                  <a href={buildDealRadarCompaniesViewAllHref()} className="dash-card-title">
+                  <a href="/deal-radar" className="dash-card-title">
                     Deal Radar
                   </a>
                 </NewFeatureCallout>
               </div>
               <a
-                href={buildDealRadarCompaniesViewAllHref()}
+                href="/deal-radar"
                 className="dash-view-all hidden sm:inline-flex px-3 py-1.5 text-xs whitespace-nowrap shrink-0"
               >
                 View all
