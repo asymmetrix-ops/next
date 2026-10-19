@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { locationsService } from "@/lib/locationsService";
-import { dotPillStyleFromTone, getNewsSubtypeTone } from "@/lib/tagColors";
+import { dotPillStyleFromTone, formatTransactionStatusLabel, getNewsSubtypeTone } from "@/lib/tagColors";
 import { fetchNewsFilterOptions, type NewsFilterOption, type NewsFilters } from "@/lib/news";
 
 // Platform order for the pills; any other type the API returns goes after these.
@@ -118,7 +118,7 @@ export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
               <option value="">All transaction statuses</option>
               {statuses.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.value}
+                  {formatTransactionStatusLabel(o.value)} ({o.count})
                 </option>
               ))}
             </select>

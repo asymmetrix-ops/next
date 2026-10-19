@@ -10,6 +10,7 @@ import NewsCarousel from "@/components/news/NewsCarousel";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
+import { formatTransactionStatusLabel } from "@/lib/tagColors";
 import Link from "next/link";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import {
@@ -39,7 +40,15 @@ function chipsOf(f: NewsFilters) {
   return CHIP_ORDER.flatMap((kind) => {
     const v = f[kind];
     if (!v) return [];
-    return [{ kind, label: v === true ? "Followed only" : typeof v === "string" ? v : v.label }];
+    const label =
+      v === true
+        ? "Followed only"
+        : kind === "transactionStatus"
+          ? formatTransactionStatusLabel(v as string)
+          : typeof v === "string"
+            ? v
+            : v.label;
+    return [{ kind, label }];
   });
 }
 
