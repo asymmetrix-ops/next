@@ -21,7 +21,12 @@ export type AIRiskAxis = {
   score: number;
   tier: string;
   blurb: string;
+  /** Company-specific reasoning stored with the rating; absent when none. */
+  rationale?: string;
 };
+
+type TipKind = "info" | "factor";
+type TipState = { kind: TipKind; key: string; x: number; y: number };
 
 function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
   return (
@@ -41,12 +46,13 @@ const DEFENSIBILITY_TONE = {
 
 type FactorTooltipProps = {
   axis: AIRiskAxis;
-  description: string;
+  kind: TipKind;
+  description?: string;
   x: number;
   y: number;
 };
 
-function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
+function FactorTooltip({ axis, kind, description, x, y }: FactorTooltipProps) {
   const [mounted, setMounted] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [layout, setLayout] = React.useState<{
@@ -80,7 +86,7 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
       y: above ? y - gap : y + gap,
       above,
     });
-  }, [x, y, description]);
+  }, [x, y, description, kind]);
 
   if (!mounted) return null;
 
@@ -88,7 +94,7 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
     <div
       ref={ref}
       role="tooltip"
-      className="fixed z-[10000] w-[min(22.5rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl pointer-events-none"
+      className="fixed z-[10000] w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white shadow-xl pointer-events-none"
       style={{
         left: layout.x,
         top: layout.y,
@@ -97,16 +103,23 @@ function FactorTooltip({ axis, description, x, y }: FactorTooltipProps) {
           : "translate(-50%, 0)",
       }}
     >
-      <div className="border-b border-gray-100 px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">
-          {AI_DEFENSIBILITY_INDEX_TITLE}
-        </div>
-      </div>
       <div className="px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">{axis.label}</div>
-        <p className="mt-2 text-[13px] leading-relaxed text-gray-600">
-          {description}
-        </p>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="text-sm font-semibold text-gray-900">{axis.label}</div>
+          {kind === "factor" ? (
+            <span
+              className="shrink-0 text-xs font-semibold"
+              style={{ color: DEFENSIBILITY_TONE.fg }}
+            >
+              {axis.tier}
+            </span>
+          ) : null}
+        </div>
+        {description ? (
+          <p className="mt-2 whitespace-pre-line break-words text-[13px] leading-relaxed text-gray-600">
+            {description}
+          </p>
+        ) : null}
       </div>
     </div>,
     document.body
@@ -118,7 +131,7 @@ type RadarChartProps = {
   active: string;
   tooltipKey: string | null;
   onPick?: (key: string) => void;
-  onLabelHover?: (key: string | null, event?: React.MouseEvent) => void;
+  onTip?: (kind: TipKind, key: string | null, event?: React.MouseEvent) => void;
   size?: number;
   maxScore?: number;
 };
@@ -127,7 +140,7 @@ const LABEL_FONT_SIZE = 14;
 const LABEL_LINE_HEIGHT = 17;
 
 // Extra viewBox space (in SVG user units) reserved for axis labels on each side.
-const RADAR_PAD_H = 140;
+const RADAR_PAD_H = 150;
 const RADAR_PAD_V = 58;
 
 function wrapLabel(label: string): string[] {
@@ -159,7 +172,7 @@ function RadarChart({
   active,
   tooltipKey,
   onPick,
-  onLabelHover,
+  onTip,
   size = 280,
   maxScore = AI_SCORE_MAX,
 }: RadarChartProps) {
@@ -224,12 +237,18 @@ function RadarChart({
     return (
       <g
         key={ax.key}
+        data-aitip=""
         style={{ cursor: "pointer" }}
+        onMouseEnter={(e) => onTip?.("factor", ax.key, e)}
+        onMouseMove={(e) => onTip?.("factor", ax.key, e)}
+        onMouseLeave={() => onTip?.("factor", null)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
+          onTip?.("factor", ax.key, e);
         }}
       >
+        <circle cx={x} cy={y} r={12} fill="transparent" />
         <circle
           cx={x}
           cy={y}
@@ -267,17 +286,26 @@ function RadarChart({
     const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
     const hitW = Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
     const hitH = totalH + 8;
+    const lastW = lines[lines.length - 1].length * (LABEL_FONT_SIZE * 0.56);
+    const iconY = ly + startDy + (lines.length - 1) * LABEL_LINE_HEIGHT - 4;
+    const iconX =
+      anchor === "middle"
+        ? lx + lastW / 2 + 12
+        : anchor === "end"
+          ? lx - lastW - 12
+          : lx + lastW + 12;
 
     return (
+      <g key={`lbl-${ax.key}`} data-aitip="">
       <g
-        key={`lbl-${ax.key}`}
         style={{ cursor: "default" }}
-        onMouseEnter={(e) => onLabelHover?.(ax.key, e)}
-        onMouseMove={(e) => onLabelHover?.(ax.key, e)}
-        onMouseLeave={() => onLabelHover?.(null)}
+        onMouseEnter={(e) => onTip?.("factor", ax.key, e)}
+        onMouseMove={(e) => onTip?.("factor", ax.key, e)}
+        onMouseLeave={() => onTip?.("factor", null)}
         onClick={(e) => {
           e.stopPropagation();
           onPick?.(ax.key);
+          onTip?.("factor", ax.key, e);
         }}
       >
         <rect
@@ -313,6 +341,41 @@ function RadarChart({
             </tspan>
           ))}
         </text>
+      </g>
+      <g
+        style={{ cursor: "help" }}
+        onMouseEnter={(e) => onTip?.("info", ax.key, e)}
+        onMouseMove={(e) => onTip?.("info", ax.key, e)}
+        onMouseLeave={() => onTip?.("info", null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onTip?.("info", ax.key, e);
+        }}
+        role="button"
+        aria-label={`About ${ax.label}`}
+      >
+        <circle cx={iconX} cy={iconY} r={11} fill="transparent" />
+        <circle
+          cx={iconX}
+          cy={iconY}
+          r={6.5}
+          fill="none"
+          stroke={T.muted}
+          strokeWidth={1.2}
+        />
+        <text
+          x={iconX}
+          y={iconY + 3.4}
+          textAnchor="middle"
+          fontFamily={T.sans}
+          fontSize={9.5}
+          fontWeight={700}
+          fill={T.muted}
+          style={{ pointerEvents: "none" }}
+        >
+          i
+        </text>
+      </g>
       </g>
     );
   });
@@ -357,28 +420,44 @@ export function AIRiskCard({
   );
   const hasApiAxes = axes.length > 0;
   const [active, setActive] = useState(defaultActiveKey);
-  const [tooltipKey, setTooltipKey] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
-    null
-  );
+  const [tip, setTip] = useState<TipState | null>(null);
   const chartWrapRef = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+  const lastPointerType = React.useRef<string>("mouse");
+  const tooltipKey = tip?.key ?? null;
 
-  const handleLabelHover = React.useCallback(
-    (key: string | null, event?: React.MouseEvent) => {
-      if (!key || !event) {
-        setTooltipKey(null);
-        setTooltipPos(null);
+  // Hover on desktop; tap-to-toggle on touch (emulated mouse events are ignored).
+  const handleTip = React.useCallback(
+    (kind: TipKind, key: string | null, event?: React.MouseEvent) => {
+      const touch = lastPointerType.current === "touch";
+      const type = event?.type;
+      if (touch) {
+        if (type !== "click") return;
+      } else if (type === "click" && !key) {
         return;
       }
-      setTooltipKey(key);
-      setTooltipPos({
-        x: event.clientX,
-        y: event.clientY,
-      });
+      if (!key || !event) {
+        setTip(null);
+        return;
+      }
+      setTip((prev) =>
+        touch && prev && prev.key === key && prev.kind === kind
+          ? null
+          : { kind, key, x: event.clientX, y: event.clientY }
+      );
     },
     []
   );
+
+  React.useEffect(() => {
+    if (!tip) return;
+    const close = (e: PointerEvent) => {
+      if ((e.target as Element | null)?.closest?.("[data-aitip]")) return;
+      setTip(null);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [tip]);
 
   React.useEffect(() => {
     if (!axes.some((a) => a.key === active)) {
@@ -395,11 +474,11 @@ export function AIRiskCard({
     getAiExposureHeadline(defAvg);
   const headlineTier = tierProp?.trim() || computedTier;
   const activeAxis = axes.find((a) => a.key === active) ?? axes[0];
-  const tooltipAxis = tooltipKey
-    ? axes.find((a) => a.key === tooltipKey)
-    : undefined;
-  const tooltipDescription = tooltipAxis
-    ? resolveFactorDescription(tooltipAxis)
+  const tooltipAxis = tip ? axes.find((a) => a.key === tip.key) : undefined;
+  const tooltipText = tooltipAxis
+    ? tip!.kind === "info"
+      ? resolveFactorDescription(tooltipAxis)
+      : tooltipAxis.rationale?.trim() || undefined
     : undefined;
 
   return (
@@ -492,9 +571,14 @@ export function AIRiskCard({
       >
         <div
           ref={chartWrapRef}
+          onPointerDown={(e) => {
+            lastPointerType.current = e.pointerType;
+          }}
+          onPointerEnter={(e) => {
+            lastPointerType.current = e.pointerType;
+          }}
           onMouseLeave={() => {
-            setTooltipKey(null);
-            setTooltipPos(null);
+            if (lastPointerType.current !== "touch") setTip(null);
           }}
           style={{
             position: "relative",
@@ -508,18 +592,16 @@ export function AIRiskCard({
             active={active}
             tooltipKey={tooltipKey}
             onPick={setActive}
-            onLabelHover={handleLabelHover}
+            onTip={handleTip}
             size={300}
           />
-          {tooltipKey &&
-          tooltipDescription &&
-          tooltipPos &&
-          tooltipAxis ? (
+          {tip && tooltipAxis && (tip.kind === "factor" || tooltipText) ? (
             <FactorTooltip
               axis={tooltipAxis}
-              description={tooltipDescription}
-              x={tooltipPos.x}
-              y={tooltipPos.y}
+              kind={tip.kind}
+              description={tooltipText}
+              x={tip.x}
+              y={tip.y}
             />
           ) : null}
         </div>
