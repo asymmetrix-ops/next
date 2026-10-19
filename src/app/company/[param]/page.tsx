@@ -44,7 +44,7 @@ import type { CompanyHoldingPeriodResponse } from "@/lib/holdingPeriod";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
-import { ProductAttributesCard } from "@/components/redesign/ProductAttributesCard";
+import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import {
@@ -3334,6 +3334,9 @@ const CompanyDetail = () => {
     .company-zone-low-left:empty, .company-zone-low-right:empty { display: none; }
     .company-zone-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-pair:empty { display: none; }
+    /* Product block: [Product type | Core products] over [Data collection | Management]; each row stretches to equal height. */
+    .company-grid-product-zone { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; min-width: 0; }
+    .product-zone-cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
     .company-grid-finance-secondary,
     .company-grid-insights,
     .company-grid-product-mix,
@@ -3604,11 +3607,13 @@ const CompanyDetail = () => {
       .company-zone-top-left,
       .company-zone-top-right,
       .company-zone-low-left,
-      .company-zone-low-right {
+      .company-zone-low-right,
+      .company-grid-product-zone {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
       }
+      .company-grid-product-zone { grid-template-columns: 1fr !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
@@ -4417,20 +4422,7 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "pair" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => (
-                <div
-                  className="company-grid-product-mix"
-                >
-                  <ProductAttributesCard
-                    productRows={productTypeBarRows}
-                    revenueRows={revenueModelRows.map((r) => ({
-                      name: r.label,
-                      weight: r.value,
-                    }))}
-                    dataRows={productDataToggleDataRows}
-                  />
-                </div>
-                ) },
+                { id: "productmix", col: "pair" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => null },
                 { id: "coreproducts", col: "pair" as const, weight: 170, movable: false, show: Boolean(showCoreProducts), node: () => (
                 <div
                   className="company-grid-product-users"
@@ -4457,7 +4449,7 @@ const CompanyDetail = () => {
               const wide = cards.filter((c) => c.col === "main");
               const pairOrder = ["headcount", "management"];
               // Product cards (Product type / Core products) sit above Corporate Events.
-              const productIds = ["productmix", "coreproducts"];
+              const productIds = ["productmix", "coreproducts", "management"];
               const productCards = cards
                 .filter((c) => productIds.includes(c.id))
                 .sort((x, y) => productIds.indexOf(x.id) - productIds.indexOf(y.id));
@@ -4469,6 +4461,55 @@ const CompanyDetail = () => {
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
               const rail = cards.filter((c) => c.col === "rail");
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
+              // Product block is a fixed 2-col grid: [productmix | coreproducts] over [data collection | management].
+              // Its height is the taller column, not the sum of its cards.
+              const zoneW = (id: string) => productCards.find((c) => c.id === id)?.weight ?? 0;
+              const productZoneW = Math.max(zoneW("productmix"), zoneW("coreproducts") + zoneW("management"));
+              const renderProductZone = () =>
+                productCards.length > 0 && (
+                  <div className="company-grid-product-zone">
+                    {(showProductType || showRevenueModel) && (
+                      <div className="product-zone-cell">
+                        <ProductTypeRevenueCard
+                          fillGridCell
+                          productRows={productTypeBarRows}
+                          revenueRows={revenueModelRows.map((r) => ({
+                            name: r.label,
+                            weight: r.value,
+                          }))}
+                        />
+                      </div>
+                    )}
+                    {showCoreProducts && (
+                      <div className="product-zone-cell">
+                        <ProductUsersListCard
+                          sections={coreProductsSections}
+                          useCaseSections={usersUseCaseSections}
+                          fillGridCell
+                        />
+                      </div>
+                    )}
+                    {showDataCollection && (
+                      <div className="product-zone-cell">
+                        <DataCollectionCard
+                          fillGridCell
+                          productRows={productTypeBarRows}
+                          dataRows={productDataToggleDataRows}
+                        />
+                      </div>
+                    )}
+                    {hasManagement && (
+                      <div className="product-zone-cell">
+                        <ManagementCard
+                          fillGridCell
+                          current={managementCurrentPeople}
+                          past={managementPastPeople}
+                          maxVisible={4}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
               // The lower-main area is two independent vertical stacks; each card goes
               // into the shorter stack (ties -> left), so nothing is stretched.
               const splitPair = (a: ZoneCard[]): [ZoneCard[], ZoneCard[]] => {
@@ -4489,8 +4530,8 @@ const CompanyDetail = () => {
               // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
               // AI sits level with Product type / Data Collection / Core Products. The shorter
               // top block simply leaves extra space under it (nothing is cut or stretched).
-              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + sum(productCards) - (fin?.weight ?? 0)) <= 130;
-              const mainH = (p: ZoneCard[]) => sum(wide) + sum(productCards) + pairWeight(p);
+              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
+              const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
               // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
               // Only Headcount / Management may hop from the main column to the rail
               // when the main column is taller, so any leftover gap is always in the
@@ -4525,7 +4566,7 @@ const CompanyDetail = () => {
                   <>
                     <div className="company-zone-top-left">
                       {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                      {renderPair(productCards)}
+                      {renderProductZone()}
                       {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     </div>
                     <div className="company-zone-top-right">{fin?.node()}</div>
@@ -4542,7 +4583,7 @@ const CompanyDetail = () => {
                 <>
                   <div className="company-zone-main">
                     {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {renderPair(productCards)}
+                    {renderProductZone()}
                     {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     {renderPair(pairCards)}
                   </div>
