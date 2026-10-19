@@ -3319,9 +3319,8 @@ const CompanyDetail = () => {
     /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
     /* Fixed zones: any leftover gap sits at the bottom-left (main column shorter than the rail). */
     .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    /* Rail stretches to the main column when that is taller, so a gap is never left bottom-right. */
-    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
-    .company-zone-rail > :last-child { flex: 1 1 auto; }
+    /* Rail keeps natural card heights (no stretched chart cards); any leftover space stays bottom-right. */
+    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
     .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
