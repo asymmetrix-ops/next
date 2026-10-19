@@ -111,6 +111,8 @@ interface DealRadarDashboardItem {
   potential_acquirers: NamedRef[];
   linked_event: LinkedEvent | null;
   content_cta: ContentCta | null;
+  /** Newer API shape: every linkable report for the company (news and company analysis). */
+  content_ctas?: ContentCta[] | null;
 }
 
 interface Pagination {
@@ -252,7 +254,7 @@ function AdvisorCell({ item, align = "left" }: { item: DealRadarDashboardItem; a
       {advisors.map((advisor) => (
         <div key={advisor.id} className={`flex flex-col gap-0.5 ${alignClass}`}>
           {advisor.has_profile ? (
-            <a href={`/advisor/${advisor.id}`} className="search-multi-value-link">
+            <a href={`/advisor/${advisor.id}`} className={`search-multi-value-link`}>
               {advisor.name}
             </a>
           ) : (
@@ -317,7 +319,7 @@ const STATUS_FILTERS = [
       o.id === 6
         ? "Anticipated within 6 months"
         : o.id === 1
-          ? "Anticipated"
+          ? "Anticipated within 18 months"
           : o.label,
     statusId: o.id,
     totalsKey: o.totalsKey,
@@ -391,13 +393,26 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+function isNewsCta(cta: ContentCta): boolean {
+  return String(cta.content_type ?? "").toLowerCase().trim() === "news";
+}
+
+/** One report link per company: news wins over company analysis, newest first within each. */
+function pickContentCta(item: DealRadarDashboardItem): ContentCta | null {
+  const candidates = [...(item.content_ctas ?? []), ...(item.content_cta ? [item.content_cta] : [])].filter(
+    (c) => c && c.id
+  );
+  if (candidates.length === 0) return null;
+  const time = (c: ContentCta) => new Date(c.publication_date).getTime() || 0;
+  return candidates.sort(
+    (a, b) => Number(isNewsCta(b)) - Number(isNewsCta(a)) || time(b) - time(a)
+  )[0];
+}
+
 function getContentCtaLabel(cta: ContentCta): string {
   const label = cta.label?.trim();
   if (label) return label;
-  if (cta.content_type.toLowerCase().trim() === "news") {
-    return "Read our News";
-  }
-  return "Read our Research";
+  return isNewsCta(cta) ? "Read our News" : "Read our Company Analysis";
 }
 
 function buildDashboardUrl(
@@ -436,13 +451,34 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   const description = getTransactionSignalDescription(signal);
   return (
     <p
-      className="mt-1 text-left text-[11px] font-medium text-gray-600"
+      className="mt-1 cursor-help text-center text-[11px] font-medium text-gray-600"
       title={description || undefined}
     >
       {signal}
     </p>
   );
 }
+
+const DEAL_RADAR_LINK_CLASS = "deal-radar-link";
+
+const DEAL_RADAR_STYLES = `
+  .deal-radar-link,
+  .deal-radar-link-plain,
+  .search-multi-value-link {
+    color: #0075df;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .deal-radar-link:hover,
+  .deal-radar-link-plain:hover,
+  .search-multi-value-link:hover {
+    color: #005bb5;
+    text-decoration: underline;
+  }
+  .deal-radar-table .search-multi-value-cell {
+    max-width: 150px;
+  }
+`;
 
 function DealRadarMobileCard({
   item,
@@ -475,6 +511,7 @@ function DealRadarMobileCard({
     </a>
   );
   const stageTone = item.process_stage ? getProcessStageTone(item.process_stage) : null;
+  const cta = pickContentCta(item);
 
   return (
     <div className="border-b border-gray-100 px-4 py-4">
@@ -494,24 +531,24 @@ function DealRadarMobileCard({
               e.preventDefault();
               onNavigate(`/company/${item.company_id}`);
             }}
-            className="text-[15px] font-semibold leading-snug text-blue-700"
+            className={`${DEAL_RADAR_LINK_CLASS} text-[15px] font-semibold leading-snug`}
           >
             {item.name}
           </a>
           {item.active_status_set_at && (
             <p className="mt-0.5 text-[10px] text-gray-400">{formatDate(item.active_status_set_at)}</p>
           )}
-          {item.content_cta && (
+          {cta && (
             <a
-              href={`/article/${item.content_cta.id}`}
+              href={`/article/${cta.id}`}
               onClick={(e) => {
                 if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 e.preventDefault();
-                onNavigate(`/article/${item.content_cta!.id}`);
+                onNavigate(`/article/${cta.id}`);
               }}
-              className="mt-0.5 block text-[11.5px] font-medium text-gray-500"
+              className={`${DEAL_RADAR_LINK_CLASS} mt-0.5 block text-[11.5px] font-medium`}
             >
-              {getContentCtaLabel(item.content_cta)}
+              {getContentCtaLabel(cta)}
             </a>
           )}
         </div>
@@ -519,6 +556,7 @@ function DealRadarMobileCard({
           <TransactionStatusPill
             status={item.transaction_status}
             className="inline-block max-w-[9rem]"
+            style={{ textAlign: "left", justifyContent: "flex-start" }}
             allowWrap
           />
           {item.transaction_signal && <TransactionSignalLabel signal={item.transaction_signal} />}
@@ -542,7 +580,7 @@ function DealRadarMobileCard({
                         e.preventDefault();
                         onNavigate(`/investors/${item.owner_id}`);
                       }}
-                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                      className="deal-radar-link-plain"
                     >
                       {item.owner_name}
                     </a>
@@ -940,7 +978,7 @@ export default function DealRadarView({
       <div className={`${embedded ? "" : "min-h-screen "}flex flex-col${embedded ? " bg-white" : ""}`}>
         <style
           dangerouslySetInnerHTML={{
-            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES + SORTABLE_HEADER_HOVER_STYLES,
+            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES + SORTABLE_HEADER_HOVER_STYLES + DEAL_RADAR_STYLES,
           }}
         />
         <div style={SEARCH_DASHBOARD_SHELL}>
@@ -1003,14 +1041,14 @@ export default function DealRadarView({
               className="company-table-scroll hidden md:block"
               style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}
             >
-              <table className="company-table">
+              <table className="company-table deal-radar-table">
                 <thead>
                   <tr>
                     <Th label="Company" sortKey="name" frozen minWidth={260} />
                     <Th label="HQ" sortKey="hq" minWidth={100} />
                     <Th label="Ownership" sortKey="ownership" minWidth={120} />
-                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={180} />
-                    <Th label="Transaction Status" sortKey="status" minWidth={200} />
+                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={120} />
+                    <Th label="Transaction Status" sortKey="status" minWidth={220} />
                     <Th label="Process Stage" sortKey="stage" minWidth={130} />
                     <Th label="Advisor" sortKey="advisor" minWidth={160} />
                     <Th label="Buyer Type" sortKey="buyer_type" minWidth={120} />
@@ -1082,7 +1120,7 @@ export default function DealRadarView({
                                     e.preventDefault();
                                     router.push(`/company/${item.company_id}`);
                                   }}
-                                  className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline leading-snug"
+                                  className={`${DEAL_RADAR_LINK_CLASS} text-sm font-semibold leading-snug`}
                                 >
                                   {item.name}
                                 </a>
@@ -1091,28 +1129,23 @@ export default function DealRadarView({
                                     {formatDate(item.active_status_set_at)}
                                   </p>
                                 )}
-                                {item.content_cta && (
-                                  <a
-                                    href={`/article/${item.content_cta.id}`}
-                                    onClick={(e) => {
-                                      if (
-                                        e.button !== 0 ||
-                                        e.metaKey ||
-                                        e.ctrlKey ||
-                                        e.shiftKey ||
-                                        e.altKey
-                                      )
-                                        return;
-                                      e.preventDefault();
-                                      router.push(
-                                        `/article/${item.content_cta!.id}`
-                                      );
-                                    }}
-                                    className="mt-0.5 block text-[11.5px] font-medium text-gray-500 hover:text-blue-600 hover:underline"
-                                  >
-                                    {getContentCtaLabel(item.content_cta)}
-                                  </a>
-                                )}
+                                {(() => {
+                                  const cta = pickContentCta(item);
+                                  if (!cta) return null;
+                                  return (
+                                    <a
+                                      href={`/article/${cta.id}`}
+                                      onClick={(e) => {
+                                        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                                        e.preventDefault();
+                                        router.push(`/article/${cta.id}`);
+                                      }}
+                                      className={`${DEAL_RADAR_LINK_CLASS} mt-0.5 block text-[11.5px] font-medium`}
+                                    >
+                                      {getContentCtaLabel(cta)}
+                                    </a>
+                                  );
+                                })()}
                                   </div>
                                 </div>
                               </td>
@@ -1134,7 +1167,7 @@ export default function DealRadarView({
                                         {item.owner_id ? (
                                           <a
                                             href={`/investors/${item.owner_id}`}
-                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                            className="deal-radar-link-plain"
                                           >
                                             {item.owner_name}
                                           </a>
@@ -1167,11 +1200,10 @@ export default function DealRadarView({
 
                               {/* Transaction Status + Signal */}
                               <td>
-                                <div className="inline-flex flex-col items-start">
+                                <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
-                                    className="inline-block max-w-[11rem]"
-                                    allowWrap
+                                    className="inline-flex w-[13rem] justify-center whitespace-nowrap"
                                   />
                                   {item.transaction_signal && (
                                     <TransactionSignalLabel
