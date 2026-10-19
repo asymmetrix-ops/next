@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { locationsService } from "@/lib/locationsService";
-import { dotPillStyleFromTone, getNewsSubtypeTone, NEWS_SUBTYPE_TONES } from "@/lib/tagColors";
-import { fetchNewsSubTypes, type NewsFilters, type NewsSubTypeOption } from "@/lib/news";
+import { dotPillStyleFromTone, getNewsSubtypeTone } from "@/lib/tagColors";
+import { fetchNewsFilterOptions, type NewsFilterOption, type NewsFilters } from "@/lib/news";
 
 // Platform order for the pills; any other type the API returns goes after these.
 const SUB_TYPE_ORDER = ["sale process", "deal close", "carve-out", "fundraise", "ipo", "leadership"];
@@ -25,13 +25,16 @@ type Props = {
  */
 export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
   const [sectors, setSectors] = useState<Array<{ id: number; sector_name: string }>>([]);
-  const [subTypes, setSubTypes] = useState<NewsSubTypeOption[]>([]);
+  const [subTypes, setSubTypes] = useState<NewsFilterOption[]>([]);
+  const [statuses, setStatuses] = useState<NewsFilterOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchNewsSubTypes()
-      .then((rows) => {
-        if (!cancelled) setSubTypes([...rows].sort((a, b) => rank(a.value) - rank(b.value) || a.value.localeCompare(b.value)));
+    fetchNewsFilterOptions()
+      .then(({ subTypes: types, transactionStatuses }) => {
+        if (cancelled) return;
+        setSubTypes([...types].sort((a, b) => rank(a.value) - rank(b.value) || a.value.localeCompare(b.value)));
+        setStatuses(transactionStatuses);
       })
       .catch(() => undefined);
     locationsService
@@ -70,7 +73,6 @@ export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
               style={active ? dotPillStyleFromTone(tone, true) : undefined}
               onClick={() => onChange({ subType: active ? undefined : value })}
             >
-              <span className="nw-pill-dot" style={{ background: NEWS_SUBTYPE_TONES[value.toLowerCase()]?.dot }} />
               {value}
               <span className="nw-pill-count">{count.toLocaleString()}</span>
             </button>
@@ -101,6 +103,27 @@ export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
             ))}
           </select>
         </div>
+
+        {statuses.length > 0 && (
+          <div className="nw-field">
+            <label className="nw-field-label" htmlFor="nw-status">
+              Transaction status
+            </label>
+            <select
+              id="nw-status"
+              className="nw-select"
+              value={filters.transactionStatus ?? ""}
+              onChange={(e) => onChange({ transactionStatus: e.target.value || undefined })}
+            >
+              <option value="">All transaction statuses</option>
+              {statuses.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="nw-field">
           <span className="nw-field-label">View followed</span>

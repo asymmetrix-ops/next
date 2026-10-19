@@ -24,12 +24,13 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-const CHIP_ORDER = ["company", "investor", "sector", "subType", "followedOnly", "text"] as const;
+const CHIP_ORDER = ["company", "investor", "sector", "subType", "transactionStatus", "followedOnly", "text"] as const;
 const CHIP_LABEL = {
   company: "Company",
   investor: "Investor",
   sector: "Sector",
   subType: "Type",
+  transactionStatus: "Status",
   followedOnly: "Followed",
   text: "Search",
 } as const;
@@ -177,14 +178,14 @@ export default function NewsPage() {
           </div>
 
           <div className="nw-controls">
+            <div className="nw-controls-search">
+              <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
+            </div>
             <NewsFilterBar
               filters={filters}
               totalAll={allTotal}
               onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))}
             />
-            <div className="nw-controls-search">
-              <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
-            </div>
           </div>
 
           {filtered && (

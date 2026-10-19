@@ -176,7 +176,9 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {focus && (
           <span className="nw-company">
-            {focus.name}
+            <Link href={`/company/${focus.id}`} className="nw-company-link">
+              {focus.name}
+            </Link>
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
           </span>
         )}

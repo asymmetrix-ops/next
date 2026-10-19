@@ -45,6 +45,8 @@ export type NewsFilters = {
   text?: string;
   /** News sub-type from the filter bar (e.g. "Fundraise"). */
   subType?: string;
+  /** Transaction status from the filter dropdown (value from /news/filters). */
+  transactionStatus?: string;
   /**
    * Only articles whose company of focus the user follows. The feed has no
    * such parameter yet, so the page applies this one itself.
@@ -59,7 +61,7 @@ export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters 
 }
 
 export function hasNewsFilters(f: NewsFilters): boolean {
-  return Boolean(f.company || f.investor || f.sector || f.text || f.subType || f.followedOnly);
+  return Boolean(f.company || f.investor || f.sector || f.text || f.subType || f.transactionStatus || f.followedOnly);
 }
 
 function authHeaders(): Record<string, string> {
@@ -190,6 +192,7 @@ export async function fetchNewsFeed(opts: {
   if (f?.investor) params.append("investor_id", String(f.investor.id));
   if (f?.sector) params.append("sector_id", String(f.sector.id));
   if (f?.subType) params.append("sub_type", f.subType);
+  if (f?.transactionStatus) params.append("transaction_status", f.transactionStatus);
   // Omit entirely when empty — the API rejects exclude_ids=null.
   for (const id of opts.excludeIds ?? []) params.append("exclude_ids[]", String(id));
   const rows = await getJson<Array<ApiNewsItem & { total_count?: number }>>("feed", params, opts.signal);
@@ -198,12 +201,17 @@ export async function fetchNewsFeed(opts: {
 
 // ── Filter options ───────────────────────────────────────────────────────
 
-export type NewsSubTypeOption = { value: string; count: number };
+export type NewsFilterOption = { value: string; count: number };
+export type NewsFilterOptions = { subTypes: NewsFilterOption[]; transactionStatuses: NewsFilterOption[] };
 
-/** Sub-types that have published News (drives the filter pills). */
-export async function fetchNewsSubTypes(signal?: AbortSignal): Promise<NewsSubTypeOption[]> {
-  const json = await getJson<{ sub_types?: unknown }>("filters", undefined, signal);
-  return parseArray<NewsSubTypeOption>(json?.sub_types).filter((t) => t && t.value);
+/**
+ * Values that have published News, from GET /news/filters. `transaction_statuses`
+ * is optional: the dropdown only appears once the API returns it.
+ */
+export async function fetchNewsFilterOptions(signal?: AbortSignal): Promise<NewsFilterOptions> {
+  const json = await getJson<{ sub_types?: unknown; transaction_statuses?: unknown }>("filters", undefined, signal);
+  const clean = (v: unknown) => parseArray<NewsFilterOption>(v).filter((o) => o && o.value);
+  return { subTypes: clean(json?.sub_types), transactionStatuses: clean(json?.transaction_statuses) };
 }
 
 // ── I&A content type (for the "Read our …" link) ──────────────────────────

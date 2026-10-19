@@ -179,7 +179,9 @@ export function getInsightsTypeTone(contentType: string): TagTone {
 
 export const NEWS_SUBTYPE_TONES: Record<string, TagTone> = {
   fundraise: { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB", dot: "#3D5BF3" },
-  "sale process": { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4", dot: "#E0A32E" },
+  // Rose: scoops should feel livelier than the old mustard, and it doesn't clash with
+  // the other News sub-types (blue, green, teal, purple, grey) or the process-stage tones.
+  "sale process": { text: "#B0235F", fill: "#FDECF3", border: "#F6C8DA", dot: "#E23B7B" },
   "deal close": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", dot: "#17A05C" },
   "carve-out": { text: "#0A5E75", fill: "#E1F3F8", border: "#BCE2EC", dot: "#1898B8" },
   ipo: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", dot: "#7A5BD0" },

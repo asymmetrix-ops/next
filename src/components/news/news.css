@@ -140,7 +140,7 @@
 /* Controls card (same arrangement as Insights & Analysis) */
 .nw-title-count { margin-left: 11px; font-size: 15px; font-weight: 600; color: #6b7488; letter-spacing: 0; }
 .nw-controls { position: relative; z-index: 20; background: #fff; border: 1px solid #e4e8f2; border-radius: 16px; box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-.nw-controls-search { border-top: 1px solid #eff2f8; padding-top: 14px; }
+.nw-controls-search { border-bottom: 1px solid #eff2f8; padding-bottom: 14px; }
 .nw-controls .nw-search-pill { box-shadow: none; background: #f5f7fd; }
 .nw-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
 .nw-field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
@@ -154,3 +154,8 @@
 /* search row: input + Search button (as on Insights & Analysis) */
 .nw-search-row { display: flex; gap: 10px; align-items: center; }
 .nw-search-row .nw-search-pill { flex: 1; min-width: 0; }
+
+/* company name links to the profile; sits above the card's stretched title link */
+.nw-company-link { color: inherit; text-decoration: none; position: relative; z-index: 2; }
+.nw-company-link:hover { color: #2a46ea; text-decoration: underline; }
+.nw-company-link:focus-visible { outline: 2px solid #2a46ea; outline-offset: 2px; border-radius: 4px; }
