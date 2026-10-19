@@ -190,13 +190,13 @@ export default function NewsPage() {
           </div>
 
           <div className="nw-controls">
-            <div className="nw-controls-search">
-              <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
-            </div>
             <NewsFilterBar
               filters={filters}
               totalAll={allTotal}
               onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))}
+              searchSlot={
+                <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
+              }
             />
           </div>
 

@@ -173,3 +173,11 @@
 .nw-company-link { color: inherit; text-decoration: none; position: relative; z-index: 2; }
 .nw-company-link:hover { color: #2a46ea; text-decoration: underline; }
 .nw-company-link:focus-visible { outline: 2px solid #2a46ea; outline-offset: 2px; border-radius: 4px; }
+
+/* Toolbar row, as on the Companies search page: search first, filters to its right */
+.nw-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.nw-toolbar .nw-search { flex: 1 1 300px; min-width: 240px; }
+.nw-toolbar .nw-select { flex: 0 1 auto; max-width: 100%; }
+.nw-toolbar .nw-followed { flex: 0 0 auto; }
+.nw-toolbar .nw-search-pill { padding: 8px 16px; }
+.nw-toolbar .nw-suggest { right: auto; width: max(100%, 440px); max-width: 92vw; }

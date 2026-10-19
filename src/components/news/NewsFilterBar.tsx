@@ -17,13 +17,16 @@ type Props = {
   onChange: (patch: Partial<NewsFilters>) => void;
   /** Number of published News, shown on the "All types" pill. */
   totalAll: number | null;
+  /** The search box, placed first on the toolbar row (as on the Companies search page). */
+  searchSlot?: React.ReactNode;
 };
 
 /**
- * Top of the controls card (same arrangement as Insights & Analysis): News
- * sub-type pills with counts, then the primary-sector picker and "Followed only".
+ * Controls card, laid out like the Companies search page: News sub-type chips
+ * (with counts and their colour dots) on top, then one row with the search box
+ * on the left and the sector, transaction-status and "Followed only" filters beside it.
  */
-export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
+export default function NewsFilterBar({ filters, onChange, totalAll, searchSlot }: Props) {
   const [sectors, setSectors] = useState<Array<{ id: number; sector_name: string }>>([]);
   const [subTypes, setSubTypes] = useState<NewsFilterOption[]>([]);
   const [statuses, setStatuses] = useState<NewsFilterOption[]>([]);
@@ -73,6 +76,7 @@ export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
               style={active ? dotPillStyleFromTone(tone, true) : undefined}
               onClick={() => onChange({ subType: active ? undefined : value })}
             >
+              <span className="nw-pill-dot" style={{ background: tone.dot }} />
               {value}
               <span className="nw-pill-count">{count.toLocaleString()}</span>
             </button>
@@ -80,62 +84,53 @@ export default function NewsFilterBar({ filters, onChange, totalAll }: Props) {
         })}
       </div>
 
-      <div className="nw-fields">
-        <div className="nw-field">
-          <label className="nw-field-label" htmlFor="nw-sector">
-            Primary sector
-          </label>
+      <div className="nw-toolbar">
+        {searchSlot}
+
+        <select
+          id="nw-sector"
+          className="nw-select"
+          aria-label="Filter by primary sector"
+          value={sectorValue}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            const row = sectors.find((s) => s.id === id);
+            onChange({ sector: row ? { id: row.id, label: row.sector_name } : undefined });
+          }}
+        >
+          <option value="">All primary sectors</option>
+          {sectors.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.sector_name}
+            </option>
+          ))}
+        </select>
+
+        {statuses.length > 0 && (
           <select
-            id="nw-sector"
+            id="nw-status"
             className="nw-select"
-            value={sectorValue}
-            onChange={(e) => {
-              const id = Number(e.target.value);
-              const row = sectors.find((s) => s.id === id);
-              onChange({ sector: row ? { id: row.id, label: row.sector_name } : undefined });
-            }}
+            aria-label="Filter by transaction status"
+            value={filters.transactionStatus ?? ""}
+            onChange={(e) => onChange({ transactionStatus: e.target.value || undefined })}
           >
-            <option value="">All primary sectors</option>
-            {sectors.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.sector_name}
+            <option value="">All transaction statuses</option>
+            {statuses.map((o) => (
+              <option key={o.value} value={o.value}>
+                {formatTransactionStatusLabel(o.value)} ({o.count})
               </option>
             ))}
           </select>
-        </div>
-
-        {statuses.length > 0 && (
-          <div className="nw-field">
-            <label className="nw-field-label" htmlFor="nw-status">
-              Transaction status
-            </label>
-            <select
-              id="nw-status"
-              className="nw-select"
-              value={filters.transactionStatus ?? ""}
-              onChange={(e) => onChange({ transactionStatus: e.target.value || undefined })}
-            >
-              <option value="">All transaction statuses</option>
-              {statuses.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {formatTransactionStatusLabel(o.value)} ({o.count})
-                </option>
-              ))}
-            </select>
-          </div>
         )}
 
-        <div className="nw-field">
-          <span className="nw-field-label">View followed</span>
-          <label className="nw-followed">
-            <input
-              type="checkbox"
-              checked={Boolean(filters.followedOnly)}
-              onChange={(e) => onChange({ followedOnly: e.target.checked || undefined })}
-            />
-            <span>Followed only</span>
-          </label>
-        </div>
+        <label className="nw-followed">
+          <input
+            type="checkbox"
+            checked={Boolean(filters.followedOnly)}
+            onChange={(e) => onChange({ followedOnly: e.target.checked || undefined })}
+          />
+          <span>Followed only</span>
+        </label>
       </div>
     </>
   );
