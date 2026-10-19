@@ -123,21 +123,19 @@ function IaLink({ ia, expanded }: { ia: NonNullable<NewsArticle["related_ia"]>; 
   );
 }
 
-/** Company-of-focus tags: Deal Radar process stage and primary sector(s). */
+/** Company-of-focus tags: Deal Radar process stage, then every primary sector. */
 function FocusTags({ tags }: { tags: NonNullable<NewsArticle["focus_tags"]> }) {
-  const [firstSector, ...otherSectors] = tags.primarySectors;
-  if (!tags.processStage && !firstSector) return null;
+  if (!tags.processStage && tags.primarySectors.length === 0) return null;
   return (
     <div className="nw-tags">
       {tags.processStage && (
         <span style={researchPillStyleFromTone(getProcessStageTone(tags.processStage))}>{tags.processStage}</span>
       )}
-      {firstSector && (
-        <span className="nw-sector" title={tags.primarySectors.join(", ")}>
-          {firstSector}
-          {otherSectors.length > 0 && <span className="nw-sector-more">+{otherSectors.length}</span>}
+      {tags.primarySectors.map((sector) => (
+        <span className="nw-sector" key={sector}>
+          {sector}
         </span>
-      )}
+      ))}
     </div>
   );
 }
@@ -163,13 +161,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           {relation === "follow-up" && <span className="nw-badge nw-badge-link">Follow-up</span>}
           {relation === "previously" && <span className="nw-badge nw-badge-prev">Previously</span>}
           {subTone ? (
-            <span style={dotPillStyleFromTone(subTone)}>
-              <span
-                aria-hidden="true"
-                style={{ width: 6, height: 6, borderRadius: 999, background: subTone.dot, flexShrink: 0 }}
-              />
-              {subType}
-            </span>
+            <span style={dotPillStyleFromTone(subTone)}>{subType}</span>
           ) : (
             <span className="nw-badge">News</span>
           )}
