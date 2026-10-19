@@ -45,7 +45,7 @@ import { ManagementProfilePanel } from "@/components/company/ManagementProfilePa
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
-import { ProductAttributesCard } from "@/components/redesign/ProductAttributesCard";
+import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import {
@@ -3372,11 +3372,10 @@ const CompanyDetail = () => {
     /* Everything below row 1 floats: spans are set by useMasonryGrid so cards fill any gaps. */
     .company-grid-insights { grid-column: span 2; order: -1; min-height: 0; align-self: start; display: flex; flex-direction: column; }
     .company-grid-finance-secondary { grid-column: 3; order: -2; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
-    .company-grid-product-mix,
-    .company-grid-product-users,
+    .company-grid-product-zone { grid-column: span 2; order: -1; min-width: 0; align-self: start; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; }
+    .product-zone-cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
     .company-grid-ai-risk,
-    .company-grid-headcount,
-    .company-grid-management { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-headcount { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
     .company-grid-corporate-events,
     .company-grid-subsidiaries { grid-column: span 2; order: -1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
     .company-grid-corporate-events > *,
@@ -3626,17 +3625,16 @@ const CompanyDetail = () => {
       .company-grid-finance-primary,
       .company-grid-finance-secondary,
       .company-grid-insights,
-      .company-grid-product-mix,
-      .company-grid-product-users,
+      .company-grid-product-zone,
       .company-grid-ai-risk,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
-      .company-grid-headcount,
-      .company-grid-management {
+      .company-grid-headcount {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
       }
+      .company-grid-product-zone { grid-template-columns: 1fr !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
@@ -4271,26 +4269,50 @@ const CompanyDetail = () => {
             )}
 
             {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
-            {showProductAttributes && (
-              <div className="company-grid-product-mix">
-                <ProductAttributesCard
-                  productRows={productTypeBarRows}
-                  revenueRows={revenueModelRows.map((r) => ({
-                    name: r.label,
-                    weight: r.value,
-                  }))}
-                  dataRows={productDataToggleDataRows}
-                />
-              </div>
-            )}
-
-            {showCoreProducts && (
-              <div className="company-grid-product-users">
-                <ProductUsersListCard
-                  sections={coreProductsSections}
-                  useCaseSections={usersUseCaseSections}
-                  fillGridCell
-                />
+            {/* Product zone (cols 1–2): [Product type | Core products] over [Data collection | Management].
+                Each pair stretches to the same height; missing cards just close up. */}
+            {(showProductAttributes || showCoreProducts || hasManagement) && (
+              <div className="company-grid-product-zone">
+                {(showProductType || showRevenueModel) && (
+                  <div className="product-zone-cell">
+                    <ProductTypeRevenueCard
+                      fillGridCell
+                      productRows={productTypeBarRows}
+                      revenueRows={revenueModelRows.map((r) => ({
+                        name: r.label,
+                        weight: r.value,
+                      }))}
+                    />
+                  </div>
+                )}
+                {showCoreProducts && (
+                  <div className="product-zone-cell">
+                    <ProductUsersListCard
+                      sections={coreProductsSections}
+                      useCaseSections={usersUseCaseSections}
+                      fillGridCell
+                    />
+                  </div>
+                )}
+                {showDataCollection && (
+                  <div className="product-zone-cell">
+                    <DataCollectionCard
+                      fillGridCell
+                      productRows={productTypeBarRows}
+                      dataRows={productDataToggleDataRows}
+                    />
+                  </div>
+                )}
+                {hasManagement && (
+                  <div className="product-zone-cell">
+                    <ManagementCard
+                      fillGridCell
+                      current={managementCurrentPeople}
+                      past={managementPastPeople}
+                      maxVisible={4}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -4407,16 +4429,6 @@ const CompanyDetail = () => {
               </div>
             )}
 
-            {hasManagement && (
-              <div className="company-grid-management">
-                <ManagementCard
-                  fillGridCell
-                  current={managementCurrentPeople}
-                  past={managementPastPeople}
-                  maxVisible={4}
-                />
-              </div>
-            )}
 
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div

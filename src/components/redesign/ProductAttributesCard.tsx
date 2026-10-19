@@ -1,7 +1,7 @@
 "use client";
 /**
- * ProductAttributesCard — one tabbed card (Product type | Revenue model) plus a
- * separate Data Collection Method card. Tab UI is shared with the
+ * One tabbed card (Product type | Revenue model) and a separate Data Collection
+ * Method card. Tab UI is shared with the
  * Core Products / Users & Use Cases card.
  */
 import React, { useEffect, useState } from "react";
@@ -14,20 +14,20 @@ import type { RevenueModelRow } from "./RevenueModelCard";
 type DataMixRow = { label: string };
 type AttrTab = "product_type" | "revenue_model";
 
-type Props = {
+type TypeRevenueProps = {
   productRows: ProductBarRow[];
   revenueRows: RevenueModelRow[];
-  dataRows: DataMixRow[];
+  fillGridCell?: boolean;
 };
 
-export function ProductAttributesCard({
+/** Tabbed Product type | Revenue model card. Returns null when both are empty. */
+export function ProductTypeRevenueCard({
   productRows,
   revenueRows,
-  dataRows,
-}: Props) {
+  fillGridCell = false,
+}: TypeRevenueProps) {
   const showProductType = productRows.length > 0;
   const showRevenueModel = revenueRows.length > 0;
-  const showDataCollection = dataRows.length > 0;
 
   const tabs: { id: AttrTab; label: string }[] = [];
   if (showProductType) tabs.push({ id: "product_type", label: "Product type" });
@@ -42,24 +42,13 @@ export function ProductAttributesCard({
     if (current && current !== activeTab) setActiveTab(current);
   }, [current, activeTab]);
 
-  if (!current && !showDataCollection) return null;
+  if (!current) return null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        minWidth: 0,
-        alignSelf: "flex-start",
-        width: "100%",
-      }}
-    >
-      {current && (
-        <LinkPanel fillGridCell={false}>
-          <TabHeader tabs={tabs} activeTab={current} onTabChange={setActiveTab} />
-          <div style={{ padding: "8px 16px 14px" }}>
-            {current === "product_type"
+    <LinkPanel fillGridCell={fillGridCell}>
+      <TabHeader tabs={tabs} activeTab={current} onTabChange={setActiveTab} />
+      <div style={{ padding: "8px 16px 14px" }}>
+        {current === "product_type"
               ? productRows.map((p, i) => (
                   <div
                     key={`${p.label}-${i}`}
@@ -110,17 +99,28 @@ export function ProductAttributesCard({
                     <WeightChip weight={row.weight || ""} hideMinor />
                   </div>
                 ))}
-          </div>
-        </LinkPanel>
-      )}
-      {showDataCollection && (
-        <ProductDataToggleCard
-          variant="data_collection"
-          productRows={productRows}
-          dataRows={dataRows}
-          fillGridCell={false}
-        />
-      )}
-    </div>
+      </div>
+    </LinkPanel>
+  );
+}
+
+/** Data Collection Method card. Returns null when empty. */
+export function DataCollectionCard({
+  productRows,
+  dataRows,
+  fillGridCell = false,
+}: {
+  productRows: ProductBarRow[];
+  dataRows: DataMixRow[];
+  fillGridCell?: boolean;
+}) {
+  if (dataRows.length === 0) return null;
+  return (
+    <ProductDataToggleCard
+      variant="data_collection"
+      productRows={productRows}
+      dataRows={dataRows}
+      fillGridCell={fillGridCell}
+    />
   );
 }
