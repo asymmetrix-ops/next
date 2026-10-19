@@ -45,6 +45,8 @@ import {
   SEARCH_DASHBOARD_TITLE,
 } from "@/components/search/searchDashboardLayout";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
+import { locationsService } from "@/lib/locationsService";
+import type { PrimarySector } from "@/components/companies/companiesFilterConfig";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,11 +136,6 @@ interface DealRadarDashboardResponse {
 interface OwnershipTypeOption {
   id: number;
   ownership: string;
-}
-
-interface SectorOption {
-  id: number;
-  sector_name: string;
 }
 
 interface CountryOption {
@@ -646,7 +643,7 @@ export default function DealRadarView({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipTypeOption[]>([]);
-  const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
+  const [sectorOptions, setSectorOptions] = useState<PrimarySector[]>([]);
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
   const [advisorOptions, setAdvisorOptions] = useState<AdvisorOption[]>([]);
   const [bankerOptions, setBankerOptions] = useState<AdvisorOption[]>([]);
@@ -679,9 +676,8 @@ export default function DealRadarView({
 
     async function loadFilterOptions() {
       try {
-        const [ownershipRes, sectorsRes, countriesRes, advisorsRes, bankersRes] = await Promise.all([
+        const [ownershipRes, countriesRes, advisorsRes, bankersRes] = await Promise.all([
           fetch(`${FILTER_API}/get_all_ownership_types`, { headers }),
-          fetch(`${FILTER_API}/get_all_primary_sectors_dropdown`, { headers }),
           fetch(`${FILTER_API}/locations_country`, { headers }),
           fetch(`${API_BASE}/get_deal_radar_advisor_options`, { headers }),
           fetch(`${API_BASE}/get_deal_radar_banker_options`, { headers }),
@@ -691,9 +687,11 @@ export default function DealRadarView({
           const data = (await ownershipRes.json()) as OwnershipTypeOption[];
           setOwnershipTypes(Array.isArray(data) ? data : []);
         }
-        if (sectorsRes.ok) {
-          const data = (await sectorsRes.json()) as SectorOption[];
-          setSectorOptions(Array.isArray(data) ? data : []);
+        try {
+          const primarySectors = await locationsService.getPrimarySectors();
+          setSectorOptions(Array.isArray(primarySectors) ? primarySectors : []);
+        } catch {
+          // Primary sectors are optional — other filters still work
         }
         if (countriesRes.ok) {
           const data = (await countriesRes.json()) as CountryOption[];
