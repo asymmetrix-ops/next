@@ -169,10 +169,19 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
         </div>
 
         <h3 className="nw-card-title">
-          <Link href={`/article/${article.id}`}>{headline}</Link>
+          <Link href={`/article/${article.id}`} title={headline}>
+            {headline}
+          </Link>
         </h3>
 
-        {strap && <p className="nw-strap">{strap}</p>}
+        {strap ? (
+          <p className="nw-strap">{strap}</p>
+        ) : variant === "feed" ? (
+          // Tiles reserve two description lines, so the rows below line up across tiles.
+          <p className="nw-strap" aria-hidden="true">
+            &nbsp;
+          </p>
+        ) : null}
 
         {focus && (
           <span className="nw-company">
@@ -182,6 +191,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
           </span>
         )}
+        {!focus && variant === "feed" && <span className="nw-company" aria-hidden="true" />}
 
         {article.focus_tags && <FocusTags tags={article.focus_tags} />}
 

@@ -25,6 +25,9 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
+/** Rows of tiles in Recent news. Two rows keep the page full until it has more sections; set to 1 then. */
+const RECENT_NEWS_ROWS = 2;
+
 const CHIP_ORDER = ["company", "investor", "sector", "subType", "transactionStatus", "followedOnly", "text"] as const;
 const CHIP_LABEL = {
   company: "Company",
@@ -245,7 +248,7 @@ export default function NewsPage() {
               )}
 
               {!filtered && feed.length > 0 && (
-                <NewsCarousel title="Recent news" onNearEnd={loadMore} loadingMore={loadingMore}>
+                <NewsCarousel title="Recent news" rows={RECENT_NEWS_ROWS} onNearEnd={loadMore} loadingMore={loadingMore}>
                   {feed.map((a) => (
                     <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
                   ))}
