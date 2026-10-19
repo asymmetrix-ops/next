@@ -2018,6 +2018,17 @@ function SuggestChangeFieldRow({
 }) {
   const focusLabels = React.useContext(SuggestFocusContext);
   if (focusLabels && !focusLabels.has(label)) return null;
+  if (focusLabels) {
+    // Opened from a pen: one clean column, current value already in the control.
+    return (
+      <div style={{ padding: "16px 0", borderBottom: "1px solid #eef2f7" }}>
+        <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>
+          {label}
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
     <div
       className="suggest-change-row"
@@ -2616,6 +2627,7 @@ function buildCompanyChangeDiff({
   companyId,
   companyName,
   formData,
+  baselineFormData,
   primarySectorChips,
   secondarySectorChips,
   investorChips,
@@ -2639,6 +2651,8 @@ function buildCompanyChangeDiff({
   acquisitionTargetChips: InvestorChip[];
   parentCompany?: SuggestCompanySelection;
   currentValues: SuggestChangeCurrentValues;
+  /** Values the form started with; unchanged fields are not part of the change. */
+  baselineFormData?: Record<string, string>;
   productTypeItems?: DraftProductTypeItem[];
   dataCollectionItems?: DraftDataCollectionItem[];
   revenueModelItems?: DraftRevenueModelItem[];
@@ -2658,6 +2672,7 @@ function buildCompanyChangeDiff({
   COMPANY_CHANGE_REQUEST_FIELDS.forEach(({ formKey, payloadKey }) => {
     const nextValue = (formData[formKey] || "").trim();
     if (!nextValue) return;
+    if (nextValue === (baselineFormData?.[formKey] || "").trim()) return;
     oldData[payloadKey] = normalizeSuggestDisplayValue(String(currentValues[formKey] || ""));
     newData[payloadKey] = nextValue;
   });
@@ -6481,16 +6496,31 @@ function SuggestBasicCompanyChangeForm({
       status: "existing" as const,
     }))
   );
-  const [formData, setFormData] = useState({
-    yearFounded: "",
-    website: "",
-    ownership: "",
-    hq: "",
-    lifecycleStage: "",
-    transactionStatus: "",
-    investors: "",
-    description: "",
+  // Opened from a pen: start from what the platform shows today, so the
+  // contributor edits in place. Only values that differ from this baseline
+  // are sent for review.
+  const [initialBasics] = useState(() => {
+    const keep = (v: string) => (v && v !== "Not available" ? v : "");
+    const base = {
+      yearFounded: "",
+      website: "",
+      ownership: "",
+      hq: "",
+      lifecycleStage: "",
+      transactionStatus: "",
+      investors: "",
+      description: "",
+    };
+    if (focusSection === "overview") {
+      base.yearFounded = /^\d{4}$/.test(currentValues.yearFounded) ? currentValues.yearFounded : "";
+      base.website = keep(currentValues.website);
+      base.ownership = keep(currentValues.ownership);
+      base.hq = keep(currentValues.hq);
+    }
+    if (focusSection === "description") base.description = keep(currentValues.description);
+    return base;
   });
+  const [formData, setFormData] = useState(initialBasics);
   const [productTypeItems, setProductTypeItems] = useState<DraftProductTypeItem[]>(() => {
     const mapped = currentValues.productType
       .filter((item) => String(item?.Product_Type || "").trim())
@@ -6745,7 +6775,11 @@ function SuggestBasicCompanyChangeForm({
   const hasRevenueModelChange = initialRevenueModelJson !== currentRevenueModelJson;
 
   const basicFieldCount =
-    Object.values(formData).filter((value) => value.trim() !== "").length +
+    Object.entries(formData).filter(
+      ([key, value]) =>
+        value.trim() !== "" &&
+        value.trim() !== (initialBasics[key as keyof typeof initialBasics] || "").trim()
+    ).length +
     (investorChips.some((c) => c.status !== "existing") ? 1 : 0) +
     (peersCompetitorChips.some((c) => c.status !== "existing") ? 1 : 0) +
     (potentialAcquirerChips.some((c) => c.status !== "existing") ? 1 : 0) +
@@ -7022,6 +7056,7 @@ function SuggestBasicCompanyChangeForm({
         companyId,
         companyName,
         formData,
+        baselineFormData: initialBasics,
         primarySectorChips,
         secondarySectorChips,
         investorChips,
@@ -7333,11 +7368,12 @@ function SuggestBasicCompanyChangeForm({
                 : "Suggest a Change"}
             </h3>
             <p style={{ margin: 0, color: "#475569", fontSize: "14px" }}>
-              Review what we currently have in the middle column. Use the right
-              column to propose the correct value — our team will review and
-              apply approved changes.
+              {focusSection
+                ? "Change anything below, then send it for review. Nothing is published until our team approves it."
+                : "Review what we currently have in the middle column. Use the right column to propose the correct value — our team will review and apply approved changes."}
             </p>
           </div>
+          {!focusSection && (
           <button
             type="button"
             onClick={onClose}
@@ -7354,7 +7390,9 @@ function SuggestBasicCompanyChangeForm({
           >
             Close
           </button>
+          )}
         </div>
+        {!focusSection && (
         <div
           style={{
             marginTop: "16px",
@@ -7372,6 +7410,7 @@ function SuggestBasicCompanyChangeForm({
           sectors and investors, you can add new entries or flag existing ones
           for removal.
         </div>
+        )}
       </div>
 
       <div style={{ padding: "0 24px 20px" }}>
@@ -7391,6 +7430,7 @@ function SuggestBasicCompanyChangeForm({
             {lookupError}
           </div>
         )}
+        {!focusSection && (
         <div
           className="suggest-change-header-row"
           style={{
@@ -7435,6 +7475,7 @@ function SuggestBasicCompanyChangeForm({
             Your Update
           </div>
         </div>
+        )}
 
         <SuggestChangeFieldRow
           label="Primary Sector(s)"
@@ -8816,7 +8857,7 @@ function SuggestBasicCompanyChangeForm({
                 fontWeight: 700,
               }}
             >
-              {submitting ? "Submitting..." : "Send Suggestion"}
+              {submitting ? "Submitting..." : focusSection ? "Send for review" : "Send Suggestion"}
             </button>
           </div>
         </div>
@@ -10896,7 +10937,6 @@ const CompanyDetail = () => {
     if (isPublicContributorSession) return;
     if (!shouldOpenReview) return;
     if (loading || !company) return;
-    setShowSuggestChangeForm(true);
     setProfileEditMode(true);
     setActiveTab("company-profile");
   }, [company, isPublicContributorSession, loading, shouldOpenReview]);
@@ -12484,27 +12524,9 @@ const CompanyDetail = () => {
                 >
                   <span>
                     <strong>Edit mode.</strong> Click the <strong>pen</strong> on any card to
-                    suggest a change, or use <strong>Suggest Change</strong> to edit everything
-                    at once. Our team reviews every change before it is published.
+                    change it. Our team reviews every change before it is published.
                   </span>
                   <span style={{ display: "inline-flex", gap: "10px", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSuggestChangeForm((current) => !current)}
-                      style={{
-                        padding: "9px 18px",
-                        backgroundColor: showSuggestChangeForm ? "#1d4ed8" : "#16a34a",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "9px",
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {showSuggestChangeForm ? "Close form" : "Suggest Change"}
-                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -12567,15 +12589,6 @@ const CompanyDetail = () => {
                   </button>
                 </div>
               )}
-              {profileEditMode && showSuggestChangeForm && (
-                <SuggestBasicCompanyChangeForm
-                  companyId={String(company.id)}
-                  companyName={company.name}
-                  currentValues={suggestChangeCurrentValues}
-                  autoExpandAll={shouldOpenReview}
-                  onClose={() => setShowSuggestChangeForm(false)}
-                />
-              )}
               <ContributorCompanyProfile
                 companyId={String(company.id)}
                 editMode={profileEditMode}
@@ -12604,7 +12617,7 @@ const CompanyDetail = () => {
                 >
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    style={{ width: "100%", maxWidth: "1100px" }}
+                    style={{ width: "100%", maxWidth: "760px" }}
                   >
                     <SuggestBasicCompanyChangeForm
                       key={editSection}
