@@ -27,8 +27,6 @@ function buildParams(q: TransactionCompsQuery): URLSearchParams {
   }
   if (q.dealDateFrom) params.set("deal_date_from", q.dealDateFrom);
   if (q.dealDateTo) params.set("deal_date_to", q.dealDateTo);
-  // Transaction comps are completed deals only (no UI filter for this).
-  params.set("deal_statuses", "Completed");
   const lists: [string, (string | number)[]][] = [
     ["sector_ids", q.sectorIds],
     ["secondary_sector_ids", q.secondarySectorIds],
@@ -57,7 +55,7 @@ export async function fetchTransactionCompsServer(
     const params = buildParams(query);
     params.set("preferred_currency_id", String(await readPlatformCurrencyIdServer()));
     const response = await fetch(
-      `${TRANSACTION_COMPS_API_BASE}/transaction_comps?${params.toString()}`,
+      `${TRANSACTION_COMPS_API_BASE}/transaction_comps_list?${params.toString()}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
