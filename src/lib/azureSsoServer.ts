@@ -165,7 +165,10 @@ export async function syncAzureSsoWithXano(input: {
 }): Promise<string> {
   const response = await fetch(getAzureSsoCallbackUrl(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Key": process.env.INTERNAL_API_KEY || "",
+    },
     body: JSON.stringify({
       provider: "azure_ad",
       email: input.email || "",

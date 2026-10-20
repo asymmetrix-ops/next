@@ -169,7 +169,10 @@ export async function syncGoogleSsoWithXano(input: {
 }): Promise<string> {
   const response = await fetch(getGoogleSsoCallbackUrl(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Key": process.env.INTERNAL_API_KEY || "",
+    },
     body: JSON.stringify({
       provider: "google",
       email: input.email || "",
