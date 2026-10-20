@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import NewsSearchBar from "@/components/news/NewsSearchBar";
 import NewsFilterBar from "@/components/news/NewsFilterBar";
-import NewsCarousel from "@/components/news/NewsCarousel";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
@@ -25,24 +24,53 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-/** Rows of tiles in Recent news. Two rows keep the page full until it has more sections; set to 1 then. */
-const RECENT_NEWS_ROWS = 2;
+/** Cards shown per row/click in Recent news. */
+const RECENT_NEWS_PAGE = 5;
 
-const CHIP_ORDER = ["company", "investor", "sector", "subType", "transactionStatus", "followedOnly", "text"] as const;
+const CHIP_ORDER = [
+  "company",
+  "investor",
+  "sector",
+  "subType",
+  "transactionStatus",
+  "countries",
+  "dateRange",
+  "followedOnly",
+  "text",
+] as const;
 const CHIP_LABEL = {
   company: "Company",
   investor: "Investor",
   sector: "Sector",
   subType: "Type",
   transactionStatus: "Status",
+  countries: "Geography",
+  dateRange: "Date",
   followedOnly: "Followed",
   text: "Search",
 } as const;
 
-function chipsOf(f: NewsFilters) {
-  return CHIP_ORDER.flatMap((kind) => {
+function formatDateRangeLabel(dateFrom?: string, dateTo?: string): string {
+  if (dateFrom && dateTo) return `${dateFrom} – ${dateTo}`;
+  if (dateFrom) return `From ${dateFrom}`;
+  return `Until ${dateTo}`;
+}
+
+type NewsChip = { kind: (typeof CHIP_ORDER)[number]; label: string };
+
+function chipsOf(f: NewsFilters): NewsChip[] {
+  const chips: NewsChip[] = [];
+  for (const kind of CHIP_ORDER) {
+    if (kind === "countries") {
+      if (f.countries && f.countries.length > 0) chips.push({ kind, label: f.countries.join(", ") });
+      continue;
+    }
+    if (kind === "dateRange") {
+      if (f.dateFrom || f.dateTo) chips.push({ kind, label: formatDateRangeLabel(f.dateFrom, f.dateTo) });
+      continue;
+    }
     const v = f[kind];
-    if (!v) return [];
+    if (!v) continue;
     const label =
       v === true
         ? "Followed only"
@@ -51,8 +79,9 @@ function chipsOf(f: NewsFilters) {
           : typeof v === "string"
             ? v
             : v.label;
-    return [{ kind, label }];
-  });
+    chips.push({ kind, label });
+  }
+  return chips;
 }
 
 function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
@@ -71,6 +100,7 @@ export default function NewsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allTotal, setAllTotal] = useState<number | null>(null);
+  const [recentShown, setRecentShown] = useState(RECENT_NEWS_PAGE);
   const requestRef = useRef(0);
   const topIdsRef = useRef<number[]>([]);
   const followedCount = usePortfolioStore((st) => st.data?.followed_companies?.length ?? 0);
@@ -150,12 +180,20 @@ export default function NewsPage() {
     setArticles([]);
     setTopStories([]);
     setHasMore(false);
+    setRecentShown(RECENT_NEWS_PAGE);
     void load(filters, 1);
   }, [filters, load]);
 
   const loadMore = useCallback(() => {
     if (hasMore && !loadingMore && !loading) void load(filters, page + 1);
   }, [hasMore, loadingMore, loading, load, filters, page]);
+
+  // Recent news "Load more": reveal the next row of 5, fetching more pages if needed.
+  const loadMoreRecent = useCallback(() => {
+    const nextShown = recentShown + RECENT_NEWS_PAGE;
+    setRecentShown(nextShown);
+    if (nextShown >= articles.length) loadMore();
+  }, [recentShown, articles.length, loadMore]);
 
   const filtered = hasNewsFilters(filters);
   const top = !filtered && topStories.length > 0 ? topStories : null;
@@ -209,7 +247,13 @@ export default function NewsPage() {
                   <button
                     type="button"
                     aria-label={`Remove filter ${chip.label}`}
-                    onClick={() => setFilters((cur) => ({ ...cur, [chip.kind]: undefined }))}
+                    onClick={() =>
+                      setFilters((cur) => {
+                        if (chip.kind === "dateRange") return { ...cur, dateFrom: undefined, dateTo: undefined };
+                        const kind: Exclude<typeof chip.kind, "dateRange"> = chip.kind;
+                        return { ...cur, [kind]: undefined };
+                      })
+                    }
                   >
                     ×
                   </button>
@@ -248,11 +292,21 @@ export default function NewsPage() {
               )}
 
               {!filtered && feed.length > 0 && (
-                <NewsCarousel title="Recent news" rows={RECENT_NEWS_ROWS} onNearEnd={loadMore} loadingMore={loadingMore}>
-                  {feed.map((a) => (
-                    <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
-                  ))}
-                </NewsCarousel>
+                <section aria-labelledby="nw-recent-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <h2 className="nw-section-title" id="nw-recent-h">Recent news</h2>
+                  <div className="nw-feed nw-recent-feed">
+                    {feed.slice(0, recentShown).map((a) => (
+                      <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
+                    ))}
+                  </div>
+                  {(recentShown < feed.length || hasMore) && (
+                    <div className="nw-more">
+                      <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={loadMoreRecent}>
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
+                </section>
               )}
 
               {filtered && (

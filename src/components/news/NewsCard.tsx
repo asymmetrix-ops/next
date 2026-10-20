@@ -83,59 +83,85 @@ function useIaType(id: number, provided?: string) {
   return type;
 }
 
+const IA_LINK_LABEL = "Read I&A analysis";
+
 /**
- * Link to the related I&A piece: the bulb in the piece type's color, labelled
- * "Read our <type>" (e.g. Company Analysis is green). Top Stories cards have
- * room, so they also show the piece's headline.
+ * Link to the related I&A piece: a distinct, clearly clickable pill (bulb +
+ * label), tinted by the piece's type so it reads as a separate action from
+ * the article link underneath it. Same look everywhere it appears (Top
+ * Stories, Recent News, and the daily/weekly email templates).
  */
-function IaLink({ ia, expanded }: { ia: NonNullable<NewsArticle["related_ia"]>; expanded: boolean }) {
+function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
   const type = useIaType(ia.id, ia.contentType);
   const tone = type ? getInsightsTypeTone(type) : NEUTRAL_TONE;
-  const label = type ? `Read our ${type}` : "Read our analysis";
   const headline = ia.headline ? decodeHtmlEntities(ia.headline) : "";
-
-  if (expanded) {
-    return (
-      <Link
-        href={`/article/${ia.id}`}
-        className="nw-ia-panel"
-        style={{ background: tone.fill, borderColor: tone.border }}
-      >
-        <LightBulbIcon aria-hidden="true" style={{ color: tone.text }} />
-        <span className="nw-ia-panel-text">
-          <span className="nw-ia-panel-label" style={{ color: tone.text }}>{label}</span>
-          {headline && <span className="nw-ia-panel-headline">{headline}</span>}
-        </span>
-      </Link>
-    );
-  }
 
   return (
     <Link
       href={`/article/${ia.id}`}
       className="nw-ia"
       style={{ background: tone.fill, borderColor: tone.border, color: tone.text }}
-      title={headline ? `${label}: ${headline}` : label}
+      title={headline ? `${IA_LINK_LABEL}: ${headline}` : IA_LINK_LABEL}
     >
       <LightBulbIcon aria-hidden="true" />
-      {label}
+      {IA_LINK_LABEL}
     </Link>
   );
 }
 
-/** Company-of-focus tags: Deal Radar process stage, then every primary sector. */
+/** Max primary sectors shown before collapsing the rest into a "+n" tag. */
+const SECTOR_TAG_CAP = 3;
+
+/**
+ * Company-of-focus tags: Deal Radar process stage, then up to 3 primary
+ * sectors. Extra sectors collapse into a "+n" button — same click-to-expand
+ * pattern as the Parties column on Corporate Events (`PartyLinks`): click it
+ * to reveal the rest inline, click "Show less" to collapse again.
+ */
 function FocusTags({ tags }: { tags: NonNullable<NewsArticle["focus_tags"]> }) {
+  const [expanded, setExpanded] = useState(false);
   if (!tags.processStage && tags.primarySectors.length === 0) return null;
+  const overflowCount = Math.max(0, tags.primarySectors.length - SECTOR_TAG_CAP);
+  const visibleSectors = expanded ? tags.primarySectors : tags.primarySectors.slice(0, SECTOR_TAG_CAP);
   return (
     <div className="nw-tags">
       {tags.processStage && (
         <span style={researchPillStyleFromTone(getProcessStageTone(tags.processStage))}>{tags.processStage}</span>
       )}
-      {tags.primarySectors.map((sector) => (
+      {visibleSectors.map((sector) => (
         <span className="nw-sector" key={sector}>
           {sector}
         </span>
       ))}
+      {overflowCount > 0 && !expanded && (
+        <button
+          type="button"
+          className="nw-sector-more"
+          aria-expanded={false}
+          aria-label={`Show ${overflowCount} more sectors`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded(true);
+          }}
+        >
+          +{overflowCount}
+        </button>
+      )}
+      {expanded && overflowCount > 0 && (
+        <button
+          type="button"
+          className="nw-sector-less"
+          aria-expanded={true}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded(false);
+          }}
+        >
+          Show less
+        </button>
+      )}
     </div>
   );
 }
@@ -149,7 +175,6 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
   const subTone = subType ? getNewsSubtypeTone(subType) : null;
   const ia = article.related_ia;
   const hasSeries = !!seriesLinks && seriesLinks.length > 0;
-  const iaInFooter = !!ia && variant !== "top";
 
   return (
     <article
@@ -195,12 +220,10 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {article.focus_tags && <FocusTags tags={article.focus_tags} />}
 
-        {ia && variant === "top" && <IaLink ia={ia} expanded />}
-
-        {(iaInFooter || hasSeries) && (
+        {(ia || hasSeries) && (
           <div className="nw-card-foot">
             {hasSeries && <SeriesTag links={seriesLinks!} />}
-            {iaInFooter && <IaLink ia={ia!} expanded={false} />}
+            {ia && <IaLink ia={ia} />}
           </div>
         )}
       </div>
