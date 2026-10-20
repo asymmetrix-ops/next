@@ -1,7 +1,53 @@
 import { authService } from "./auth";
-import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
+import {
+  AdvisorActiveMandate,
+  AdvisorResponse,
+  CorporateEventsResponse,
+} from "../types/advisor";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
+
+function normalizeActiveMandate(raw: Record<string, unknown>): AdvisorActiveMandate {
+  return {
+    radar_id: typeof raw.radar_id === "number" ? raw.radar_id : undefined,
+    company_id: Number(raw.company_id),
+    company_name: String(raw.company_name ?? ""),
+    company_logo: raw.company_logo != null ? String(raw.company_logo) : null,
+    transaction_status_id: Number(raw.transaction_status_id),
+    transaction_status:
+      raw.transaction_status != null ? String(raw.transaction_status) : null,
+    process_stage: raw.process_stage != null ? String(raw.process_stage) : null,
+    set_at: raw.set_at != null ? String(raw.set_at) : null,
+    revenue_m: raw.revenue_m as AdvisorActiveMandate["revenue_m"],
+    revenue_currency:
+      raw.revenue_currency != null ? String(raw.revenue_currency) : null,
+    revenue_year: (raw.revenue_year ?? raw.revenue_fy) as
+      | AdvisorActiveMandate["revenue_year"],
+    revenue_source:
+      raw.revenue_source != null ? String(raw.revenue_source) : null,
+    ev: raw.ev as AdvisorActiveMandate["ev"],
+    ev_currency: raw.ev_currency != null ? String(raw.ev_currency) : null,
+    ev_year: (raw.ev_year ?? raw.ev_fy) as AdvisorActiveMandate["ev_year"],
+    ev_source: raw.ev_source != null ? String(raw.ev_source) : null,
+  };
+}
+
+function normalizeAdvisorResponse(data: unknown): AdvisorResponse {
+  const payload = data as Record<string, unknown>;
+  const mandatesRaw = payload.Active_Mandates ?? payload.Active_mandates;
+  const Active_Mandates = Array.isArray(mandatesRaw)
+    ? mandatesRaw.map((row) =>
+        normalizeActiveMandate(row as Record<string, unknown>)
+      )
+    : [];
+
+  const base = payload as unknown as AdvisorResponse;
+
+  return {
+    ...base,
+    Active_Mandates,
+  };
+}
 
 class AdvisorService {
   private getAuthHeaders() {
@@ -44,7 +90,7 @@ class AdvisorService {
     }
 
     const data = await response.json();
-    return data;
+    return normalizeAdvisorResponse(data);
   }
 
   /**

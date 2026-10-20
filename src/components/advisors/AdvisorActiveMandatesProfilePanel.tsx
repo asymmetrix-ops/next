@@ -6,12 +6,12 @@ import {
   LinkedH,
   Pill,
   T,
-  PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
   profileTableCellStyle,
   profileTableColAlign,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
 } from "@/components/redesign/primitives";
 import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { formatCurrency } from "@/utils/advisorHelpers";
@@ -22,19 +22,8 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL_GAP = PROFILE_EVENTS_ROW_GAP;
-
-const ROW_GRID =
-  "minmax(0, 1fr) minmax(0, 1.15fr) minmax(84px, auto) minmax(0, 0.9fr) minmax(84px, auto) minmax(0, 0.9fr)";
-
-const HEADERS = [
-  "Company",
-  "Status",
-  "Revenue",
-  "Rev. source",
-  "EV",
-  "EV source",
-] as const;
+const ROW_GRID = "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)";
+const HEADERS = ["Company", "EV", "Revenue"] as const;
 
 function colAlign(colIndex: number) {
   return profileTableColAlign(colIndex);
@@ -55,16 +44,11 @@ function formatMetricValue(
   const num = Number(String(value).replace(/,/g, ""));
   if (!Number.isFinite(num)) return null;
   const cur = (currency || "").trim();
-  const base = cur ? formatCurrency(String(num), cur) : `${Math.round(num).toLocaleString()}M`;
+  const base = cur
+    ? formatCurrency(String(num), cur)
+    : `${Math.round(num).toLocaleString()}M`;
   const yr = year != null && String(year).trim() !== "" ? String(year).trim() : null;
   return yr ? `${base} (${yr})` : base;
-}
-
-function sourceDisplayLabel(source: string): string {
-  const src = source.trim();
-  if (src.startsWith("http")) return "Estimate";
-  if (src.length > 22) return `${src.slice(0, 20)}…`;
-  return src;
 }
 
 function sourceTooltip(source: string): string {
@@ -73,68 +57,132 @@ function sourceTooltip(source: string): string {
   return src;
 }
 
-function SourceCell({ source }: { source: string | null | undefined }) {
-  if (isInvalidSource(source)) {
-    return <span style={{ color: T.faint }}>—</span>;
-  }
+function CompanyLogo({ name, logo }: { name: string; logo?: string | null }) {
+  const letter = (name.trim()[0] || "?").toUpperCase();
+  const trimmedLogo = logo?.trim();
+  const src = trimmedLogo
+    ? trimmedLogo.startsWith("data:") || trimmedLogo.startsWith("http")
+      ? trimmedLogo
+      : `data:image/jpeg;base64,${trimmedLogo}`
+    : null;
 
-  const full = source!.trim();
-  const label = sourceDisplayLabel(full);
-  const tooltip = sourceTooltip(full);
-  const needsTooltip = tooltip !== label;
-
-  const text = (
-    <span
+  return (
+    <div
       style={{
+        width: 24,
+        height: 24,
+        borderRadius: 5,
+        background: T.inset,
         color: T.body,
-        fontSize: 12,
-        lineHeight: 1.35,
-        display: "block",
+        fontSize: 11,
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: T.sans,
+        flexShrink: 0,
         overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        maxWidth: "100%",
       }}
     >
-      {label}
-    </span>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={name}
+          width={24}
+          height={24}
+          style={{ objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        letter
+      )}
+    </div>
   );
-
-  if (!needsTooltip && !full.startsWith("http")) {
-    return text;
-  }
-
-  return <HoverTooltip content={tooltip}>{text}</HoverTooltip>;
 }
+
+function shortenStatusLabel(label: string): string {
+  const stripped = label.replace(/^Transaction\s+/i, "");
+  if (stripped === label) return stripped;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+const STATUS_TONE: Record<number, "neutral" | "warn" | "azure" | "coral"> = {
+  1: "azure", // Transaction anticipated
+  2: "warn", // Rumoured in market
+  3: "warn", // Reported in market
+  4: "coral", // In market / strategic review
+};
 
 function MetricCell({
   value,
   currency,
   year,
+  source,
 }: {
   value: number | string | null | undefined;
   currency: string | null | undefined;
   year: number | string | null | undefined;
+  source: string | null | undefined;
 }) {
   const formatted = formatMetricValue(value, currency, year);
-  if (!formatted) {
-    return <span style={{ color: T.faint }}>—</span>;
-  }
 
-  return (
+  const valueNode = (
     <span
       style={{
-        color: T.body,
+        color: formatted ? T.body : T.faint,
         fontVariantNumeric: "tabular-nums",
+        fontWeight: 600,
+        fontSize: 12.5,
         whiteSpace: "nowrap",
       }}
     >
-      {formatted}
+      {formatted ?? "—"}
     </span>
+  );
+
+  if (!formatted || isInvalidSource(source)) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
+        {valueNode}
+      </div>
+    );
+  }
+
+  const tooltip = sourceTooltip(source!);
+
+  return (
+    <HoverTooltip content={tooltip}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          alignItems: "center",
+          cursor: "default",
+        }}
+      >
+        {valueNode}
+        <span
+          style={{
+            fontSize: 10.5,
+            color: T.faint,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+          }}
+        >
+          {source!.trim().startsWith("http") ? "Estimate" : source!.trim()}
+        </span>
+      </div>
+    </HoverTooltip>
   );
 }
 
-export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Props) {
+export function AdvisorActiveMandatesProfilePanel({
+  mandates,
+  fillGridCell,
+}: Props) {
   const count = mandates.length;
 
   return (
@@ -185,7 +233,7 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
               style={{
                 ...tableColHeaderBarStyle,
                 gridTemplateColumns: ROW_GRID,
-                gap: COL_GAP,
+                gap: PROFILE_EVENTS_ROW_GAP,
                 padding: PROFILE_EVENTS_ROW_PAD.header,
               }}
             >
@@ -204,61 +252,82 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
 
             {mandates.map((row, rowIndex) => {
               const isLastRow = rowIndex === mandates.length - 1;
-              const statusLabel =
+              const statusLabel = shortenStatusLabel(
                 (row.transaction_status || "").trim() ||
-                (row.transaction_status_id != null
-                  ? String(row.transaction_status_id)
-                  : "—");
+                  (row.transaction_status_id != null
+                    ? String(row.transaction_status_id)
+                    : "—")
+              );
+              const tone = STATUS_TONE[row.transaction_status_id] ?? "neutral";
+              const companyName =
+                (row.company_name || "").trim() || `Company ${row.company_id}`;
 
               return (
                 <div
-                  key={`${row.company_id}-${row.transaction_status_id}`}
+                  key={
+                    row.radar_id != null
+                      ? `radar-${row.radar_id}`
+                      : `${row.company_id}-${row.transaction_status_id}-${rowIndex}`
+                  }
                   style={{
                     display: "grid",
                     gridTemplateColumns: ROW_GRID,
-                    gap: COL_GAP,
+                    gap: PROFILE_EVENTS_ROW_GAP,
                     alignItems: "center",
                     padding: PROFILE_EVENTS_ROW_PAD.body,
                     borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
-                    <Link
-                      href={`/company/${row.company_id}`}
-                      prefetch={false}
-                      title={(row.company_name || "").trim()}
-                      style={{
-                        color: T.azure,
-                        textDecoration: "underline",
-                        fontWeight: 500,
-                        display: "block",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {(row.company_name || "").trim() || `Company ${row.company_id}`}
-                    </Link>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    <CompanyLogo name={companyName} logo={row.company_logo} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                      <Link
+                        href={`/company/${row.company_id}`}
+                        prefetch={false}
+                        title={companyName}
+                        style={{
+                          color: T.azure,
+                          textDecoration: "underline",
+                          fontWeight: 500,
+                          fontSize: 12.5,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {companyName}
+                      </Link>
+                      <Pill
+                        tone={tone}
+                        style={{
+                          fontSize: 10,
+                          height: "auto",
+                          minHeight: 18,
+                          padding: "1px 7px",
+                          lineHeight: 1.3,
+                          whiteSpace: "nowrap",
+                          alignSelf: "flex-start",
+                        }}
+                      >
+                        {statusLabel}
+                      </Pill>
+                    </div>
                   </div>
 
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
-                    <Pill
-                      tone="neutral"
-                      style={{
-                        fontSize: 12,
-                        height: "auto",
-                        minHeight: 24,
-                        maxWidth: "100%",
-                        padding: "0 10px",
-                        lineHeight: 1.3,
-                        whiteSpace: "normal",
-                        display: "inline-flex",
-                        justifyContent: "center",
-                        textAlign: "center",
-                      }}
-                    >
-                      {statusLabel}
-                    </Pill>
+                    <MetricCell
+                      value={row.ev}
+                      currency={row.ev_currency}
+                      year={row.ev_year}
+                      source={row.ev_source}
+                    />
                   </div>
 
                   <div style={{ textAlign: colAlign(2), minWidth: 0 }}>
@@ -266,23 +335,8 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
                       value={row.revenue_m}
                       currency={row.revenue_currency}
                       year={row.revenue_year}
+                      source={row.revenue_source}
                     />
-                  </div>
-
-                  <div style={{ textAlign: colAlign(3), minWidth: 0 }}>
-                    <SourceCell source={row.revenue_source} />
-                  </div>
-
-                  <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
-                    <MetricCell
-                      value={row.ev}
-                      currency={row.ev_currency}
-                      year={row.ev_year}
-                    />
-                  </div>
-
-                  <div style={{ textAlign: colAlign(5), minWidth: 0 }}>
-                    <SourceCell source={row.ev_source} />
                   </div>
                 </div>
               );

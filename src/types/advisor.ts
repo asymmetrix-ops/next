@@ -1,7 +1,9 @@
 // Main Advisor Response Interface
 export interface AdvisorActiveMandate {
+  radar_id?: number;
   company_id: number;
   company_name: string;
+  company_logo?: string | null;
   transaction_status_id: number;
   transaction_status?: string | null;
   process_stage?: string | null;
