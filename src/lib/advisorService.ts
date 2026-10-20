@@ -1,8 +1,77 @@
 import { authService } from "./auth";
-import { AdvisorResponse, CorporateEventsResponse } from "../types/advisor";
+import {
+  AdvisorActiveMandate,
+  AdvisorResponse,
+  CorporateEventsResponse,
+} from "../types/advisor";
 import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+
+function normalizeMandateKeyPeople(
+  raw: unknown
+): AdvisorActiveMandate["key_people"] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (typeof entry === "string") {
+        const name = entry.trim();
+        return name ? { name } : null;
+      }
+      if (entry && typeof entry === "object") {
+        const obj = entry as Record<string, unknown>;
+        const name =
+          obj.name ??
+          obj.banker_name ??
+          obj.individual_name ??
+          obj.full_name;
+        const id = obj.id ?? obj.individuals_id ?? obj.individual_id;
+        const nameStr = name != null ? String(name).trim() : "";
+        if (!nameStr) return null;
+        return {
+          id: typeof id === "number" ? id : null,
+          name: nameStr,
+        };
+      }
+      return null;
+    })
+    .filter((x): x is { id: number | null; name: string } => x !== null);
+}
+
+function normalizeActiveMandate(
+  raw: Record<string, unknown>
+): AdvisorActiveMandate {
+  return {
+    radar_id: typeof raw.radar_id === "number" ? raw.radar_id : undefined,
+    company_id: Number(raw.company_id),
+    company_name: String(raw.company_name ?? ""),
+    company_logo: raw.company_logo != null ? String(raw.company_logo) : null,
+    transaction_status_id: Number(raw.transaction_status_id),
+    transaction_status:
+      raw.transaction_status != null ? String(raw.transaction_status) : null,
+    process_stage:
+      raw.process_stage != null ? String(raw.process_stage) : null,
+    key_people: normalizeMandateKeyPeople(raw.key_people ?? raw.bankers),
+    set_at: raw.set_at != null ? String(raw.set_at) : null,
+  };
+}
+
+function normalizeAdvisorResponse(data: unknown): AdvisorResponse {
+  const payload = data as Record<string, unknown>;
+  const mandatesRaw = payload.Active_Mandates ?? payload.Active_mandates;
+  const Active_Mandates = Array.isArray(mandatesRaw)
+    ? mandatesRaw.map((row) =>
+        normalizeActiveMandate(row as Record<string, unknown>)
+      )
+    : [];
+
+  const base = payload as unknown as AdvisorResponse;
+
+  return {
+    ...base,
+    Active_Mandates,
+  };
+}
 
 class AdvisorService {
   private getAuthHeaders() {
@@ -45,7 +114,7 @@ class AdvisorService {
     }
 
     const data = await response.json();
-    return data;
+    return normalizeAdvisorResponse(data);
   }
 
   /**

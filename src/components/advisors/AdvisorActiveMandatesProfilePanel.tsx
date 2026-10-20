@@ -6,15 +6,13 @@ import {
   LinkedH,
   Pill,
   T,
-  PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
   profileTableCellStyle,
   profileTableColAlign,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
+  PROFILE_EVENTS_ROW_GAP,
+  PROFILE_EVENTS_ROW_PAD,
 } from "@/components/redesign/primitives";
-import { HoverTooltip } from "@/components/ui/HoverTooltip";
-import { formatCurrency } from "@/utils/advisorHelpers";
 import type { AdvisorActiveMandate } from "@/types/advisor";
 
 type Props = {
@@ -22,119 +20,80 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const COL_GAP = PROFILE_EVENTS_ROW_GAP;
-
 const ROW_GRID =
-  "minmax(0, 1fr) minmax(0, 1.15fr) minmax(84px, auto) minmax(0, 0.9fr) minmax(84px, auto) minmax(0, 0.9fr)";
-
-const HEADERS = [
-  "Company",
-  "Status",
-  "Revenue",
-  "Rev. source",
-  "EV",
-  "EV source",
-] as const;
+  "minmax(0, 1.1fr) minmax(110px, 0.95fr) minmax(0, 0.85fr) minmax(0, 1fr)";
+const HEADERS = ["Company", "Transaction Status", "Process Stage", "Key People"] as const;
 
 function colAlign(colIndex: number) {
   return profileTableColAlign(colIndex);
 }
 
-function isInvalidSource(source: string | null | undefined): boolean {
-  if (!source) return true;
-  const v = source.trim().toLowerCase();
+function isInvalidText(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const v = value.trim().toLowerCase();
   return v === "" || v === "null" || v === "nan";
 }
 
-function formatMetricValue(
-  value: number | string | null | undefined,
-  currency: string | null | undefined,
-  year: number | string | null | undefined
-): string | null {
-  if (value === null || value === undefined || value === "") return null;
-  const num = Number(String(value).replace(/,/g, ""));
-  if (!Number.isFinite(num)) return null;
-  const cur = (currency || "").trim();
-  const base = cur ? formatCurrency(String(num), cur) : `${Math.round(num).toLocaleString()}M`;
-  const yr = year != null && String(year).trim() !== "" ? String(year).trim() : null;
-  return yr ? `${base} (${yr})` : base;
-}
-
-function sourceDisplayLabel(source: string): string {
-  const src = source.trim();
-  if (src.startsWith("http")) return "Estimate";
-  if (src.length > 22) return `${src.slice(0, 20)}…`;
-  return src;
-}
-
-function sourceTooltip(source: string): string {
-  const src = source.trim();
-  if (src.startsWith("http")) return `Estimate — source: ${src}`;
-  return src;
-}
-
-function SourceCell({ source }: { source: string | null | undefined }) {
-  if (isInvalidSource(source)) {
-    return <span style={{ color: T.faint }}>—</span>;
-  }
-
-  const full = source!.trim();
-  const label = sourceDisplayLabel(full);
-  const tooltip = sourceTooltip(full);
-  const needsTooltip = tooltip !== label;
-
-  const text = (
-    <span
-      style={{
-        color: T.body,
-        fontSize: 12,
-        lineHeight: 1.35,
-        display: "block",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        maxWidth: "100%",
-      }}
-    >
-      {label}
-    </span>
-  );
-
-  if (!needsTooltip && !full.startsWith("http")) {
-    return text;
-  }
-
-  return <HoverTooltip content={tooltip}>{text}</HoverTooltip>;
-}
-
-function MetricCell({
-  value,
-  currency,
-  year,
-}: {
-  value: number | string | null | undefined;
-  currency: string | null | undefined;
-  year: number | string | null | undefined;
-}) {
-  const formatted = formatMetricValue(value, currency, year);
-  if (!formatted) {
-    return <span style={{ color: T.faint }}>—</span>;
-  }
+function CompanyLogo({ name, logo }: { name: string; logo?: string | null }) {
+  const letter = (name.trim()[0] || "?").toUpperCase();
+  const trimmedLogo = logo?.trim();
+  const src = trimmedLogo
+    ? trimmedLogo.startsWith("data:") || trimmedLogo.startsWith("http")
+      ? trimmedLogo
+      : `data:image/jpeg;base64,${trimmedLogo}`
+    : null;
 
   return (
-    <span
+    <div
       style={{
+        width: 24,
+        height: 24,
+        borderRadius: 5,
+        background: T.inset,
         color: T.body,
-        fontVariantNumeric: "tabular-nums",
-        whiteSpace: "nowrap",
+        fontSize: 11,
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: T.sans,
+        flexShrink: 0,
+        overflow: "hidden",
       }}
     >
-      {formatted}
-    </span>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={name}
+          width={24}
+          height={24}
+          style={{ objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        letter
+      )}
+    </div>
   );
 }
 
-export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Props) {
+function shortenStatusLabel(label: string): string {
+  const stripped = label.replace(/^Transaction\s+/i, "");
+  if (stripped === label) return stripped;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+const STATUS_TONE: Record<number, "neutral" | "warn" | "azure" | "coral"> = {
+  1: "azure", // Transaction anticipated
+  2: "warn", // Rumoured in market
+  3: "warn", // Reported in market
+  4: "coral", // In market / strategic review
+};
+
+export function AdvisorActiveMandatesProfilePanel({
+  mandates,
+  fillGridCell,
+}: Props) {
   const count = mandates.length;
 
   return (
@@ -185,7 +144,7 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
               style={{
                 ...tableColHeaderBarStyle,
                 gridTemplateColumns: ROW_GRID,
-                gap: COL_GAP,
+                gap: PROFILE_EVENTS_ROW_GAP,
                 padding: PROFILE_EVENTS_ROW_PAD.header,
               }}
             >
@@ -204,57 +163,79 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
 
             {mandates.map((row, rowIndex) => {
               const isLastRow = rowIndex === mandates.length - 1;
-              const statusLabel =
+              const statusLabel = shortenStatusLabel(
                 (row.transaction_status || "").trim() ||
-                (row.transaction_status_id != null
-                  ? String(row.transaction_status_id)
-                  : "—");
+                  (row.transaction_status_id != null
+                    ? String(row.transaction_status_id)
+                    : "—")
+              );
+              const tone = STATUS_TONE[row.transaction_status_id] ?? "neutral";
+              const companyName =
+                (row.company_name || "").trim() || `Company ${row.company_id}`;
+              const processStage = row.process_stage?.trim();
+              const hasProcessStage = !isInvalidText(processStage);
+              const keyPeopleNames = (row.key_people ?? [])
+                .map((p) => (p.name || "").trim())
+                .filter(Boolean);
 
               return (
                 <div
-                  key={`${row.company_id}-${row.transaction_status_id}`}
+                  key={
+                    row.radar_id != null
+                      ? `radar-${row.radar_id}`
+                      : `${row.company_id}-${row.transaction_status_id}-${rowIndex}`
+                  }
                   style={{
                     display: "grid",
                     gridTemplateColumns: ROW_GRID,
-                    gap: COL_GAP,
-                    alignItems: "center",
+                    gap: PROFILE_EVENTS_ROW_GAP,
+                    alignItems: "start",
                     padding: PROFILE_EVENTS_ROW_PAD.body,
                     borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
                   }}
                 >
-                  <div style={{ textAlign: colAlign(0), minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    <CompanyLogo name={companyName} logo={row.company_logo} />
                     <Link
                       href={`/company/${row.company_id}`}
                       prefetch={false}
-                      title={(row.company_name || "").trim()}
+                      title={companyName}
                       style={{
                         color: T.azure,
                         textDecoration: "underline",
                         fontWeight: 500,
-                        display: "block",
+                        fontSize: 12.5,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
+                        minWidth: 0,
                       }}
                     >
-                      {(row.company_name || "").trim() || `Company ${row.company_id}`}
+                      {companyName}
                     </Link>
                   </div>
 
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
                     <Pill
-                      tone="neutral"
+                      tone={tone}
                       style={{
-                        fontSize: 12,
+                        fontSize: 10,
                         height: "auto",
-                        minHeight: 24,
-                        maxWidth: "100%",
-                        padding: "0 10px",
+                        minHeight: 18,
+                        padding: "3px 8px",
                         lineHeight: 1.3,
                         whiteSpace: "normal",
+                        textAlign: "center",
                         display: "inline-flex",
                         justifyContent: "center",
-                        textAlign: "center",
+                        maxWidth: "100%",
                       }}
                     >
                       {statusLabel}
@@ -262,27 +243,46 @@ export function AdvisorActiveMandatesProfilePanel({ mandates, fillGridCell }: Pr
                   </div>
 
                   <div style={{ textAlign: colAlign(2), minWidth: 0 }}>
-                    <MetricCell
-                      value={row.revenue_m}
-                      currency={row.revenue_currency}
-                      year={row.revenue_year}
-                    />
+                    {hasProcessStage ? (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: T.body,
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "inline-block",
+                        }}
+                        title={processStage}
+                      >
+                        {processStage}
+                      </span>
+                    ) : (
+                      <span style={{ color: T.faint }}>—</span>
+                    )}
                   </div>
 
                   <div style={{ textAlign: colAlign(3), minWidth: 0 }}>
-                    <SourceCell source={row.revenue_source} />
-                  </div>
-
-                  <div style={{ textAlign: colAlign(4), minWidth: 0 }}>
-                    <MetricCell
-                      value={row.ev}
-                      currency={row.ev_currency}
-                      year={row.ev_year}
-                    />
-                  </div>
-
-                  <div style={{ textAlign: colAlign(5), minWidth: 0 }}>
-                    <SourceCell source={row.ev_source} />
+                    {keyPeopleNames.length > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: T.body,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "inline-block",
+                        }}
+                        title={keyPeopleNames.join(", ")}
+                      >
+                        {keyPeopleNames.join(", ")}
+                      </span>
+                    ) : (
+                      <span style={{ color: T.faint }}>—</span>
+                    )}
                   </div>
                 </div>
               );
