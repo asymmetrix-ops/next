@@ -106,9 +106,16 @@ export async function POST(req: NextRequest) {
       payload.results_count = body.results_count;
     }
 
+    // The backend requires a JWT on every route: forward the caller's token (header, else the mirrored cookie).
+    const cookieToken = req.cookies.get("asymmetrix_auth_token")?.value;
+    const authHeader =
+      req.headers.get("authorization") || (cookieToken ? `Bearer ${cookieToken}` : "");
     const upstream = await fetch(XANO_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      },
       body: JSON.stringify(payload),
       cache: "no-store",
     });
