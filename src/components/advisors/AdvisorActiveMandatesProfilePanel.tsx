@@ -13,8 +13,6 @@ import {
   PROFILE_EVENTS_ROW_GAP,
   PROFILE_EVENTS_ROW_PAD,
 } from "@/components/redesign/primitives";
-import { HoverTooltip } from "@/components/ui/HoverTooltip";
-import { formatCurrency } from "@/utils/advisorHelpers";
 import type { AdvisorActiveMandate } from "@/types/advisor";
 
 type Props = {
@@ -22,39 +20,18 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const ROW_GRID = "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)";
-const HEADERS = ["Company", "EV", "Revenue"] as const;
+const ROW_GRID =
+  "minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1fr)";
+const HEADERS = ["Company", "Transaction Status", "Process Stage", "Key People"] as const;
 
 function colAlign(colIndex: number) {
   return profileTableColAlign(colIndex);
 }
 
-function isInvalidSource(source: string | null | undefined): boolean {
-  if (!source) return true;
-  const v = source.trim().toLowerCase();
+function isInvalidText(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const v = value.trim().toLowerCase();
   return v === "" || v === "null" || v === "nan";
-}
-
-function formatMetricValue(
-  value: number | string | null | undefined,
-  currency: string | null | undefined,
-  year: number | string | null | undefined
-): string | null {
-  if (value === null || value === undefined || value === "") return null;
-  const num = Number(String(value).replace(/,/g, ""));
-  if (!Number.isFinite(num)) return null;
-  const cur = (currency || "").trim();
-  const base = cur
-    ? formatCurrency(String(num), cur)
-    : `${Math.round(num).toLocaleString()}M`;
-  const yr = year != null && String(year).trim() !== "" ? String(year).trim() : null;
-  return yr ? `${base} (${yr})` : base;
-}
-
-function sourceTooltip(source: string): string {
-  const src = source.trim();
-  if (src.startsWith("http")) return `Estimate — source: ${src}`;
-  return src;
 }
 
 function CompanyLogo({ name, logo }: { name: string; logo?: string | null }) {
@@ -112,72 +89,6 @@ const STATUS_TONE: Record<number, "neutral" | "warn" | "azure" | "coral"> = {
   3: "warn", // Reported in market
   4: "coral", // In market / strategic review
 };
-
-function MetricCell({
-  value,
-  currency,
-  year,
-  source,
-}: {
-  value: number | string | null | undefined;
-  currency: string | null | undefined;
-  year: number | string | null | undefined;
-  source: string | null | undefined;
-}) {
-  const formatted = formatMetricValue(value, currency, year);
-
-  const valueNode = (
-    <span
-      style={{
-        color: formatted ? T.body : T.faint,
-        fontVariantNumeric: "tabular-nums",
-        fontWeight: 600,
-        fontSize: 12.5,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {formatted ?? "—"}
-    </span>
-  );
-
-  if (!formatted || isInvalidSource(source)) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
-        {valueNode}
-      </div>
-    );
-  }
-
-  const tooltip = sourceTooltip(source!);
-
-  return (
-    <HoverTooltip content={tooltip}>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          alignItems: "center",
-          cursor: "default",
-        }}
-      >
-        {valueNode}
-        <span
-          style={{
-            fontSize: 10.5,
-            color: T.faint,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: "100%",
-          }}
-        >
-          {source!.trim().startsWith("http") ? "Estimate" : source!.trim()}
-        </span>
-      </div>
-    </HoverTooltip>
-  );
-}
 
 export function AdvisorActiveMandatesProfilePanel({
   mandates,
@@ -261,6 +172,11 @@ export function AdvisorActiveMandatesProfilePanel({
               const tone = STATUS_TONE[row.transaction_status_id] ?? "neutral";
               const companyName =
                 (row.company_name || "").trim() || `Company ${row.company_id}`;
+              const processStage = row.process_stage?.trim();
+              const hasProcessStage = !isInvalidText(processStage);
+              const keyPeopleNames = (row.key_people ?? [])
+                .map((p) => (p.name || "").trim())
+                .filter(Boolean);
 
               return (
                 <div
@@ -287,56 +203,82 @@ export function AdvisorActiveMandatesProfilePanel({
                     }}
                   >
                     <CompanyLogo name={companyName} logo={row.company_logo} />
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                      <Link
-                        href={`/company/${row.company_id}`}
-                        prefetch={false}
-                        title={companyName}
-                        style={{
-                          color: T.azure,
-                          textDecoration: "underline",
-                          fontWeight: 500,
-                          fontSize: 12.5,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {companyName}
-                      </Link>
-                      <Pill
-                        tone={tone}
-                        style={{
-                          fontSize: 10,
-                          height: "auto",
-                          minHeight: 18,
-                          padding: "1px 7px",
-                          lineHeight: 1.3,
-                          whiteSpace: "nowrap",
-                          alignSelf: "flex-start",
-                        }}
-                      >
-                        {statusLabel}
-                      </Pill>
-                    </div>
+                    <Link
+                      href={`/company/${row.company_id}`}
+                      prefetch={false}
+                      title={companyName}
+                      style={{
+                        color: T.azure,
+                        textDecoration: "underline",
+                        fontWeight: 500,
+                        fontSize: 12.5,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        minWidth: 0,
+                      }}
+                    >
+                      {companyName}
+                    </Link>
                   </div>
 
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
-                    <MetricCell
-                      value={row.ev}
-                      currency={row.ev_currency}
-                      year={row.ev_year}
-                      source={row.ev_source}
-                    />
+                    <Pill
+                      tone={tone}
+                      style={{
+                        fontSize: 10,
+                        height: "auto",
+                        minHeight: 18,
+                        padding: "1px 7px",
+                        lineHeight: 1.3,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {statusLabel}
+                    </Pill>
                   </div>
 
                   <div style={{ textAlign: colAlign(2), minWidth: 0 }}>
-                    <MetricCell
-                      value={row.revenue_m}
-                      currency={row.revenue_currency}
-                      year={row.revenue_year}
-                      source={row.revenue_source}
-                    />
+                    {hasProcessStage ? (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: T.body,
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "inline-block",
+                        }}
+                        title={processStage}
+                      >
+                        {processStage}
+                      </span>
+                    ) : (
+                      <span style={{ color: T.faint }}>—</span>
+                    )}
+                  </div>
+
+                  <div style={{ textAlign: colAlign(3), minWidth: 0 }}>
+                    {keyPeopleNames.length > 0 ? (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: T.body,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "inline-block",
+                        }}
+                        title={keyPeopleNames.join(", ")}
+                      >
+                        {keyPeopleNames.join(", ")}
+                      </span>
+                    ) : (
+                      <span style={{ color: T.faint }}>—</span>
+                    )}
                   </div>
                 </div>
               );

@@ -7,6 +7,36 @@ import {
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn:develop";
 
+function normalizeMandateKeyPeople(
+  raw: unknown
+): AdvisorActiveMandate["key_people"] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (typeof entry === "string") {
+        const name = entry.trim();
+        return name ? { name } : null;
+      }
+      if (entry && typeof entry === "object") {
+        const obj = entry as Record<string, unknown>;
+        const name =
+          obj.name ??
+          obj.banker_name ??
+          obj.individual_name ??
+          obj.full_name;
+        const id = obj.id ?? obj.individuals_id ?? obj.individual_id;
+        const nameStr = name != null ? String(name).trim() : "";
+        if (!nameStr) return null;
+        return {
+          id: typeof id === "number" ? id : null,
+          name: nameStr,
+        };
+      }
+      return null;
+    })
+    .filter((x): x is { id: number | null; name: string } => x !== null);
+}
+
 function normalizeActiveMandate(raw: Record<string, unknown>): AdvisorActiveMandate {
   return {
     radar_id: typeof raw.radar_id === "number" ? raw.radar_id : undefined,
@@ -17,18 +47,8 @@ function normalizeActiveMandate(raw: Record<string, unknown>): AdvisorActiveMand
     transaction_status:
       raw.transaction_status != null ? String(raw.transaction_status) : null,
     process_stage: raw.process_stage != null ? String(raw.process_stage) : null,
+    key_people: normalizeMandateKeyPeople(raw.key_people ?? raw.bankers),
     set_at: raw.set_at != null ? String(raw.set_at) : null,
-    revenue_m: raw.revenue_m as AdvisorActiveMandate["revenue_m"],
-    revenue_currency:
-      raw.revenue_currency != null ? String(raw.revenue_currency) : null,
-    revenue_year: (raw.revenue_year ?? raw.revenue_fy) as
-      | AdvisorActiveMandate["revenue_year"],
-    revenue_source:
-      raw.revenue_source != null ? String(raw.revenue_source) : null,
-    ev: raw.ev as AdvisorActiveMandate["ev"],
-    ev_currency: raw.ev_currency != null ? String(raw.ev_currency) : null,
-    ev_year: (raw.ev_year ?? raw.ev_fy) as AdvisorActiveMandate["ev_year"],
-    ev_source: raw.ev_source != null ? String(raw.ev_source) : null,
   };
 }
 

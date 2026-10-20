@@ -1,4 +1,9 @@
 // Main Advisor Response Interface
+export interface AdvisorActiveMandatePerson {
+  id?: number | null;
+  name?: string | null;
+}
+
 export interface AdvisorActiveMandate {
   radar_id?: number;
   company_id: number;
@@ -7,15 +12,8 @@ export interface AdvisorActiveMandate {
   transaction_status_id: number;
   transaction_status?: string | null;
   process_stage?: string | null;
+  key_people?: AdvisorActiveMandatePerson[];
   set_at?: string | null;
-  revenue_m?: number | string | null;
-  revenue_currency?: string | null;
-  revenue_year?: number | string | null;
-  revenue_source?: string | null;
-  ev?: number | string | null;
-  ev_currency?: string | null;
-  ev_year?: number | string | null;
-  ev_source?: string | null;
 }
 
 export interface AdvisorResponse {
