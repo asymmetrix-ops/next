@@ -24,8 +24,8 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-/** Cards shown per row/click in Recent news. */
-const RECENT_NEWS_PAGE = 5;
+/** Cards shown per row/click in Recent news (4 per row, so descriptions aren't as truncated). */
+const RECENT_NEWS_PAGE = 4;
 
 const CHIP_ORDER = [
   "company",

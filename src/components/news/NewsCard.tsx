@@ -83,17 +83,17 @@ function useIaType(id: number, provided?: string) {
   return type;
 }
 
-const IA_LINK_LABEL = "Read I&A analysis";
-
 /**
  * Link to the related I&A piece: a distinct, clearly clickable pill (bulb +
- * label), tinted by the piece's type so it reads as a separate action from
- * the article link underneath it. Same look everywhere it appears (Top
- * Stories, Recent News, and the daily/weekly email templates).
+ * label naming the piece's type, e.g. "Read our Company Analysis"), tinted to
+ * match so it reads as a separate action from the article link underneath it.
+ * Same look everywhere it appears (Top Stories, Recent News, and the
+ * daily/weekly email templates).
  */
 function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
   const type = useIaType(ia.id, ia.contentType);
   const tone = type ? getInsightsTypeTone(type) : NEUTRAL_TONE;
+  const label = type ? `Read our ${type}` : "Read our analysis";
   const headline = ia.headline ? decodeHtmlEntities(ia.headline) : "";
 
   return (
@@ -101,10 +101,10 @@ function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
       href={`/article/${ia.id}`}
       className="nw-ia"
       style={{ background: tone.fill, borderColor: tone.border, color: tone.text }}
-      title={headline ? `${IA_LINK_LABEL}: ${headline}` : IA_LINK_LABEL}
+      title={headline ? `${label}: ${headline}` : label}
     >
       <LightBulbIcon aria-hidden="true" />
-      {IA_LINK_LABEL}
+      {label}
     </Link>
   );
 }
@@ -113,21 +113,19 @@ function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
 const SECTOR_TAG_CAP = 3;
 
 /**
- * Company-of-focus tags: Deal Radar process stage, then up to 3 primary
- * sectors. Extra sectors collapse into a "+n" button — same click-to-expand
- * pattern as the Parties column on Corporate Events (`PartyLinks`): click it
- * to reveal the rest inline, click "Show less" to collapse again.
+ * Primary sectors of the company of focus: up to 3, on their own row below
+ * the company/status line. Extra sectors collapse into a "+n" button — same
+ * click-to-expand pattern as the Parties column on Corporate Events
+ * (`PartyLinks`): click it to reveal the rest inline, click "Show less" to
+ * collapse again.
  */
-function FocusTags({ tags }: { tags: NonNullable<NewsArticle["focus_tags"]> }) {
+function SectorTags({ sectors }: { sectors: string[] }) {
   const [expanded, setExpanded] = useState(false);
-  if (!tags.processStage && tags.primarySectors.length === 0) return null;
-  const overflowCount = Math.max(0, tags.primarySectors.length - SECTOR_TAG_CAP);
-  const visibleSectors = expanded ? tags.primarySectors : tags.primarySectors.slice(0, SECTOR_TAG_CAP);
+  if (sectors.length === 0) return null;
+  const overflowCount = Math.max(0, sectors.length - SECTOR_TAG_CAP);
+  const visibleSectors = expanded ? sectors : sectors.slice(0, SECTOR_TAG_CAP);
   return (
     <div className="nw-tags">
-      {tags.processStage && (
-        <span style={researchPillStyleFromTone(getProcessStageTone(tags.processStage))}>{tags.processStage}</span>
-      )}
       {visibleSectors.map((sector) => (
         <span className="nw-sector" key={sector}>
           {sector}
@@ -208,17 +206,23 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           </p>
         ) : null}
 
-        {focus && (
+        {focus ? (
           <span className="nw-company">
             <Link href={`/company/${focus.id}`} className="nw-company-link">
               {focus.name}
             </Link>
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
+            {article.focus_tags?.processStage && (
+              <span style={researchPillStyleFromTone(getProcessStageTone(article.focus_tags.processStage))}>
+                {article.focus_tags.processStage}
+              </span>
+            )}
           </span>
+        ) : (
+          variant === "feed" && <span className="nw-company" aria-hidden="true" />
         )}
-        {!focus && variant === "feed" && <span className="nw-company" aria-hidden="true" />}
 
-        {article.focus_tags && <FocusTags tags={article.focus_tags} />}
+        {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
 
         {(ia || hasSeries) && (
           <div className="nw-card-foot">

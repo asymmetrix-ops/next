@@ -56,7 +56,8 @@
 .nw-card:has(.nw-card-title a:focus-visible) { outline: 2px solid #2a46ea; outline-offset: 2px; }
 .nw-strap { margin: 0; font-size: 13.5px; line-height: 1.5; color: #566078; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .nw-card-top .nw-strap { font-size: 14.5px; -webkit-line-clamp: 4; }
-.nw-company { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #1e2536; }
+/* position/z-index: sits above the card's stretched title link, so the flag's hover tooltip actually fires */
+.nw-company { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; font-weight: 600; color: #1e2536; position: relative; z-index: 2; }
 .nw-card-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; position: relative; z-index: 2; }
 
 /*
@@ -91,8 +92,8 @@
 .nw-error { text-align: center; padding: 14px; color: #a62e22; background: #fceae7; border-radius: 12px; font-size: 13.5px; }
 .nw-more { display: flex; justify-content: center; }
 
-.nw-recent-feed { grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 1480px) { .nw-recent-feed { grid-template-columns: repeat(4, 1fr); } }
+/* 4 per row (not 5): gives the description room to show without truncating as much. */
+.nw-recent-feed { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 1100px) { .nw-feed { grid-template-columns: repeat(2, 1fr); } .nw-recent-feed { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) {
   .nw-shell { padding: 16px 12px 40px; }
@@ -145,7 +146,7 @@
 /* Recent-news tile structure: title, two description lines, company, tags, then the I&A link at the bottom */
 .nw-card-feed .nw-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: calc(2 * 1.35em); }
 .nw-card-feed .nw-strap { -webkit-line-clamp: 2; min-height: calc(2 * 1.5em); }
-.nw-card-feed .nw-company { min-height: 20px; }
+.nw-card-feed .nw-company { min-height: 26px; }
 @media (prefers-reduced-motion: reduce) { .nw-carousel { scroll-behavior: auto; } }
 
 /* company-of-focus tags: process-stage + up to 3 sectors + "+n" (capped in JS, so this rarely wraps past 2 rows) */
