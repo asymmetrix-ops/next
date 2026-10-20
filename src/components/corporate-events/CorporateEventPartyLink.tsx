@@ -22,29 +22,80 @@ export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
   className,
   size = COUNTRY_FLAG_INLINE_SIZE_PX,
 }) => {
+  const [tapped, setTapped] = React.useState(false);
   const countryFlagUrl = getCountryFlagUrl(iso2);
   const countryDisplayName = getCountryDisplayName(iso2);
+
+  React.useEffect(() => {
+    if (!tapped) return;
+    const t = window.setTimeout(() => setTapped(false), 2000);
+    const close = () => setTapped(false);
+    document.addEventListener("pointerdown", close, { once: true });
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("pointerdown", close);
+    };
+  }, [tapped]);
+
   if (!countryFlagUrl) return null;
 
   const { width, height } = getCountryFlagDimensions(size);
+  const label = countryDisplayName ?? iso2?.toUpperCase() ?? "";
 
+  // Desktop: native hover tooltip via title. Touch: tapping shows the name bubble.
   return (
-    <img
-      src={countryFlagUrl}
-      alt=""
-      title={countryDisplayName ?? iso2?.toUpperCase() ?? undefined}
-      aria-hidden="true"
-      width={width}
-      height={height}
-      className={cn(INLINE_COUNTRY_FLAG_CLASS, className)}
-      style={{
-        width,
-        height,
-        borderRadius: 2,
-        objectFit: "cover",
-        verticalAlign: "middle",
+    <span
+      title={label}
+      role="img"
+      aria-label={label}
+      onClick={(e) => {
+        // Flags often sit inside links; keep a tap on the flag from navigating.
+        if (window.matchMedia?.("(hover: none)").matches) {
+          e.preventDefault();
+          e.stopPropagation();
+          setTapped(true);
+        }
       }}
-    />
+      className={cn(INLINE_COUNTRY_FLAG_CLASS, className)}
+      style={{ position: "relative", display: "inline-block", width, height }}
+    >
+      <img
+        src={countryFlagUrl}
+        alt=""
+        width={width}
+        height={height}
+        style={{
+          width,
+          height,
+          borderRadius: 2,
+          objectFit: "cover",
+          verticalAlign: "middle",
+          display: "block",
+        }}
+      />
+      {tapped && label ? (
+        <span
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            marginBottom: 4,
+            padding: "2px 6px",
+            borderRadius: 4,
+            background: "#111827",
+            color: "#fff",
+            fontSize: 11,
+            lineHeight: 1.3,
+            whiteSpace: "nowrap",
+            zIndex: 50,
+            pointerEvents: "none",
+          }}
+        >
+          {label}
+        </span>
+      ) : null}
+    </span>
   );
 };
 
