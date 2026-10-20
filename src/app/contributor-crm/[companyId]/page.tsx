@@ -2019,6 +2019,26 @@ function SuggestChangeFieldRow({
 }) {
   const focusLabels = React.useContext(SuggestFocusContext);
   if (focusLabels && !focusLabels.has(label)) return null;
+  if (focusLabels) {
+    // Opened from a pen: one clean column, current value already in the control.
+    return (
+      <div style={{ padding: "14px 0 6px" }}>
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#64748b",
+            marginBottom: "8px",
+          }}
+        >
+          {label}
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
     <div
       className="suggest-change-row"
@@ -2617,6 +2637,7 @@ function buildCompanyChangeDiff({
   companyId,
   companyName,
   formData,
+  baselineFormData,
   primarySectorChips,
   secondarySectorChips,
   investorChips,
@@ -2640,6 +2661,8 @@ function buildCompanyChangeDiff({
   acquisitionTargetChips: InvestorChip[];
   parentCompany?: SuggestCompanySelection;
   currentValues: SuggestChangeCurrentValues;
+  /** Values the form started with; unchanged fields are not part of the change. */
+  baselineFormData?: Record<string, string>;
   productTypeItems?: DraftProductTypeItem[];
   dataCollectionItems?: DraftDataCollectionItem[];
   revenueModelItems?: DraftRevenueModelItem[];
@@ -2659,6 +2682,7 @@ function buildCompanyChangeDiff({
   COMPANY_CHANGE_REQUEST_FIELDS.forEach(({ formKey, payloadKey }) => {
     const nextValue = (formData[formKey] || "").trim();
     if (!nextValue) return;
+    if (nextValue === (baselineFormData?.[formKey] || "").trim()) return;
     oldData[payloadKey] = normalizeSuggestDisplayValue(String(currentValues[formKey] || ""));
     newData[payloadKey] = nextValue;
   });
@@ -6408,6 +6432,7 @@ function SuggestBasicCompanyChangeForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [contributorEmail, setContributorEmail] = useState("");
+  const [contributorNote, setContributorNote] = useState("");
   const isPublicContributor = !authService.getAuthToken();
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [expandedManagementPersonIds, setExpandedManagementPersonIds] = useState<
@@ -6482,16 +6507,31 @@ function SuggestBasicCompanyChangeForm({
       status: "existing" as const,
     }))
   );
-  const [formData, setFormData] = useState({
-    yearFounded: "",
-    website: "",
-    ownership: "",
-    hq: "",
-    lifecycleStage: "",
-    transactionStatus: "",
-    investors: "",
-    description: "",
+  // Opened from a pen: start from what the platform shows today, so the
+  // contributor edits in place. Only values that differ from this baseline
+  // are sent for review.
+  const [initialBasics] = useState(() => {
+    const keep = (v: string) => (v && v !== "Not available" ? v : "");
+    const base = {
+      yearFounded: "",
+      website: "",
+      ownership: "",
+      hq: "",
+      lifecycleStage: "",
+      transactionStatus: "",
+      investors: "",
+      description: "",
+    };
+    if (focusSection === "overview") {
+      base.yearFounded = /^\d{4}$/.test(currentValues.yearFounded) ? currentValues.yearFounded : "";
+      base.website = keep(currentValues.website);
+      base.ownership = keep(currentValues.ownership);
+      base.hq = keep(currentValues.hq);
+    }
+    if (focusSection === "description") base.description = keep(currentValues.description);
+    return base;
   });
+  const [formData, setFormData] = useState(initialBasics);
   const [productTypeItems, setProductTypeItems] = useState<DraftProductTypeItem[]>(() => {
     const mapped = currentValues.productType
       .filter((item) => String(item?.Product_Type || "").trim())
@@ -6746,7 +6786,11 @@ function SuggestBasicCompanyChangeForm({
   const hasRevenueModelChange = initialRevenueModelJson !== currentRevenueModelJson;
 
   const basicFieldCount =
-    Object.values(formData).filter((value) => value.trim() !== "").length +
+    Object.entries(formData).filter(
+      ([key, value]) =>
+        value.trim() !== "" &&
+        value.trim() !== (initialBasics[key as keyof typeof initialBasics] || "").trim()
+    ).length +
     (investorChips.some((c) => c.status !== "existing") ? 1 : 0) +
     (peersCompetitorChips.some((c) => c.status !== "existing") ? 1 : 0) +
     (potentialAcquirerChips.some((c) => c.status !== "existing") ? 1 : 0) +
@@ -7023,6 +7067,7 @@ function SuggestBasicCompanyChangeForm({
         companyId,
         companyName,
         formData,
+        baselineFormData: initialBasics,
         primarySectorChips,
         secondarySectorChips,
         investorChips,
@@ -7105,7 +7150,9 @@ function SuggestBasicCompanyChangeForm({
         new_company_id: Number(companyId),
         submitted_by: submittedBy,
         old: oldPayload,
-        new: newPayload,
+        new: contributorNote.trim()
+          ? { ...newPayload, contributor_note: contributorNote.trim() }
+          : newPayload,
         approved: false,
         reviewed_by: 0,
       });
@@ -7122,7 +7169,7 @@ function SuggestBasicCompanyChangeForm({
             companyName,
           }),
           field_name: "Company Profile",
-          notes: "",
+          notes: contributorNote.trim(),
         });
       } catch (notificationError) {
         // Change request saved; notification failure should not block the contributor.
@@ -7294,15 +7341,63 @@ function SuggestBasicCompanyChangeForm({
     <SuggestFocusContext.Provider value={focusLabels}>
     <div
       className="suggest-change-form"
-      style={{
-        marginBottom: "20px",
-        background: "#fff",
-        borderRadius: "16px",
-        border: "1px solid #dbeafe",
-        boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
-        overflow: "hidden",
-      }}
+      style={
+        focusSection
+          ? { background: "#fff", display: "flex", flexDirection: "column", minHeight: "100%" }
+          : {
+              marginBottom: "20px",
+              background: "#fff",
+              borderRadius: "16px",
+              border: "1px solid #dbeafe",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+              overflow: "hidden",
+            }
+      }
     >
+      {focusSection && (
+        <>
+          <div style={{ padding: "20px 24px 14px", borderBottom: "1px solid #e5e7eb" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+              <div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#64748b",
+                  }}
+                >
+                  {companyName} · Suggest changes
+                </div>
+                <div style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+                  {SUGGEST_SECTION_TITLES[focusSection]}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#64748b",
+                  fontSize: "22px",
+                  lineHeight: 1,
+                  cursor: "pointer",
+                  padding: "2px 6px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div style={{ padding: "12px 24px", background: "#f8fafc", fontSize: "13px", color: "#475569", lineHeight: 1.5 }}>
+            Edit any field you can correct. Changes are reviewed by the Asymmetrix research team before publishing.
+          </div>
+        </>
+      )}
+      {!focusSection && (
       <div
         style={{
           padding: "22px 24px 18px",
@@ -7334,11 +7429,12 @@ function SuggestBasicCompanyChangeForm({
                 : "Suggest a Change"}
             </h3>
             <p style={{ margin: 0, color: "#475569", fontSize: "14px" }}>
-              Review what we currently have in the middle column. Use the right
-              column to propose the correct value — our team will review and
-              apply approved changes.
+              {focusSection
+                ? "Change anything below, then send it for review. Nothing is published until our team approves it."
+                : "Review what we currently have in the middle column. Use the right column to propose the correct value — our team will review and apply approved changes."}
             </p>
           </div>
+          {!focusSection && (
           <button
             type="button"
             onClick={onClose}
@@ -7355,7 +7451,9 @@ function SuggestBasicCompanyChangeForm({
           >
             Close
           </button>
+          )}
         </div>
+        {!focusSection && (
         <div
           style={{
             marginTop: "16px",
@@ -7373,9 +7471,12 @@ function SuggestBasicCompanyChangeForm({
           sectors and investors, you can add new entries or flag existing ones
           for removal.
         </div>
+        )}
       </div>
 
-      <div style={{ padding: "0 24px 20px" }}>
+      )}
+
+      <div style={{ padding: "0 24px 20px", flex: focusSection ? 1 : undefined }}>
         {lookupError && (
           <div
             style={{
@@ -7392,6 +7493,7 @@ function SuggestBasicCompanyChangeForm({
             {lookupError}
           </div>
         )}
+        {!focusSection && (
         <div
           className="suggest-change-header-row"
           style={{
@@ -7436,6 +7538,7 @@ function SuggestBasicCompanyChangeForm({
             Your Update
           </div>
         </div>
+        )}
 
         <SuggestChangeFieldRow
           label="Primary Sector(s)"
@@ -8734,6 +8837,35 @@ function SuggestBasicCompanyChangeForm({
         </div>
         )}
 
+        {focusSection && (
+          <div style={{ paddingTop: "10px" }}>
+            <label style={{ display: "block", padding: "10px 0" }}>
+              <span style={{ display: "block", marginBottom: "8px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                Source or note <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span>
+              </span>
+              <textarea
+                value={contributorNote}
+                onChange={(e) => setContributorNote(e.target.value)}
+                placeholder="e.g. FY2026 audited accounts; press release 12 Mar 2026"
+                rows={3}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
+              />
+            </label>
+            {isPublicContributor && (
+              <label style={{ display: "block", padding: "10px 0" }}>
+                <span style={{ display: "block", marginBottom: "8px", fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>Your email</span>
+                <input
+                  type="email"
+                  value={contributorEmail}
+                  onChange={(e) => setContributorEmail(e.target.value)}
+                  placeholder="Enter your work email"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
+                />
+              </label>
+            )}
+          </div>
+        )}
+        {!focusSection && (
         <div
           style={{
             display: "flex",
@@ -8817,11 +8949,66 @@ function SuggestBasicCompanyChangeForm({
                 fontWeight: 700,
               }}
             >
-              {submitting ? "Submitting..." : "Send Suggestion"}
+              {submitting ? "Submitting..." : focusSection ? "Send for review" : "Send Suggestion"}
             </button>
           </div>
         </div>
+        )}
       </div>
+      {focusSection && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 0,
+            background: "#fff",
+            borderTop: "1px solid #e5e7eb",
+            padding: "14px 24px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+          <span style={{ fontSize: "13px", color: "#64748b" }}>
+            {filledCount > 0 ? `${filledCount} change${filledCount === 1 ? "" : "s"}` : "No changes"}
+          </span>
+          <span style={{ display: "inline-flex", gap: "10px" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: "9px 18px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+                background: "#fff",
+                color: "#334155",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={filledCount === 0 || submitting}
+              onClick={() => void handleSubmit()}
+              style={{
+                padding: "9px 18px",
+                borderRadius: "8px",
+                border: "none",
+                background: filledCount > 0 ? "#1d4ed8" : "#e2e8f0",
+                color: filledCount > 0 ? "#fff" : "#94a3b8",
+                cursor: filledCount > 0 ? "pointer" : "not-allowed",
+                fontSize: "13px",
+                fontWeight: 700,
+              }}
+            >
+              {submitting ? "Saving…" : "Save changes"}
+            </button>
+          </span>
+        </div>
+      )}
     </div>
     {newCompanyModalTargetId !== null && newCompanyModalProfile !== null && (
       <NewCompanyModal
@@ -10182,6 +10369,401 @@ function MarketLandscapeCard({
   );
 }
 
+type MetricsDrawerGroup = "core" | "secondary";
+
+const METRICS_DRAWER_GROUPS: Record<MetricsDrawerGroup, { title: string; groupIndexes: number[] }> = {
+  core: { title: "Financial metrics", groupIndexes: [0] },
+  secondary: { title: "Subscription & other metrics", groupIndexes: [1, 2] },
+};
+
+const DRAWER_LABEL_STYLE: React.CSSProperties = {
+  display: "block",
+  marginBottom: "8px",
+  fontSize: "11px",
+  fontWeight: 600,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#64748b",
+};
+
+const DRAWER_INPUT_STYLE: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  border: "1px solid #cbd5e1",
+  fontSize: "14px",
+  boxSizing: "border-box",
+  background: "#fff",
+};
+
+/** Right-hand panel for editing one financial-metrics card in place. */
+function MetricsCardDrawer({
+  group,
+  companyId,
+  companyName,
+  yearOptions,
+  selectedYearId,
+  onSelectYearId,
+  existingMetricsByYearId,
+  rawExistingMetricsByYearId,
+  isLoadingYearData,
+  onClose,
+}: {
+  group: MetricsDrawerGroup;
+  companyId: string;
+  companyName: string;
+  yearOptions: ContributorYearItem[];
+  selectedYearId: number | null;
+  onSelectYearId: (yearId: number) => void;
+  existingMetricsByYearId: Record<number, Record<string, string>>;
+  rawExistingMetricsByYearId: Record<number, Record<string, unknown>>;
+  isLoadingYearData: boolean;
+  onClose: () => void;
+}) {
+  const isPublicContributor = !authService.getAuthToken();
+  const { title, groupIndexes } = METRICS_DRAWER_GROUPS[group];
+  const sections = groupIndexes.map((i) => CONTRIBUTION_METRIC_GROUPS[i]);
+  const fields = sections.flatMap((g) => g.fields);
+  const rawBaseline =
+    (selectedYearId != null ? existingMetricsByYearId[selectedYearId] : undefined) || {};
+  // Existing values come formatted ("8%", "7.5x"); the unit is already in the label.
+  const baseline: Record<string, string> = Object.fromEntries(
+    Object.entries(rawBaseline).map(([k, v]) => [k, sanitizeContributorMetricValueInput(String(v ?? ""))])
+  );
+  const baselineKey = JSON.stringify(baseline);
+
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [ranges, setRanges] = useState<Record<string, string>>({});
+  const [showRange, setShowRange] = useState<Record<string, boolean>>({});
+  const [notes, setNotes] = useState("");
+  const [email, setEmail] = useState("");
+  const [currencies, setCurrencies] = useState<Array<{ id: number; Currency: string }>>([]);
+  const [currency, setCurrency] = useState("USD");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    contributorFetch("https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_currency")
+      .then((r) => r.json())
+      .then((data: Array<{ id: number; Currency: string }>) => setCurrencies(data))
+      .catch(() => {});
+  }, []);
+
+  // Start from what the platform shows for the chosen year; refill when it changes.
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const f of fields) next[f.key] = String(baseline[f.key] ?? "");
+    setFormData(next);
+    setRanges({});
+    setShowRange({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYearId, baselineKey]);
+
+  const rawOld =
+    (selectedYearId != null ? rawExistingMetricsByYearId[selectedYearId] : undefined) || {};
+  const hasExistingData = hasExistingContributorFinancialMetrics(rawOld);
+  const initialCurrency = (() => {
+    const byId = currencies.find((c) => c.id === Number(rawOld.Rev_Currency));
+    if (byId) return byId.Currency;
+    if (typeof rawOld.currency === "string" && rawOld.currency.trim()) return String(rawOld.currency);
+    return "USD";
+  })();
+  useEffect(() => {
+    setCurrency(initialCurrency);
+  }, [initialCurrency, selectedYearId]);
+
+  const changedKeys = fields
+    .map((f) => f.key)
+    .filter((k) => {
+      const next = (formData[k] ?? "").trim();
+      return next !== "" && next !== String(baseline[k] ?? "").trim();
+    });
+  const rangeKeys = fields
+    .map((f) => f.key)
+    .filter((k) => {
+      const parsed = parseContributionRangeInput((ranges[k] ?? "").trim());
+      return parsed.ok && !parsed.empty;
+    });
+  const changeCount = new Set([...changedKeys, ...rangeKeys]).size;
+  const yearLabel =
+    yearOptions.find((y) => y.id === selectedYearId)?.Year ?? "selected year";
+
+  const submit = async () => {
+    if (selectedYearId == null || changeCount === 0) return;
+    for (const k of Object.keys(ranges)) {
+      const raw = (ranges[k] ?? "").trim();
+      if (!raw) continue;
+      const parsed = parseContributionRangeInput(raw);
+      if (!parsed.ok) {
+        setError(`${findContributionMetricLabel(k)} — range: ${parsed.message}`);
+        return;
+      }
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (isPublicContributor && !/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError("Please enter your email address.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      const token = authService.getAuthToken();
+      const newPayload: Record<string, unknown> = {};
+      for (const k of changedKeys) {
+        newPayload[CONTRIBUTION_FIELD_TO_PAYLOAD_KEY[k] || k] = (formData[k] ?? "").trim();
+      }
+      for (const k of rangeKeys) {
+        const parsed = parseContributionRangeInput((ranges[k] ?? "").trim());
+        if (!parsed.ok || parsed.empty) continue;
+        const lo = Math.min(parsed.low, parsed.high);
+        const hi = Math.max(parsed.low, parsed.high);
+        newPayload[CONTRIBUTION_FIELD_TO_RANGE_PAYLOAD_KEY[k]] = `${lo}-${hi}`;
+      }
+      if (notes.trim()) newPayload.Data_entry_notes = notes.trim();
+      if (!hasExistingData || currency !== initialCurrency) newPayload.currency = currency;
+      newPayload.new_company_id = Number(companyId);
+      newPayload.years_id = selectedYearId;
+
+      const submittedBy =
+        authService.getUser()?.email ||
+        localStorage.getItem("outreach_crm_login_email") ||
+        normalizedEmail;
+
+      await createChangeRequest({
+        entity_type: "financial_metrics",
+        new_company_id: Number(companyId),
+        submitted_by: submittedBy,
+        old: hasExistingData ? rawOld : {},
+        new: newPayload,
+        approved: false,
+        reviewed_by: 0,
+        documents: [],
+        workflow: hasExistingData ? "PATCH" : "POST",
+      });
+      try {
+        const user = authService.getUser();
+        await notifyDataContribution(token, {
+          contributor_name: user?.name?.trim() || "",
+          contributor_email: submittedBy,
+          company_name: companyName,
+          request_url: buildInternalReviewUrl(companyId, {
+            review: true,
+            reviewType: "fin-metrics",
+            companyName,
+          }),
+          field_name: `Financial Metrics (${yearLabel})`,
+          notes: notes.trim(),
+        });
+      } catch (notificationError) {
+        console.error("Data contribution notification failed:", notificationError);
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError((err as Error)?.message || "Failed to submit change request.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const header = (
+    <>
+      <div style={{ padding: "20px 24px 14px", borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+          <div>
+            <div style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+              {companyName} · Suggest changes
+            </div>
+            <div style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>{title}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ border: "none", background: "transparent", color: "#64748b", fontSize: "22px", lineHeight: 1, cursor: "pointer", padding: "2px 6px" }}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+      <div style={{ padding: "12px 24px", background: "#f8fafc", fontSize: "13px", color: "#475569", lineHeight: 1.5 }}>
+        Edit any figure you can correct. Changes are reviewed by the Asymmetrix research team before publishing.
+      </div>
+    </>
+  );
+
+  if (submitted) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+        {header}
+        <div style={{ padding: "40px 24px", textAlign: "center", color: "#334155" }}>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>Thank you</div>
+          Your {yearLabel} figures have been sent to the Asymmetrix research team for review.
+          <div style={{ marginTop: "20px" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1d4ed8", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      {header}
+      <div style={{ padding: "0 24px 20px", flex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "14px 0 6px" }}>
+          <label>
+            <span style={DRAWER_LABEL_STYLE}>Financial year</span>
+            <select
+              value={selectedYearId ?? ""}
+              onChange={(e) => onSelectYearId(Number(e.target.value))}
+              style={DRAWER_INPUT_STYLE}
+            >
+              {yearOptions.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.Year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span style={DRAWER_LABEL_STYLE}>Currency</span>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={DRAWER_INPUT_STYLE}>
+              {(currencies.length ? currencies.map((c) => c.Currency) : ["USD", "EUR", "GBP"]).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {!hasExistingData && !isLoadingYearData && (
+          <div style={{ fontSize: "12px", color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "8px 12px", margin: "8px 0" }}>
+            No figures for {yearLabel} yet, so anything you enter is a first submission.
+          </div>
+        )}
+        {isLoadingYearData && <div style={{ fontSize: "12px", color: "#64748b", padding: "8px 0" }}>Loading {yearLabel} figures…</div>}
+        {sections.map((section) => (
+          <div key={section.label}>
+            {sections.length > 1 && (
+              <div style={{ margin: "18px 0 2px", fontSize: "13px", fontWeight: 700, color: section.color }}>{section.label}</div>
+            )}
+            {section.fields.map((f) => (
+              <div key={f.key} style={{ padding: "12px 0 4px" }}>
+                <span style={DRAWER_LABEL_STYLE}>
+                  {f.label}
+                  {f.suffix ? ` (${f.suffix})` : ""}
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formData[f.key] ?? ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, [f.key]: sanitizeContributorMetricValueInput(e.target.value) }))
+                  }
+                  placeholder={f.placeholder}
+                  style={DRAWER_INPUT_STYLE}
+                />
+                {showRange[f.key] ? (
+                  <input
+                    type="text"
+                    value={ranges[f.key] ?? ""}
+                    onChange={(e) => setRanges((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder="Range, e.g. 10–20 (gap of at most 10)"
+                    style={{ ...DRAWER_INPUT_STYLE, marginTop: "6px" }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowRange((prev) => ({ ...prev, [f.key]: true }))}
+                    style={{ marginTop: "4px", border: "none", background: "transparent", color: "#1d4ed8", fontSize: "12px", cursor: "pointer", padding: 0 }}
+                  >
+                    + Can&apos;t share the exact figure? Give a range
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+        <label style={{ display: "block", padding: "16px 0 6px" }}>
+          <span style={DRAWER_LABEL_STYLE}>
+            Source or note <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span>
+          </span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. FY2026 audited accounts; press release 12 Mar 2026"
+            rows={3}
+            style={DRAWER_INPUT_STYLE}
+          />
+        </label>
+        {isPublicContributor && (
+          <label style={{ display: "block", padding: "10px 0" }}>
+            <span style={DRAWER_LABEL_STYLE}>Your email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your work email"
+              style={DRAWER_INPUT_STYLE}
+            />
+          </label>
+        )}
+        {error && <div style={{ color: "#b91c1c", fontSize: "13px", padding: "6px 0" }}>{error}</div>}
+      </div>
+      <div
+        style={{
+          position: "sticky",
+          bottom: 0,
+          background: "#fff",
+          borderTop: "1px solid #e5e7eb",
+          padding: "14px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
+        <span style={{ fontSize: "13px", color: "#64748b" }}>
+          {changeCount > 0 ? `${changeCount} change${changeCount === 1 ? "" : "s"}` : "No changes"}
+        </span>
+        <span style={{ display: "inline-flex", gap: "10px" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ padding: "9px 18px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#fff", color: "#334155", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={changeCount === 0 || submitting}
+            onClick={() => void submit()}
+            style={{
+              padding: "9px 18px",
+              borderRadius: "8px",
+              border: "none",
+              background: changeCount > 0 ? "#1d4ed8" : "#e2e8f0",
+              color: changeCount > 0 ? "#fff" : "#94a3b8",
+              cursor: changeCount > 0 ? "pointer" : "not-allowed",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            {submitting ? "Saving…" : "Save changes"}
+          </button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SectionPen({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -10285,6 +10867,7 @@ const CompanyDetail = () => {
   const [editSection, setEditSection] = useState<SuggestSectionKey | null>(null);
   // The profile reads like the normal company page; edit mode adds the pens.
   const [profileEditMode, setProfileEditMode] = useState(false);
+  const [metricsDrawer, setMetricsDrawer] = useState<MetricsDrawerGroup | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isDescriptionExpandable, setIsDescriptionExpandable] = useState(false);
@@ -10897,7 +11480,6 @@ const CompanyDetail = () => {
     if (isPublicContributorSession) return;
     if (!shouldOpenReview) return;
     if (loading || !company) return;
-    setShowSuggestChangeForm(true);
     setProfileEditMode(true);
     setActiveTab("company-profile");
   }, [company, isPublicContributorSession, loading, shouldOpenReview]);
@@ -12485,27 +13067,9 @@ const CompanyDetail = () => {
                 >
                   <span>
                     <strong>Edit mode.</strong> Click the <strong>pen</strong> on any card to
-                    suggest a change, or use <strong>Suggest Change</strong> to edit everything
-                    at once. Our team reviews every change before it is published.
+                    change it. Our team reviews every change before it is published.
                   </span>
                   <span style={{ display: "inline-flex", gap: "10px", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSuggestChangeForm((current) => !current)}
-                      style={{
-                        padding: "9px 18px",
-                        backgroundColor: showSuggestChangeForm ? "#1d4ed8" : "#16a34a",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "9px",
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {showSuggestChangeForm ? "Close form" : "Suggest Change"}
-                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -12568,24 +13132,55 @@ const CompanyDetail = () => {
                   </button>
                 </div>
               )}
-              {profileEditMode && showSuggestChangeForm && (
-                <SuggestBasicCompanyChangeForm
-                  companyId={String(company.id)}
-                  companyName={company.name}
-                  currentValues={suggestChangeCurrentValues}
-                  autoExpandAll={shouldOpenReview}
-                  onClose={() => setShowSuggestChangeForm(false)}
-                />
-              )}
               <ContributorCompanyProfile
                 companyId={String(company.id)}
                 editMode={profileEditMode}
                 onEditSection={setEditSection}
-                onEditMetrics={() => {
-                  setActiveTab("contribute-financial-metrics");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
+                onEditMetrics={(g) => setMetricsDrawer(g)}
               />
+              {profileEditMode && metricsDrawer && (
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={() => setMetricsDrawer(null)}
+                  style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15, 23, 42, 0.35)" }}
+                >
+                  <style>{`@keyframes contributorDrawerIn { from { transform: translateX(28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+                  <aside
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: "min(560px, 100vw)",
+                      background: "#fff",
+                      boxShadow: "-12px 0 32px rgba(15, 23, 42, 0.18)",
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      animation: "contributorDrawerIn 0.22s ease-out",
+                    }}
+                  >
+                    <MetricsCardDrawer
+                      key={metricsDrawer}
+                      group={metricsDrawer}
+                      companyId={String(company.id)}
+                      companyName={company.name}
+                      yearOptions={contributorYears}
+                      selectedYearId={selectedContributionYearId}
+                      onSelectYearId={(yearId) => {
+                        setHasUserSelectedContributionYear(true);
+                        setSelectedContributionYearId(yearId);
+                      }}
+                      existingMetricsByYearId={existingMetricsByYearId}
+                      rawExistingMetricsByYearId={rawExistingMetricsByYearId}
+                      isLoadingYearData={loadingContributionYearId === selectedContributionYearId}
+                      onClose={() => setMetricsDrawer(null)}
+                    />
+                  </aside>
+                </div>
+              )}
               {profileEditMode && editSection && (
                 <div
                   role="dialog"
@@ -12595,17 +13190,25 @@ const CompanyDetail = () => {
                     position: "fixed",
                     inset: 0,
                     zIndex: 1000,
-                    background: "rgba(15, 23, 42, 0.55)",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "center",
-                    padding: "5vh 16px",
-                    overflowY: "auto",
+                    background: "rgba(15, 23, 42, 0.35)",
                   }}
                 >
-                  <div
+                  <style>{`@keyframes contributorDrawerIn { from { transform: translateX(28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+                  <aside
                     onClick={(e) => e.stopPropagation()}
-                    style={{ width: "100%", maxWidth: "1100px" }}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: "min(560px, 100vw)",
+                      background: "#fff",
+                      boxShadow: "-12px 0 32px rgba(15, 23, 42, 0.18)",
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      animation: "contributorDrawerIn 0.22s ease-out",
+                    }}
                   >
                     <SuggestBasicCompanyChangeForm
                       key={editSection}
@@ -12616,7 +13219,7 @@ const CompanyDetail = () => {
                       autoExpandAll={editSection === "management" || editSection === "subsidiaries"}
                       onClose={() => setEditSection(null)}
                     />
-                  </div>
+                  </aside>
                 </div>
               )}
             </>

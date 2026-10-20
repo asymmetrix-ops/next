@@ -1280,8 +1280,8 @@ type ContributorCompanyProfileProps = {
   companyId: string;
   /** Pen icon on a card: open the suggest-change form scoped to that section. */
   onEditSection: (section: ContributorProfileSection) => void;
-  /** Pen icon on a financial metrics card: jump to the metrics tab. */
-  onEditMetrics: () => void;
+  /** Pen icon on a financial metrics card: open that card's metrics editor. */
+  onEditMetrics: (group: "core" | "secondary") => void;
   /** Edit mode shows the pens and the "something missing?" strip. Default: off. */
   editMode?: boolean;
 };
@@ -4224,7 +4224,7 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
               style={{ display: "none", marginTop: 0, scrollMarginTop: 24, position: "relative" }}
               className="mobile-financial-metrics"
             >
-              <CardPen label="financial metrics" onClick={onEditMetrics} />
+              <CardPen label="financial metrics" onClick={() => onEditMetrics("core")} />
               <FinMetricsIncomeCard
                 fillGridCell={false}
                 data={finMetricsData}
@@ -4251,7 +4251,7 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                 position: "relative",
               }}
             >
-              <CardPen label="financial metrics" onClick={onEditMetrics} />
+              <CardPen label="financial metrics" onClick={() => onEditMetrics("core")} />
               <FinMetricsPrimaryCard
                 fillGridCell
                 primary={finMetricsData.primary}
@@ -4456,7 +4456,7 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                 events: { label: "corporate events", run: () => onEditSection("events") },
                 subsidiaries: { label: "subsidiaries", run: () => onEditSection("subsidiaries") },
                 management: { label: "management", run: () => onEditSection("management") },
-                fin2: { label: "financial metrics", run: onEditMetrics },
+                fin2: { label: "subscription & other metrics", run: () => onEditMetrics("secondary") },
               };
               const cards: ZoneCard[] = rawCards.map((c) => {
                 const pen = penFor[c.id];
