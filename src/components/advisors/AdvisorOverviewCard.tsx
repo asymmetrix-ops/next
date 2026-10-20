@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
-import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { LinkPanel, LinkedH, KV, T, Pill } from "@/components/redesign/primitives";
+import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 
 export type AdvisorOverviewCardProps = {
   type?: string | null;
@@ -37,20 +37,22 @@ function displayText(value: string | number | null | undefined): React.ReactNode
 function FocusTags({ items, compact }: { items: string[]; compact?: boolean }) {
   if (items.length === 0) return faintDash();
 
-  const compactPillStyle = compact
-    ? { fontSize: 10, height: 20, padding: "0 7px", gap: 4 }
-    : undefined;
-
   return (
-    <CappedPillTags
-      tone="coral"
-      items={items.map((label, i) => ({
-        key: `${label}-${i}`,
-        label,
-      }))}
-      wrap={!compact}
-      pillStyle={compactPillStyle}
-    />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: compact ? 3 : 4, alignItems: "center" }}>
+      {items.map((label) => (
+        <Pill
+          key={label}
+          tone="coral"
+          style={
+            compact
+              ? { fontSize: 10, height: 20, padding: "0 7px", gap: 4 }
+              : undefined
+          }
+        >
+          {label}
+        </Pill>
+      ))}
+    </div>
   );
 }
 
@@ -106,16 +108,13 @@ export function AdvisorOverviewCard({
   fillGridCell = false,
   compact = false,
 }: AdvisorOverviewCardProps) {
-  const hasOwnershipOrTicker = Boolean(ownership?.trim() || ticker?.trim());
-
-  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    { k: "Type", show: !isEmptyDisplayValue(type ?? null), v: displayText(type) },
-    { k: "Focus", show: focus.length > 0, v: <FocusTags items={focus} compact={compact} /> },
-    { k: "Year founded", show: !isEmptyDisplayValue(yearFounded ?? null), v: displayText(yearFounded) },
-    { k: "HQ", show: !isEmptyDisplayValue(hq ?? null), v: displayText(hq) },
+  const rows: { k: string; v: React.ReactNode }[] = [
+    { k: "Type", v: displayText(type) },
+    { k: "Focus", v: <FocusTags items={focus} compact={compact} /> },
+    { k: "Year founded", v: displayText(yearFounded) },
+    { k: "HQ", v: displayText(hq) },
     {
       k: "Website",
-      show: Boolean(website?.trim()),
       v: website?.trim() ? (
         <a
           href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
@@ -125,11 +124,12 @@ export function AdvisorOverviewCard({
         >
           {websiteLabel || website.trim()}
         </a>
-      ) : null,
+      ) : (
+        faintDash()
+      ),
     },
     {
       k: "LinkedIn",
-      show: Boolean(linkedinUrl?.trim()),
       v: linkedinUrl?.trim() ? (
         <a
           href={linkedinUrl.trim()}
@@ -139,11 +139,12 @@ export function AdvisorOverviewCard({
         >
           LinkedIn
         </a>
-      ) : null,
+      ) : (
+        faintDash()
+      ),
     },
     {
       k: "Ownership",
-      show: hasOwnershipOrTicker,
       v: <OwnershipValue ownership={ownership} ticker={ticker} />,
     },
     {
@@ -152,18 +153,18 @@ export function AdvisorOverviewCard({
     },
     {
       k: compact ? "Transactions" : "D&A transactions advised",
-      show: transactionsAdvised != null,
-      v: (
-        <span style={{ fontFamily: T.mono }}>{transactionsAdvised!.toLocaleString("en-US")}</span>
-      ),
+      v:
+        transactionsAdvised != null ? (
+          <span style={{ fontFamily: T.mono }}>{transactionsAdvised.toLocaleString("en-US")}</span>
+        ) : (
+          faintDash()
+        ),
     },
   ];
 
-  const visible = rows.filter((r) => r.show !== false);
-
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>Overview</LinkedH>
+      <LinkedH showArrow>Overview</LinkedH>
       <div
         style={{
           padding: compact ? "0 10px 6px" : "2px 14px 8px",
@@ -178,12 +179,12 @@ export function AdvisorOverviewCard({
             : {}),
         }}
       >
-        {visible.map((row, i) => (
+        {rows.map((row, i) => (
           <KV
             key={row.k}
             k={row.k}
             v={row.v}
-            last={i === visible.length - 1}
+            last={i === rows.length - 1}
             style={
               compact
                 ? {

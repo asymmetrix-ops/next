@@ -16,11 +16,11 @@ import {
   formatDate,
   getAdvisorYearFoundedDisplay,
 } from "../../../utils/advisorHelpers";
-import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
-import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinUrl";
+import type { AdvisorIndividual } from "@/types/advisor";
+import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import {
   EntityLogoTile,
   EntityProfileHeader,
@@ -29,18 +29,14 @@ import {
 } from "@/components/profile/EntityProfileHeader";
 import { readEntityLogo } from "@/lib/companyLogo";
 import { AdvisorOverviewCard } from "@/components/advisors/AdvisorOverviewCard";
+import { useAdvisorDealCounts } from "@/hooks/useAdvisorDealCounts";
 import { AdvisorPeopleCard } from "@/components/advisors/AdvisorPeopleCard";
 import {
   AdvisorDealsProfilePanel,
   type AdvisorDealEvent,
 } from "@/components/advisors/AdvisorDealsProfilePanel";
 import { AdvisorActiveMandatesProfilePanel } from "@/components/advisors/AdvisorActiveMandatesProfilePanel";
-import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
 import type { Advisor, AdvisorActiveMandate, AdvisorRoleRef } from "../../../types/advisor";
-import {
-  formatJobTitlesFromId,
-  getJobTitleStringsFromId,
-} from "@/utils/individualHelpers";
 
 interface LinkedInHistory {
   date: string;
@@ -64,67 +60,12 @@ function formatWebsiteDisplayLabel(raw: string): string {
   }
 }
 
-function computeEmployeeYoYFromMonthly(data: LinkedInHistory[]): string | null {
-  if (!Array.isArray(data) || data.length < 2) return null;
-  const sorted = [...data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  const latest = sorted[sorted.length - 1];
-  const latestCount = latest?.employees_count;
-  if (typeof latestCount !== "number" || latestCount <= 0) return null;
-  const latestT = new Date(latest.date).getTime();
-  const yearMs = 365 * 86_400_000;
-  let best: LinkedInHistory | null = null;
-  let bestDiff = Infinity;
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    const row = sorted[i];
-    const t = new Date(row.date).getTime();
-    const diff = latestT - t;
-    if (diff >= yearMs * 0.85 && diff <= yearMs * 1.15) {
-      const d = Math.abs(diff - yearMs);
-      if (d < bestDiff) {
-        bestDiff = d;
-        best = row;
-      }
-    }
-  }
-  if (!best || typeof best.employees_count !== "number" || best.employees_count <= 0) {
-    return null;
-  }
-  const pct = ((latestCount - best.employees_count) / best.employees_count) * 100;
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? "+" : "";
-  return `${sign}${rounded}% YoY`;
-}
-
-function resolveChartEmployeeCount(data: LinkedInHistory[]): number {
-  if (!Array.isArray(data) || data.length === 0) return 0;
-  const numericData = data.map((e) => e.employees_count);
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filtered = hasAnyNonZero ? numericData.filter((v) => v > 0) : numericData;
-  const lastNonZero = filtered.length > 0 ? filtered[filtered.length - 1]! : 0;
-  const last = numericData[numericData.length - 1] ?? 0;
-  return last > 0 ? last : lastNonZero;
-}
-
 export default function AdvisorProfilePage() {
   const params = useParams();
   const advisorId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const overviewGridRef = useRef<HTMLDivElement>(null);
-  const sideSlotGridRef = useRef<HTMLDivElement>(null);
-  const descriptionGridRef = useRef<HTMLDivElement>(null);
-  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
-    [overviewGridRef, sideSlotGridRef],
-    descriptionGridRef,
-    !isDescriptionExpanded,
-    [advisorId]
-  );
   const [exportingPdf, setExportingPdf] = useState(false);
-  const ADVISOR_PROFILE_TABS = ["Summary", "Deals Advised"] as const;
-  const [activeProfileTab, setActiveProfileTab] =
-    useState<(typeof ADVISOR_PROFILE_TABS)[number]>("Summary");
   const [linkedInHistory, setLinkedInHistory] = useState<LinkedInHistory[]>([]);
   // Roles fetched from the LinkedIn/company endpoint (includes job titles)
   interface RoleItem {
@@ -132,7 +73,9 @@ export default function AdvisorProfilePage() {
     individuals_id: number;
     Individual_text?: string;
     advisor_individuals?: string;
-    job_titles_id?: Array<{ id?: number; job_title: string } | number>;
+    job_titles_id?: unknown;
+    _job_titles?: unknown;
+    job_titles?: unknown;
     linkedin_URL?: string;
     linkedin_url?: string;
     LinkedIn_URL?: string;
@@ -148,16 +91,44 @@ export default function AdvisorProfilePage() {
     return undefined;
   };
 
-  // Delegates to the shared job-title helper, which (unlike a plain
-  // Array.isArray check) also handles `job_titles_id` coming back as a
-  // Postgres array-literal string (e.g. `{"Chief Executive Officer"}`)
-  // instead of a real array — the shape the roles endpoint sometimes uses.
   const formatRoleTitles = (role: RoleItem): string =>
-    formatJobTitlesFromId(role.job_titles_id);
+    formatJobTitlesFromId(role.job_titles_id, role._job_titles ?? role.job_titles);
+
+  const dealCounts = useAdvisorDealCounts(advisorId);
 
   const { advisorData, corporateEvents, loading, error } = useAdvisorProfile({
     advisorId,
   });
+
+  /**
+   * People listed on the advisor profile (`get_the_advisor_new_company`).
+   * That endpoint returns one `Advisors_individuals` list with a per-row
+   * `Status` ("Current" / "Past"); split lists are used when present.
+   */
+  const profileIndividualsFor = (which: "current" | "past"): AdvisorIndividual[] => {
+    const split =
+      which === "current"
+        ? advisorData?.Advisors_individuals_current
+        : advisorData?.Advisors_individuals_past;
+    if (split?.length) return split;
+    return (advisorData?.Advisors_individuals ?? []).filter((individual) => {
+      const isPast = String(individual.Status ?? "").trim().toLowerCase() === "past";
+      return which === "past" ? isPast : !isPast;
+    });
+  };
+
+  const profileTitles = (individual: AdvisorIndividual): string =>
+    formatJobTitlesFromId(individual.job_titles_id, individual._job_titles);
+
+  /** Titles for a person from the profile list, matched by individual id. */
+  const profileTitlesByIndividualId = (individualId?: number): string => {
+    if (!individualId) return "";
+    const match = (advisorData?.Advisors_individuals ?? []).find(
+      (individual) => individual.individuals_id === individualId
+    );
+    return match ? profileTitles(match) : "";
+  };
+
 
   // Removed: handleAdvisorClick (replaced with createClickableElement in list)
 
@@ -312,7 +283,8 @@ export default function AdvisorProfilePage() {
 
       const fromRoles = (roles: RoleItem[]) =>
         roles.map((role) => {
-          const titles = formatRoleTitles(role);
+          const titles =
+            formatRoleTitles(role) || profileTitlesByIndividualId(role.individuals_id);
           return {
             id: role.id,
             individual_id: role.individuals_id,
@@ -323,54 +295,32 @@ export default function AdvisorProfilePage() {
           };
         });
 
-      const fromProfileIndividuals = (
-        arr: Array<{
-          id: number;
-          individuals_id: number;
-          advisor_individuals: string;
-          job_titles_id?: Array<{ id?: number; job_title: string }>;
-        }>
-      ) =>
-        arr.map((individual) => ({
-          id: individual.id,
-          individual_id: individual.individuals_id,
-          name: (individual.advisor_individuals || "").trim() || "Unknown",
-          job_titles: getJobTitleStringsFromId(individual.job_titles_id),
-        }));
+      const fromProfileIndividuals = (arr: AdvisorIndividual[]) =>
+        arr.map((individual) => {
+          const titles = profileTitles(individual);
+          return {
+            id: individual.id,
+            individual_id: individual.individuals_id,
+            name: (individual.advisor_individuals || "").trim() || "Unknown",
+            job_titles: titles ? titles.split(", ") : [],
+            linkedin_url: individual.linkedin_URL?.trim() || null,
+          };
+        });
 
-      let current: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
-      let past: Array<{
-        id: number;
-        individual_id: number;
-        name: string;
-        job_titles: string[];
-      }> = [];
+      let current: ReturnType<typeof fromProfileIndividuals> = [];
+      let past: ReturnType<typeof fromProfileIndividuals> = [];
 
       if (rolesCurrent.length > 0) {
         current = fromRoles(rolesCurrent);
-      } else if (
-        advisorData?.Advisors_individuals_current &&
-        advisorData.Advisors_individuals_current.length > 0
-      ) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals_current);
+      } else if (profileIndividualsFor("current").length > 0) {
+        current = fromProfileIndividuals(profileIndividualsFor("current"));
         fallbacksUsed.push("advisor_profile_current");
-      } else if (advisorData?.Advisors_individuals && advisorData.Advisors_individuals.length > 0) {
-        current = fromProfileIndividuals(advisorData.Advisors_individuals);
-        fallbacksUsed.push("advisor_profile_all");
       }
 
       if (rolesPast.length > 0) {
         past = fromRoles(rolesPast);
-      } else if (
-        advisorData?.Advisors_individuals_past &&
-        advisorData.Advisors_individuals_past.length > 0
-      ) {
-        past = fromProfileIndividuals(advisorData.Advisors_individuals_past);
+      } else if (profileIndividualsFor("past").length > 0) {
+        past = fromProfileIndividuals(profileIndividualsFor("past"));
         fallbacksUsed.push("advisor_profile_past");
       }
 
@@ -496,7 +446,7 @@ export default function AdvisorProfilePage() {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${advisorId}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/Get_new_company/${advisorId}`,
         {
           method: "GET",
           headers: {
@@ -601,7 +551,7 @@ export default function AdvisorProfilePage() {
     );
   }
 
-  const { Advisor, Portfolio_companies_count, Advisors_individuals } = advisorData;
+  const { Advisor, Portfolio_companies_count } = advisorData;
 
   const extractAdvisorFocus = (advisor: Advisor): string[] => {
     const raw = advisor.primary_business_focus_id;
@@ -661,65 +611,38 @@ export default function AdvisorProfilePage() {
     ? (corporateEvents as unknown as AdvisorDealEvent[])
     : [];
 
-  const peopleCurrent = (() => {
-    if (rolesCurrent.length > 0) {
-      return rolesCurrent.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_current?.length) {
-      return advisorData.Advisors_individuals_current.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: formatJobTitlesFromId(individual.job_titles_id),
-        individualId: individual.individuals_id,
-      }));
-    }
-    if (Advisors_individuals?.length) {
-      return Advisors_individuals.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: formatJobTitlesFromId(individual.job_titles_id),
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
+  const mapRolePeople = (roles: RoleItem[]) =>
+    roles.map((role) => ({
+      id: role.id,
+      name: role.advisor_individuals || role.Individual_text || "Unknown",
+      role: formatRoleTitles(role) || profileTitlesByIndividualId(role.individuals_id),
+      individualId: role.individuals_id,
+      linkedinUrl: resolvePersonLinkedIn(role),
+    }));
 
-  const peoplePast = (() => {
-    if (rolesPast.length > 0) {
-      return rolesPast.map((role) => ({
-        id: role.id,
-        name: role.advisor_individuals || role.Individual_text || "Unknown",
-        role: formatRoleTitles(role),
-        individualId: role.individuals_id,
-        linkedinUrl: resolvePersonLinkedIn(role),
-      }));
-    }
-    if (advisorData.Advisors_individuals_past?.length) {
-      return advisorData.Advisors_individuals_past.map((individual) => ({
-        id: individual.id,
-        name: individual.advisor_individuals,
-        role: formatJobTitlesFromId(individual.job_titles_id),
-        individualId: individual.individuals_id,
-      }));
-    }
-    return [];
-  })();
+  const mapProfilePeople = (individuals: AdvisorIndividual[]) =>
+    individuals.map((individual) => ({
+      id: individual.id,
+      name: individual.advisor_individuals,
+      role: profileTitles(individual),
+      individualId: individual.individuals_id,
+      linkedinUrl: normalizeLinkedInProfileUrl(individual.linkedin_URL) ?? undefined,
+    }));
+
+  const peopleCurrent =
+    rolesCurrent.length > 0
+      ? mapRolePeople(rolesCurrent)
+      : mapProfilePeople(profileIndividualsFor("current"));
+
+  const peoplePast =
+    rolesPast.length > 0
+      ? mapRolePeople(rolesPast)
+      : mapProfilePeople(profileIndividualsFor("past"));
+
   const linkedinUrl = normalizeLinkedInProfileUrl(Advisor.linkedin_data?.LinkedIn_URL);
-  const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
-  const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
   const activeMandates: AdvisorActiveMandate[] = Array.isArray(advisorData.Active_Mandates)
     ? advisorData.Active_Mandates
     : [];
-  // Active Mandates isn't ready for real users yet — keep it visible on
-  // develop only. Production shows the LinkedIn headcount graph instead,
-  // as it did before Active Mandates took this grid slot.
-  const showActiveMandates = process.env.NEXT_PUBLIC_ENVIRONMENT === "develop";
 
   const WIDE_ROW_START = 2;
   const dealsGridRow = WIDE_ROW_START;
@@ -743,7 +666,8 @@ export default function AdvisorProfilePage() {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gridTemplateColumns:
+        "minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr)",
       gap: "12px",
       flex: 1,
       maxWidth: "100%",
@@ -756,7 +680,7 @@ export default function AdvisorProfilePage() {
     .advisor-detail-page { overflow-x: hidden; }
     .responsiveGrid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr);
       gap: 12px;
       max-width: 100%;
       align-items: stretch;
@@ -764,7 +688,7 @@ export default function AdvisorProfilePage() {
     .responsiveGrid > * { min-width: 0; min-height: 0; }
     .advisor-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-description { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .advisor-grid-side-slot { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .advisor-grid-active-mandates { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-people { grid-column: 3; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .advisor-grid-deals { grid-column: 1 / span 2; grid-row: ${dealsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .advisor-grid-deals > * { min-width: 0; max-width: 100%; width: 100%; }
@@ -773,7 +697,7 @@ export default function AdvisorProfilePage() {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .advisor-grid-overview,
       .advisor-grid-description,
-      .advisor-grid-side-slot,
+      .advisor-grid-active-mandates,
       .advisor-grid-people,
       .advisor-grid-deals {
         grid-column: 1 / -1 !important;
@@ -829,20 +753,15 @@ export default function AdvisorProfilePage() {
             </a>
           </>
         }
-        tabs={ADVISOR_PROFILE_TABS.map((tab) => ({ id: tab, label: tab }))}
-        activeTab={activeProfileTab}
-        onTabChange={(id) =>
-          setActiveProfileTab(id as (typeof ADVISOR_PROFILE_TABS)[number])
-        }
       />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="advisor-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="advisor-grid-overview" ref={overviewGridRef}>
+            <div className="advisor-grid-overview">
               <AdvisorOverviewCard
                 fillGridCell
+                compact
                 type={extractAdvisorType(Advisor)}
                 focus={extractAdvisorFocus(Advisor)}
                 yearFounded={getAdvisorYearFoundedDisplay(Advisor)}
@@ -861,7 +780,6 @@ export default function AdvisorProfilePage() {
 
             <div
               className="advisor-grid-description"
-              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -869,7 +787,6 @@ export default function AdvisorProfilePage() {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
-                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -881,43 +798,14 @@ export default function AdvisorProfilePage() {
               />
             </div>
 
-            {showActiveMandates ? (
-              <div className="advisor-grid-side-slot" ref={sideSlotGridRef}>
-                <LinkPanel fillGridCell className="advisor-active-mandates-v3-card">
-                  <AdvisorActiveMandatesProfilePanel
-                    fillGridCell
-                    mandates={activeMandates}
-                  />
-                </LinkPanel>
-              </div>
-            ) : (
-              <div className="advisor-grid-side-slot" ref={sideSlotGridRef}>
-                <HeadcountCard
+            <div className="advisor-grid-active-mandates">
+              <LinkPanel fillGridCell className="advisor-active-mandates-v3-card">
+                <AdvisorActiveMandatesProfilePanel
                   fillGridCell
-                  data={linkedInHistory.map((e) => e.employees_count)}
-                  dates={linkedInHistory.map((e) => e.date)}
-                  count={currentHeadcount}
-                  yoyLabel={headcountYoY || undefined}
-                  asOf={(() => {
-                    const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
-                    const ref =
-                      nonZero.length > 0
-                        ? nonZero[nonZero.length - 1]
-                        : linkedInHistory[linkedInHistory.length - 1];
-                    if (!ref?.date) return undefined;
-                    try {
-                      return new Date(ref.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      });
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
-                  linkedinUrl={linkedinUrl}
+                  mandates={activeMandates}
                 />
-              </div>
-            )}
+              </LinkPanel>
+            </div>
 
             <div className="advisor-grid-deals">
               <LinkPanel fillGridCell className="advisor-deals-v3-card">
@@ -925,7 +813,6 @@ export default function AdvisorProfilePage() {
                   variant="summary"
                   events={safeEvents}
                   totalCount={safeEvents.length}
-                  onViewAllClick={() => setActiveProfileTab("Deals Advised")}
                 />
               </LinkPanel>
             </div>
@@ -935,13 +822,11 @@ export default function AdvisorProfilePage() {
                 fillGridCell
                 current={peopleCurrent}
                 past={peoplePast}
-                maxVisible={4}
+                dealCounts={dealCounts}
+                advisorId={advisorId}
               />
             </div>
           </div>
-          ) : (
-            <CorporateEventsPageContent embedded advisorId={Advisor.id} />
-          )}
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
       </main>

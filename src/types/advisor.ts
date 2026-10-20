@@ -108,8 +108,16 @@ export interface AdvisorIndividual {
   id: number;
   individuals_id: number;
   advisor_individuals: string;
-  // Optional job titles array if provided by backend
-  job_titles_id?: Array<{ id?: number; job_title: string }>;
+  /**
+   * Current / Past. `get_the_advisor_new_company` returns a single
+   * `Advisors_individuals` list with this flag instead of split lists.
+   */
+  Status?: string;
+  /** Job title ids only (e.g. the string "[45]") or, on some payloads, objects. */
+  job_titles_id?: string | Array<{ id?: number; job_title: string } | number>;
+  /** Resolved titles, usually a JSON string: '[{"id":45,"job_title":"..."}]' */
+  _job_titles?: string | Array<{ id?: number; job_title: string }>;
+  linkedin_URL?: string;
 }
 
 // Corporate Events Response Interface

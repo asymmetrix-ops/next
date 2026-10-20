@@ -22,45 +22,68 @@ export type AdvisorPerson = {
   linkedinUrl?: string;
 };
 
+
 type Tab = "current" | "past";
 
 type Props = {
   current: AdvisorPerson[];
   past?: AdvisorPerson[];
   fillGridCell?: boolean;
-  maxVisible?: number;
+  /** individual id → deals advised; adds a Deals column on the Current tab. */
+  dealCounts?: Record<number, number>;
+  /** Advisor firm id; scopes the Deals link to deals advised for this firm. */
+  advisorId?: number;
 };
 
 const COL_GAP = 6;
+const DEALS_ROW_GRID = "minmax(0, 1.2fr) minmax(0, 1.2fr) 64px 56px";
 
-function ColHeader() {
+function ColHeader({ showDeals }: { showDeals: boolean }) {
   return (
     <div
       style={{
         ...tableColHeaderBarStyle,
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gridTemplateColumns: showDeals ? DEALS_ROW_GRID : MANAGEMENT_ROW_GRID,
         gap: COL_GAP,
       }}
     >
       <div style={tableColHeaderStyle}>Name</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Role</div>
       <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>LinkedIn</div>
+      {showDeals ? (
+        <div style={{ ...tableColHeaderStyle, textAlign: "center" }}>Deals</div>
+      ) : null}
     </div>
   );
+}
+
+function dealsHref(person: AdvisorPerson, advisorId?: number): string {
+  const params = new URLSearchParams({
+    advised_by_individual_id: String(person.individualId),
+    advised_by_name: person.name,
+  });
+  if (advisorId) params.set("advised_by_company_id", String(advisorId));
+  return `/corporate-events?${params.toString()}`;
 }
 
 function PersonRow({
   person,
   last,
+  showDeals,
+  deals,
+  advisorId,
 }: {
   person: AdvisorPerson;
   last: boolean;
+  showDeals: boolean;
+  deals?: number;
+  advisorId?: number;
 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: MANAGEMENT_ROW_GRID,
+        gridTemplateColumns: showDeals ? DEALS_ROW_GRID : MANAGEMENT_ROW_GRID,
         alignItems: "start",
         gap: COL_GAP,
         padding: "10px 16px",
@@ -113,7 +136,7 @@ function PersonRow({
           paddingTop: 1,
         }}
       >
-        {isEmptyDisplayValue(person.role) ? null : normalizeEmptyDisplay(person.role)}
+        {isEmptyDisplayValue(person.role) ? "-" : normalizeEmptyDisplay(person.role)}
       </div>
       <div
         style={{
@@ -124,6 +147,21 @@ function PersonRow({
       >
         <LinkedInProfileButton href={person.linkedinUrl} />
       </div>
+      {showDeals ? (
+        <div style={{ textAlign: "center", paddingTop: 1 }}>
+          {deals && person.individualId ? (
+            <Link
+              href={dealsHref(person, advisorId)}
+              prefetch={false}
+              style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
+            >
+              {deals}
+            </Link>
+          ) : (
+            "-"
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -163,15 +201,13 @@ export function AdvisorPeopleCard({
   current,
   past = [],
   fillGridCell = false,
-  maxVisible,
+  dealCounts,
+  advisorId,
 }: Props) {
   const [tab, setTab] = useState<Tab>("current");
 
-  const fullList = tab === "current" ? current : past;
-  const [expanded, setExpanded] = useState(false);
-  const needsToggle = Boolean(maxVisible) && fullList.length > (maxVisible ?? 0);
-  const activeList =
-    maxVisible && !expanded ? fullList.slice(0, maxVisible) : fullList;
+  const activeList = tab === "current" ? current : past;
+  const showDeals = tab === "current" && dealCounts !== undefined;
 
   const tabs = useMemo(
     () => [
@@ -183,7 +219,7 @@ export function AdvisorPeopleCard({
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>People</LinkedH>
+      <LinkedH showArrow>People</LinkedH>
 
       <div
         style={{
@@ -198,15 +234,12 @@ export function AdvisorPeopleCard({
             key={item.id}
             active={tab === item.id}
             label={item.label}
-            onClick={() => {
-              setTab(item.id);
-              setExpanded(false);
-            }}
+            onClick={() => setTab(item.id)}
           />
         ))}
       </div>
 
-      <ColHeader />
+      <ColHeader showDeals={showDeals} />
 
       <div style={{ flex: fillGridCell ? 1 : undefined, minHeight: 0 }}>
         {activeList.length > 0 ? (
@@ -215,6 +248,9 @@ export function AdvisorPeopleCard({
               key={`${tab}-${person.id ?? person.individualId ?? index}`}
               person={person}
               last={index === activeList.length - 1}
+              showDeals={showDeals}
+              advisorId={advisorId}
+              deals={person.individualId ? dealCounts?.[person.individualId] : undefined}
             />
           ))
         ) : (
@@ -231,32 +267,6 @@ export function AdvisorPeopleCard({
           </div>
         )}
       </div>
-      {needsToggle && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "10px 0 14px",
-            borderTop: `1px solid ${T.hair}`,
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            style={{
-              background: "none",
-              border: "none",
-              color: T.azure,
-              textDecoration: "underline",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 500,
-              fontFamily: T.sans,
-            }}
-          >
-            {expanded ? "Show less" : "See more"}
-          </button>
-        </div>
-      )}
     </LinkPanel>
   );
 }
