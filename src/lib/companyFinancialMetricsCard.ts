@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { extractCurrencyField } from "@/lib/currencyField";
 import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
@@ -17,7 +18,7 @@ import {
 } from "@/lib/platformCurrency";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
+  `${XANO_HOST}/api:GYQcK4au/company_financial_metrics`;
 
 /** Financials tab and export show the two most recent fiscal years plus YoY. */
 export const FINANCIALS_DISPLAY_YEAR_COUNT = 2;

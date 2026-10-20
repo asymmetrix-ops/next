@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -189,7 +190,7 @@ const CorporateEventDetail = ({
           uniqueIds.map(async (companyId) => {
             try {
               const resp = await fetch(
-                `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${companyId}`,
+                `${XANO_HOST}/api:GYQcK4au/Get_new_company/${companyId}`,
                 {
                   method: "GET",
                   headers: {
@@ -297,7 +298,7 @@ const CorporateEventDetail = ({
           corporate_event_id: evId,
         });
         const qs = new URLSearchParams({ corporate_event_id: String(evId) });
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/content?${qs.toString()}`;
+        const url = `${XANO_HOST}/api:617tZc8l/content?${qs.toString()}`;
         console.log("[Insights & Analysis] GET URL", url);
         const res = await fetch(url, {
           method: "GET",
@@ -870,7 +871,7 @@ const CorporateEventDetail = ({
         if (typeof corporateEventId === "number") {
           params.append("corporate_events_id", String(corporateEventId));
         }
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
+        const url = `${XANO_HOST}/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
         const res = await fetch(url, {
           method: "GET",
           headers: {

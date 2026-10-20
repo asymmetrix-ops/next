@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "@/lib/auth";
 
-const RECENT_ITEMS_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:IRwc7Iiy";
+const RECENT_ITEMS_BASE = `${XANO_HOST}/api:IRwc7Iiy`;
 
 export type RecentItemEntityType =
   | "company"

@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
@@ -86,7 +87,7 @@ const InvestorDetailPage = () => {
         params.append("per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_all_companies?${params.toString()}`,
+          `${XANO_HOST}/api:y4OAXSVm/get_all_companies?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -136,7 +137,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
+          `${XANO_HOST}/api:617tZc8l/get_all_corporate_events?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -185,7 +186,7 @@ const InvestorDetailPage = () => {
         params.append("Per_page", "10");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
+          `${XANO_HOST}/api:Xpykjv0R/get_all_individuals?${params.toString()}`,
           {
             method: "GET",
             headers: {

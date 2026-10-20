@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -5,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const XANO_CHANGE_REQUEST_URL =
   process.env.XANO_CHANGE_REQUEST_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:DmVo_1KR/change_request";
+  `${XANO_HOST}/api:DmVo_1KR/change_request`;
 
 /** Defaults when query params are omitted (matches Xano filter payload). */
 const DEFAULT_CHANGE_REQUEST = {

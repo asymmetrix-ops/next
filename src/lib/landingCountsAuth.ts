@@ -1,9 +1,9 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import { extractAuthToken } from "@/lib/mcpGuestAuthServer";
 
 const XANO_AUTH_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
 let cachedServiceToken: { token: string; expiresAt: number } | null = null;
 

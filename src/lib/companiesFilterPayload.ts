@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type {
   FilterBarState,
   FilterCombineLogic,
@@ -17,7 +18,7 @@ import {
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 
 export const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 type SectorRef = { id: number; sector_name: string };
 type OwnershipTypeRef = { id: number; ownership: string };

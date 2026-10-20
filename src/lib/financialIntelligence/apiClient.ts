@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "@/lib/auth";
 import { readEntityLogo } from "@/lib/companyLogo";
 import {
@@ -39,13 +40,13 @@ import type {
 } from "./types";
 
 const FI_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:UMz0Ao3v";
+  `${XANO_HOST}/api:UMz0Ao3v`;
 
 const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 const COMPANY_FINANCIAL_METRICS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics";
+  `${XANO_HOST}/api:GYQcK4au/company_financial_metrics`;
 
 export interface FiCompanySearchHit {
   id: number;

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
 
@@ -11,7 +12,7 @@ async function fetchArticleMeta(
 ): Promise<{ headline?: string; strapline?: string; image?: string } | null> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/${encodeURIComponent(
+    const url = `${XANO_HOST}/api:Z3F6JUiu/content/${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {

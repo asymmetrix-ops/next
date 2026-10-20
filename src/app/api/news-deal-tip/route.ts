@@ -1,3 +1,4 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequests";
@@ -6,8 +7,7 @@ import { LANDING_CONTACT_EMAIL } from "@/lib/landingContact";
 export const runtime = "nodejs";
 
 const AUTH_API_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
 const DEAL_TIP_TYPE = "Deal Tip";
 

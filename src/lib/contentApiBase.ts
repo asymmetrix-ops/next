@@ -1,4 +1,4 @@
-const XANO_HOST = "https://xdil-abvj-o7rq.e2.xano.io";
+import { XANO_HOST } from "@/lib/apiBase";
 
 /**
  * Content API group — requires user Bearer token.

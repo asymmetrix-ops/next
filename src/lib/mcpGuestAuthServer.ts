@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export const MCP_GUEST_AUTH_API_BASE =
   process.env.MCP_GUEST_AUTH_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  `${XANO_HOST}/api:vnXelut6`;
 
 export const MCP_GUEST_AUTH_ME_URL = `${MCP_GUEST_AUTH_API_BASE}/auth/me`;
 

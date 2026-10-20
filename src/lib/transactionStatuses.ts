@@ -1,5 +1,6 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export const TRANSACTION_STATUSES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/transaction_statuses";
+  `${XANO_HOST}/api:8KyIulob/transaction_statuses`;
 
 export interface TransactionStatusOption {
   id: number;

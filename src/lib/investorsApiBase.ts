@@ -1,2 +1,3 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export const INVESTORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
+  `${XANO_HOST}/api:y4OAXSVm`;

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { CompaniesCountsResponse } from "@/app/companies/actions";
 import {
   companyCountsPayloadToSearchParams,
@@ -28,7 +29,7 @@ export const DEFAULT_COMPANY_UNIVERSE_COUNTS: CompanyUniverseCounts = {
 };
 
 const COMPANIES_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_counts";
+  `${XANO_HOST}/api:GYQcK4au/companies_counts`;
 
 export const DEFAULT_COMPANIES_COUNTS_FILTERS = {
   filters_sql: null,

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "./auth";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 
@@ -178,7 +179,7 @@ class DashboardApiService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr";
+    this.baseUrl = `${XANO_HOST}/api:5YnK3rYr`;
   }
 
   // Make authenticated API request
@@ -247,7 +248,7 @@ class DashboardApiService {
     params.append("portfolio_only", "false");
     params.append("show_followed", "false");
 
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+    const url = `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
     const headers = {
       "Content-Type": "application/json",
@@ -458,7 +459,7 @@ class DashboardApiService {
     }
 
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = `${XANO_HOST}/api:xCPLTQnV`;
     const endpoint = "/Primary_sectors_with_companies_counts";
 
     const authHeaders = authService.getAuthHeaders();
@@ -518,7 +519,7 @@ class DashboardApiService {
 
   async getSectorsOverview(): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = `${XANO_HOST}/api:xCPLTQnV`;
     const endpoint = "/sectors_overview";
 
     const authHeaders = authService.getAuthHeaders();
@@ -573,7 +574,7 @@ class DashboardApiService {
     sectorId: number
   ): Promise<ApiResponse<Record<string, unknown>>> {
     // Use the same authentication method as dashboard API calls
-    const sectorsBaseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+    const sectorsBaseUrl = `${XANO_HOST}/api:xCPLTQnV`;
     const endpoint = `/Get_Sector?Sector_id=${sectorId}`;
 
     const authHeaders = authService.getAuthHeaders();

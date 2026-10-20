@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import type {
   InvestorHoldingPeriodAverageResponse,
@@ -7,7 +8,7 @@ import type {
 } from "@/lib/holdingPeriod";
 
 const HOLDING_PERIOD_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm";
+  `${XANO_HOST}/api:y4OAXSVm`;
 
 async function getServerToken(): Promise<string | null> {
   const cookieStore = await cookies();

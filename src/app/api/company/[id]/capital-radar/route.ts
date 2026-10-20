@@ -1,8 +1,9 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const CAPITAL_RADAR_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:aRPLxo_v";
+  `${XANO_HOST}/api:aRPLxo_v`;
 
 export async function GET(
   request: NextRequest,

@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TiptapSimpleEditor } from "@/components/contributor-crm/ui/TiptapSimpleEditor";
 import {
@@ -185,7 +186,7 @@ export function EmailBuilderModal({ row, onClose }: EmailBuilderModalProps) {
       const headers: HeadersInit = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
+        `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
         { headers }
       );
       if (!res.ok) throw new Error("Failed to fetch articles");

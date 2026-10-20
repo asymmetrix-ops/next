@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 type PublicArticle = {
   id: number;
   Publication_Date?: string;
@@ -9,7 +10,7 @@ const ReportsSection = async () => {
   let items: PublicArticle[] = [];
   try {
     const res = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/All_Content_Articles_home_public",
+      `${XANO_HOST}/api:5YnK3rYr/All_Content_Articles_home_public`,
       { next: { revalidate: 1800 } }
     );
     if (res.ok) {

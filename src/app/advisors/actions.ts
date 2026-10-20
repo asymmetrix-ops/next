@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import {
   advisorsCountsFiltersToSearchParams,
@@ -47,7 +48,7 @@ export interface AdvisorsListResponse {
 }
 
 const ADVISORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+  `${XANO_HOST}/api:Cd_uVQYn`;
 
 function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
   const logo = readLogoFromRecord(item, getAdvisorFieldAliasesForColumn("logo"));

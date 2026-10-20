@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
 
 export function decodeHtmlEntities(input: string): string {
@@ -246,7 +247,7 @@ export function formatCorrectionTimestamp(value?: string | null): string {
   }
 }
 
-const XANO_FILE_ORIGIN = "https://xdil-abvj-o7rq.e2.xano.io";
+const XANO_FILE_ORIGIN = `${XANO_HOST}`;
 
 export type RelatedDocumentLike = {
   access?: string;

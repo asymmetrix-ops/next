@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -20,7 +21,7 @@ function compareValues(a: unknown, b: unknown, dir: SortDirection): number {
 // -------------------------
 
 const PDF_EXPORT_ACTIVITY_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/pdf_export_activity";
+  `${XANO_HOST}/api:T3Zh6ok0/pdf_export_activity`;
 
 type PdfExportRow = {
   export_type: string;
@@ -245,7 +246,7 @@ export function UserActivityTab() {
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
         const resp = await fetch(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/user_activity",
+          `${XANO_HOST}/api:v3Rb5urZ/user_activity`,
           {
             method: "GET",
             headers: {
@@ -462,7 +463,7 @@ export function UserActivityTab() {
 // -------------------------
 
 const PLATFORM_WIDE_SEARCH_ANALYTICS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/platform_wide_search_analytics";
+  `${XANO_HOST}/api:T3Zh6ok0/platform_wide_search_analytics`;
 
 type PlatformWideSearchRow = {
   query: string;
@@ -626,7 +627,7 @@ export function PlatformWideSearchTab() {
 // -------------------------
 
 const COMPANY_SEARCH_ANALYTICS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/get_company_searched";
+  `${XANO_HOST}/api:T3Zh6ok0/get_company_searched`;
 
 /** Turn filters_used JSON into readable text for non-technical users. */
 function formatFiltersUsed(raw: string): string {
@@ -864,7 +865,7 @@ export function CompanySearchTab() {
 // -------------------------
 
 const COMPETITORS_API_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/competitors";
+  `${XANO_HOST}/api:GYQcK4au/competitors`;
 
 type SectorWithName = { id: number; name: string };
 
@@ -1263,7 +1264,7 @@ export function ContentInsightsTab() {
       try {
         const token = localStorage.getItem("asymmetrix_auth_token");
         const url = new URL(
-          "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
+          `${XANO_HOST}/api:T3Zh6ok0/content_insights`
         );
         url.searchParams.set("view", view);
         url.searchParams.set("content_type", selectedContentTypes.join(","));
@@ -2002,27 +2003,27 @@ export function PageInsightsTab() {
   const [search, setSearch] = useState("");
 
   const companiesQ = useInsightsData<PageInsightsCompanyRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/acitvity_by_company",
+    url: `${XANO_HOST}/api:T3Zh6ok0/acitvity_by_company`,
     enabled: view === "Companies",
   });
   const sectorsQ = useInsightsData<PageInsightsSectorRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_sectors",
+    url: `${XANO_HOST}/api:T3Zh6ok0/activity_by_sectors`,
     enabled: view === "Sectors",
   });
   const investorsQ = useInsightsData<PageInsightsInvestorRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_investors",
+    url: `${XANO_HOST}/api:T3Zh6ok0/activity_by_investors`,
     enabled: view === "Investors",
   });
   const advisorsQ = useInsightsData<PageInsightsAdvisorRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/acitivity_by_advisor",
+    url: `${XANO_HOST}/api:T3Zh6ok0/acitivity_by_advisor`,
     enabled: view === "Advisors",
   });
   const individualsQ = useInsightsData<PageInsightsIndividualRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_individual",
+    url: `${XANO_HOST}/api:T3Zh6ok0/activity_by_individual`,
     enabled: view === "Individuals",
   });
   const corporateEventsQ = useInsightsData<PageInsightsCorporateEventRow>({
-    url: "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/activity_by_ce",
+    url: `${XANO_HOST}/api:T3Zh6ok0/activity_by_ce`,
     enabled: view === "Corporate Events",
   });
 

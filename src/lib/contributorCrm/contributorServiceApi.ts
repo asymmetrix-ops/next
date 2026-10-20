@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import {
   contributorFetch,
   contributorFetchJson,
@@ -9,10 +10,10 @@ import type {
 } from "@/lib/contributorCrm/api";
 
 const CONTRIBUTOR_METRICS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:bSPJOS6A";
-const LOOKUP_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+  `${XANO_HOST}/api:bSPJOS6A`;
+const LOOKUP_BASE = `${XANO_HOST}/api:8KyIulob`;
 const NEW_COMPANY_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 /** Contributor-page loaders that always use server-side cron auth. */
 export async function fetchContributorPrimarySectors(): Promise<SectorOption[]> {

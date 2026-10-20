@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- leftovers from the stripped company-page parts; prune later */
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
@@ -1845,7 +1846,7 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
+      const endpoint = `${XANO_HOST}/api:GYQcK4au/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();

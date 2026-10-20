@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { authService } from "@/lib/contributorCrm/auth";
@@ -884,7 +885,7 @@ export function FinMetricsReviewModal({
   }, [row.company_id]);
 
   useEffect(() => {
-    fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_currency")
+    fetch(`${XANO_HOST}/api:8Bv5PK4I/get_currency`)
       .then((r) => r.json())
       .then((list: Array<{ id: number; Currency: string }>) => {
         // value = currency text (e.g. "USD") so editedValues stays as readable text.

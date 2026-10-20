@@ -1,8 +1,9 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import type { XanoStoredFile } from "@/lib/contributorCrm/api";
 
-const XANO_FILE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io";
+const XANO_FILE_BASE_URL = `${XANO_HOST}`;
 
 function getDocumentUrl(document: XanoStoredFile): string | null {
   if (typeof document.url === "string" && document.url.trim() !== "") {

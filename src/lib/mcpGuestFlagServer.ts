@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export {
   normalizeCompanyUrl,
   isValidHttpUrl,
@@ -7,8 +8,8 @@ export { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequest
 
 export const MCP_GUEST_FLAG_IMAGE_API =
   process.env.MCP_GUEST_FLAG_IMAGE_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/images";
+  `${XANO_HOST}/api:qi3EFOZR/images`;
 
 export const MCP_GUEST_AUTH_ME_API =
   process.env.MCP_GUEST_AUTH_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  `${XANO_HOST}/api:vnXelut6`;

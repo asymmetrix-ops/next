@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { useState, useCallback } from "react";
 import type { PortfolioCompany, PaginationState } from "@/types/investor";
 import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
@@ -104,7 +105,7 @@ export const usePortfolioData = (investorId: string) => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_current_partfolio?${params.toString()}`,
+          `${XANO_HOST}/api:y4OAXSVm/get_investors_current_partfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {
@@ -150,7 +151,7 @@ export const usePortfolioData = (investorId: string) => {
         params.append("per_page", "50");
 
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/get_investors_past_portfolio?${params.toString()}`,
+          `${XANO_HOST}/api:y4OAXSVm/get_investors_past_portfolio?${params.toString()}`,
           {
             method: "GET",
             headers: {

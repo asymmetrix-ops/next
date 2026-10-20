@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 
-const NEWS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/news";
+const NEWS_API = `${XANO_HOST}/api:Z3F6JUiu/news`;
 
 export const NEWS_PAGE_SIZE = 18;
 
@@ -218,7 +219,7 @@ export async function fetchNewsFilterOptions(signal?: AbortSignal): Promise<News
 // The feed doesn't return the I&A piece's type yet (ia_content_type). Until it
 // does, look it up once per piece and cache it.
 
-const CONTENT_BY_ID_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+const CONTENT_BY_ID_URL = `${XANO_HOST}/api:Z3F6JUiu/content`;
 const iaTypeCache = new Map<number, Promise<string>>();
 
 export function fetchIaContentType(id: number): Promise<string> {

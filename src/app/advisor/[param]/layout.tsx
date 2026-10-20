@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
 import { readEntityLogo } from "@/lib/companyLogo";
@@ -12,7 +13,7 @@ async function fetchAdvisorMeta(
 ): Promise<{ name?: string; description?: string; logo?: string } | null> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn/get_the_advisor_new_company?new_comp_id=${encodeURIComponent(
+    const url = `${XANO_HOST}/api:Cd_uVQYn/get_the_advisor_new_company?new_comp_id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {

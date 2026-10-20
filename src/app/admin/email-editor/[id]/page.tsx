@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -23,7 +24,7 @@ type JSONTemplate = any;
 // Unlayer requires window — load client-side only
 const EmailEditor = dynamic(() => import("react-email-editor"), { ssr: false });
 
-const XANO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR";
+const XANO_BASE = `${XANO_HOST}/api:qi3EFOZR`;
 const EMAIL_CONTENT_URL = `${XANO_BASE}/email_content`;
 
 const UNLAYER_DESIGN_RE = /<!--\s*UNLAYER_DESIGN:([A-Za-z0-9+/=]+)\s*-->/;

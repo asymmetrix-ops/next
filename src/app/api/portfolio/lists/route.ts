@@ -1,9 +1,9 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 
-const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
+const XANO_PORTFOLIO_BASE = `${XANO_HOST}/api:xbsQ0H4R`;
 const XANO_AUTH_BASE =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
 async function fetchWithAuth(
   url: string,

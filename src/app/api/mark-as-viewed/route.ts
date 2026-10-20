@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -5,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const XANO_MARK_AS_VIEWED_URL =
   process.env.XANO_MARK_AS_VIEWED_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:DmVo_1KR/mark_as_viewed";
+  `${XANO_HOST}/api:DmVo_1KR/mark_as_viewed`;
 
 export async function POST(request: NextRequest) {
   try {

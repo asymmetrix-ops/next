@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
 import { resolveFinancialMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
@@ -11,7 +12,7 @@ import {
 } from "@/lib/platformCurrency";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financials_card";
+  `${XANO_HOST}/api:GYQcK4au/company_financials_card`;
 
 type CardMetricValue = {
   value?: number | string | null;

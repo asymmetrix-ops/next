@@ -1,9 +1,10 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 const XANO_DESCRIPTION_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 function getToken(request: Request) {
   const authHeader = request.headers.get("authorization");

@@ -1,11 +1,12 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { getContributorServiceToken, clearContributorServiceToken } from "@/lib/contributorCrm/server/serviceAuth";
 
 const FIN_METRICS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0";
+  `${XANO_HOST}/api:tDNMS_i0`;
 const COMPANY_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 const XANO_NEW_FILE_ENDPOINT =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/new_file";
+  `${XANO_HOST}/api:Z3F6JUiu/new_file`;
 
 export async function serviceAuthorizedHeaders(
   extra: Record<string, string> = {},

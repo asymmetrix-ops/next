@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export const MCP_GUEST_REQUEST_API_BASE =
   process.env.MCP_GUEST_REQUEST_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:UXwnqlMz/mcp_guest_request";
+  `${XANO_HOST}/api:UXwnqlMz/mcp_guest_request`;
 
 export const MCP_GUEST_REQUEST_STATUS_URL = `${MCP_GUEST_REQUEST_API_BASE}/status`;
 

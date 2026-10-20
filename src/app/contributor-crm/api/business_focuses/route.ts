@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import {
   isContributorCrmReferer,
@@ -7,7 +8,7 @@ import { getContributorServiceToken } from "@/lib/contributorCrm/server/serviceA
 export const dynamic = "force-dynamic";
 
 const BUSINESS_FOCUSES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/business_focuses";
+  `${XANO_HOST}/api:8KyIulob/business_focuses`;
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");

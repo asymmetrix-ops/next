@@ -1,13 +1,14 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { ClientCompanyOption } from "@/app/api/admin/client-companies/route";
 
 const UNIFIED_OVERVIEW_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin_analytics/unified_overview";
+  `${XANO_HOST}/api:v3Rb5urZ/admin_analytics/unified_overview`;
 const COMPANY_SUMMARY_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin_analytics/company_summary";
+  `${XANO_HOST}/api:v3Rb5urZ/admin_analytics/company_summary`;
 
 const UA_PER_PAGE = 25;
 const UA_DRILLDOWN_PER_PAGE = 100;

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
 
@@ -11,7 +12,7 @@ async function fetchSectorMeta(
 ): Promise<{ name?: string; thesis?: string; headline?: string } | null> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Sector?Sector_id=${encodeURIComponent(
+    const url = `${XANO_HOST}/api:xCPLTQnV/Get_Sector?Sector_id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {
@@ -28,7 +29,7 @@ async function fetchSectorMeta(
     // Fetch recent corporate events for this sector to get headline
     let headline: string | undefined;
     try {
-      const eventsUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/Get_Corporate_Events?Primary_sectors_ids=${encodeURIComponent(
+      const eventsUrl = `${XANO_HOST}/api:xCPLTQnV/Get_Corporate_Events?Primary_sectors_ids=${encodeURIComponent(
         id
       )}&Per_page=1&Page=1`;
       const eventsRes = await fetch(eventsUrl, {

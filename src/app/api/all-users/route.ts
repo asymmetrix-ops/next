@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -5,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const XANO_ALL_USERS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/all_users";
+  `${XANO_HOST}/api:jlAOWruI/all_users`;
 
 type NormalizedBasicUser = {
   id: number;

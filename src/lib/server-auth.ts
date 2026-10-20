@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 
 export interface ServerAuthService {
@@ -38,7 +39,7 @@ export const serverAuthService = new ServerAuthServiceImpl();
 
 // API service for server-side use
 export class ServerDashboardApiService {
-  private baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+  private baseUrl = `${XANO_HOST}/api:xCPLTQnV`;
 
   private async request<T>(
     endpoint: string,

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { Metadata, ResolvingMetadata } from "next";
 import { cookies } from "next/headers";
 
@@ -9,7 +10,7 @@ type LayoutProps = {
 async function fetchIndividualName(id: string): Promise<string | undefined> {
   try {
     const token = cookies().get("asymmetrix_auth_token")?.value;
-    const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R/get_individuals_name?individuals_id=${encodeURIComponent(
+    const url = `${XANO_HOST}/api:Xpykjv0R/get_individuals_name?individuals_id=${encodeURIComponent(
       id
     )}`;
     const res = await fetch(url, {

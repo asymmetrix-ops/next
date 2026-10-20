@@ -1,5 +1,6 @@
+import { XANO_HOST } from "@/lib/apiBase";
 const DEFAULT_XANO_DCP_COMPANIES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/analytics/dcp/companies";
+  `${XANO_HOST}/api:v3Rb5urZ/analytics/dcp/companies`;
 
 export type XanoDcpCompany = {
   outreach_sequence_id: number;

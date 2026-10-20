@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { useState, useCallback, useMemo } from "react";
 import type {
   CorporateEvent,
@@ -18,7 +19,7 @@ export const useCorporateEventsData = (investorId: string) => {
       params.append("new_company_id", investorId);
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
+        `${XANO_HOST}/api:y4OAXSVm/Get_investors_corporate_events?${params.toString()}`,
         {
           method: "GET",
           headers: {

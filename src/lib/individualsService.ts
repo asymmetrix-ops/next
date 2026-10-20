@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { IndividualsResponse, IndividualsFilters } from "../types/individuals";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+const BASE_URL = `${XANO_HOST}/api:Xpykjv0R`;
 
 class IndividualsService {
   private getAuthHeaders() {

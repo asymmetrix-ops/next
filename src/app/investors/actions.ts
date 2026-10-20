@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import {
   createDefaultInvestorFilters,
@@ -142,7 +143,7 @@ export async function fetchInvestorTypesServer(): Promise<
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
+      `${XANO_HOST}/api:8KyIulob/Get_investor_types_for_filter`,
       {
         method: "GET",
         headers: {

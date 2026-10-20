@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
@@ -62,7 +63,7 @@ interface SecondarySectorsApiResponse {
   items: SecondarySectorApiItem[];
 }
 
-const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+const API_BASE = `${XANO_HOST}/api:xCPLTQnV`;
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 const LINE = "#E4E8F2";

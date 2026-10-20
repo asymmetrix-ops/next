@@ -1,10 +1,11 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 import {
   clearContributorServiceToken,
   getContributorServiceToken,
 } from "@/lib/contributorCrm/server/serviceAuth";
 
-const XANO_ORIGIN = "https://xdil-abvj-o7rq.e2.xano.io";
+const XANO_ORIGIN = `${XANO_HOST}`;
 
 const GET_API_GROUPS = new Set([
   "GYQcK4au",

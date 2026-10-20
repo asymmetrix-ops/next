@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import AppShell from "@/components/layout/AppShell";
@@ -496,7 +497,7 @@ export default function AdvisorProfilePage() {
       const token = localStorage.getItem("asymmetrix_auth_token");
 
       const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${advisorId}`,
+        `${XANO_HOST}/api:GYQcK4au/Get_new_company/${advisorId}`,
         {
           method: "GET",
           headers: {

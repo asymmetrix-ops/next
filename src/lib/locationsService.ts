@@ -1,8 +1,9 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "./auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
-const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
-const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz";
+const BASE_URL = `${XANO_HOST}/api:8KyIulob/`;
+const REFERENCE_BASE_URL = `${XANO_HOST}/api:8Bv5PK4I`;
+const NEW_COMPANY_BASE = `${XANO_HOST}/api:Zy_LlXuz`;
 
 interface Country {
   id: number;
@@ -867,7 +868,7 @@ class LocationsService {
     const run = async () => {
       // We derive the list from the analytics "content_insights" view that aggregates by content type.
       const url = new URL(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
+        `${XANO_HOST}/api:T3Zh6ok0/content_insights`
       );
       url.searchParams.set("view", "Content Type");
 

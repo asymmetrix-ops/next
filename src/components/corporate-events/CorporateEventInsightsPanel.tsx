@@ -1,11 +1,12 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useEffect, useState } from "react";
 import { T } from "@/components/redesign/primitives";
 import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 
-const CONTENT_DETAIL_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content";
+const CONTENT_DETAIL_URL = `${XANO_HOST}/api:Z3F6JUiu/content`;
 const ENRICH_FIELDS = [
   "companies_mentioned",
   "sectors",

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ type CompanySearchedRow = {
 
 const XANO_ENDPOINT =
   process.env.XANO_COMPANY_SEARCHES_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/get_company_searched";
+  `${XANO_HOST}/api:T3Zh6ok0/get_company_searched`;
 
 export async function GET() {
   try {

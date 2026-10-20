@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
 
 const API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  `${XANO_HOST}/api:vnXelut6`;
 const AUTH_LOGIN_URL = `${API_BASE}/auth/login`;
 const AUTH_ME_URL = `${API_BASE}/auth/me`;
 const AUTH_REQUEST_CLIENT_LOGIN_URL = `${API_BASE}/auth/request-client-login`;
@@ -119,12 +120,12 @@ export async function fetchMe(token: string): Promise<MeResponse> {
 
 // Internal CRM — financial metrics companies (different API base)
 const FIN_METRICS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0";
+  `${XANO_HOST}/api:tDNMS_i0`;
 const CONTRIBUTOR_METRICS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:bSPJOS6A";
+  `${XANO_HOST}/api:bSPJOS6A`;
 const COMPANY_LOOKUP_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
-const LOOKUP_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+  `${XANO_HOST}/api:8Bv5PK4I`;
+const LOOKUP_BASE = `${XANO_HOST}/api:8KyIulob`;
 
 export type SectorOption = { id: number; sector_name: string };
 
@@ -430,7 +431,7 @@ export async function submitFinMetricsPatch(
   }
 }
 
-const CHANGE_REQUEST_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0";
+const CHANGE_REQUEST_BASE = `${XANO_HOST}/api:tDNMS_i0`;
 
 export async function applyCompanyChangeRequest(
   token: string,
@@ -859,7 +860,7 @@ export async function fetchPublicContributorCompany(
   return res.json();
 }
 
-const XANO_FILE_UPLOAD_BASE = "https://xdil-abvj-o7rq.e2.xano.io";
+const XANO_FILE_UPLOAD_BASE = `${XANO_HOST}`;
 const XANO_NEW_FILE_ENDPOINT = `${XANO_FILE_UPLOAD_BASE}/api:Z3F6JUiu/new_file`;
 
 function coerceXanoStoredFile(json: unknown): XanoStoredFile | null {
@@ -1064,7 +1065,7 @@ export async function getCompanyByUrl(
 }
 
 // Email builder: images + email content (different API base)
-const EMAIL_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR";
+const EMAIL_API_BASE = `${XANO_HOST}/api:qi3EFOZR`;
 
 export async function uploadImageToXano(
   token: string,
@@ -1092,7 +1093,7 @@ export async function uploadImageToXano(
     throw new Error("Invalid image upload response");
   }
   if (path.startsWith("/vault/")) {
-    return `https://xdil-abvj-o7rq.e2.xano.io${path}`;
+    return `${XANO_HOST}${path}`;
   }
   return path;
 }
@@ -1318,7 +1319,7 @@ export async function createCrmEmail(
 }
 
 // User emails (searchable list for From/To)
-const USER_EMAILS_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI";
+const USER_EMAILS_BASE = `${XANO_HOST}/api:jlAOWruI`;
 
 export type UserEmailItem = {
   name: string;
@@ -1352,7 +1353,7 @@ export async function getUserEmails(
 
 /** Xano company profile API (GYQcK4au) — transaction status badge. */
 const NEW_COMPANY_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 export type CompanyTransactionStatusBadge = {
   label?: string;

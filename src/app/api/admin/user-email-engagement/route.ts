@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 
 const USER_EMAIL_ENGAGEMENT_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/get_user_email_engagement";
+  `${XANO_HOST}/api:v3Rb5urZ/get_user_email_engagement`;
 
 export const dynamic = "force-dynamic";
 

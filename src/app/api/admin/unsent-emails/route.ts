@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 
 const GET_UNSENT_EMAILS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/get_unsent_emails";
+  `${XANO_HOST}/api:qi3EFOZR/get_unsent_emails`;
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization") ?? "";

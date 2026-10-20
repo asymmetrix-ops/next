@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { decodeJwt, type JWTPayload } from "jose";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
 
 const NEW_CE_ENDPOINT =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/new_corporate_event";
+  `${XANO_HOST}/api:617tZc8l/new_corporate_event`;
 
 function getTokenStatus(token: string | null): string {
   if (!token) return "";

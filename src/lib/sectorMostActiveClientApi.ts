@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type { AdvisorListItem } from "@/app/advisors/actions";
 import type { InvestorListItem } from "@/app/investors/actions";
 import type { Company } from "@/components/companies/CompanySection";
@@ -9,7 +10,7 @@ import {
 } from "@/lib/advisorFilterBuilder";
 import { parseAdvisorSectors } from "@/components/search/searchEntityLinkUtils";
 
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+const SECTOR_API_BASE = `${XANO_HOST}/api:xCPLTQnV`;
 const PAGE_SIZE = 25;
 
 export type SectorMostActiveInvestorKind = "pe" | "venture" | "strategic";

@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   type CompanyColumnType,
@@ -34,7 +35,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 const COLUMN_TYPE_BY_KEY = new Map<string, CompanyColumnType>(
   COMPANIES_COLUMN_CATEGORIES.flatMap((category) =>

@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -267,7 +268,7 @@ export default function AppLeftNav() {
           portfolio_only: "false",
         });
         const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
+          `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

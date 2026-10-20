@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import type { CompanySearchPayload } from "@/lib/filterBuilder";
 import {
@@ -116,7 +117,7 @@ export interface CompaniesCountsResponse {
 }
 
 const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  `${XANO_HOST}/api:GYQcK4au`;
 
 async function getServerToken(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -263,28 +264,28 @@ export async function fetchFilterOptionsServer() {
       continentalRegionsRes,
       subRegionsRes,
     ] = await Promise.all([
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/locations_country", {
+      fetch(`${XANO_HOST}/api:8KyIulob/locations_country`, {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_primary_sectors_dropdown",
+        `${XANO_HOST}/api:8KyIulob/get_all_primary_sectors_dropdown`,
         { headers, cache: "no-store" }
       ),
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_ownership_types", {
+      fetch(`${XANO_HOST}/api:8KyIulob/get_all_ownership_types`, {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_hybrid_business_focuses",
+        `${XANO_HOST}/api:8KyIulob/get_all_hybrid_business_focuses`,
         { headers, cache: "no-store" }
       ),
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_continental_regions", {
+      fetch(`${XANO_HOST}/api:8KyIulob/get_continental_regions`, {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_geographical_sub_regions",
+        `${XANO_HOST}/api:8KyIulob/get_geographical_sub_regions`,
         { headers, cache: "no-store" }
       ),
     ]);

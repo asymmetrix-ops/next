@@ -1,8 +1,9 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { getArticleByline } from "@/lib/contentArticleDisplay";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 
 export const TOP_VIEWED_LANDING_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/content/top-viewed/landing";
+  `${XANO_HOST}/api:Z3F6JUiu/content/top-viewed/landing`;
 
 type RawTopViewedArticle = {
   id?: number;

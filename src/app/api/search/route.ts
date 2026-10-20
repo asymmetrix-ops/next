@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc";
+const BASE = `${XANO_HOST}/api:emt0MLoc`;
 
 const SEARCH_ENDPOINTS: { url: string; type: string }[] = [
   { url: `${BASE}/search_sectors`, type: "sector" },

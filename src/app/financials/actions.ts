@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import type { FinancialScreenerFilters } from "@/components/financial-screener/financialScreenerFilterPayload";
 import { financialScreenerFiltersToSearchParams } from "@/components/financial-screener/financialScreenerFilterPayload";
@@ -76,7 +77,7 @@ export interface FinancialScreenerResponse {
 }
 
 const FINANCIAL_SCREENER_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:J8SXS75g";
+  `${XANO_HOST}/api:J8SXS75g`;
 
 export async function fetchFinancialScreenerServer(
   filters: FinancialScreenerFilters = {}

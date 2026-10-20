@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -5,9 +6,9 @@ export const dynamic = "force-dynamic";
 const POSTMARK_API = "https://api.postmarkapp.com";
 const POSTMARK_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
 const XANO_EMAIL_ALERTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:qi3EFOZR/email_alerts_all";
+  `${XANO_HOST}/api:qi3EFOZR/email_alerts_all`;
 const XANO_USERS_EMAIL_FILTERING_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/users_email_filtering";
+  `${XANO_HOST}/api:jlAOWruI/users_email_filtering`;
 
 const pmHeaders = (token: string) => ({
   "X-Postmark-Server-Token": token,

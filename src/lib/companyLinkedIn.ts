@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export interface CompanyLinkedInProfile {
   logo?: string;
   snapshot_id?: number;
@@ -24,8 +25,8 @@ export interface EmployeeTimeSeriesPoint {
 
 export function getCompanyLinkedInApiBase(): string {
   return process.env.NEXT_PUBLIC_ENVIRONMENT === "develop"
-    ? "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au"
-    : "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+    ? `${XANO_HOST}/api:GYQcK4au`
+    : `${XANO_HOST}/api:GYQcK4au`;
 }
 
 export function mapLinkedInHistoryToTimeSeries(

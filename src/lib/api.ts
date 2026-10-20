@@ -1,3 +1,4 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { authService } from "./auth";
 import { notifySessionExpired } from "./sessionExpired";
 
@@ -19,8 +20,7 @@ class ApiService {
 
   constructor() {
     this.baseUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/5YnK3rYr";
+      xanoApiUrlOr(`${XANO_HOST}/5YnK3rYr`);
     console.log("API Service Base URL:", this.baseUrl); // Debug log
   }
 

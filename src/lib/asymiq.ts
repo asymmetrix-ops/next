@@ -1,5 +1,6 @@
+import { XANO_HOST } from "@/lib/apiBase";
 const ASYMIQ_AGENT_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:SR8tuqs-/call_Company_Profile_Agent";
+  `${XANO_HOST}/api:SR8tuqs-/call_Company_Profile_Agent`;
 
 export type AsymIQAgentResponse = {
   result?: string;

@@ -1,11 +1,11 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
 const AUTH_API_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
 // Alerts / email service (Fly). The key is a server secret: this route is the
 // only place it is used, and the user's id and email come from their own login

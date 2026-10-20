@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -125,7 +126,7 @@ const SubSectorPage = () => {
         params.append("Offset", String(page));
         params.append("Per_page", String(10));
         params.append("Secondary_sectors_ids", String(subSectorId));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        const url = `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
         const resp = await fetch(url, {
           method: "GET",
           headers: {

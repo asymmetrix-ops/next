@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -5,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const XANO_GET_CHANGE_STATE_ALL =
   process.env.XANO_GET_CHANGE_STATE_ALL_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:DmVo_1KR/get_change_state_all";
+  `${XANO_HOST}/api:DmVo_1KR/get_change_state_all`;
 
 const DEFAULT_PAGE = "1";
 const DEFAULT_PER_PAGE = "50";

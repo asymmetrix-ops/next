@@ -1,7 +1,8 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 
 const XANO_PORTFOLIO_BASE_URLS = [
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R",
+  `${XANO_HOST}/api:xbsQ0H4R`,
 ] as const;
 
 const toNonEmptyString = (v: unknown) => {
@@ -54,8 +55,7 @@ async function fetchWithAuthFallback(
 
 async function getUserIdFromToken(token: string) {
   const authApiUrl =
-    process.env.NEXT_PUBLIC_XANO_API_URL ||
-    "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+    xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
   const authResp = await fetchWithAuth(`${authApiUrl}/auth/me`, token, {
     method: "GET",

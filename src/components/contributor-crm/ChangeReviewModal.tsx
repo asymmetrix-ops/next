@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { authService } from "@/lib/contributorCrm/auth";
 import { RequestDocumentsSection } from "@/components/contributor-crm/RequestDocumentsSection";
@@ -3943,7 +3944,7 @@ function processEntityArray(raw: unknown): Record<string, unknown>[] {
     .map((rec) => unwrapEntityRecord(rec as Record<string, unknown>));
 }
 
-const LOCATIONS_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/locations";
+const LOCATIONS_URL = `${XANO_HOST}/api:8KyIulob/locations`;
 
 /**
  * Extract every unique non-empty location string from a set of requests.
@@ -4358,13 +4359,13 @@ export function ChangeReviewModal({ row, onClose, readOnly = false, onApplied }:
     setError(null);
 
     const COUNTERPARTY_ROLE_URL =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/counterparty_advisor_roles";
+      `${XANO_HOST}/api:8KyIulob/counterparty_advisor_roles`;
     const CURRENCY_URL =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/currency_lookup";
+      `${XANO_HOST}/api:8Bv5PK4I/currency_lookup`;
     const JOB_TITLE_URL =
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/job_titles_list";
+      `${XANO_HOST}/api:8Bv5PK4I/job_titles_list`;
     const COMPANY_PROFILE_URL =
-      `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_company/${row.company_id}`;
+      `${XANO_HOST}/api:GYQcK4au/Get_new_company/${row.company_id}`;
 
     Promise.all([
       getCompanyChangeRequestSummaries(token, row.company_id),

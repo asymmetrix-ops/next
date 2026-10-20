@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "./auth";
 import {
   CorporateEventsResponse,
@@ -9,7 +10,7 @@ import {
   readPlatformCurrencyIdClient,
 } from "@/lib/platformCurrency";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+const BASE_URL = `${XANO_HOST}/api:617tZc8l`;
 
 class CorporateEventsService {
   private getAuthHeaders() {

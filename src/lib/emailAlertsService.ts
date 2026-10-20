@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "./auth";
 import { isMcpGuestSession, MCP_GUEST_OTP_LOGIN_PATH } from "./mcpGuest";
 import type {
@@ -234,7 +235,7 @@ class EmailAlertsService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu";
+    this.baseUrl = `${XANO_HOST}/api:1-YVocmu`;
   }
 
   private async requestAppRoute<T>(

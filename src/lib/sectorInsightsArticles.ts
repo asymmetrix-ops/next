@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import type {
   ContentArticle,
   InsightsAnalysisFilters,
@@ -5,10 +6,10 @@ import type {
 } from "@/types/insightsAnalysis";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 export const SECTOR_INSIGHTS_ARTICLES_API =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors";
+  `${XANO_HOST}/api:Z3F6JUiu/articles_based_on_sectors`;
 
 export const CONTENT_ARTICLES_API =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
+  `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles`;
 
 export function isSecondarySectorImportance(sectorImportance?: string): boolean {
   return (sectorImportance || "").toLowerCase().includes("secondary");

@@ -1,3 +1,4 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
@@ -12,8 +13,7 @@ import { USERS_DATA_RESEARCH_REQUESTS_URL } from "@/lib/usersDataResearchRequest
 export const runtime = "nodejs";
 
 const AUTH_API_URL =
-  process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+  xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
 type RequestPayload = {
   tab?: unknown;

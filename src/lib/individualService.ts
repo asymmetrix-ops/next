@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import {
   IndividualResponse,
   IndividualEventsResponse,
@@ -16,7 +17,7 @@ import {
 } from "./normalizeCounterpartyCorporateEvents";
 import { readPlatformCurrencyIdClient } from "./platformCurrency";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+const BASE_URL = `${XANO_HOST}/api:Xpykjv0R`;
 
 const PLACEHOLDER_INDIVIDUAL_NAME = /^Individual \d+$/;
 

@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 
 const GET_CLIENT_COMPANIES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI/get_client_companies";
+  `${XANO_HOST}/api:jlAOWruI/get_client_companies`;
 
 type XanoClientCompanyRow = {
   user_Company1?: number;

@@ -1,3 +1,4 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
 import { MCP_GUEST_AUTH_ME_URL } from "@/lib/mcpGuestAuthServer";
@@ -75,8 +76,7 @@ class AuthService {
     }
 
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     let user: AuthUser;
     try {
@@ -141,8 +141,7 @@ class AuthService {
   async login(email: string, password: string): Promise<LoginResponse> {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     const response = await fetch(`${apiUrl}/auth/login`, {
       method: "POST",
@@ -264,8 +263,7 @@ class AuthService {
   ): Promise<LoginResponse> {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     const response = await fetch(`${apiUrl}/auth/signup`, {
       method: "POST",
@@ -318,8 +316,7 @@ class AuthService {
     const token = this.getToken();
     if (!token) return null;
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
     try {
       const userResponse = await fetch(`${apiUrl}/auth/me`, {
         method: "GET",
@@ -345,8 +342,7 @@ class AuthService {
     name?: string
   ): Promise<LoginResponse> {
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     const response = await fetch(`${apiUrl}/auth/signup`, {
       method: "POST",
@@ -368,8 +364,7 @@ class AuthService {
   // Request password reset email (no auth required)
   async requestPasswordReset(email: string): Promise<void> {
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     const response = await fetch(`${apiUrl}/request_password_reset`, {
       method: "POST",
@@ -409,8 +404,7 @@ class AuthService {
     confirmPassword: string
   ): Promise<void> {
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     const response = await fetch(`${apiUrl}/update_password`, {
       method: "POST",

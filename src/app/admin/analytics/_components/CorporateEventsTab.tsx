@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
@@ -18,7 +19,7 @@ import {
 } from "./analyticsCharts";
 
 const ANALYTICS_BASE_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/admin/analytics";
+  `${XANO_HOST}/api:v3Rb5urZ/admin/analytics`;
 
 const FILTERS_URL = `${ANALYTICS_BASE_URL}/events/filters`;
 const SUMMARY_URL = `${ANALYTICS_BASE_URL}/events/summary`;

@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 // import Image from "next/image";
@@ -1745,7 +1746,7 @@ const SectorDetailPage = ({
       const qs = new URLSearchParams();
       qs.set("sectors_id", String(Sector_id));
       const resp = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sub_sectors?${qs.toString()}`,
+        `${XANO_HOST}/api:xCPLTQnV/sub_sectors?${qs.toString()}`,
         {
           method: "GET",
           headers: {
@@ -2179,7 +2180,7 @@ const SectorDetailPage = ({
         }
 
         const params = buildGetAllContentArticlesParams(filters);
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        const url = `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
 
         const response = await fetch(url, {
           method: "GET",

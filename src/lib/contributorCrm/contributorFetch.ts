@@ -1,7 +1,8 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { isContributorCrmPath } from "@/lib/userStatus";
 
 const PROXY_PATH = "/contributor-crm/api/xano-proxy";
-const XANO_ORIGIN = "https://xdil-abvj-o7rq.e2.xano.io";
+const XANO_ORIGIN = `${XANO_HOST}`;
 
 function assertContributorPageContext(): void {
   if (typeof window === "undefined") return;

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- leftovers from the old contributor markup / stripped company-page parts; prune later */
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -1341,9 +1342,9 @@ function getClearedFilledMetricFieldKeys(
   return cleared;
 }
 
-const COMPANY_LOOKUP_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
+const COMPANY_LOOKUP_BASE = `${XANO_HOST}/api:8Bv5PK4I`;
 const OWNERSHIP_LOOKUP_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_Ownership_Types";
+  `${XANO_HOST}/api:8KyIulob/Get_Ownership_Types`;
 
 const LIFECYCLE_STAGE_OPTIONS: LookupOption[] = [
   "Pre-seed",
@@ -1418,9 +1419,9 @@ const SUGGEST_FUNDING_STAGE_OPTIONS: LookupOption[] = [
 ].map((value) => ({ value, label: value }));
 
 const SEARCH_COMPANIES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies";
+  `${XANO_HOST}/api:GYQcK4au/Get_new_companies`;
 const COUNTERPARTY_ROLE_LOOKUP_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/counterparty_advisor_roles";
+  `${XANO_HOST}/api:8KyIulob/counterparty_advisor_roles`;
 
 function createEmptyNewCompanyProfile(name?: string): SuggestNewCompanyProfile {
   return {
@@ -3365,7 +3366,7 @@ function SuggestManagementPersonEditor({
   );
 }
 
-const LOCATIONS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/locations";
+const LOCATIONS_API = `${XANO_HOST}/api:8KyIulob/locations`;
 
 interface LocationOption {
   id: number;
@@ -9061,7 +9062,7 @@ function ContributeFinancialMetricsTab({
   const isPublicContributor = !authService.getAuthToken();
 
   useEffect(() => {
-    contributorFetch("https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I/get_currency")
+    contributorFetch(`${XANO_HOST}/api:8Bv5PK4I/get_currency`)
       .then((r) => r.json())
       .then((data: Array<{ id: number; Currency: string }>) => {
         setCurrencies(data);
@@ -9876,7 +9877,7 @@ function ContributeFinancialMetricsTab({
 // ─── Shared CE types (used by SectorIntelligenceTab) ────────────────────────
 
 const CE_API =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events";
+  `${XANO_HOST}/api:617tZc8l/get_all_corporate_events`;
 const CE_PER_PAGE = 25;
 
 type CEItem = {
@@ -9985,7 +9986,7 @@ function cePaginationButtons(
 
 // ─── Sector Intelligence Tab ────────────────────────────────────────────────
 
-const SECTOR_INTEL_API = "https://xdil-abvj-o7rq.e2.xano.io/api:5YnK3rYr/mean";
+const SECTOR_INTEL_API = `${XANO_HOST}/api:5YnK3rYr/mean`;
 
 type SectorMetricRow = {
   revenue_range: string;
@@ -10072,7 +10073,7 @@ function sectorFormatValue(
   return n.toLocaleString();
 }
 
-const SUBMISSIONS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0/users/submissions";
+const SUBMISSIONS_API = `${XANO_HOST}/api:tDNMS_i0/users/submissions`;
 
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -10384,7 +10385,7 @@ const CompanyDetail = () => {
       try {
         const params = new URLSearchParams();
         params.append("new_company_id", String(companyIdForContent));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/companies_articles?${params.toString()}`;
+        const url = `${XANO_HOST}/api:GYQcK4au/companies_articles?${params.toString()}`;
         const response = await contributorFetch(url, { method: "GET" });
         if (!response.ok) {
           setCompanyArticles([]);
@@ -10511,7 +10512,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
       };
 
-      const base = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_financial_metrics`;
+      const base = `${XANO_HOST}/api:GYQcK4au/company_financial_metrics`;
       // Attempt GET with query param
       const params = new URLSearchParams();
       params.append("new_company_id", String(id));
@@ -10562,7 +10563,7 @@ const CompanyDetail = () => {
         Accept: "application/json",
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
+      const endpoint = `${XANO_HOST}/api:GYQcK4au/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();
@@ -10915,7 +10916,7 @@ const CompanyDetail = () => {
         };
         const params = new URLSearchParams();
         params.set("new_company_id", String(companyId));
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_competitors?${params.toString()}`;
+        const url = `${XANO_HOST}/api:GYQcK4au/get_company_competitors?${params.toString()}`;
         const res = await contributorFetch(url, {
           method: "GET",
           headers,

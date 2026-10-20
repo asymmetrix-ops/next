@@ -2,12 +2,13 @@
  * Shared client for Xano `get_company_table_data` (article Generate Table, Companies Search).
  */
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import type { CompanyColumnType } from "@/components/companies/companiesColumnCategories";
 import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 
 export const COMPANY_TABLE_DATA_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
+  `${XANO_HOST}/api:GYQcK4au/get_company_table_data`;
 
 /** Unwraps `get_company_table_data` as a bare array or `{ items: [...] }`. */
 export function extractCompanyTableItems(

@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import {
   corporateEventsCountsFiltersToSearchParams,
@@ -34,7 +35,7 @@ export interface CorporateEventsListResponse {
 }
 
 const CORPORATE_EVENTS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l";
+  `${XANO_HOST}/api:617tZc8l`;
 
 function normalizeCorporateEventsResponse(
   raw: CorporateEventsResponse,

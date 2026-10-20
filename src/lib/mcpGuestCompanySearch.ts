@@ -1,5 +1,6 @@
+import { XANO_HOST } from "@/lib/apiBase";
 const COMPANY_SEARCH_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_search";
+  `${XANO_HOST}/api:GYQcK4au/company_search`;
 
 export interface McpGuestCompanyOption {
   id: number;

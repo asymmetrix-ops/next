@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 
 type EventType =
@@ -40,7 +41,7 @@ interface UserActivityPayload {
 
 const XANO_ENDPOINT =
   process.env.XANO_USER_ACTIVITY_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/user_activity";
+  `${XANO_HOST}/api:T3Zh6ok0/user_activity`;
 
 export async function POST(req: NextRequest) {
   try {

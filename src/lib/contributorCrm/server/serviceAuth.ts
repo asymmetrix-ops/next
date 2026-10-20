@@ -1,5 +1,6 @@
+import { XANO_HOST } from "@/lib/apiBase";
 const AUTH_LOGIN_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login";
+  `${XANO_HOST}/api:vnXelut6/auth/login`;
 
 let cachedToken: string | null = null;
 let cachedTokenExpiryMs: number | null = null;

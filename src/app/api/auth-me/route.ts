@@ -1,3 +1,4 @@
+import { XANO_HOST, xanoApiUrlOr } from "@/lib/apiBase";
 import { NextResponse } from "next/server";
 import { isContributorUser } from "@/lib/userStatus";
 
@@ -21,8 +22,7 @@ export async function GET() {
     }
 
     const apiUrl =
-      process.env.NEXT_PUBLIC_XANO_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
+      xanoApiUrlOr(`${XANO_HOST}/api:vnXelut6`);
 
     // Prefer standard Bearer, fallback to raw token if 401
     let resp = await fetch(`${apiUrl}/auth/me`, {

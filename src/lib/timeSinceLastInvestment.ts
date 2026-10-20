@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 export const TIME_SINCE_LAST_INVESTMENT_EMPTY = "—";
 
 export type TimeSinceLastInvestmentValue = {
@@ -19,7 +20,7 @@ type TimeSinceLastInvestmentResponse = {
 };
 
 const ENDPOINT =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_time_since_last_investment";
+  `${XANO_HOST}/api:GYQcK4au/get_time_since_last_investment`;
 
 const MS_PER_DAY = 86_400_000;
 

@@ -1,11 +1,12 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 const MCP_AUDIT_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:v3Rb5urZ/mcp_audit";
+  `${XANO_HOST}/api:v3Rb5urZ/mcp_audit`;
 
 const COMPANIES_PER_PAGE = 25;
 const SESSIONS_PER_PAGE = 20;

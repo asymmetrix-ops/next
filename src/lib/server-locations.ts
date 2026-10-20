@@ -1,6 +1,7 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { serverAuthService } from "./server-auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+const BASE_URL = `${XANO_HOST}/api:8KyIulob`;
 
 export interface Country {
   locations_Country: string;

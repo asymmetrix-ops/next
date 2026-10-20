@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { useState, useEffect, useCallback } from "react";
 import { BuildingOfficeIcon } from "@heroicons/react/24/outline";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
@@ -28,7 +29,7 @@ import {
   getFirstMatchingNumber,
 } from "@/lib/sectorMostActiveRanked";
 
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+const SECTOR_API_BASE = `${XANO_HOST}/api:xCPLTQnV`;
 
 export const MOST_ACTIVE_SUB_TABS = [
   { id: "strategics", label: "Strategic Acquirers" },

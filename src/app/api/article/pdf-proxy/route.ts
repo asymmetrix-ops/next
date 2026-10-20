@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { XANO_HOST } from "@/lib/apiBase";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 // being used as an open fetch-anything proxy.
 const ALLOWED_HOSTS = new Set([
   "xdil-abvj-o7rq.e2.xano.io",
+  new URL(XANO_HOST).hostname,
   "storage.googleapis.com",
 ]);
 

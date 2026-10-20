@@ -1,10 +1,11 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import type { FiLocationRow } from "@/lib/financialIntelligence/types";
 
 const LOCATIONS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+  `${XANO_HOST}/api:8KyIulob`;
 
 async function getAuthHeaders(): Promise<Record<string, string> | null> {
   const cookieStore = await cookies();

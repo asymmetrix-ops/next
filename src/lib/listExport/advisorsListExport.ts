@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { ADVISORS_COLUMN_CATEGORIES } from "@/components/advisors/advisorsColumnCategories";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import type { AdvisorListItem, AdvisorSectorItem } from "@/app/advisors/actions";
@@ -26,7 +27,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const ADVISORS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Cd_uVQYn";
+  `${XANO_HOST}/api:Cd_uVQYn`;
 
 const EXTRA_ADVISOR_COLUMNS: ExportColumnDef[] = [
   {

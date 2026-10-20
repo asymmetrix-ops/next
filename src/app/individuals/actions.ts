@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import type { Individual } from "@/types/individuals";
 import {
@@ -75,7 +76,7 @@ function mapIndividualsListResponse(
 }
 
 const INDIVIDUALS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+  `${XANO_HOST}/api:Xpykjv0R`;
 
 async function resolveAuthToken(authToken?: string | null): Promise<string | null> {
   const explicit = authToken?.trim();
@@ -173,7 +174,7 @@ export async function fetchJobTitlesServer(
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_job_titles",
+      `${XANO_HOST}/api:8KyIulob/get_all_job_titles`,
       {
         method: "GET",
         headers: {

@@ -1,5 +1,6 @@
 "use server";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { cookies } from "next/headers";
 import { readPlatformCurrencyIdServer } from "@/lib/platformCurrencyServer";
 import type {
@@ -11,7 +12,7 @@ import type {
 } from "@/components/transaction-comps/transactionCompsTypes";
 
 const TRANSACTION_COMPS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:lqZy8LiD";
+  `${XANO_HOST}/api:lqZy8LiD`;
 
 function buildParams(q: TransactionCompsQuery): URLSearchParams {
   const params = new URLSearchParams();

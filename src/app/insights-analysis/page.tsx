@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -32,7 +33,7 @@ import {
 } from "@/lib/fetchInsightsLogicalPage";
 
 const CONTENT_ARTICLES_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles";
+  `${XANO_HOST}/api:Z3F6JUiu/Get_All_Content_Articles`;
 
 // ── Design tokens local to this page (mirrors src/app/sectors/page.tsx) ──────
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
@@ -420,7 +421,7 @@ function InsightsAnalysisPageContent() {
 
         const [resp, sectors, statuses] = await Promise.all([
           fetch(
-            "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/content_types_for_articles",
+            `${XANO_HOST}/api:8KyIulob/content_types_for_articles`,
             {
               method: "GET",
               headers: {

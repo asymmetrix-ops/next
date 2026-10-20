@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { OwnershipChip } from "@/components/companies/CompanySection";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -227,8 +228,8 @@ const INITIAL_FILTER_BAR_STATE: FilterBarState = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
-const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+const API_BASE = `${XANO_HOST}/api:GYQcK4au`;
+const FILTER_API = `${XANO_HOST}/api:8KyIulob`;
 const PAGE_SIZE = 25;
 const TABLE_COL_COUNT = 11;
 

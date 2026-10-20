@@ -1,5 +1,6 @@
 "use client";
 
+import { XANO_HOST } from "@/lib/apiBase";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { authService } from "@/lib/auth";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
@@ -286,7 +287,7 @@ export default function CompaniesModal({
           pageParams.append("Revenue_max", revenueMax.toString());
         }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Get_new_companies?${pageParams.toString()}`;
+        const url = `${XANO_HOST}/api:GYQcK4au/Get_new_companies?${pageParams.toString()}`;
         
         const response = await fetch(url, {
           method: "GET",
@@ -483,7 +484,7 @@ export default function CompaniesModal({
       baseParams.append("Offset", "1");
       baseParams.append("Per_page", "25");
       
-      const firstPageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
+      const firstPageUrl = `${XANO_HOST}/api:GYQcK4au/Export_new_companies_csv?${baseParams.toString()}`;
       
       const firstResp = await fetch(firstPageUrl, {
         method: "GET",
@@ -597,7 +598,7 @@ export default function CompaniesModal({
           pageParams.append("Offset", page.toString());
           pageParams.append("Per_page", "25");
           
-          const pageUrl = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
+          const pageUrl = `${XANO_HOST}/api:GYQcK4au/Export_new_companies_csv?${pageParams.toString()}`;
           
           const pageResp = await fetch(pageUrl, {
             method: "GET",

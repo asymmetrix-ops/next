@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { INDIVIDUALS_COLUMN_CATEGORIES } from "@/components/individuals/individualsColumnCategories";
 import {
   formatIndividualLocation,
@@ -28,7 +29,7 @@ const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
 
 const INDIVIDUALS_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
+  `${XANO_HOST}/api:Xpykjv0R`;
 
 const EXTRA_INDIVIDUAL_COLUMNS: ExportColumnDef[] = [
   {

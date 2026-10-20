@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 /** Xano path uses `viwed` (typo) — override via env if the API is renamed. */
 const XANO_UNMARK_AS_VIEWED_URL =
   process.env.XANO_UNMARK_AS_VIEWED_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:DmVo_1KR/unmark_as_viwed";
+  `${XANO_HOST}/api:DmVo_1KR/unmark_as_viwed`;
 
 export async function POST(request: NextRequest) {
   try {

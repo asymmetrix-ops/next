@@ -1,3 +1,4 @@
+import { XANO_HOST } from "@/lib/apiBase";
 import { authService } from "./auth";
 
 export interface NpsEligibilityResponse {
@@ -19,7 +20,7 @@ class NpsService {
   constructor() {
     this.baseUrl =
       process.env.NEXT_PUBLIC_XANO_NPS_API_URL ||
-      "https://xdil-abvj-o7rq.e2.xano.io/api:ia3IlHy1";
+      `${XANO_HOST}/api:ia3IlHy1`;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
