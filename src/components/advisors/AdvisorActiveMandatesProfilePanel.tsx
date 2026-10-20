@@ -21,7 +21,7 @@ type Props = {
 };
 
 const ROW_GRID =
-  "minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1fr)";
+  "minmax(0, 1.1fr) minmax(110px, 0.95fr) minmax(0, 0.85fr) minmax(0, 1fr)";
 const HEADERS = ["Company", "Transaction Status", "Process Stage", "Key People"] as const;
 
 function colAlign(colIndex: number) {
@@ -189,7 +189,7 @@ export function AdvisorActiveMandatesProfilePanel({
                     display: "grid",
                     gridTemplateColumns: ROW_GRID,
                     gap: PROFILE_EVENTS_ROW_GAP,
-                    alignItems: "center",
+                    alignItems: "start",
                     padding: PROFILE_EVENTS_ROW_PAD.body,
                     borderBottom: isLastRow ? "none" : `1px solid ${T.hair}`,
                   }}
@@ -229,9 +229,13 @@ export function AdvisorActiveMandatesProfilePanel({
                         fontSize: 10,
                         height: "auto",
                         minHeight: 18,
-                        padding: "1px 7px",
+                        padding: "3px 8px",
                         lineHeight: 1.3,
-                        whiteSpace: "nowrap",
+                        whiteSpace: "normal",
+                        textAlign: "center",
+                        display: "inline-flex",
+                        justifyContent: "center",
+                        maxWidth: "100%",
                       }}
                     >
                       {statusLabel}
