@@ -32,7 +32,11 @@ export default function SessionExpiredModal() {
     installFetchAuthGuard();
 
     const handleSessionExpired = () => {
-      if (pathname && PATHS_WITHOUT_MODAL.includes(pathname)) {
+      // Contributor pages are link-based (no login); a failed call must never ask for one.
+      if (
+        pathname &&
+        (PATHS_WITHOUT_MODAL.includes(pathname) || pathname.startsWith("/contributor-crm"))
+      ) {
         resetSessionExpiredFlag();
         return;
       }

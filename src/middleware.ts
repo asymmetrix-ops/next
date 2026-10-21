@@ -14,7 +14,7 @@ import {
  * Enforcement turns on once CONTRIBUTOR_LINK_SECRET is set (same value as in the CMS).
  */
 const COMPANY_PAGE = /^\/contributor-crm\/(\d+)\/?$/;
-const ACCESS_ERROR = "/contributor-crm/company-access-error";
+const ACCESS_ERROR = "/contributor-crm/link-expired";
 
 export async function middleware(request: NextRequest) {
   const secret = process.env.CONTRIBUTOR_LINK_SECRET;
@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
     else if (fromCompanyPage) {
       return NextResponse.json(
         { error: "This link has expired. Please use the link in your email." },
-        { status: 401 }
+        { status: 403 }
       );
     }
     return NextResponse.next({ request: { headers } });
