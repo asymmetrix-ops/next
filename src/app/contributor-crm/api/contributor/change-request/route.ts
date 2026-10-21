@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rejectUnlessContributorCrmPage } from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
+import { CONTRIBUTOR_COMPANY_HEADER } from "@/lib/contributorCrm/linkToken";
 import { postServiceChangeRequest } from "@/lib/contributorCrm/server/contributorApi";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,12 @@ export async function POST(request: NextRequest) {
         { error: "Contributor email is required." },
         { status: 400 }
       );
+    }
+
+    // A link-bound session may only submit changes for its own company.
+    const sessionCompany = request.headers.get(CONTRIBUTOR_COMPANY_HEADER);
+    if (sessionCompany && String(payload.new_company_id ?? "") !== sessionCompany) {
+      return NextResponse.json({ error: "Not allowed for this company." }, { status: 403 });
     }
 
     await postServiceChangeRequest(payload);
