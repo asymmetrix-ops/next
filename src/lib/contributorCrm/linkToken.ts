@@ -52,3 +52,25 @@ export async function verifyContributorToken(
   if (expiresAt * 1000 < Date.now()) return null;
   return { companyId: Number(id), expiresAt };
 }
+
+/** Unsubscribe token `u.<base64url(email)>.<expiry>.<sig>`; returns the email, or null. */
+export async function verifyUnsubscribeToken(
+  token: string | null | undefined,
+  secret: string | undefined
+): Promise<string | null> {
+  if (!token || !secret) return null;
+  const parts = token.split(".");
+  if (parts.length !== 4 || parts[0] !== "u") return null;
+  const [, emailPart, exp, signature] = parts;
+  if (!/^\d+$/.test(exp)) return null;
+  const expected = await sign(secret, `u.${emailPart}.${exp}`);
+  if (!safeEqual(expected, signature)) return null;
+  if (Number(exp) * 1000 < Date.now()) return null;
+  try {
+    const padded = emailPart.replace(/-/g, "+").replace(/_/g, "/");
+    const email = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
+    return email.includes("@") ? email : null;
+  } catch {
+    return null;
+  }
+}
