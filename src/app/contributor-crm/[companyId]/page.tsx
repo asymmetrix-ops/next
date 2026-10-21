@@ -24,6 +24,7 @@ import {
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
 import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
+import { readIdentity, saveIdentity, REVIEW_SLA_TEXT } from "@/lib/contributorCrm/identity";
 import ContributorCompanyProfile from "@/components/contributor-crm/profile/ContributorCompanyProfile";
 import {
   fetchTransactionStatuses,
@@ -1787,18 +1788,18 @@ function ContributionMetricRow({
   field,
   existing,
   value,
-  rangeValue,
+  comment,
   currency,
   onChange,
-  onRangeChange,
+  onCommentChange,
 }: {
   field: ContributionMetricField;
   existing: string;
   value: string;
-  rangeValue: string;
+  comment: string;
   currency?: string;
   onChange: (value: string) => void;
-  onRangeChange: (value: string) => void;
+  onCommentChange: (value: string) => void;
 }) {
   const vtStyle = field.valueType ? VALUE_TYPE_STYLE[field.valueType] : null;
 
@@ -1819,7 +1820,7 @@ function ContributionMetricRow({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 128px 128px 148px",
+        gridTemplateColumns: "minmax(0, 1fr) 120px 140px minmax(0, 1.4fr)",
         gap: "12px",
         alignItems: "center",
         padding: "12px 0",
@@ -1934,35 +1935,63 @@ function ContributionMetricRow({
       </div>
       <div style={{ position: "relative" }}>
         <input
-          value={rangeValue}
-          onChange={(e) => onRangeChange(e.target.value)}
-          onBlur={() => {
-            const trimmed = rangeValue.trim();
-            if (!trimmed) return;
-            const parsed = parseContributionRangeInput(trimmed);
-            if (!parsed.ok) {
-              window.alert(`${field.label}: ${parsed.message}`);
-            }
-          }}
-          placeholder="10–20"
-          title={`Optional. Low–high separated by dash. Gap ≤ ${CONTRIBUTION_RANGE_MAX_SPAN} units`}
-          aria-label={`${field.label} range`}
+          value={comment}
+          onChange={(e) => onCommentChange(e.target.value)}
+          placeholder="Optional comment"
+          aria-label={`${field.label} comment`}
           style={{
             width: "100%",
             padding: "9px 10px",
-            border: rangeValue.trim()
-              ? "1.5px solid rgba(37,99,235,0.35)"
-              : "1.5px solid #e2e8f0",
+            border: comment.trim() ? "1.5px solid rgba(37,99,235,0.35)" : "1.5px solid #e2e8f0",
             borderRadius: "8px",
             fontSize: "13px",
             color: "#334155",
             outline: "none",
             boxSizing: "border-box",
-            fontFamily: "'DM Mono', monospace",
-            textAlign: "center",
           }}
         />
       </div>
+    </div>
+  );
+}
+
+/** Name and role of the person submitting (the email is asked separately). */
+function ContributorIdentityFields() {
+  const [identity, setIdentity] = useState({ name: "", role: "" });
+  useEffect(() => {
+    setIdentity(readIdentity());
+  }, []);
+  const update = (key: "name" | "role", value: string) => {
+    const next = { ...identity, [key]: value };
+    setIdentity(next);
+    saveIdentity(next);
+  };
+  const style = {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid #cbd5e1",
+    fontSize: "14px",
+    boxSizing: "border-box" as const,
+  };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "6px 0 10px" }}>
+      <input
+        type="text"
+        value={identity.name}
+        onChange={(e) => update("name", e.target.value)}
+        placeholder="Your name"
+        aria-label="Your name"
+        style={style}
+      />
+      <input
+        type="text"
+        value={identity.role}
+        onChange={(e) => update("role", e.target.value)}
+        placeholder="Your role"
+        aria-label="Your role"
+        style={style}
+      />
     </div>
   );
 }
@@ -7227,8 +7256,8 @@ function SuggestBasicCompanyChangeForm({
           Suggestion ready
         </div>
         <p style={{ margin: "0 0 18px 0", color: "#166534", fontSize: "14px" }}>
-          Thank you. Your suggested company profile changes for {companyName} have
-          been sent for review.
+          Thanks, our team will review your suggested changes for {companyName}{" "}
+          {REVIEW_SLA_TEXT}.
         </p>
         <button
           type="button"
@@ -8868,6 +8897,7 @@ function SuggestBasicCompanyChangeForm({
                 />
               </label>
             )}
+            {isPublicContributor && <ContributorIdentityFields />}
           </div>
         )}
         {!focusSection && (
@@ -8915,6 +8945,7 @@ function SuggestBasicCompanyChangeForm({
               />
             </label>
           )}
+          {isPublicContributor && <ContributorIdentityFields />}
           <div
             style={{
               display: "flex",
@@ -9243,6 +9274,7 @@ function ContributeFinancialMetricsTab({
 }) {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [rangeFormData, setRangeFormData] = useState<Record<string, string>>({});
+  const [commentFormData, setCommentFormData] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState("");
@@ -9299,6 +9331,7 @@ function ContributeFinancialMetricsTab({
   const filledCount =
     Object.values(formData).filter((value) => value.trim() !== "").length +
     Object.values(rangeFormData).filter((value) => value.trim() !== "").length +
+    Object.values(commentFormData).filter((value) => value.trim() !== "").length +
     (notes.trim() ? 1 : 0);
 
   const handleSubmit = async () => {
@@ -9365,6 +9398,16 @@ function ContributeFinancialMetricsTab({
       if (notes.trim()) {
         newPayload.Data_entry_notes = notes.trim();
       }
+      // Per-metric comments, keyed like the figures so the review screen can match them.
+      const metricComments = Object.entries(commentFormData).reduce<Record<string, string>>(
+        (acc, [key, value]) => {
+          const trimmed = value.trim();
+          if (trimmed) acc[CONTRIBUTION_FIELD_TO_PAYLOAD_KEY[key] || key] = trimmed;
+          return acc;
+        },
+        {}
+      );
+      if (Object.keys(metricComments).length) newPayload.metric_comments = metricComments;
       if (selectedCurrency) {
         newPayload.currency = selectedCurrency;
       }
@@ -9472,9 +9515,8 @@ function ContributeFinancialMetricsTab({
               maxWidth: 380,
             }}
           >
-            Thank you. Your {selectedYearLabel} data has been sent to the
-            Asymmetrix research team for review. We&apos;ll be in touch if we
-            have any questions.
+            Thanks, our team will review your {selectedYearLabel} data{" "}
+            {REVIEW_SLA_TEXT}. We&apos;ll be in touch if we have any questions.
           </div>
         </div>
         <button
@@ -9482,6 +9524,7 @@ function ContributeFinancialMetricsTab({
             setSubmitted(false);
             setFormData({});
             setRangeFormData({});
+            setCommentFormData({});
             setNotes("");
             setSelectedCurrency("USD");
           }}
@@ -9563,6 +9606,7 @@ function ContributeFinancialMetricsTab({
           />
         </div>
       )}
+      {isPublicContributor && <ContributorIdentityFields />}
 
       <div
         style={{
@@ -9580,11 +9624,10 @@ function ContributeFinancialMetricsTab({
           <ContributorTabIcon name="info" />
         </div>
         <div style={{ fontSize: "13px", color: "#1e40af" }}>
-          <strong>Current data shown in the left column.</strong> Enter updated
-          or new values in &quot;Your update&quot;. Optionally add an estimated
-          range in <strong>Add ranges</strong> (two numbers with a dash; the gap
-          cannot exceed {CONTRIBUTION_RANGE_MAX_SPAN} units). Leave fields blank
-          to keep existing data unchanged.
+          <strong>These are the figures we hold.</strong> Enter your own value
+          under &quot;Your figure&quot; and, if you like, add a comment. Both
+          are optional: fill in any, all or none of them, and leave a row blank
+          to keep our figure.
         </div>
       </div>
 
@@ -9616,6 +9659,7 @@ function ContributeFinancialMetricsTab({
               onSelectYearId(Number(e.target.value));
               setFormData({});
               setRangeFormData({});
+              setCommentFormData({});
               setNotes("");
             }}
             style={{
@@ -9719,7 +9763,7 @@ function ContributeFinancialMetricsTab({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 128px 128px 148px",
+          gridTemplateColumns: "minmax(0, 1fr) 120px 140px minmax(0, 1.4fr)",
           gap: 12,
           marginBottom: 6,
           padding: "0 0 8px 0",
@@ -9763,7 +9807,7 @@ function ContributeFinancialMetricsTab({
             alignItems: "center",
           }}
         >
-          Your Update
+          Your figure
           {selectedCurrency && (
             <span
               style={{
@@ -9797,19 +9841,7 @@ function ContributeFinancialMetricsTab({
             alignItems: "center",
           }}
         >
-          Add ranges
-          <span
-            style={{
-              fontSize: "9px",
-              fontWeight: 600,
-              color: "#64748b",
-              textTransform: "none",
-              letterSpacing: "0.02em",
-              lineHeight: 1.25,
-            }}
-          >
-            Low–high, gap ≤ {CONTRIBUTION_RANGE_MAX_SPAN}
-          </span>
+          Comment
         </span>
       </div>
 
@@ -9849,13 +9881,13 @@ function ContributeFinancialMetricsTab({
               field={field}
               existing={existing[field.key] || ""}
               value={formData[field.key] || ""}
-              rangeValue={rangeFormData[field.key] || ""}
+              comment={commentFormData[field.key] || ""}
               currency={selectedCurrency || undefined}
               onChange={(nextValue) =>
                 setFormData((prev) => ({ ...prev, [field.key]: nextValue }))
               }
-              onRangeChange={(nextRange) =>
-                setRangeFormData((prev) => ({ ...prev, [field.key]: nextRange }))
+              onCommentChange={(nextComment) =>
+                setCommentFormData((prev) => ({ ...prev, [field.key]: nextComment }))
               }
             />
           ))}
@@ -11442,7 +11474,7 @@ function MetricsCardDrawer({
         {header}
         <div style={{ padding: "40px 24px", textAlign: "center", color: "#334155" }}>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>Thank you</div>
-          Your {yearLabel} figures have been sent to the Asymmetrix research team for review.
+          Thanks, our team will review your {yearLabel} figures {REVIEW_SLA_TEXT}.
           <div style={{ marginTop: "20px" }}>
             <button
               type="button"
@@ -11559,6 +11591,7 @@ function MetricsCardDrawer({
             />
           </label>
         )}
+        {isPublicContributor && <ContributorIdentityFields />}
         {error && <div style={{ color: "#b91c1c", fontSize: "13px", padding: "6px 0" }}>{error}</div>}
       </div>
       <div

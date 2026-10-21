@@ -1,4 +1,6 @@
 import type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
+import { authService } from "@/lib/contributorCrm/auth";
+import { readIdentity } from "@/lib/contributorCrm/identity";
 
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
@@ -796,10 +798,22 @@ export async function acceptNewEntityProfile(
 export async function createChangeRequest(
   payload: ChangeRequestPayload
 ): Promise<void> {
+  // Link visitors (no login) must say who they are; recorded on the request.
+  let body = payload;
+  if (!authService.getAuthToken()) {
+    const { name, role } = readIdentity();
+    if (!name.trim() || !role.trim()) {
+      throw new Error("Please enter your name and role.");
+    }
+    body = {
+      ...payload,
+      new: { ...payload.new, contributor_name: name.trim(), contributor_role: role.trim() },
+    };
+  }
   const res = await fetch(contributorApiPath("/change-request"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
