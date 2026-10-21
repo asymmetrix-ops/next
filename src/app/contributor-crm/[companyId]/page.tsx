@@ -1000,7 +1000,8 @@ const EmployeeChart = ({ data }: { data: EmployeeCount[] }) => {
 
 type ContributorTabKey =
   | "contribute-financial-metrics"
-  | "company-profile";
+  | "company-profile"
+  | "sector-intelligence";
 
 type ContributionMetricField = {
   key: string;
@@ -1170,6 +1171,11 @@ const CONTRIBUTOR_TABS: Array<{
     key: "company-profile",
     label: "Company Profile",
     icon: "document",
+  },
+  {
+    key: "sector-intelligence",
+    label: "Benchmark",
+    icon: "globe",
   },
 ];
 
@@ -10261,6 +10267,845 @@ function sectorFormatValue(
 
 const SUBMISSIONS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0/users/submissions";
 
+function SectorIntelligenceTab({
+  primarySectorIds,
+  secondarySectorIds,
+  primarySectorNames,
+  onGoToMetrics,
+}: {
+  primarySectorIds: number[];
+  secondarySectorIds: number[];
+  primarySectorNames?: string[];
+  hasContributed?: boolean | null; // unused; resolved internally
+  onGoToMetrics: () => void;
+}) {
+  // Stable serialised keys so useCallback doesn't re-fire on every parent render
+  const primaryKey = primarySectorIds.slice().sort((a, b) => a - b).join(",");
+  const secondaryKey = secondarySectorIds.slice().sort((a, b) => a - b).join(",");
+
+  // ── Submission gate ──
+  const [submissionCount, setSubmissionCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const email =
+      authService.getUser()?.email ||
+      localStorage.getItem("outreach_crm_login_email") ||
+      "";
+    if (!email) { setSubmissionCount(0); return; }
+
+    const params = new URLSearchParams({ user_email: email });
+    contributorFetch(`${SUBMISSIONS_API}?${params}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const count = typeof data === "number" ? data : 0;
+        setSubmissionCount(count);
+      })
+      .catch(() => { if (!cancelled) setSubmissionCount(0); });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const hasContributed = submissionCount === null ? null : submissionCount > 0;
+  // ── Benchmark table state ──
+  const [view, setView] = useState<SectorMetricView>("mean");
+  const [currency, setCurrency] = useState<SectorCurrency>("USD");
+  const [fxRates, setFxRates] = useState<Record<string, number> | null>(null);
+  const [rows, setRows] = useState<SectorMetricRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Corporate Events state ──
+  const [cePage, setCePage] = useState(1);
+  const [ceItems, setCeItems] = useState<CEItem[]>([]);
+  const [cePag, setCePag] = useState<{
+    curPage: number;
+    pageTotal: number;
+    nextPage: number | null;
+    prevPage: number | null;
+  }>({ curPage: 1, pageTotal: 0, nextPage: null, prevPage: null });
+  const [ceLoading, setCeLoading] = useState(true);
+  const [ceError, setCeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (!cancelled && data && typeof data === "object") {
+          const d = data as { rates?: Record<string, number> };
+          if (d.rates) setFxRates(d.rates);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    contributorFetch(SECTOR_INTEL_API, { method: "GET", headers: { Accept: "application/json" } })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Failed to load data (${r.status})`);
+        return r.json();
+      })
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const arr = Array.isArray(data) ? data as SectorMetricRow[] : [];
+        arr.sort((a, b) => (a.range_order ?? 0) - (b.range_order ?? 0));
+        setRows(arr);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Corporate Events: fetched from CE_API filtered by company sectors ──
+  useEffect(() => {
+    const allSectorIds = Array.from(new Set([...primarySectorIds, ...secondarySectorIds]));
+    if (allSectorIds.length === 0) {
+      setCeItems([]);
+      setCePag({ curPage: 1, pageTotal: 0, nextPage: null, prevPage: null });
+      setCeLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCeLoading(true);
+    setCeError(null);
+
+    const params = new URLSearchParams({ page: String(cePage), per_page: String(CE_PER_PAGE) });
+    primarySectorIds.forEach((id) => params.append("primary_sector_ids[]", String(id)));
+    secondarySectorIds.forEach((id) => params.append("secondary_sector_ids[]", String(id)));
+
+    contributorFetch(`${CE_API}?${params.toString()}`, {
+      headers: {
+        Accept: "application/json",
+      },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load corporate events (${r.status})`);
+        return r.json();
+      })
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const res = data as CEResponse;
+        const rawItems: CEItem[] = res.items ?? res.new_counterparties ?? (Array.isArray(data) ? data as CEItem[] : []);
+
+        // Map sectors from target_counterparty._new_company into the top-level
+        // sectors field that CorporateEventsTable expects, and normalise
+        // other_counterparties so that counterparty_status is top-level (the
+        // API nests it inside _counterparty_type) and id/name are promoted from
+        // _new_company so CorporateEventsTable can populate Buyer/Investor/Seller.
+        const items: CEItem[] = rawItems.map((ev) => {
+          // ── sectors ──
+          let sectors = ev.sectors;
+          if (!sectors) {
+            const tc = ev.target_counterparty as {
+              _new_company?: {
+                derived_primaries?: string[];
+                secondary_sectors?: Array<{ sector_name?: string }>;
+              };
+            } | undefined;
+            const primary = tc?._new_company?.derived_primaries ?? [];
+            const secondary = (tc?._new_company?.secondary_sectors ?? [])
+              .map((s) => s.sector_name)
+              .filter((s): s is string => Boolean(s));
+            sectors = { Primary: primary, Secondary: secondary };
+          }
+
+          // ── other_counterparties normalisation ──
+          const rawCps = ev.other_counterparties as Array<Record<string, unknown>> | undefined;
+          const normalizedOtherCps = rawCps?.map((cp) => {
+            const counterpartyType = cp._counterparty_type as { counterparty_status?: string } | undefined;
+            const newCompany = cp._new_company as { id?: number; name?: string; _is_that_investor?: boolean } | undefined;
+            return {
+              ...cp,
+              counterparty_status: (cp.counterparty_status as string | undefined) ?? counterpartyType?.counterparty_status,
+              id: (cp.id as number | undefined) ?? cp.new_company_counterparty as number | undefined ?? newCompany?.id,
+              name: (cp.name as string | undefined) ?? newCompany?.name,
+              _new_company: newCompany
+                ? { ...newCompany }
+                : cp._new_company,
+            };
+          });
+
+          return {
+            ...ev,
+            sectors,
+            ...(normalizedOtherCps ? { other_counterparties: normalizedOtherCps as CEItem["other_counterparties"] } : {}),
+          };
+        });
+
+        setCeItems(items);
+        setCePag({
+          curPage: res.curPage ?? cePage,
+          pageTotal: res.pageTotal ?? (items.length > 0 ? cePage : 0),
+          nextPage: res.nextPage ?? null,
+          prevPage: res.prevPage ?? null,
+        });
+        setCeLoading(false);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) {
+          setCeError(e.message);
+          setCeLoading(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryKey, secondaryKey, cePage]);
+
+  const prefix = view === "mean" ? "mean_" : "median_";
+  const currencyInfo = SECTOR_CURRENCY_OPTIONS.find((c) => c.value === currency)!;
+
+  const getVal = (row: SectorMetricRow, key: string): unknown => {
+    const aliases = SECTOR_METRIC_ALIASES[key] ?? [key];
+    for (const alias of aliases) {
+      const v = row[`${prefix}${alias}`];
+      if (v != null) return v;
+    }
+    return null;
+  };
+
+  const metricsWithLabel = SECTOR_ALL_METRICS.map((m) => ({
+    ...m,
+    label: m.format === "money_m"
+      ? m.label.replace(/\(M\)/, `(${currencyInfo.symbol}M)`)
+      : m.label,
+  }));
+
+  return (
+    <>
+    {/* Gate — shown while loading (null) or when count is 0 */}
+    {hasContributed !== true && (
+      <div style={{ position: "relative", borderRadius: "14px", overflow: "hidden" }}>
+
+        {/* Real content, blurred underneath */}
+        <div
+          style={{
+            filter: "blur(5px)",
+            pointerEvents: "none",
+            userSelect: "none",
+            opacity: 0.55,
+          }}
+        >
+          {/* Fake benchmark table header */}
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "14px",
+              border: "1px solid #e2e8f0",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "18px 24px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "linear-gradient(180deg,#f8fafc 0%,#fff 100%)",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "20px", color: "#0f172a", fontFamily: "Georgia,serif" }}>Sector Intelligence</div>
+                <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+                  Benchmark financial metrics by revenue range across your primary sectors.
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {["Mean","Median"].map((l) => (
+                  <div key={l} style={{ padding: "7px 16px", borderRadius: "7px", background: l==="Mean"?"#0f172a":"transparent", color: l==="Mean"?"#fff":"#64748b", fontSize: "13px", fontWeight: 600, border: "1.5px solid #e2e8f0" }}>{l}</div>
+                ))}
+                {["$","£","€"].map((s) => (
+                  <div key={s} style={{ padding: "7px 14px", borderRadius: "7px", background: s==="$"?"#0f172a":"transparent", color: s==="$"?"#fff":"#64748b", fontSize: "14px", fontWeight: 600, border: "1.5px solid #e2e8f0" }}>{s}</div>
+                ))}
+              </div>
+            </div>
+            {/* fake rows */}
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  {["Revenue Range","Companies","Revenue ($M)","EBITDA ($M)","EV ($M)","EV/Rev","Rev Growth","EBITDA Margin","Rule of 40","ARR ($M)","NRR (%)","Churn (%)"].map((h) => (
+                    <th key={h} style={{ padding: "9px 10px", fontWeight: 600, fontSize: "11px", color: "#475569", textAlign: "right", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[["<$10M","148","$3.8","-$0.2","$21.8","5.7x","36.5%","-8.1%","29.1%","$3.1","105%","9.4%"],
+                  ["$10M–$50M","125","$23","$3.6","$154.8","6.4x","24.1%","14.4%","38.3%","$19.1","107%","7.4%"],
+                  ["$50M–$100M","26","$72.6","$11.7","$731.1","9.9x","33%","15.7%","48.2%","$52.9","106%","6.9%"],
+                  ["$100M–$250M","29","$150.8","$39.5","$1,084","6.8x","16.6%","25.4%","42.2%","$115.6","106%","6.9%"],
+                  ["$250M–$500M","23","$346.2","$92.8","$2,149","6.4x","16.7%","27.4%","43.9%","$261","106%","6.9%"],
+                  ["$500M+","26","$3,127","$1,127","$22,084","7x","14.6%","32.4%","42.3%","$2,192","105%","5.5%"],
+                ].map((row, i) => (
+                  <tr key={i} style={{ background: i%2===0?"#fff":"#fafafa" }}>
+                    {row.map((cell, j) => (
+                      <td key={j} style={{ padding: "10px 10px", textAlign: j===0?"left":"right", fontWeight: j===0?600:400, fontSize: "13px", borderBottom: "1px solid #f1f5f9" }}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Fake CE section */}
+          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e2e8f0", marginTop: "20px", overflow: "hidden" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg,#f8fafc 0%,#fff 100%)" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "20px", color: "#0f172a", fontFamily: "Georgia,serif" }}>Corporate Events</div>
+                <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>M&amp;A, venture investments and partnerships in your sector.</div>
+              </div>
+            </div>
+            {[1,2,3,4].map((i) => (
+              <div key={i} style={{ padding: "14px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "40px", alignItems: "center" }}>
+                <div style={{ flex: 3, height: "14px", background: "#e2e8f0", borderRadius: "4px" }} />
+                <div style={{ flex: 1, height: "14px", background: "#f1f5f9", borderRadius: "4px" }} />
+                <div style={{ flex: 1, height: "22px", background: "#dbeafe", borderRadius: "99px", width: "80px" }} />
+                <div style={{ flex: 2, height: "14px", background: "#f1f5f9", borderRadius: "4px" }} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Gate card overlay */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+            background: "rgba(248,250,252,0.55)",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "16px",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
+              padding: "36px 40px",
+              maxWidth: "400px",
+              width: "100%",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+            }}
+          >
+            {hasContributed === null ? (
+              /* Loading spinner */
+              <>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    border: "3px solid #e2e8f0",
+                    borderTopColor: "#1d4ed8",
+                    animation: "spin 0.8s linear infinite",
+                  }}
+                />
+                <span style={{ fontSize: "13px", color: "#64748b" }}>Checking access…</span>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm0-9a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3z" fill="#1d4ed8"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "#0f172a", fontFamily: "Georgia,serif" }}>
+                    Sector Intelligence Locked
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "14px", color: "#64748b", lineHeight: 1.6 }}>
+                    Contribute financial metrics for this company to unlock sector benchmarks and corporate events intelligence.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onGoToMetrics}
+                  style={{
+                    padding: "11px 28px",
+                    background: "#0f172a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    marginTop: "4px",
+                    width: "100%",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#0f172a"; }}
+                >
+                  Contribute Financial Metrics →
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {hasContributed && (<>
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: "14px",
+        border: "1px solid #e2e8f0",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: "12px 16px",
+          borderBottom: "1px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "8px",
+          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "16px",
+              fontWeight: 700,
+              color: "#0f172a",
+              fontFamily: "Georgia, serif",
+            }}
+          >
+            Sector Intelligence
+          </h2>
+          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
+            Benchmark metrics by revenue range
+          </p>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+          {/* Mean / Median toggle */}
+          <div
+            style={{
+              display: "inline-flex",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "8px",
+              overflow: "hidden",
+              background: "#f8fafc",
+              padding: "2px",
+              gap: "2px",
+            }}
+          >
+            {(["mean", "median"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                style={{
+                  padding: "5px 12px",
+                  border: "none",
+                  borderRadius: "6px",
+                  background: view === v ? "#0f172a" : "transparent",
+                  color: view === v ? "#ffffff" : "#64748b",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Currency toggle */}
+          <div
+            style={{
+              display: "inline-flex",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "8px",
+              overflow: "hidden",
+              background: "#f8fafc",
+              padding: "2px",
+              gap: "2px",
+            }}
+          >
+            {SECTOR_CURRENCY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCurrency(opt.value)}
+                title={opt.label}
+                style={{
+                  padding: "5px 10px",
+                  border: "none",
+                  borderRadius: "6px",
+                  background: currency === opt.value ? "#0f172a" : "transparent",
+                  color: currency === opt.value ? "#ffffff" : "#64748b",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {opt.symbol}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ padding: "0" }}>
+        {loading ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "60px 24px",
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{  
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                border: "3px solid #e2e8f0",
+                borderTopColor: "#1d4ed8",
+                animation: "spin 0.8s linear infinite",
+              }}
+            />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <span style={{ fontSize: "13px", color: "#64748b" }}>Loading sector data…</span>
+          </div>
+        ) : error ? (
+          <div
+            style={{
+              margin: "24px",
+              padding: "16px",
+              borderRadius: "12px",
+              background: "#fff1f2",
+              border: "1px solid #fecaca",
+              color: "#9f1239",
+              fontSize: "13px",
+            }}
+          >
+            <strong>Could not load data:</strong> {error}
+          </div>
+        ) : rows.length === 0 ? (
+          <div
+            style={{
+              padding: "60px 24px",
+              textAlign: "center",
+              color: "#64748b",
+              fontSize: "13px",
+            }}
+          >
+            No data available.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "11px",
+              }}
+            >
+              <thead>
+                {/* Section headers */}
+                <tr style={{ background: "#f1f5f9" }}>
+                  <th
+                    rowSpan={2}
+                    style={{
+                      padding: "6px 10px",
+                      textAlign: "left",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      borderBottom: "2px solid #e2e8f0",
+                      borderRight: "2px solid #e2e8f0",
+                      whiteSpace: "nowrap",
+                      fontSize: "10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Revenue Range
+                  </th>
+                  <th
+                    rowSpan={2}
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      borderBottom: "2px solid #e2e8f0",
+                      borderRight: "2px solid #cbd5e1",
+                      whiteSpace: "nowrap",
+                      fontSize: "10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Number of companies
+                  </th>
+                  <th
+                    colSpan={SECTOR_FIN_METRICS.length}
+                    style={{
+                      padding: "5px 8px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#1d4ed8",
+                      background: "#eff6ff",
+                      borderBottom: "1px solid #bfdbfe",
+                      borderRight: "2px solid #bfdbfe",
+                      fontSize: "10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Financial Metrics
+                  </th>
+                  <th
+                    colSpan={SECTOR_SUB_METRICS.length}
+                    style={{
+                      padding: "5px 8px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      color: "#0f766e",
+                      background: "#f0fdfa",
+                      borderBottom: "1px solid #99f6e4",
+                      fontSize: "10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Subscription Metrics
+                  </th>
+                </tr>
+                {/* Column headers */}
+                <tr style={{ background: "#f8fafc" }}>
+                  {metricsWithLabel.map((m, i) => {
+                    const isLastFin = i === SECTOR_FIN_METRICS.length - 1;
+                    const isInSub = i >= SECTOR_FIN_METRICS.length;
+                    return (
+                      <th
+                        key={m.key}
+                        style={{
+                          padding: "5px 6px",
+                          textAlign: "right",
+                          fontWeight: 600,
+                          color: isInSub ? "#0f766e" : "#1d4ed8",
+                          background: isInSub ? "#f0fdfa" : "#eff6ff",
+                          borderBottom: "2px solid #e2e8f0",
+                          borderRight: isLastFin ? "2px solid #bfdbfe" : undefined,
+                          whiteSpace: "nowrap",
+                          fontSize: "10px",
+                          minWidth: "60px",
+                        }}
+                      >
+                        {m.label}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr
+                    key={`${row.revenue_range}-${idx}`}
+                    style={{
+                      background: idx % 2 === 0 ? "#ffffff" : "#fafafa",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background = "#f0f9ff";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background =
+                        idx % 2 === 0 ? "#ffffff" : "#fafafa";
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "7px 10px",
+                        fontWeight: 600,
+                        color: "#0f172a",
+                        borderBottom: "1px solid #f1f5f9",
+                        borderRight: "2px solid #e2e8f0",
+                        whiteSpace: "nowrap",
+                        fontSize: "11px",
+                      }}
+                    >
+                      {row.revenue_range}
+                    </td>
+                    <td
+                      style={{
+                        padding: "7px 8px",
+                        textAlign: "center",
+                        fontWeight: 500,
+                        color: "#475569",
+                        borderBottom: "1px solid #f1f5f9",
+                        borderRight: "2px solid #cbd5e1",
+                        fontSize: "11px",
+                      }}
+                    >
+                      {Number.isFinite(row.num_companies)
+                        ? row.num_companies.toLocaleString()
+                        : "—"}
+                    </td>
+                    {metricsWithLabel.map((m, i) => {
+                      const isLastFin = i === SECTOR_FIN_METRICS.length - 1;
+                      const isInSub = i >= SECTOR_FIN_METRICS.length;
+                      const val = getVal(row, m.key);
+                      const formatted = sectorFormatValue(
+                        val,
+                        m.format,
+                        currencyInfo.symbol,
+                        fxRates,
+                        currency
+                      );
+                      return (
+                        <td
+                          key={m.key}
+                          style={{
+                            padding: "7px 6px",
+                            textAlign: "right",
+                            color: formatted === "—" ? "#cbd5e1" : "#0f172a",
+                            borderBottom: "1px solid #f1f5f9",
+                            borderRight: isLastFin ? "2px solid #bfdbfe" : undefined,
+                            fontVariantNumeric: "tabular-nums",
+                            fontSize: "11px",
+                            background: isInSub
+                              ? "rgba(240,253,250,0.3)"
+                              : "rgba(239,246,255,0.3)",
+                          }}
+                        >
+                          {formatted}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div
+              style={{
+                padding: "8px 12px",
+                borderTop: "1px solid #f1f5f9",
+                fontSize: "10px",
+                color: "#94a3b8",
+                display: "flex",
+                gap: "8px",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                Monetary values in <strong>{currencyInfo.symbol}M</strong>.{" "}
+                {view === "mean" ? "Mean" : "Median"} values shown.
+              </span>
+              {currency !== "USD" && fxRates && (
+                <span>
+                  · 1 USD ≈ {fxRates[currency]?.toFixed(4)} {currency}
+                </span>
+              )}
+              {!fxRates && currency !== "USD" && (
+                <span style={{ color: "#f59e0b" }}>
+                  · FX rates unavailable — showing USD values
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* ── Corporate Events ── */}
+    <div style={{ marginTop: "20px" }}>
+      <CorporateEventsSection
+        title="Corporate Events"
+        events={ceItems as CorporateEvent[]}
+        loading={ceLoading}
+        showSectors={true}
+        primarySectors={primarySectorIds.map((id, i) => ({
+          sector_id: id,
+          sector_name: primarySectorNames?.[i] ?? "",
+          Sector_importance: "Primary",
+        }))}
+        secondarySectors={[]}
+        maxInitialEvents={CE_PER_PAGE}
+        truncateDescriptionLength={180}
+        titleStyle={{ fontSize: "20px", fontFamily: "Georgia, serif", fontWeight: 700, color: "#0f172a" }}
+      />
+      {!ceLoading && !ceError && cePag.pageTotal > 1 && (
+        <div
+          style={{
+            marginTop: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "8px",
+          }}
+        >
+          <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+            Page {cePag.curPage} of {cePag.pageTotal}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+            {cePaginationButtons(
+              cePag.curPage,
+              cePag.pageTotal,
+              cePag.nextPage,
+              cePag.prevPage,
+              setCePage
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+    </>)}
+    </>
+  );
+}
+
 
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -12991,7 +13836,9 @@ const CompanyDetail = () => {
               overflowX: "auto",
             }}
           >
-            {CONTRIBUTOR_TABS.map((tab) => {
+            {CONTRIBUTOR_TABS.filter(
+              (tab) => !isPublicContributorSession || tab.key !== "sector-intelligence"
+            ).map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
@@ -13042,6 +13889,22 @@ const CompanyDetail = () => {
               }
             />
             </div>
+          )}
+
+          {!isPublicContributorSession && activeTab === "sector-intelligence" && (
+            <SectorIntelligenceTab
+              primarySectorIds={primarySectors
+                .map((s) => s.sector_id)
+                .filter((id): id is number => typeof id === "number" && id > 0)}
+              secondarySectorIds={secondarySectors
+                .map((s) => s.sector_id)
+                .filter((id): id is number => typeof id === "number" && id > 0)}
+              primarySectorNames={primarySectors
+                .map((s) => s.sector_name)
+                .filter((n): n is string => typeof n === "string" && n.trim().length > 0)}
+              hasContributed={null}
+              onGoToMetrics={() => setActiveTab("contribute-financial-metrics")}
+            />
           )}
 
           {activeTab === "company-profile" && (

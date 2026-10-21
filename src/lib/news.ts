@@ -2,7 +2,7 @@ import type { ContentArticle } from "@/types/insightsAnalysis";
 
 const NEWS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/news";
 
-export const NEWS_PAGE_SIZE = 18;
+export const NEWS_PAGE_SIZE = 20;
 
 export type NewsRef = {
   id: number;
@@ -181,10 +181,12 @@ async function getJson<T>(path: string, params?: URLSearchParams, signal?: Abort
   return (await res.json()) as T;
 }
 
-/** Two Top Stories; the backend applies Rule A / Rule B. */
+/** Top Stories (the backend applies Rule A / Rule B to pick them); shown newest first. */
 export async function fetchTopStories(signal?: AbortSignal): Promise<NewsArticle[]> {
   const rows = await getJson<Array<ApiNewsItem & { slot: number }>>("top_stories", undefined, signal);
-  return [...rows].sort((a, b) => a.slot - b.slot).map(fromApiItem);
+  return [...rows]
+    .sort((a, b) => new Date(b.Publication_Date).getTime() - new Date(a.Publication_Date).getTime())
+    .map(fromApiItem);
 }
 
 export type NewsFeedPage = { items: NewsArticle[]; total: number | null };

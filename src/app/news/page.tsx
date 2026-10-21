@@ -24,8 +24,12 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-/** Cards shown per row/click in Recent news (4 per row, so descriptions aren't as truncated). */
+/** Cards shown per row in Recent news (4 per row, so descriptions aren't as truncated). */
 const RECENT_NEWS_PAGE = 4;
+/** Number of extra cards revealed each time "Load more" is clicked in Recent news. */
+const RECENT_NEWS_LOAD_MORE = 20;
+/** Top Stories shown, newest first. */
+const TOP_STORIES_COUNT = 3;
 
 const CHIP_ORDER = [
   "company",
@@ -188,15 +192,15 @@ export default function NewsPage() {
     if (hasMore && !loadingMore && !loading) void load(filters, page + 1);
   }, [hasMore, loadingMore, loading, load, filters, page]);
 
-  // Recent news "Load more": reveal the next row of 5, fetching more pages if needed.
+  // Recent news "Load more": reveal 20 more cards, fetching more pages if needed.
   const loadMoreRecent = useCallback(() => {
-    const nextShown = recentShown + RECENT_NEWS_PAGE;
+    const nextShown = recentShown + RECENT_NEWS_LOAD_MORE;
     setRecentShown(nextShown);
     if (nextShown >= articles.length) loadMore();
   }, [recentShown, articles.length, loadMore]);
 
   const filtered = hasNewsFilters(filters);
-  const top = !filtered && topStories.length > 0 ? topStories : null;
+  const top = !filtered && topStories.length > 0 ? topStories.slice(0, TOP_STORIES_COUNT) : null;
   
   const seriesFor = (a: NewsArticle) => a.series_others;
 
@@ -267,7 +271,7 @@ export default function NewsPage() {
 
           {loading ? (
             <div className={filtered ? "nw-feed" : "nw-top"} aria-busy="true">
-              {Array.from({ length: filtered ? 6 : 2 }).map((_, i) => (
+              {Array.from({ length: filtered ? 6 : TOP_STORIES_COUNT }).map((_, i) => (
                 <div className="nw-skel" key={i} style={{ minHeight: filtered ? 180 : 260 }} />
               ))}
             </div>
@@ -286,7 +290,11 @@ export default function NewsPage() {
                         seriesLinks={seriesFor(a)}
                       />
                     ))}
-                    {top.length < 2 && <div className="nw-card nw-card-empty">No other stories yet.</div>}
+                    {Array.from({ length: Math.max(0, TOP_STORIES_COUNT - top.length) }).map((_, i) => (
+                      <div className="nw-card nw-card-empty" key={`top-placeholder-${i}`}>
+                        No other stories yet.
+                      </div>
+                    ))}
                   </div>
                 </section>
               )}

@@ -109,13 +109,13 @@ function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
   );
 }
 
-/** Max primary sectors shown before collapsing the rest into a "+n" tag. */
-const SECTOR_TAG_CAP = 3;
+/** Max primary sectors shown before collapsing the rest into a "+n" tag — kept low so the row never wraps to a 2nd line. */
+const SECTOR_TAG_CAP = 2;
 
 /**
- * Primary sectors of the company of focus: up to 3, on their own row below
- * the company/status line. Extra sectors collapse into a "+n" button — same
- * click-to-expand pattern as the Parties column on Corporate Events
+ * Primary sectors of the company of focus: up to 2, on their own single row
+ * below the company/status line. Extra sectors collapse into a "+n" button —
+ * same click-to-expand pattern as the Parties column on Corporate Events
  * (`PartyLinks`): click it to reveal the rest inline, click "Show less" to
  * collapse again.
  */
