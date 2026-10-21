@@ -13836,9 +13836,7 @@ const CompanyDetail = () => {
               overflowX: "auto",
             }}
           >
-            {CONTRIBUTOR_TABS.filter(
-              (tab) => !isPublicContributorSession || tab.key !== "sector-intelligence"
-            ).map((tab) => {
+            {CONTRIBUTOR_TABS.map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
@@ -13891,7 +13889,7 @@ const CompanyDetail = () => {
             </div>
           )}
 
-          {!isPublicContributorSession && activeTab === "sector-intelligence" && (
+          {activeTab === "sector-intelligence" && (
             <SectorIntelligenceTab
               primarySectorIds={primarySectors
                 .map((s) => s.sector_id)
