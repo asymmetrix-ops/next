@@ -839,10 +839,20 @@ export async function notifyDataContribution(
 ): Promise<void> {
   // Always use the Next.js proxy so Xano is called with the service account.
   // Contributor JWTs can submit change requests but cannot send review emails.
+  // Link visitors have no profile name: use the name and role they typed.
+  const identity = readIdentity();
+  const body = {
+    ...payload,
+    contributor_name:
+      payload.contributor_name?.trim() ||
+      [identity.name.trim(), identity.role.trim() && `(${identity.role.trim()})`]
+        .filter(Boolean)
+        .join(" "),
+  };
   const res = await fetch(contributorApiPath("/notifications/data-contribution"), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
