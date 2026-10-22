@@ -10,9 +10,10 @@ import { decodeHtmlEntities, formatArticleDate } from "@/lib/contentArticleDispl
 import { fetchIaContentType, type NewsArticle, type NewsRef } from "@/lib/news";
 import {
   dotPillStyleFromTone,
+  formatTransactionStatusLabel,
   getInsightsTypeTone,
   getNewsSubtypeTone,
-  getProcessStageTone,
+  getTransactionStatusTone,
   researchPillStyleFromTone,
 } from "@/lib/tagColors";
 
@@ -212,9 +213,9 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
               {focus.name}
             </Link>
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
-            {article.focus_tags?.processStage && (
-              <span style={researchPillStyleFromTone(getProcessStageTone(article.focus_tags.processStage))}>
-                {article.focus_tags.processStage}
+            {article.focus_tags?.transactionStatus && (
+              <span style={researchPillStyleFromTone(getTransactionStatusTone(article.focus_tags.transactionStatus))}>
+                {formatTransactionStatusLabel(article.focus_tags.transactionStatus)}
               </span>
             )}
           </span>

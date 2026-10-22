@@ -24,8 +24,8 @@ export type NewsArticle = ContentArticle & {
   label?: "Follow-up" | "Previously" | null;
   /** From /news/feed: other published articles in this article's series. */
   series_others?: NewsRef[];
-  /** Sector and Deal Radar stage of the first company of focus (card tags). */
-  focus_tags?: { primarySectors: string[]; processStage: string | null };
+  /** Sector and transaction status of the first company of focus (card tags). */
+  focus_tags?: { primarySectors: string[]; transactionStatus: string | null };
 };
 
 /** One filter the user picked (suggestion or Enter-to-search). */
@@ -119,6 +119,8 @@ type FocusCompany = {
   hq_iso2?: string | null;
   primary_sectors?: unknown;
   process_stage?: string | null;
+  /** Deal Radar transaction status (e.g. "Reported in Market") — the parent status to show, not its process-stage children ("Deal Prep", "In Market"). */
+  transaction_status?: string | null;
 };
 
 /** Raw-SQL endpoints can return arrays as JSON strings. */
@@ -153,7 +155,7 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
           primarySectors: parseArray<{ id: number; name: string }>(focus[0].primary_sectors)
             .map((sector) => sector.name)
             .filter(Boolean),
-          processStage: focus[0].process_stage?.trim() || null,
+          transactionStatus: focus[0].transaction_status?.trim() || null,
         }
       : undefined,
     follow_up_to: item.follow_up_to ?? null,
