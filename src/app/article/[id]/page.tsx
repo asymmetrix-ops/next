@@ -28,18 +28,15 @@ import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { EmbeddedArticlePdf } from "@/components/article/EmbeddedArticlePdf";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import {
-  getFXRates,
-  formatCurrency,
-  type Currency,
-  type FXRates,
-} from "@/lib/fxRates";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
 import {
   currencyCodeToToggleSymbol,
   type CurrencyDisplayMode,
   type FxToggleConfig,
 } from "@/lib/financialsCurrencyToggle";
+import { extractCurrencyField } from "@/lib/currencyField";
+import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import {
   COMPANY_TABLE_DATA_URL,
   extractCompanyTableItems,
@@ -184,25 +181,47 @@ interface CompanyOfFocusOverview {
   }>;
 }
 
+// Shape of a single `company_financial_metrics`-style row, as returned
+// inside the `financial_metrics` array of the `aritcle_company_of_focus`
+// endpoint. Money fields (`*_m` / `EV`) are already converted to the
+// requested `preferred_currency_id`; the `*_reported_*` siblings carry the
+// original, native-currency figures (same pattern as the Company Profile's
+// financial metrics card — see `extractCurrencyField`/`FINANCIAL_METRICS_FIELDS`).
 interface CompanyOfFocusFinancialOverview {
-  arr_m?: number | string | null;
-  ebitda_m?: number | string | null;
-  revenue_m?: number | string | null;
-  enterprise_value_m?: number | string | null;
-  revenue_multiple?: number | string | null;
-  revenue_growth_pc?: number | string | null;
-  rule_of_40?: number | string | null;
-  ev_currency?: string | null;
-  ebitda_currency?: string | null;
-  revenue_currency?: string | null;
-  // Source fields for financial metrics (e.g., "Estimate")
-  revenue_source?: string | null;
-  arr_source?: string | null;
-  ebitda_source?: string | null;
-  ev_source?: string | null;
-  revenue_multiple_source?: string | null;
-  revenue_growth_source?: string | null;
-  rule_of_40_source?: string | null;
+  Revenue_m?: number | string | null;
+  Revenue_currency_display?: string | null;
+  Revenue_source_label?: string | null;
+  Revenue_m_reported_value?: number | string | null;
+  Revenue_m_reported_currency_display?: string | null;
+  Revenue_m_converted?: boolean | null;
+
+  ARR_m?: number | string | null;
+  ARR_currency_display?: string | null;
+  ARR_source_label?: string | null;
+  ARR_m_reported_value?: number | string | null;
+  ARR_m_reported_currency_display?: string | null;
+  ARR_m_converted?: boolean | null;
+
+  EBITDA_m?: number | string | null;
+  EBITDA_currency_display?: string | null;
+  EBITDA_source_label?: string | null;
+  EBITDA_m_reported_value?: number | string | null;
+  EBITDA_m_reported_currency_display?: string | null;
+  EBITDA_m_converted?: boolean | null;
+
+  EV?: number | string | null;
+  EV_currency_display?: string | null;
+  EV_source_label?: string | null;
+  EV_reported_value?: number | string | null;
+  EV_reported_currency_display?: string | null;
+  EV_converted?: boolean | null;
+
+  Revenue_multiple?: number | string | null;
+  Revenue_multiple_source_label?: string | null;
+  Rev_Growth_PC?: number | string | null;
+  Rev_growth_source_label?: string | null;
+  Rule_of_40?: number | string | null;
+  Rule_of_40_source_label?: string | null;
 }
 
 interface CompanyOfFocusApiItem {
@@ -534,18 +553,15 @@ const ArticleDetailPage = () => {
     "overview"
   );
 
-  // Financial Snapshot — platform vs reported currency toggle (mirrors
-  // Company Profile's FinancialsCurrencyToggle behaviour).
-  const { currency: platformCurrency } = usePlatformCurrency();
-  const [snapshotFxRates, setSnapshotFxRates] = useState<FXRates | null>(null);
+  // Financial Snapshot — the `aritcle_company_of_focus` endpoint converts
+  // money figures server-side to the requested `preferred_currency_id`
+  // (platform currency) and also returns the original `*_reported_*`
+  // native-currency figures, so the toggle just switches which of those
+  // two already-fetched values is shown (no client-side FX math needed).
+  const { currency: platformCurrency, currencyId: platformCurrencyId } =
+    usePlatformCurrency();
   const [snapshotCurrencyMode, setSnapshotCurrencyMode] =
     useState<CurrencyDisplayMode>("preferred");
-
-  useEffect(() => {
-    getFXRates()
-      .then(setSnapshotFxRates)
-      .catch(() => setSnapshotFxRates(null));
-  }, []);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
@@ -801,10 +817,16 @@ const ArticleDetailPage = () => {
           return;
         }
 
+        const companyOfFocusParams = new URLSearchParams({
+          content_id: articleId,
+        });
+        appendPreferredCurrencyIdToSearchParams(
+          companyOfFocusParams,
+          platformCurrencyId
+        );
+
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?content_id=${encodeURIComponent(
-            articleId
-          )}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/aritcle_company_of_focus?${companyOfFocusParams.toString()}`,
           {
             method: "GET",
             headers: {
@@ -829,7 +851,10 @@ const ArticleDetailPage = () => {
               logo?: string;
               linkedin_url?: string;
               company_overview?: unknown;
-              financial_overview?: unknown;
+              // The endpoint now returns financials as a `financial_metrics`
+              // array (one `company_financial_metrics` row) rather than a
+              // single `financial_overview` object.
+              financial_metrics?: unknown;
             }
           | null;
 
@@ -844,14 +869,12 @@ const ArticleDetailPage = () => {
             ? tryParse<CompanyOfFocusOverview>(rawItem.company_overview)
             : (rawItem.company_overview as CompanyOfFocusOverview | undefined);
 
-        const financial =
-          typeof rawItem.financial_overview === "string"
-            ? tryParse<CompanyOfFocusFinancialOverview>(
-                rawItem.financial_overview
-              )
-            : (rawItem.financial_overview as
-                | CompanyOfFocusFinancialOverview
-                | undefined);
+        const financialMetricsRows =
+          tryParse<CompanyOfFocusFinancialOverview[]>(
+            rawItem.financial_metrics
+          ) ?? [];
+        // Latest-year row first when more than one is returned.
+        const financial = financialMetricsRows[financialMetricsRows.length - 1];
 
         const coFocusCompanyIdCandidate =
           (rawItem as unknown as { new_company_id?: unknown })?.new_company_id ??
@@ -893,7 +916,7 @@ const ArticleDetailPage = () => {
     };
 
     fetchCompanyOfFocus();
-  }, [article, articleId]);
+  }, [article, articleId, platformCurrencyId]);
 
   // Fetch competitors for Company Analysis using Company of Focus id
   useEffect(() => {
@@ -1228,54 +1251,40 @@ const ArticleDetailPage = () => {
     return trimmed || "-";
   };
 
-  const SUPPORTED_CURRENCIES: Currency[] = ["USD", "GBP", "EUR"];
-  const isSupportedCurrency = (code?: string | null): code is Currency =>
-    !!code && SUPPORTED_CURRENCIES.includes(code.trim().toUpperCase() as Currency);
-
-  /** Convert a value between any two of the platform's supported currencies
-   * (USD/GBP/EUR), using the USD-anchored FX table as the pivot. */
-  const convertBetweenCurrencies = (
-    value: number | null,
-    sourceCode: Currency,
-    targetCode: Currency,
-    rates: FXRates | null
-  ): number | null => {
-    if (value === null || !Number.isFinite(value)) return null;
-    if (sourceCode === targetCode) return value;
-    if (!rates) return value;
-    const usdValue = sourceCode === "USD" ? value : value / rates[sourceCode];
-    return targetCode === "USD" ? usdValue : usdValue * rates[targetCode];
+  /** Formats a value with an arbitrary ISO currency code (the reported
+   * figure's native currency isn't limited to the platform's USD/GBP/EUR
+   * set), falling back to a plain number if the code isn't formattable. */
+  const formatWithCurrencyCode = (value: number, code: string): string => {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: code.trim().toUpperCase(),
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(value);
+    } catch {
+      return formatPlainNumber(value);
+    }
   };
 
-  /** Currency-aware money formatter for the Financial Snapshot card — shows
-   * the value in the platform or reported currency depending on `mode`. */
+  /** Money formatter for the Financial Snapshot card — picks the preferred
+   * (platform-currency, already converted) or reported (native-currency)
+   * value/currency pair extracted via `extractCurrencyField`, depending on
+   * the toggle mode. No client-side FX conversion needed; both figures
+   * come straight from the API. */
   const formatSnapshotMoney = (
-    value: number | string | null | undefined,
-    reportedCode: string | null | undefined,
+    field: ReturnType<typeof extractCurrencyField> | null,
     mode: CurrencyDisplayMode
   ): string => {
-    if (value === null || value === undefined || value === "") return "-";
-    const num = Number(value);
-    if (!Number.isFinite(num)) return "-";
-
-    const nativeCode = isSupportedCurrency(reportedCode)
-      ? reportedCode.trim().toUpperCase() as Currency
-      : null;
-
-    if (!nativeCode) {
-      // Unknown/unsupported reported currency — show the plain figure.
-      return formatPlainNumber(num);
-    }
-    if (mode === "native") {
-      return formatCurrency(num, nativeCode);
-    }
-    const converted = convertBetweenCurrencies(
-      num,
-      nativeCode,
-      platformCurrency,
-      snapshotFxRates
-    );
-    return formatCurrency(converted, platformCurrency);
+    if (!field) return "-";
+    const value = mode === "native" ? field.reportedValue : field.preferredValue;
+    if (value === null || value === undefined) return "-";
+    const currency =
+      (mode === "native" ? field.reportedCurrency : field.preferredCurrency) ||
+      field.preferredCurrency ||
+      null;
+    if (!currency) return formatPlainNumber(value);
+    return formatWithCurrencyCode(value, currency);
   };
 
   const toDisplayString = (value: unknown): string => {
@@ -1964,80 +1973,114 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "-";
 
-              const reportedCurrencyRaw =
-                financial?.ev_currency ||
-                financial?.revenue_currency ||
-                financial?.ebitda_currency ||
-                null;
-              const reportedCurrency = isSupportedCurrency(reportedCurrencyRaw)
-                ? (reportedCurrencyRaw!.trim().toUpperCase() as Currency)
-                : null;
-
-              const snapshotFxToggleConfig: FxToggleConfig | null =
-                reportedCurrency && reportedCurrency !== platformCurrency
-                  ? {
-                      preferredCode: platformCurrency,
-                      nativeCode: reportedCurrency,
-                      preferredSymbol: currencyCodeToToggleSymbol(platformCurrency),
-                      nativeSymbol: currencyCodeToToggleSymbol(reportedCurrency),
-                    }
-                  : null;
-
               const pubYear = article?.Publication_Date
                 ? new Date(article.Publication_Date).getFullYear()
                 : null;
               const fyLabel =
                 pubYear && Number.isFinite(pubYear) ? `FY${pubYear}F` : null;
 
-              const revenueDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.revenue_m,
-                    financial.revenue_currency,
-                    snapshotCurrencyMode
+              // Per-metric preferred(platform)/reported(native) value pairs,
+              // same extraction used by the Company Profile financials card.
+              const revenueField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "Revenue_m",
+                    FINANCIAL_METRICS_FIELDS.Revenue_m
                   )
-                : "-";
+                : null;
+              const arrField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "ARR_m",
+                    FINANCIAL_METRICS_FIELDS.ARR_m
+                  )
+                : null;
+              const ebitdaField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "EBITDA_m",
+                    FINANCIAL_METRICS_FIELDS.EBITDA_m
+                  )
+                : null;
+              const evField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "EV",
+                    FINANCIAL_METRICS_FIELDS.EV
+                  )
+                : null;
 
-              const arrDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.arr_m,
-                    financial.revenue_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              // Toggle only appears when some metric actually carries a
+              // reported currency that differs from the platform currency.
+              const toggleSourceField = [
+                revenueField,
+                arrField,
+                ebitdaField,
+                evField,
+              ].find(
+                (field) =>
+                  field?.converted &&
+                  field.reportedCurrency &&
+                  field.reportedCurrency.trim().toUpperCase() !==
+                    (field.preferredCurrency ?? platformCurrency)
+                      .trim()
+                      .toUpperCase()
+              );
+              const snapshotFxToggleConfig: FxToggleConfig | null =
+                toggleSourceField
+                  ? {
+                      preferredCode:
+                        toggleSourceField.preferredCurrency ?? platformCurrency,
+                      nativeCode: toggleSourceField.reportedCurrency as string,
+                      preferredSymbol: currencyCodeToToggleSymbol(
+                        toggleSourceField.preferredCurrency ?? platformCurrency
+                      ),
+                      nativeSymbol: currencyCodeToToggleSymbol(
+                        toggleSourceField.reportedCurrency as string
+                      ),
+                    }
+                  : null;
 
-              const ebitdaDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.ebitda_m,
-                    financial.ebitda_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              const revenueDisplay = formatSnapshotMoney(
+                revenueField,
+                snapshotCurrencyMode
+              );
 
-              const evDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.enterprise_value_m,
-                    financial.ev_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              const arrDisplay = formatSnapshotMoney(
+                arrField,
+                snapshotCurrencyMode
+              );
+
+              const ebitdaDisplay = formatSnapshotMoney(
+                ebitdaField,
+                snapshotCurrencyMode
+              );
+
+              const evDisplay = formatSnapshotMoney(evField, snapshotCurrencyMode);
 
               const revenueMultipleDisplay = financial
-                ? formatMultiple(financial.revenue_multiple)
+                ? formatMultiple(financial.Revenue_multiple)
                 : "-";
 
-              const evNum = financial ? Number(financial.enterprise_value_m) : NaN;
-              const ebitdaNum = financial ? Number(financial.ebitda_m) : NaN;
+              const evNum =
+                snapshotCurrencyMode === "native"
+                  ? evField?.reportedValue ?? NaN
+                  : evField?.preferredValue ?? NaN;
+              const ebitdaNum =
+                snapshotCurrencyMode === "native"
+                  ? ebitdaField?.reportedValue ?? NaN
+                  : ebitdaField?.preferredValue ?? NaN;
               const evEbitdaMultipleDisplay =
                 Number.isFinite(evNum) && Number.isFinite(ebitdaNum) && ebitdaNum !== 0
                   ? formatMultiple(evNum / ebitdaNum)
                   : "-";
 
               const revenueGrowthDisplay = financial
-                ? formatPercent(financial.revenue_growth_pc)
+                ? formatPercent(financial.Rev_Growth_PC)
                 : "-";
 
               const ruleOf40Display = financial
-                ? formatPercent(financial.rule_of_40)
+                ? formatPercent(financial.Rule_of_40)
                 : "-";
 
               const isEmptyVal = (v: string) => !v || v === "-";
@@ -2254,42 +2297,46 @@ const ArticleDetailPage = () => {
                             <span className="k">Revenue (m)</span>
                             <span className="v">{revenueDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.revenue_source)}
+                              {getFinancialSourceLabel(financial.Revenue_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">ARR (m)</span>
                             <span className="v">{arrDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.arr_source)}
+                              {getFinancialSourceLabel(financial.ARR_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">EBITDA (m)</span>
                             <span className="v">{ebitdaDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.ebitda_source)}
+                              {getFinancialSourceLabel(financial.EBITDA_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Enterprise value (m)</span>
                             <span className="v">{evDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.ev_source)}
+                              {getFinancialSourceLabel(financial.EV_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Revenue growth</span>
                             <span className="v">{revenueGrowthDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.revenue_growth_source)}
+                              {getFinancialSourceLabel(
+                                financial.Rev_growth_source_label
+                              )}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Rule of 40</span>
                             <span className="v">{ruleOf40Display}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.rule_of_40_source)}
+                              {getFinancialSourceLabel(
+                                financial.Rule_of_40_source_label
+                              )}
                             </span>
                           </div>
                         </div>
@@ -2305,7 +2352,7 @@ const ArticleDetailPage = () => {
                             <span className="v">{revenueMultipleDisplay}</span>
                             <span className="s">
                               {getFinancialSourceLabel(
-                                financial.revenue_multiple_source
+                                financial.Revenue_multiple_source_label
                               )}
                             </span>
                           </div>
@@ -2314,7 +2361,8 @@ const ArticleDetailPage = () => {
                             <span className="v">{evEbitdaMultipleDisplay}</span>
                             <span className="s">
                               {getFinancialSourceLabel(
-                                financial.ev_source || financial.ebitda_source
+                                financial.EV_source_label ||
+                                  financial.EBITDA_source_label
                               )}
                             </span>
                           </div>
