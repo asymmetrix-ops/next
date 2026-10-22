@@ -9958,9 +9958,14 @@ function SectorIntelligenceTab({
     setCeLoading(true);
     setCeError(null);
 
-    const params = new URLSearchParams({ page: String(cePage), per_page: String(CE_PER_PAGE) });
-    primarySectorIds.forEach((id) => params.append("primary_sector_ids[]", String(id)));
-    secondarySectorIds.forEach((id) => params.append("secondary_sector_ids[]", String(id)));
+    // Input names are case-sensitive on this endpoint; unknown ones are silently ignored.
+    const params = new URLSearchParams({
+      Page: String(cePage),
+      Per_page: String(CE_PER_PAGE),
+      preferred_currency_id: String(PLATFORM_CURRENCY_BY_CODE[currency]),
+    });
+    primarySectorIds.forEach((id) => params.append("primary_sectors_ids[]", String(id)));
+    secondarySectorIds.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
 
     contributorFetch(`${CE_API}?${params.toString()}`, {
       headers: {
@@ -10039,7 +10044,7 @@ function SectorIntelligenceTab({
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryKey, secondaryKey, cePage]);
+  }, [primaryKey, secondaryKey, cePage, currency]);
 
   const prefix = view === "mean" ? "mean_" : "median_";
   const currencyInfo = SECTOR_CURRENCY_OPTIONS.find((c) => c.value === currency)!;
