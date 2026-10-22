@@ -19,6 +19,9 @@ import {
   getBuyerTypeTone,
   getTransactionSignalDescription,
   ENTITY_TONES,
+  DEAL_TYPE_TONE,
+  TRANSACTION_SIGNAL_TONES,
+  type TagTone,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
@@ -69,9 +72,13 @@ interface AdvisorRef {
   bankers: NamedRef[];
 }
 
+/** "Proprietary" | "Public" from Financial Metrics (x2_116.proprietary); null for legacy/empty. */
+type RevenueSourceType = "Proprietary" | "Public" | null;
+
 interface ValSource {
   value: string | null;
   source: string | null;
+  source_type?: RevenueSourceType;
   currency?: string | null;
 }
 
@@ -372,12 +379,47 @@ function isInvalidVal(value: string | number | null | undefined): boolean {
   return v === "null" || v === "nan" || v === "";
 }
 
-/** Revenue / EV as plain text like the other list views (no Est./Prop. tags). */
+/** Revenue / EV formatted value, e.g. "$12.5m". */
 function formatVal(val: ValSource): React.ReactNode {
   if (isInvalidVal(val?.value)) return EMPTY_DISPLAY;
   const plain = formatMetricMillionsPlain(val.value);
   if (plain === EMPTY_DISPLAY) return EMPTY_DISPLAY;
   return appendMetricCurrency(plain, val.currency ?? undefined);
+}
+
+/** Same tones already used for "Proprietary Intel" (transaction signal) and "Trade" (buyer type). */
+const REVENUE_SOURCE_TONES: Record<"Proprietary" | "Public", TagTone> = {
+  Proprietary: TRANSACTION_SIGNAL_TONES["proprietary intel"],
+  Public: DEAL_TYPE_TONE,
+};
+
+/** Colored pill ("Proprietary" / "Public") marking where a Revenue/EV figure came from — identical markup/sizing to BuyerTypeCell's pills (e.g. "Trade"). */
+function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
+  if (type !== "Proprietary" && type !== "Public") return null;
+  const tone = REVENUE_SOURCE_TONES[type];
+  return (
+    <span
+      className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+      style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
+    >
+      {type}
+    </span>
+  );
+}
+
+/** Revenue / EV value with its source-type tag alongside when available (Financial Metrics only). */
+function formatValWithSourceTag(val: ValSource): React.ReactNode {
+  const formatted = formatVal(val);
+  if (formatted === EMPTY_DISPLAY) return formatted;
+  if (val.source_type !== "Proprietary" && val.source_type !== "Public") {
+    return formatted;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span>{formatted}</span>
+      <SourceTypeTag type={val.source_type} />
+    </div>
+  );
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -633,8 +675,8 @@ function DealRadarMobileCard({
             dash
           )
         )}
-        {row("Revenue (m)", formatVal(item.revenue))}
-        {row("EV (m)", formatVal(item.ev))}
+        {row("Revenue (m)", <div className="flex justify-end">{formatValWithSourceTag(item.revenue)}</div>)}
+        {row("EV (m)", <div className="flex justify-end">{formatValWithSourceTag(item.ev)}</div>)}
       </div>
     </div>
   );
@@ -1279,12 +1321,12 @@ export default function DealRadarView({
 
                               {/* Revenue */}
                               <td className="text-xs">
-                                {formatVal(item.revenue)}
+                                {formatValWithSourceTag(item.revenue)}
                               </td>
 
                               {/* EV */}
                               <td className="text-xs">
-                                {formatVal(item.ev)}
+                                {formatValWithSourceTag(item.ev)}
                               </td>
 
                             </tr>
