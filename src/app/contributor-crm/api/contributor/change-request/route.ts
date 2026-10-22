@@ -6,6 +6,21 @@ import { fetchServiceCompany, postServiceChangeRequest } from "@/lib/contributor
 
 export const dynamic = "force-dynamic";
 
+// Read-only on the contributor page: never accepted from a submission.
+const READ_ONLY_COMPANY_FIELDS = ["product_type", "revenue_model", "data_collection_method"];
+
+function stripReadOnly(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripReadOnly);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([k]) => !/^linkedin/i.test(k))
+        .map(([k, v]) => [k, stripReadOnly(v)])
+    );
+  }
+  return value;
+}
+
 export async function POST(request: NextRequest) {
   const blocked = rejectUnlessContributorCrmPage(request);
   if (blocked) return blocked;
@@ -17,6 +32,19 @@ export async function POST(request: NextRequest) {
         { error: "Contributor email is required." },
         { status: 400 }
       );
+    }
+
+    if (payload.entity_type !== "financial_metrics") {
+      for (const side of ["old", "new"] as const) {
+        const body = stripReadOnly(payload[side]) as Record<string, unknown> | undefined;
+        const company = body?.company as Record<string, unknown> | undefined;
+        if (company) {
+          const target =
+            company.data && typeof company.data === "object" ? (company.data as Record<string, unknown>) : company;
+          for (const f of READ_ONLY_COMPANY_FIELDS) delete target[f];
+        }
+        if (body) payload[side] = body;
+      }
     }
 
     // A link-bound session may only submit changes for its own company.
