@@ -9814,6 +9814,18 @@ const SECTOR_SUB_METRICS = [
 
 const SECTOR_ALL_METRICS = [...SECTOR_FIN_METRICS, ...SECTOR_SUB_METRICS];
 
+// Column groups of the benchmark table: financials, subscription metrics and the
+// transaction-comp style valuation columns.
+const SECTOR_GROUPS = (() => {
+  const by = (keys: string[]) =>
+    keys.map((k) => SECTOR_ALL_METRICS.find((m) => m.key === k)!).filter(Boolean);
+  return [
+    { title: "Financial metrics", metrics: by(["revenue_m", "ebitda_m", "ebit_m", "revenue_growth", "ebitda_margin", "rule_of_40"]) },
+    { title: "Subscription metrics", metrics: SECTOR_SUB_METRICS },
+    { title: "Valuation", metrics: by(["ev_m", "ev_rev_multiple"]) },
+  ];
+})();
+
 const SECTOR_METRIC_ALIASES: Record<string, string[]> = {
   ev_m: ["ev_m", "ev", "enterprise_value_m"],
   ebit_m: ["ebit_m", "ebit"],
@@ -9852,7 +9864,8 @@ function sectorFormatValue(
     if (toCurrency !== "USD" && rates && rates[toCurrency]) {
       converted = n * rates[toCurrency];
     }
-    return `${symbol}${converted.toFixed(1).replace(/\.0$/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    const body = Math.abs(converted).toFixed(1).replace(/\.0$/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return `${converted < 0 ? "-" : ""}${symbol}${body}`;
   }
   return n.toLocaleString();
 }
@@ -9904,6 +9917,7 @@ function SectorIntelligenceTab({
   const hasContributed = submissionCount === null ? null : submissionCount > 0;
   // ── Benchmark table state ──
   const [view, setView] = useState<SectorMetricView>("mean");
+  const [benchScrolled, setBenchScrolled] = useState(false);
   const [currency, setCurrency] = useState<SectorCurrency>("USD");
   const [fxRates, setFxRates] = useState<Record<string, number> | null>(null);
   const [rows, setRows] = useState<SectorMetricRow[]>([]);
@@ -10270,108 +10284,55 @@ function SectorIntelligenceTab({
     )}
 
     {hasContributed && (<>
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: "14px",
-        border: "1px solid #e2e8f0",
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid #e2e8f0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "8px",
-          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "16px",
-              fontWeight: 700,
-              color: "#0f172a",
-              fontFamily: "Georgia, serif",
-            }}
-          >
-            Sector Intelligence
-          </h2>
-          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
-            Benchmark metrics by revenue range
-          </p>
-        </div>
+    <div className="bm-card">
+      <style>{`
+        .bm-card{background:#fff;border:1px solid #E3E8F0;border-radius:12px;box-shadow:0 1px 2px rgba(27,42,65,.04);min-width:0;overflow:hidden;font-family:Inter,sans-serif;color:#1B2A41}
+        .bm-ch{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 16px;border-bottom:1px solid #EEF1F6}
+        .bm-ch h2{margin:0;font-size:15px;font-weight:600;color:#1B2A41}
+        .bm-ch small{color:#6A7A90;font-size:12px}
+        .bm-r{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .bm-seg{display:inline-flex;border:1px solid #DDE3EC;border-radius:999px;padding:2px}
+        .bm-seg button{border:0;background:none;border-radius:999px;padding:4px 10px;font:600 12px Inter,sans-serif;color:#6A7A90;cursor:pointer}
+        .bm-seg button.on{background:#1B2A41;color:#fff}
+        .bm-scroll{overflow:auto;scrollbar-width:thin;scrollbar-color:#CBD3DF transparent}
+        .bm-t{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
+        .bm-t th,.bm-t td{padding:8px 16px;text-align:center;white-space:nowrap;border-bottom:1px solid #F1F3F7}
+        .bm-t thead th{background:#EEF3FC;color:#4A5D7A;font:600 10.5px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid #DCE5F5;height:34px}
+        .bm-t thead th.g{height:30px;color:#1F4FE0;font-weight:700;letter-spacing:.07em}
+        .bm-t th.l,.bm-t td.l{text-align:left}
+        .bm-t td{height:40px;font-weight:600;color:#1B2A41;font-size:13px}
+        .bm-t tbody tr:hover td{background:#F7F9FC}
+        .bm-t tbody tr:last-child td{border-bottom:0}
+        .bm-t .st{position:sticky;left:0;z-index:1;background:#fff;font-weight:500;color:#3A4A60;min-width:140px;border-right:1px solid #EEF1F6}
+        .bm-t thead .st{z-index:3;background:#EEF3FC;border-right-color:#DCE5F5}
+        .bm-scroll.sx .st{box-shadow:6px 0 8px -6px rgba(27,42,65,.18)}
+        .bm-t .bl{border-left:1px solid #DCE5F5}
+        .bm-t tbody .bl{border-left-color:#EEF1F6}
+        .bm-t td.n{color:#6A7A90;font-weight:500}
+        .bm-t .neg{color:#C2362B}
+        .bm-t .na{color:#A3AEBD;font-weight:400}
+        .bm-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;color:#6A7A90;border-top:1px solid #EEF1F6;font-size:12px}
+      `}</style>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-          {/* Mean / Median toggle */}
-          <div
-            style={{
-              display: "inline-flex",
-              border: "1.5px solid #e2e8f0",
-              borderRadius: "8px",
-              overflow: "hidden",
-              background: "#f8fafc",
-              padding: "2px",
-              gap: "2px",
-            }}
-          >
+      <div className="bm-ch">
+        <h2>Sector Intelligence</h2>
+        <small>Benchmark metrics by revenue range</small>
+        <div className="bm-r">
+          <div className="bm-seg">
             {(["mean", "median"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                style={{
-                  padding: "5px 12px",
-                  border: "none",
-                  borderRadius: "6px",
-                  background: view === v ? "#0f172a" : "transparent",
-                  color: view === v ? "#ffffff" : "#64748b",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
+              <button key={v} type="button" className={view === v ? "on" : ""} onClick={() => setView(v)}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
           </div>
-
-          {/* Currency toggle */}
-          <div
-            style={{
-              display: "inline-flex",
-              border: "1.5px solid #e2e8f0",
-              borderRadius: "8px",
-              overflow: "hidden",
-              background: "#f8fafc",
-              padding: "2px",
-              gap: "2px",
-            }}
-          >
+          <div className="bm-seg">
             {SECTOR_CURRENCY_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setCurrency(opt.value)}
                 title={opt.label}
-                style={{
-                  padding: "5px 10px",
-                  border: "none",
-                  borderRadius: "6px",
-                  background: currency === opt.value ? "#0f172a" : "transparent",
-                  color: currency === opt.value ? "#ffffff" : "#64748b",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
+                className={currency === opt.value ? "on" : ""}
+                onClick={() => setCurrency(opt.value)}
               >
                 {opt.symbol}
               </button>
@@ -10380,274 +10341,89 @@ function SectorIntelligenceTab({
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ padding: "0" }}>
-        {loading ? (
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "60px 24px", gap: "12px" }}>
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "60px 24px",
-              gap: "12px",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              border: "3px solid #E3E8F0",
+              borderTopColor: "#1F4FE0",
+              animation: "spin 0.8s linear infinite",
             }}
-          >
-            <div
-              style={{  
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                border: "3px solid #e2e8f0",
-                borderTopColor: "#1d4ed8",
-                animation: "spin 0.8s linear infinite",
-              }}
-            />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <span style={{ fontSize: "13px", color: "#64748b" }}>Loading sector data…</span>
-          </div>
-        ) : error ? (
+          />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <span style={{ fontSize: "13px", color: "#6A7A90" }}>Loading sector data…</span>
+        </div>
+      ) : error ? (
+        <div style={{ margin: "24px", padding: "16px", borderRadius: "12px", background: "#fff1f2", border: "1px solid #fecaca", color: "#9f1239", fontSize: "13px" }}>
+          <strong>Could not load data:</strong> {error}
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#6A7A90", fontSize: "13px" }}>No data available.</div>
+      ) : (
+        <>
           <div
-            style={{
-              margin: "24px",
-              padding: "16px",
-              borderRadius: "12px",
-              background: "#fff1f2",
-              border: "1px solid #fecaca",
-              color: "#9f1239",
-              fontSize: "13px",
-            }}
+            className={`bm-scroll${benchScrolled ? " sx" : ""}`}
+            onScroll={(e) => setBenchScrolled(e.currentTarget.scrollLeft > 0)}
           >
-            <strong>Could not load data:</strong> {error}
-          </div>
-        ) : rows.length === 0 ? (
-          <div
-            style={{
-              padding: "60px 24px",
-              textAlign: "center",
-              color: "#64748b",
-              fontSize: "13px",
-            }}
-          >
-            No data available.
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "11px",
-              }}
-            >
+            <table className="bm-t">
               <thead>
-                {/* Section headers */}
-                <tr style={{ background: "#f1f5f9" }}>
-                  <th
-                    rowSpan={2}
-                    style={{
-                      padding: "6px 10px",
-                      textAlign: "left",
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      borderBottom: "2px solid #e2e8f0",
-                      borderRight: "2px solid #e2e8f0",
-                      whiteSpace: "nowrap",
-                      fontSize: "10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Revenue Range
-                  </th>
-                  <th
-                    rowSpan={2}
-                    style={{
-                      padding: "6px 8px",
-                      textAlign: "center",
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      borderBottom: "2px solid #e2e8f0",
-                      borderRight: "2px solid #cbd5e1",
-                      whiteSpace: "nowrap",
-                      fontSize: "10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Number of companies
-                  </th>
-                  <th
-                    colSpan={SECTOR_FIN_METRICS.length}
-                    style={{
-                      padding: "5px 8px",
-                      textAlign: "center",
-                      fontWeight: 700,
-                      color: "#1d4ed8",
-                      background: "#eff6ff",
-                      borderBottom: "1px solid #bfdbfe",
-                      borderRight: "2px solid #bfdbfe",
-                      fontSize: "10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Financial Metrics
-                  </th>
-                  <th
-                    colSpan={SECTOR_SUB_METRICS.length}
-                    style={{
-                      padding: "5px 8px",
-                      textAlign: "center",
-                      fontWeight: 700,
-                      color: "#0f766e",
-                      background: "#f0fdfa",
-                      borderBottom: "1px solid #99f6e4",
-                      fontSize: "10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Subscription Metrics
-                  </th>
+                <tr>
+                  <th className="st l" rowSpan={2} style={{ verticalAlign: "bottom", paddingBottom: 10 }}>Revenue range</th>
+                  <th rowSpan={2} style={{ verticalAlign: "bottom", paddingBottom: 10 }}>Companies</th>
+                  {SECTOR_GROUPS.map((g) => (
+                    <th key={g.title} className="g bl" colSpan={g.metrics.length}>{g.title}</th>
+                  ))}
                 </tr>
-                {/* Column headers */}
-                <tr style={{ background: "#f8fafc" }}>
-                  {metricsWithLabel.map((m, i) => {
-                    const isLastFin = i === SECTOR_FIN_METRICS.length - 1;
-                    const isInSub = i >= SECTOR_FIN_METRICS.length;
-                    return (
-                      <th
-                        key={m.key}
-                        style={{
-                          padding: "5px 6px",
-                          textAlign: "right",
-                          fontWeight: 600,
-                          color: isInSub ? "#0f766e" : "#1d4ed8",
-                          background: isInSub ? "#f0fdfa" : "#eff6ff",
-                          borderBottom: "2px solid #e2e8f0",
-                          borderRight: isLastFin ? "2px solid #bfdbfe" : undefined,
-                          whiteSpace: "nowrap",
-                          fontSize: "10px",
-                          minWidth: "60px",
-                        }}
-                      >
-                        {m.label}
+                <tr>
+                  {SECTOR_GROUPS.flatMap((g) =>
+                    g.metrics.map((m, i) => (
+                      <th key={m.key} className={i === 0 ? "bl" : ""}>
+                        {m.format === "money_m" ? m.label.replace(/\(M\)/, `(${currencyInfo.symbol}M)`) : m.label}
                       </th>
-                    );
-                  })}
+                    ))
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr
-                    key={`${row.revenue_range}-${idx}`}
-                    style={{
-                      background: idx % 2 === 0 ? "#ffffff" : "#fafafa",
-                      transition: "background 0.1s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = "#f0f9ff";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background =
-                        idx % 2 === 0 ? "#ffffff" : "#fafafa";
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: "7px 10px",
-                        fontWeight: 600,
-                        color: "#0f172a",
-                        borderBottom: "1px solid #f1f5f9",
-                        borderRight: "2px solid #e2e8f0",
-                        whiteSpace: "nowrap",
-                        fontSize: "11px",
-                      }}
-                    >
-                      {row.revenue_range}
-                    </td>
-                    <td
-                      style={{
-                        padding: "7px 8px",
-                        textAlign: "center",
-                        fontWeight: 500,
-                        color: "#475569",
-                        borderBottom: "1px solid #f1f5f9",
-                        borderRight: "2px solid #cbd5e1",
-                        fontSize: "11px",
-                      }}
-                    >
-                      {Number.isFinite(row.num_companies)
-                        ? row.num_companies.toLocaleString()
-                        : "—"}
-                    </td>
-                    {metricsWithLabel.map((m, i) => {
-                      const isLastFin = i === SECTOR_FIN_METRICS.length - 1;
-                      const isInSub = i >= SECTOR_FIN_METRICS.length;
-                      const val = getVal(row, m.key);
-                      const formatted = sectorFormatValue(
-                        val,
-                        m.format,
-                        currencyInfo.symbol,
-                        fxRates,
-                        currency
-                      );
-                      return (
-                        <td
-                          key={m.key}
-                          style={{
-                            padding: "7px 6px",
-                            textAlign: "right",
-                            color: formatted === "—" ? "#cbd5e1" : "#0f172a",
-                            borderBottom: "1px solid #f1f5f9",
-                            borderRight: isLastFin ? "2px solid #bfdbfe" : undefined,
-                            fontVariantNumeric: "tabular-nums",
-                            fontSize: "11px",
-                            background: isInSub
-                              ? "rgba(240,253,250,0.3)"
-                              : "rgba(239,246,255,0.3)",
-                          }}
-                        >
-                          {formatted}
-                        </td>
-                      );
-                    })}
+                  <tr key={`${row.revenue_range}-${idx}`}>
+                    <td className="st l">{row.revenue_range}</td>
+                    <td className="n">{Number.isFinite(row.num_companies) ? row.num_companies.toLocaleString() : "—"}</td>
+                    {SECTOR_GROUPS.flatMap((g) =>
+                      g.metrics.map((m, i) => {
+                        const val = getVal(row, m.key);
+                        const formatted = sectorFormatValue(val, m.format, currencyInfo.symbol, fxRates, currency);
+                        const num = sectorToNum(val);
+                        return (
+                          <td key={m.key} className={i === 0 ? "bl" : ""}>
+                            {formatted === "—" ? (
+                              <span className="na">n/a</span>
+                            ) : (
+                              <span className={num !== null && num < 0 ? "neg" : ""}>{formatted}</span>
+                            )}
+                          </td>
+                        );
+                      })
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
-
-            <div
-              style={{
-                padding: "8px 12px",
-                borderTop: "1px solid #f1f5f9",
-                fontSize: "10px",
-                color: "#94a3b8",
-                display: "flex",
-                gap: "8px",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <span>
-                Monetary values in <strong>{currencyInfo.symbol}M</strong>.{" "}
-                {view === "mean" ? "Mean" : "Median"} values shown.
-              </span>
-              {currency !== "USD" && fxRates && (
-                <span>
-                  · 1 USD ≈ {fxRates[currency]?.toFixed(4)} {currency}
-                </span>
-              )}
-              {!fxRates && currency !== "USD" && (
-                <span style={{ color: "#f59e0b" }}>
-                  · FX rates unavailable — showing USD values
-                </span>
-              )}
-            </div>
           </div>
-        )}
-      </div>
+          <div className="bm-foot">
+            <span>
+              Monetary values in <b>{currencyInfo.symbol}m</b>. {view === "mean" ? "Mean" : "Median"} values shown.
+            </span>
+            {currency !== "USD" && fxRates && <span>· 1 USD ≈ {fxRates[currency]?.toFixed(4)} {currency}</span>}
+            {!fxRates && currency !== "USD" && (
+              <span style={{ color: "#f59e0b" }}>· FX rates unavailable, showing USD values</span>
+            )}
+          </div>
+        </>
+      )}
     </div>
 
     {/* ── Corporate Events ── */}
