@@ -47,7 +47,12 @@ import {
   isTokenExpired,
 } from "@/lib/contributorCrm/auth";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
-import { readPlatformCurrencyIdClient } from "@/lib/platformCurrency";
+import {
+  PLATFORM_CURRENCY_BY_CODE,
+  readPlatformCurrencyClient,
+  readPlatformCurrencyIdClient,
+  writePlatformCurrencyClient,
+} from "@/lib/platformCurrency";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
 const FINANCIAL_SERVICES_FOCUS_ID = 74;
@@ -9918,8 +9923,15 @@ function SectorIntelligenceTab({
   // ── Benchmark table state ──
   const [view, setView] = useState<SectorMetricView>("mean");
   const [benchScrolled, setBenchScrolled] = useState(false);
-  const [currency, setCurrency] = useState<SectorCurrency>("USD");
-  const [fxRates, setFxRates] = useState<Record<string, number> | null>(null);
+  // Same preference (cookie) as the rest of the platform; the endpoint converts server-side.
+  const [currency, setCurrencyState] = useState<SectorCurrency>("USD");
+  useEffect(() => {
+    setCurrencyState(readPlatformCurrencyClient());
+  }, []);
+  const setCurrency = (next: SectorCurrency) => {
+    setCurrencyState(next);
+    writePlatformCurrencyClient(next);
+  };
   const [rows, setRows] = useState<SectorMetricRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -9938,23 +9950,12 @@ function SectorIntelligenceTab({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("https://open.er-api.com/v6/latest/USD")
-      .then((r) => r.json())
-      .then((data: unknown) => {
-        if (!cancelled && data && typeof data === "object") {
-          const d = data as { rates?: Record<string, number> };
-          if (d.rates) setFxRates(d.rates);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
     setLoading(true);
     setError(null);
-    contributorFetch(SECTOR_INTEL_API, { method: "GET", headers: { Accept: "application/json" } })
+    contributorFetch(`${SECTOR_INTEL_API}?Currency_id=${PLATFORM_CURRENCY_BY_CODE[currency]}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Failed to load data (${r.status})`);
         return r.json();
@@ -9972,7 +9973,7 @@ function SectorIntelligenceTab({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [currency]);
 
   // ── Corporate Events: fetched from CE_API filtered by company sectors ──
   useEffect(() => {
@@ -10395,7 +10396,7 @@ function SectorIntelligenceTab({
                     {SECTOR_GROUPS.flatMap((g) =>
                       g.metrics.map((m, i) => {
                         const val = getVal(row, m.key);
-                        const formatted = sectorFormatValue(val, m.format, currencyInfo.symbol, fxRates, currency);
+                        const formatted = sectorFormatValue(val, m.format, currencyInfo.symbol, null, "USD");
                         const num = sectorToNum(val);
                         return (
                           <td key={m.key} className={i === 0 ? "bl" : ""}>
@@ -10417,10 +10418,6 @@ function SectorIntelligenceTab({
             <span>
               Monetary values in <b>{currencyInfo.symbol}m</b>. {view === "mean" ? "Mean" : "Median"} values shown.
             </span>
-            {currency !== "USD" && fxRates && <span>· 1 USD ≈ {fxRates[currency]?.toFixed(4)} {currency}</span>}
-            {!fxRates && currency !== "USD" && (
-              <span style={{ color: "#f59e0b" }}>· FX rates unavailable, showing USD values</span>
-            )}
           </div>
         </>
       )}
