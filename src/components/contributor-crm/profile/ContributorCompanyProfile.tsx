@@ -4493,7 +4493,6 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                   <div className="company-grid-product-zone">
                     {(showProductType || showRevenueModel) && (
                       <div className="product-zone-cell" style={{ position: "relative" }}>
-                        <CardPen label="product & revenue model" onClick={() => onEditSection("overview")} />
                         <ProductTypeRevenueCard
                           fillGridCell
                           productRows={productTypeBarRows}
@@ -4506,7 +4505,6 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                     )}
                     {showCoreProducts && (
                       <div className="product-zone-cell" style={{ position: "relative" }}>
-                        <CardPen label="core products" onClick={() => onEditSection("overview")} />
                         <ProductUsersListCard
                           sections={coreProductsSections}
                           useCaseSections={usersUseCaseSections}
@@ -4516,7 +4514,6 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                     )}
                     {showDataCollection && (
                       <div className="product-zone-cell" style={{ position: "relative" }}>
-                        <CardPen label="data collection" onClick={() => onEditSection("overview")} />
                         <DataCollectionCard
                           fillGridCell
                           productRows={productTypeBarRows}
