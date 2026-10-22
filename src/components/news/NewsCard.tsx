@@ -199,12 +199,12 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {strap ? (
           <p className="nw-strap">{strap}</p>
-        ) : variant === "feed" ? (
-          // Tiles reserve two description lines, so the rows below line up across tiles.
+        ) : (
+          // Reserve the "about" rows even without a strapline, so cards line up across the row.
           <p className="nw-strap" aria-hidden="true">
             &nbsp;
           </p>
-        ) : null}
+        )}
 
         {focus ? (
           <span className="nw-company">
@@ -219,7 +219,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
             )}
           </span>
         ) : (
-          variant === "feed" && <span className="nw-company" aria-hidden="true" />
+          <span className="nw-company" aria-hidden="true" />
         )}
 
         {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
