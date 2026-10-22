@@ -21,6 +21,12 @@ export function getInsightHqCountryIso2(article: unknown): string | null {
   if (!article || typeof article !== "object") return null;
   const record = article as Record<string, unknown>;
 
+  // Some API shapes (e.g. the home-page "Insights & Analysis" lane) omit the
+  // Company_of_Focus array entirely but still precompute `hq_country_iso2`
+  // (or `iso2`) directly on the article — trust that first.
+  const fromArticle = readHqCountryIso2(record);
+  if (fromArticle) return fromArticle;
+
   // No company of focus tagged to the piece → no HQ flag.
   const hasCompanyOfFocus = COMPANY_OF_FOCUS_KEYS.some((k) => {
     const v = record[k];
@@ -35,9 +41,6 @@ export function getInsightHqCountryIso2(article: unknown): string | null {
 
   const fromPrimary = readPrimaryCompanyIso2(record);
   if (fromPrimary) return fromPrimary;
-
-  const fromArticle = readHqCountryIso2(record);
-  if (fromArticle) return fromArticle;
 
   const mentioned = record.companies_mentioned;
   if (Array.isArray(mentioned)) {
