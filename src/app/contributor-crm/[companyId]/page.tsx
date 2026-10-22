@@ -9875,51 +9875,20 @@ function sectorFormatValue(
   return n.toLocaleString();
 }
 
-const SUBMISSIONS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:tDNMS_i0/users/submissions";
 
 function SectorIntelligenceTab({
   primarySectorIds,
   secondarySectorIds,
   primarySectorNames,
-  onGoToMetrics,
 }: {
   primarySectorIds: number[];
   secondarySectorIds: number[];
   primarySectorNames?: string[];
-  hasContributed?: boolean | null; // unused; resolved internally
-  onGoToMetrics: () => void;
 }) {
   // Stable serialised keys so useCallback doesn't re-fire on every parent render
   const primaryKey = primarySectorIds.slice().sort((a, b) => a - b).join(",");
   const secondaryKey = secondarySectorIds.slice().sort((a, b) => a - b).join(",");
 
-  // ── Submission gate ──
-  const [submissionCount, setSubmissionCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const email =
-      authService.getUser()?.email ||
-      localStorage.getItem("outreach_crm_login_email") ||
-      "";
-    if (!email) { setSubmissionCount(0); return; }
-
-    const params = new URLSearchParams({ user_email: email });
-    contributorFetch(`${SUBMISSIONS_API}?${params}`, {
-      headers: { Accept: "application/json" },
-    })
-      .then((r) => r.json())
-      .then((data: unknown) => {
-        if (cancelled) return;
-        const count = typeof data === "number" ? data : 0;
-        setSubmissionCount(count);
-      })
-      .catch(() => { if (!cancelled) setSubmissionCount(0); });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  const hasContributed = submissionCount === null ? null : submissionCount > 0;
   // ── Benchmark table state ──
   const [view, setView] = useState<SectorMetricView>("mean");
   const [benchScrolled, setBenchScrolled] = useState(false);
@@ -10093,198 +10062,6 @@ function SectorIntelligenceTab({
 
   return (
     <>
-    {/* Gate — shown while loading (null) or when count is 0 */}
-    {hasContributed !== true && (
-      <div style={{ position: "relative", borderRadius: "14px", overflow: "hidden" }}>
-
-        {/* Real content, blurred underneath */}
-        <div
-          style={{
-            filter: "blur(5px)",
-            pointerEvents: "none",
-            userSelect: "none",
-            opacity: 0.55,
-          }}
-        >
-          {/* Fake benchmark table header */}
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: "14px",
-              border: "1px solid #e2e8f0",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "18px 24px",
-                borderBottom: "1px solid #e2e8f0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "linear-gradient(180deg,#f8fafc 0%,#fff 100%)",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "20px", color: "#0f172a", fontFamily: "Georgia,serif" }}>Sector Intelligence</div>
-                <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
-                  Benchmark financial metrics by revenue range across your primary sectors.
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                {["Mean","Median"].map((l) => (
-                  <div key={l} style={{ padding: "7px 16px", borderRadius: "7px", background: l==="Mean"?"#0f172a":"transparent", color: l==="Mean"?"#fff":"#64748b", fontSize: "13px", fontWeight: 600, border: "1.5px solid #e2e8f0" }}>{l}</div>
-                ))}
-                {["$","£","€"].map((s) => (
-                  <div key={s} style={{ padding: "7px 14px", borderRadius: "7px", background: s==="$"?"#0f172a":"transparent", color: s==="$"?"#fff":"#64748b", fontSize: "14px", fontWeight: 600, border: "1.5px solid #e2e8f0" }}>{s}</div>
-                ))}
-              </div>
-            </div>
-            {/* fake rows */}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead>
-                <tr style={{ background: "#f1f5f9" }}>
-                  {["Revenue Range","Companies","Revenue ($M)","EBITDA ($M)","EV ($M)","EV/Rev","Rev Growth","EBITDA Margin","Rule of 40","ARR ($M)","NRR (%)","Churn (%)"].map((h) => (
-                    <th key={h} style={{ padding: "9px 10px", fontWeight: 600, fontSize: "11px", color: "#475569", textAlign: "right", whiteSpace: "nowrap" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[["<$10M","148","$3.8","-$0.2","$21.8","5.7x","36.5%","-8.1%","29.1%","$3.1","105%","9.4%"],
-                  ["$10M–$50M","125","$23","$3.6","$154.8","6.4x","24.1%","14.4%","38.3%","$19.1","107%","7.4%"],
-                  ["$50M–$100M","26","$72.6","$11.7","$731.1","9.9x","33%","15.7%","48.2%","$52.9","106%","6.9%"],
-                  ["$100M–$250M","29","$150.8","$39.5","$1,084","6.8x","16.6%","25.4%","42.2%","$115.6","106%","6.9%"],
-                  ["$250M–$500M","23","$346.2","$92.8","$2,149","6.4x","16.7%","27.4%","43.9%","$261","106%","6.9%"],
-                  ["$500M+","26","$3,127","$1,127","$22,084","7x","14.6%","32.4%","42.3%","$2,192","105%","5.5%"],
-                ].map((row, i) => (
-                  <tr key={i} style={{ background: i%2===0?"#fff":"#fafafa" }}>
-                    {row.map((cell, j) => (
-                      <td key={j} style={{ padding: "10px 10px", textAlign: j===0?"left":"right", fontWeight: j===0?600:400, fontSize: "13px", borderBottom: "1px solid #f1f5f9" }}>{cell}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Fake CE section */}
-          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e2e8f0", marginTop: "20px", overflow: "hidden" }}>
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(180deg,#f8fafc 0%,#fff 100%)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "20px", color: "#0f172a", fontFamily: "Georgia,serif" }}>Corporate Events</div>
-                <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>M&amp;A, venture investments and partnerships in your sector.</div>
-              </div>
-            </div>
-            {[1,2,3,4].map((i) => (
-              <div key={i} style={{ padding: "14px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: "40px", alignItems: "center" }}>
-                <div style={{ flex: 3, height: "14px", background: "#e2e8f0", borderRadius: "4px" }} />
-                <div style={{ flex: 1, height: "14px", background: "#f1f5f9", borderRadius: "4px" }} />
-                <div style={{ flex: 1, height: "22px", background: "#dbeafe", borderRadius: "99px", width: "80px" }} />
-                <div style={{ flex: 2, height: "14px", background: "#f1f5f9", borderRadius: "4px" }} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Gate card overlay */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px",
-            background: "rgba(248,250,252,0.55)",
-            backdropFilter: "blur(2px)",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: "16px",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.12)",
-              padding: "36px 40px",
-              maxWidth: "400px",
-              width: "100%",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "16px",
-            }}
-          >
-            {hasContributed === null ? (
-              /* Loading spinner */
-              <>
-                <div
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "50%",
-                    border: "3px solid #e2e8f0",
-                    borderTopColor: "#1d4ed8",
-                    animation: "spin 0.8s linear infinite",
-                  }}
-                />
-                <span style={{ fontSize: "13px", color: "#64748b" }}>Checking access…</span>
-              </>
-            ) : (
-              <>
-                <div
-                  style={{
-                    width: "52px",
-                    height: "52px",
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5zm0 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm0-9a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3z" fill="#1d4ed8"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "#0f172a", fontFamily: "Georgia,serif" }}>
-                    Sector Intelligence Locked
-                  </h3>
-                  <p style={{ margin: 0, fontSize: "14px", color: "#64748b", lineHeight: 1.6 }}>
-                    Contribute financial metrics for this company to unlock sector benchmarks and corporate events intelligence.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onGoToMetrics}
-                  style={{
-                    padding: "11px 28px",
-                    background: "#0f172a",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "10px",
-                    fontSize: "14px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    marginTop: "4px",
-                    width: "100%",
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#0f172a"; }}
-                >
-                  Contribute Financial Metrics →
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
-
-    {hasContributed && (<>
     <div className="bm-card">
       <style>{`
         .bm-card{background:#fff;border:1px solid #E3E8F0;border-radius:12px;box-shadow:0 1px 2px rgba(27,42,65,.04);min-width:0;overflow:hidden;font-family:Inter,sans-serif;color:#1B2A41}
@@ -10466,7 +10243,6 @@ function SectorIntelligenceTab({
         </div>
       )}
     </div>
-    </>)}
     </>
   );
 }
@@ -13266,8 +13042,6 @@ const CompanyDetail = () => {
               primarySectorNames={primarySectors
                 .map((s) => s.sector_name)
                 .filter((n): n is string => typeof n === "string" && n.trim().length > 0)}
-              hasContributed={null}
-              onGoToMetrics={() => setActiveTab("contribute-financial-metrics")}
             />
           )}
 
