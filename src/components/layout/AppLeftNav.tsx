@@ -71,8 +71,8 @@ const SECTIONS: NavSection[] = [
     label: "News",
     href: "/news",
     icon: NewspaperIcon,
-    isActive: () => false,
-    comingSoon: true,
+    isActive: (p) => p.startsWith("/news"),
+    badge: "New",
   },
   {
     key: "insightsAnalysis",

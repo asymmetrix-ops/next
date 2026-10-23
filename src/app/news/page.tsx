@@ -24,12 +24,12 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-/** Cards shown per row in Recent news (4 per row, so descriptions aren't as truncated). */
-const RECENT_NEWS_PAGE = 4;
+/** Cards shown in Recent news (4 per row x 2 rows on desktop). */
+const RECENT_NEWS_PAGE = 8;
 /** Number of extra cards revealed each time "Load more" is clicked in Recent news. */
 const RECENT_NEWS_LOAD_MORE = 20;
 /** Top Stories shown, newest first. */
-const TOP_STORIES_COUNT = 3;
+const TOP_STORIES_COUNT = 2;
 
 const CHIP_ORDER = [
   "company",

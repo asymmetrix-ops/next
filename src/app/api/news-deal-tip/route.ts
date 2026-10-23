@@ -11,9 +11,15 @@ const AUTH_API_URL =
 
 const DEAL_TIP_TYPE = "Deal Tip";
 
-// Tips are also emailed to Jordan. Overridable per environment.
-const DEAL_TIP_RECIPIENT =
-  process.env.DEAL_TIP_RECIPIENT || "j.bintcliffe@asymmetrixintelligence.com";
+// Tips are emailed to both the Asymmetrix inbox and Jordan. Overridable per environment
+// with a comma-separated list.
+const DEAL_TIP_RECIPIENTS = (
+  process.env.DEAL_TIP_RECIPIENTS ||
+  "asymmetrix@asymmetrixintelligence.com,j.bintcliffe@asymmetrixintelligence.com"
+)
+  .split(",")
+  .map((e) => e.trim())
+  .filter(Boolean);
 const POSTMARK_URL = process.env.POSTMARK_API_URL || "https://api.postmarkapp.com/email";
 
 const escapeHtml = (value: string) =>
@@ -100,7 +106,7 @@ async function emailTipToJordan(tip: {
       },
       body: JSON.stringify({
         From: LANDING_CONTACT_EMAIL,
-        To: DEAL_TIP_RECIPIENT,
+        To: DEAL_TIP_RECIPIENTS.join(","),
         // Only invite a reply when the submitter said we may contact them.
         ...(tip.canContact && tip.user.email ? { ReplyTo: tip.user.email } : {}),
         Subject: `Deal tip${tip.companyName ? `: ${tip.companyName}` : ""} — ${who}`,
