@@ -9889,6 +9889,13 @@ function SectorIntelligenceTab({
   const primaryKey = primarySectorIds.slice().sort((a, b) => a - b).join(",");
   const secondaryKey = secondarySectorIds.slice().sort((a, b) => a - b).join(",");
 
+  // ── Target sector: the company's primary sector; a switcher when it has several ──
+  const [pickedPrimaryId, setPickedPrimaryId] = useState<number | null>(null);
+  const targetSectorId =
+    pickedPrimaryId != null && primarySectorIds.includes(pickedPrimaryId)
+      ? pickedPrimaryId
+      : primarySectorIds[0] ?? null;
+
   // ── Benchmark table state ──
   const [view, setView] = useState<SectorMetricView>("mean");
   const [benchScrolled, setBenchScrolled] = useState(false);
@@ -9921,7 +9928,7 @@ function SectorIntelligenceTab({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    contributorFetch(`${SECTOR_INTEL_API}?Currency_id=${PLATFORM_CURRENCY_BY_CODE[currency]}`, {
+    contributorFetch(`${SECTOR_INTEL_API}?Currency_id=${PLATFORM_CURRENCY_BY_CODE[currency]}${targetSectorId != null ? `&Primary_sectors_ids[]=${targetSectorId}` : ""}`, {
       method: "GET",
       headers: { Accept: "application/json" },
     })
@@ -9942,7 +9949,7 @@ function SectorIntelligenceTab({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [currency]);
+  }, [currency, targetSectorId]);
 
   // ── Corporate Events: fetched from CE_API filtered by company sectors ──
   useEffect(() => {
@@ -9964,8 +9971,13 @@ function SectorIntelligenceTab({
       Per_page: String(CE_PER_PAGE),
       preferred_currency_id: String(PLATFORM_CURRENCY_BY_CODE[currency]),
     });
-    primarySectorIds.forEach((id) => params.append("primary_sectors_ids[]", String(id)));
-    secondarySectorIds.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
+    (targetSectorId != null ? [targetSectorId] : primarySectorIds).forEach((id) =>
+      params.append("primary_sectors_ids[]", String(id))
+    );
+    // The two filters are ANDed by the endpoint, so secondaries only apply when there is no primary.
+    if (targetSectorId == null) {
+      secondarySectorIds.forEach((id) => params.append("Secondary_sectors_ids[]", String(id)));
+    }
 
     contributorFetch(`${CE_API}?${params.toString()}`, {
       headers: {
@@ -10044,7 +10056,7 @@ function SectorIntelligenceTab({
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryKey, secondaryKey, cePage, currency]);
+  }, [primaryKey, secondaryKey, cePage, currency, targetSectorId]);
 
   const prefix = view === "mean" ? "mean_" : "median_";
   const currencyInfo = SECTOR_CURRENCY_OPTIONS.find((c) => c.value === currency)!;
@@ -10077,6 +10089,13 @@ function SectorIntelligenceTab({
         .bm-seg{display:inline-flex;border:1px solid #DDE3EC;border-radius:999px;padding:2px}
         .bm-seg button{border:0;background:none;border-radius:999px;padding:4px 10px;font:600 12px Inter,sans-serif;color:#6A7A90;cursor:pointer}
         .bm-seg button.on{background:#1B2A41;color:#fff}
+        .bm-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #EEF1F6}
+        .bm-fl{color:#6A7A90;margin-right:4px;font-size:12px}
+        .bm-stg{display:inline-flex;flex-wrap:wrap;gap:4px;background:#F1F4F9;border-radius:999px;padding:3px}
+        .bm-stg button{border:0;background:none;border-radius:999px;padding:5px 12px;font:500 12.5px Inter,sans-serif;color:#4A5D7A;cursor:pointer;white-space:nowrap}
+        .bm-stg button:hover:not(:disabled){color:#1B2A41}
+        .bm-stg button:disabled{cursor:default}
+        .bm-stg button.on{background:#fff;color:#2438B8;font-weight:600;box-shadow:0 1px 2px rgba(27,42,65,.12)}
         .bm-scroll{overflow:auto;scrollbar-width:thin;scrollbar-color:#CBD3DF transparent}
         .bm-t{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
         .bm-t th,.bm-t td{padding:8px 16px;text-align:center;white-space:nowrap;border-bottom:1px solid #F1F3F7}
@@ -10123,6 +10142,28 @@ function SectorIntelligenceTab({
           </div>
         </div>
       </div>
+
+      {primarySectorIds.length > 0 && (
+        <div className="bm-bar">
+          <span className="bm-fl">Target sector</span>
+          <div className="bm-stg">
+            {primarySectorIds.map((id, i) => (
+              <button
+                key={id}
+                type="button"
+                className={id === targetSectorId ? "on" : ""}
+                disabled={primarySectorIds.length === 1}
+                onClick={() => {
+                  setPickedPrimaryId(id);
+                  setCePage(1);
+                }}
+              >
+                {primarySectorNames?.[i] || `Sector ${id}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "60px 24px", gap: "12px" }}>
@@ -13045,8 +13086,8 @@ const CompanyDetail = () => {
                 .map((s) => s.sector_id)
                 .filter((id): id is number => typeof id === "number" && id > 0)}
               primarySectorNames={primarySectors
-                .map((s) => s.sector_name)
-                .filter((n): n is string => typeof n === "string" && n.trim().length > 0)}
+                .filter((s) => typeof s.sector_id === "number" && s.sector_id > 0)
+                .map((s) => (typeof s.sector_name === "string" ? s.sector_name.trim() : ""))}
             />
           )}
 
