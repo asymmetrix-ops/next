@@ -102,8 +102,23 @@ export default function SettingsPage() {
   };
 
   const handleToggleActive = async (alert: EmailAlert) => {
-    // TODO: Implement toggle when PATCH endpoint is ready
-    console.log("Toggle active:", alert);
+    const next = !alert.is_active;
+    setAlerts((prev) =>
+      prev.map((a) => (a.id === alert.id ? { ...a, is_active: next } : a))
+    );
+    try {
+      await emailAlertsService.setEmailAlertActive(alert.id, next);
+    } catch (err) {
+      console.error("Error toggling alert:", err);
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alert.id ? { ...a, is_active: alert.is_active } : a
+        )
+      );
+      setError(
+        err instanceof Error ? err.message : "Failed to update email alert"
+      );
+    }
   };
 
   const handleModalClose = () => {

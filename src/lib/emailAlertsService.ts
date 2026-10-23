@@ -394,10 +394,22 @@ class EmailAlertsService {
     });
   }
 
+  async setEmailAlertActive(
+    alertId: number,
+    isActive: boolean
+  ): Promise<EmailAlert> {
+    const row = await this.requestAppRoute<
+      EmailAlert & { user_email_alerts_id?: number }
+    >(`/api/email-alerts/${alertId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: isActive }),
+    });
+    return normalizeAlertRow(row);
+  }
+
   async deleteEmailAlert(alertId: number): Promise<void> {
-    await this.request<void>(`/user_email_alerts/${alertId}`, {
+    await this.requestAppRoute<unknown>(`/api/email-alerts/${alertId}`, {
       method: "DELETE",
-      body: JSON.stringify({ user_email_alerts_id: alertId }),
     });
   }
 }
