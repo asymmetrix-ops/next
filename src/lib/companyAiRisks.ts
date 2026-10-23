@@ -219,6 +219,7 @@ function mapFactorToAxis(item: CompanyAiRiskV2Factor): AIRiskAxis {
     score,
     tier: scoreToTierName(score),
     blurb: decodeHtmlEntities(item.body ?? ""),
+    rationale: decodeHtmlEntities(item.body ?? "").trim() || undefined,
   };
 }
 
@@ -507,6 +508,9 @@ export function mapCompanyAiRisksToAxes(
       score,
       tier: scoreTierLabel(score),
       blurb: resolveAxisBlurb(record, meta),
+      rationale: hasRationale
+        ? decodeHtmlEntities(rationaleText.trim())
+        : undefined,
     });
   }
 
