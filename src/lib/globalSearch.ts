@@ -12,6 +12,9 @@ export const SEARCH_PAGE_TYPES = [
   "individuals",
   "corporate events",
   "insights and analysis",
+  "news",
+  "transaction comps",
+  "deal radar",
 ] as const;
 
 export type SearchPageType = (typeof SEARCH_PAGE_TYPES)[number];
@@ -24,6 +27,9 @@ export const SEARCH_PAGE_TYPE_LABELS: Record<SearchPageType, string> = {
   individuals: "Individuals",
   "corporate events": "Corporate Events",
   "insights and analysis": "Insights & Analysis",
+  news: "News",
+  "transaction comps": "Transaction Comps",
+  "deal radar": "Deal Radar",
 };
 
 /** Home dashboard search input — keep in sync with SEARCH_PAGE_TYPES coverage. */
@@ -37,6 +43,8 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
+  /** Company the row belongs to (Deal Radar, Transaction Comps, News tagged company). */
+  company_id?: number | null;
   /** Raw logo payload from search APIs (base64 JPEG/PNG or URL) for companies, investors, and advisors. */
   logo?: string | null;
 };
@@ -60,6 +68,9 @@ const TYPE_ORDER: Record<string, number> = {
   insight: 7,
   insights: 7,
   article: 7,
+  deal_radar: 8,
+  transaction_comps: 9,
+  news: 10,
 };
 
 export function sortSearchResults(results: GlobalSearchResult[]): GlobalSearchResult[] {
@@ -73,7 +84,7 @@ export function sortSearchResults(results: GlobalSearchResult[]): GlobalSearchRe
     if (orderA !== orderB) return orderA - orderB;
 
     const isEventOrInsight = (t: string) =>
-      ["corporate_event", "corporate-events", "event", "insight", "insights", "article"].includes(
+      ["corporate_event", "corporate-events", "event", "insight", "insights", "article", "news"].includes(
         (t || "").toLowerCase()
       );
     if (isEventOrInsight(a.type) && isEventOrInsight(b.type) && a.sort_date && b.sort_date) {
@@ -109,6 +120,9 @@ export const SEARCH_SOURCES = [
   "insight",
   "company",
   "advisor",
+  "news",
+  "transaction_comps",
+  "deal_radar",
 ] as const;
 
 export type SearchSource = (typeof SEARCH_SOURCES)[number];
@@ -186,6 +200,9 @@ export function fetchGlobalSearchProgressive(
     individuals: "individual",
     "corporate events": "corporate_event",
     "insights and analysis": "insight",
+    news: "news",
+    "transaction comps": "transaction_comps",
+    "deal radar": "deal_radar",
   };
 
   const sources: SearchSource[] =
@@ -297,6 +314,9 @@ export function badgeClassForSearchType(type: string): string {
     return "bg-purple-50 text-purple-700 border-purple-200";
   if (t === "insight" || t === "insights" || t === "article")
     return "bg-blue-50 text-blue-700 border-blue-200";
+  if (t === "news") return "bg-rose-50 text-rose-700 border-rose-200";
+  if (t === "transaction_comps") return "bg-teal-50 text-teal-700 border-teal-200";
+  if (t === "deal_radar") return "bg-orange-50 text-orange-700 border-orange-200";
   if (t === "sector" || t === "sub_sector" || t === "sub-sector")
     return "bg-gray-50 text-gray-700 border-gray-200";
   return "bg-gray-50 text-gray-700 border-gray-200";
@@ -315,6 +335,12 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
     return `/corporate-event/${id}`;
   if (t === "insight" || t === "insights" || t === "article")
     return `/article/${id}`;
+  if (t === "news") return `/article/${id}`;
+  // Section rows carry the company id in `id`; the section opens filtered on that company.
+  if (t === "transaction_comps")
+    return `/transaction-comps?company_id=${id}&company_name=${encodeURIComponent(result.title)}`;
+  if (t === "deal_radar")
+    return `/deal-radar?company_id=${id}&company_name=${encodeURIComponent(result.title)}`;
   if (t === "sector") return `/sector/${id}`;
   if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
 
@@ -326,5 +352,92 @@ export function getSearchBadgeLabel(type: string): string {
   if (t === "insight" || t === "insights" || t === "article")
     return "Insights & Analysis";
   if (t === "sub_sector" || t === "sub-sector") return "Secondary sector";
+  if (t === "news") return "News";
+  if (t === "transaction_comps") return "Transaction Comps";
+  if (t === "deal_radar") return "Deal Radar";
   return String(type).replace(/_/g, " ");
+}
+
+/** Short type label used in the "Name (Type)" display (same format as @ tagging in CMS). */
+export function getSearchTypeLabel(type: string): string {
+  const t = (type || "").toLowerCase().trim();
+  if (t === "insight" || t === "insights" || t === "article") return "I&A";
+  if (t === "news") return "News";
+  if (t === "transaction_comps") return "Transaction Comps";
+  if (t === "deal_radar") return "Deal Radar";
+  if (t === "company" || t === "companies") return "Company";
+  if (t === "investor" || t === "investors") return "Investor";
+  if (t === "advisor" || t === "advisors") return "Advisor";
+  if (t === "individual" || t === "individuals") return "Individual";
+  if (t === "corporate_event" || t === "corporate-events" || t === "event") return "Event";
+  if (t === "sub_sector" || t === "sub-sector") return "Secondary sector";
+  if (t === "sector") return "Sector";
+  return String(type).replace(/_/g, " ");
+}
+
+/** Articles shown per company group before the "See all articles about X" link. */
+export const SEARCH_ARTICLES_PER_GROUP = 3;
+
+const GROUP_RANK: Record<string, number> = {
+  company: 1,
+  deal_radar: 2,
+  transaction_comps: 3,
+};
+const isArticleType = (t: string) => t === "news" || t === "insight";
+
+export type GroupedSearchEntry =
+  | { kind: "result"; result: GlobalSearchResult }
+  | { kind: "see_all"; companyId: number; companyName: string };
+
+/**
+ * "All" view: everything about one company sits together, in the order
+ * Company, Deal Radar, Transaction Comps, then up to 3 articles (newest first)
+ * followed by a "See all articles about X" link. Other entity types keep the
+ * normal ranking and stay in their sorted position.
+ */
+export function groupSearchResults(sorted: GlobalSearchResult[]): GroupedSearchEntry[] {
+  const companyKey = (r: GlobalSearchResult): number | null => {
+    const t = (r.type || "").toLowerCase();
+    if (t === "company" || t === "deal_radar" || t === "transaction_comps") return Number(r.id);
+    if (isArticleType(t) && r.company_id) return Number(r.company_id);
+    return null;
+  };
+
+  const groups = new Map<number, GlobalSearchResult[]>();
+  for (const r of sorted) {
+    const k = companyKey(r);
+    if (k != null) groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+
+  const out: GroupedSearchEntry[] = [];
+  const emitted = new Set<number>();
+  for (const r of sorted) {
+    const k = companyKey(r);
+    if (k == null) {
+      out.push({ kind: "result", result: r });
+      continue;
+    }
+    if (emitted.has(k)) continue;
+    emitted.add(k);
+
+    const members = groups.get(k) ?? [];
+    const head = members
+      .filter((m) => GROUP_RANK[(m.type || "").toLowerCase()])
+      .sort((a, b) => GROUP_RANK[a.type.toLowerCase()] - GROUP_RANK[b.type.toLowerCase()]);
+    const articles = members
+      .filter((m) => isArticleType((m.type || "").toLowerCase()))
+      .sort(
+        (a, b) =>
+          new Date(b.sort_date ?? 0).getTime() - new Date(a.sort_date ?? 0).getTime()
+      );
+    head.forEach((m) => out.push({ kind: "result", result: m }));
+    articles
+      .slice(0, SEARCH_ARTICLES_PER_GROUP)
+      .forEach((m) => out.push({ kind: "result", result: m }));
+    if (articles.length > SEARCH_ARTICLES_PER_GROUP) {
+      const name = head[0]?.title ?? "";
+      if (name) out.push({ kind: "see_all", companyId: k, companyName: name });
+    }
+  }
+  return out;
 }

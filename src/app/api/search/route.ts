@@ -11,6 +11,9 @@ const SEARCH_ENDPOINTS: { url: string; type: string }[] = [
   { url: `${BASE}/search_content`, type: "insight" },
   { url: `${BASE}/search_companies`, type: "company" },
   { url: `${BASE}/search_advisors`, type: "advisor" },
+  { url: `${BASE}/search_news`, type: "news" },
+  { url: `${BASE}/search_transaction_comps`, type: "transaction_comps" },
+  { url: `${BASE}/search_deal_radar`, type: "deal_radar" },
 ];
 
 export type SearchResultItem = {
@@ -20,6 +23,9 @@ export type SearchResultItem = {
   match_rank?: number;
   type_order?: number;
   logo?: string | null;
+  /** Company the row belongs to (Deal Radar, Transaction Comps, News tagged company). */
+  company_id?: number | null;
+  sort_date?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -41,6 +47,9 @@ const TYPE_ORDER: Record<string, number> = {
   insight: 7,
   insights: 7,
   article: 7,
+  deal_radar: 8,
+  transaction_comps: 9,
+  news: 10,
 };
 
 function normalizeForMatch(input: string): string {
@@ -117,7 +126,11 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
         rec.company_logo ??
         null;
       const logo = typeof logoRaw === "string" && logoRaw.trim() ? logoRaw : null;
-      return { id, title, type: itemType, logo };
+      const companyIdRaw = Number(rec.company_id);
+      const company_id =
+        Number.isFinite(companyIdRaw) && companyIdRaw > 0 ? companyIdRaw : null;
+      const sort_date = typeof rec.sort_date === "string" ? rec.sort_date : undefined;
+      return { id, title, type: itemType, logo, company_id, sort_date };
     })
     .filter((r): r is SearchResultItem => r !== null);
 }
@@ -176,6 +189,9 @@ export async function POST(request: NextRequest) {
           ["individuals", "individual"],
           ["corporate events", "corporate_event"],
           ["insights and analysis", "insight"],
+          ["news", "news"],
+          ["transaction comps", "transaction_comps"],
+          ["deal radar", "deal_radar"],
         ]).get(pageType)
       : sourceFilter;
 

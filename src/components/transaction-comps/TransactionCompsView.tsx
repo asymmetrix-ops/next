@@ -85,6 +85,12 @@ export function TransactionCompsView({
   const { currency } = usePlatformCurrency();
   const currencySymbol = getCurrencySymbol(currency);
   const [filterState, setFilterState] = useState<FilterBarState>(EMPTY_FILTER_STATE);
+
+  // Opened from global search: pre-filter on that company (?company_name=...).
+  useEffect(() => {
+    const name = new URLSearchParams(window.location.search).get("company_name")?.trim();
+    if (name) setFilterState(prev => ({ ...prev, searchText: name }));
+  }, []);
   const [options, setOptions] = useState<TransactionCompsFilterOptions>({
     sectors: [],
     secondarySectors: [],

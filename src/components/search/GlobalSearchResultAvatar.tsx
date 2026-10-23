@@ -5,6 +5,7 @@ import {
   CalendarDaysIcon,
   ChartBarIcon,
   LightBulbIcon,
+  NewspaperIcon,
 } from "@heroicons/react/24/outline";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { getInitials } from "@/lib/userDisplay";
@@ -44,6 +45,7 @@ const ICON_TYPES = new Set([
   "insight",
   "insights",
   "article",
+  "news",
 ]);
 
 type Props = {
@@ -73,7 +75,9 @@ export function GlobalSearchResultAvatar({ result, size = "md" }: Props) {
 
   if (ICON_TYPES.has(t)) {
     const Icon =
-      t === "insight" || t === "insights" || t === "article"
+      t === "news"
+        ? NewspaperIcon
+        : t === "insight" || t === "insights" || t === "article"
         ? LightBulbIcon
         : t.startsWith("corporate") || t === "event"
           ? CalendarDaysIcon

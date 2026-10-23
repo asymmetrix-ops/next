@@ -720,6 +720,12 @@ export default function DealRadarView({
     dir: "asc",
   });
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Opened from global search: pre-filter on that company (?company_name=...).
+  useEffect(() => {
+    const name = new URLSearchParams(window.location.search).get("company_name")?.trim();
+    if (name) setFilterBarState(prev => ({ ...prev, searchText: name }));
+  }, []);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipTypeOption[]>([]);

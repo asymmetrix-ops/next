@@ -97,6 +97,16 @@ function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
 export default function NewsPage() {
   const [filters, setFilters] = useState<NewsFilters>({});
 
+  // Opened from global search ("See all articles about X"): filter on that company.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const id = Number(sp.get("company_id"));
+    const label = sp.get("company_name")?.trim();
+    if (Number.isFinite(id) && id > 0 && label) {
+      setFilters((prev) => ({ ...prev, company: { id, label } }));
+    }
+  }, []);
+
   // Section Insights: one event each time a filter (or a search text) newly appears on the page.
   const trackedFiltersRef = useRef<Set<string>>(new Set());
   useEffect(() => {

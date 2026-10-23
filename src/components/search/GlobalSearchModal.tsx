@@ -11,6 +11,8 @@ import {
   sortSearchResults,
   resolveSearchHref,
   getSearchBadgeLabel,
+  getSearchTypeLabel,
+  groupSearchResults,
   SEARCH_PAGE_TYPES,
   SEARCH_PAGE_TYPE_LABELS,
 } from "@/lib/globalSearch";
@@ -38,7 +40,8 @@ function toRecentEntityType(type: string): RecentItemEntityType | null {
   if (t === "individual" || t === "individuals") return "individual";
   if (t === "corporate_event" || t === "corporate-events" || t === "event")
     return "corporate_event";
-  if (t === "insight" || t === "insights" || t === "article") return "insight";
+  if (t === "insight" || t === "insights" || t === "article" || t === "news")
+    return "insight";
   if (t === "sector" || t === "sub_sector" || t === "sub-sector") return "sector";
   return null;
 }
@@ -227,14 +230,32 @@ export function GlobalSearchModal() {
         onSelect: () => goToRecentItem(r),
       }));
     }
-    return visibleResults.map((r) => ({
+    // "All": grouped by company, titled "Name (Type)". A single section keeps plain titles.
+    const toRow = (r: GlobalSearchResult): Row => ({
       key: `${r.type}-${r.id}`,
       avatarResult: r,
-      title: r.title,
+      title: filter ? r.title : `${r.title} (${getSearchTypeLabel(r.type)})`,
       subtitle: getSearchBadgeLabel(r.type),
       onSelect: () => goToResult(r),
-    }));
-  }, [isQueryEmpty, recentItems, visibleResults, goToRecentItem, goToResult]);
+    });
+    if (filter) return visibleResults.map(toRow);
+    return groupSearchResults(visibleResults).map((entry): Row => {
+      if (entry.kind === "result") return toRow(entry.result);
+      return {
+        key: `see-all-${entry.companyId}`,
+        avatarResult: { id: entry.companyId, title: entry.companyName, type: "news" },
+        title: `See all articles about ${entry.companyName}`,
+        subtitle: "News",
+        onSelect: () => {
+          closeSearch();
+          setEntrySource("global_search");
+          router.push(
+            `/news?company_id=${entry.companyId}&company_name=${encodeURIComponent(entry.companyName)}`
+          );
+        },
+      };
+    });
+  }, [isQueryEmpty, recentItems, visibleResults, filter, goToRecentItem, goToResult, closeSearch, router]);
 
   const cycleFilter = useCallback((direction: 1 | -1) => {
     setFilter((current) => {
