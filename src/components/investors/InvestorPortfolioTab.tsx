@@ -43,6 +43,8 @@ import {
   getPortfolioProdDefaultColumnKeys,
 } from "@/components/investors/investorPortfolioColumns";
 
+import { getCompanyServerSortColumn } from "@/components/companies/companiesTableSort";
+
 export type InvestorPortfolioTabProps = {
   investorId: string;
   investorName: string;
@@ -50,6 +52,8 @@ export type InvestorPortfolioTabProps = {
   avgHoldingPeriodCoverage?: HoldingPeriodCoverage | null;
   /** Column to lead the table (right after Name), e.g. when arriving from a mix card. */
   focusColumnKey?: string | null;
+  /** Portfolio list tab to open on (defaults to current). */
+  initialStatus?: InvestmentStatusFilter;
 };
 
 function useInvestorPortfolioSearch(
@@ -289,6 +293,7 @@ export function InvestorPortfolioTab({
   avgHoldingPeriodDisplay,
   avgHoldingPeriodCoverage,
   focusColumnKey,
+  initialStatus = "current",
 }: InvestorPortfolioTabProps) {
   const { currencyId: preferredCurrencyId, currency: platformCurrency } =
     usePlatformCurrency();
@@ -297,7 +302,7 @@ export function InvestorPortfolioTab({
   const [idsLoading, setIdsLoading] = useState(true);
   const [idsError, setIdsError] = useState<string | null>(null);
   const [investmentStatusFilter, setInvestmentStatusFilter] =
-    useState<InvestmentStatusFilter>("current");
+    useState<InvestmentStatusFilter>(initialStatus);
 
   useEffect(() => {
     let cancelled = false;
@@ -360,8 +365,19 @@ export function InvestorPortfolioTab({
   useEffect(() => {
     if (!portfolioIds || initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
-    fetchCompanies(1, createDefaultFilters(), createDefaultFilters());
-  }, [portfolioIds, fetchCompanies]);
+    // Arriving from a mix card: group by the focus column (A-Z).
+    const sortColumn = focusColumnKey
+      ? getCompanyServerSortColumn(focusColumnKey)
+      : null;
+    const initialFilters: Filters = sortColumn
+      ? {
+          ...createDefaultFilters(),
+          sort_column: sortColumn,
+          sort_direction: "asc",
+        }
+      : createDefaultFilters();
+    fetchCompanies(1, initialFilters, createDefaultFilters());
+  }, [portfolioIds, fetchCompanies, focusColumnKey]);
 
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters) => {

@@ -46,7 +46,7 @@ type Props = {
   onPastPageChange?: (page: number) => void;
   pageSize?: number;
   fillGridCell?: boolean;
-  onViewAllClick?: () => void;
+  onViewAllClick?: (tab: PortfolioTab) => void;
 };
 
 // Country/Invested use fixed widths (not auto) — each row renders as its own
@@ -397,7 +397,7 @@ export function InvestorPortfolioProfilePanel({
           {total > pageSize && !showAll ? (
             <button
               type="button"
-              onClick={() => (onViewAllClick ? onViewAllClick() : setShowAll(true))}
+              onClick={() => (onViewAllClick ? onViewAllClick(tab) : setShowAll(true))}
               style={{
                 padding: 0,
                 border: "none",

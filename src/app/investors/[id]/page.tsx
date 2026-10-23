@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { Suspense } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
@@ -289,6 +290,17 @@ const MIX_TAB_FOCUS_COLUMN: Record<InvestorMixTab, string> = {
   geography: "hq",
 };
 
+// URL state: ?view=portfolio|corporate-events, &tab=current|past, &column=sector|stage|geography
+const PROFILE_TAB_TO_VIEW: Record<string, string | null> = {
+  Summary: null,
+  Portfolio: "portfolio",
+  "Corporate Events": "corporate-events",
+};
+const VIEW_TO_PROFILE_TAB: Record<string, string> = {
+  portfolio: "Portfolio",
+  "corporate-events": "Corporate Events",
+};
+
 const PDF_SERVICE_BASE_URL = "https://asymmetrix-pdf-service.fly.dev";
 
 function formatWebsiteDisplayLabel(raw: string): string {
@@ -536,8 +548,32 @@ const InvestorDetailPage = () => {
   const investorId = params.id as string;
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
-  const [portfolioFocusColumn, setPortfolioFocusColumn] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeProfileTab =
+    VIEW_TO_PROFILE_TAB[searchParams.get("view") ?? ""] ?? "Summary";
+  const portfolioListStatus: "current" | "past" =
+    searchParams.get("tab") === "past" ? "past" : "current";
+  const columnParam = searchParams.get("column");
+  const portfolioFocusColumn =
+    columnParam && columnParam in MIX_TAB_FOCUS_COLUMN
+      ? MIX_TAB_FOCUS_COLUMN[columnParam as InvestorMixTab]
+      : null;
+  const navigateProfile = useCallback(
+    (tabName: string, opts?: { listTab?: "current" | "past"; column?: InvestorMixTab }) => {
+      const qs = new URLSearchParams();
+      const view = PROFILE_TAB_TO_VIEW[tabName];
+      if (view) qs.set("view", view);
+      if (view === "portfolio") {
+        if (opts?.listTab === "past") qs.set("tab", "past");
+        if (opts?.column) qs.set("column", opts.column);
+      }
+      const query = qs.toString();
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [router, pathname]
+  );
   const overviewGridRef = useRef<HTMLDivElement>(null);
   const focusMixGridRef = useRef<HTMLDivElement>(null);
   const descriptionGridRef = useRef<HTMLDivElement>(null);
@@ -1515,7 +1551,7 @@ const InvestorDetailPage = () => {
         }
         tabs={INVESTOR_PROFILE_TABS.map((tab) => ({ id: tab, label: tab }))}
         activeTab={activeProfileTab}
-        onTabChange={setActiveProfileTab}
+        onTabChange={(t) => navigateProfile(t)}
       />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
@@ -1577,10 +1613,9 @@ const InvestorDetailPage = () => {
                 sectorMix={sectorMix}
                 stageFocus={stageFocus}
                 geography={geographyMix}
-                onViewPortfolio={(mixTab) => {
-                  setPortfolioFocusColumn(MIX_TAB_FOCUS_COLUMN[mixTab]);
-                  setActiveProfileTab("Portfolio");
-                }}
+                onViewPortfolio={(mixTab) =>
+                  navigateProfile("Portfolio", { column: mixTab })
+                }
               />
             </div>
 
@@ -1608,10 +1643,9 @@ const InvestorDetailPage = () => {
                 onCurrentPageChange={handlePortfolioPageChange}
                 onPastPageChange={handlePastPortfolioPageChange}
                 pageSize={5}
-                onViewAllClick={() => {
-                  setPortfolioFocusColumn(null);
-                  setActiveProfileTab("Portfolio");
-                }}
+                onViewAllClick={(listTab) =>
+                  navigateProfile("Portfolio", { listTab })
+                }
               />
             </div>
 
@@ -1640,7 +1674,7 @@ const InvestorDetailPage = () => {
                   loading={corporateEventsLoading}
                   primarySectors={corporateEventPrimarySectors}
                   maxInitialEvents={3}
-                  onBrowseAllClick={() => setActiveProfileTab("Corporate Events")}
+                  onBrowseAllClick={() => navigateProfile("Corporate Events")}
                 />
               </LinkPanel>
             </div>
@@ -1678,6 +1712,8 @@ const InvestorDetailPage = () => {
           </div>
           ) : activeProfileTab === "Portfolio" ? (
             <InvestorPortfolioTab
+              key={`${portfolioListStatus}|${columnParam ?? ""}`}
+              initialStatus={portfolioListStatus}
               investorId={investorId}
               investorName={Investor.name}
               focusColumnKey={portfolioFocusColumn}
@@ -1717,7 +1753,11 @@ const InvestorDetailPage = () => {
 };
 
 const InvestorPage = () => {
-  return <InvestorDetailPage />;
+  return (
+    <Suspense fallback={null}>
+      <InvestorDetailPage />
+    </Suspense>
+  );
 };
 
 export default InvestorPage;
