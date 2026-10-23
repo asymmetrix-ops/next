@@ -17,8 +17,9 @@ export function isActivityTrackingBlockedEmail(email?: string | null): boolean {
   return e.endsWith("@asymmetrixintelligence.com") || e === "tucha.dev@gmail.com";
 }
 
-export function shouldTrackActivityForEmail(_email?: string | null): boolean {
+export function shouldTrackActivityForEmail(email?: string | null): boolean {
   // User activity tracking is fully disabled on the develop deployment.
+  void email;
   return false;
 }
 
