@@ -406,10 +406,12 @@ function RadarChart({
     const ly = cy + Math.sin(a) * lr;
     const cos = Math.cos(a);
     const lines = wrapLabel(ax.label);
-    const totalH = lines.length * LABEL_LINE_HEIGHT;
-    const firstY = ly - totalH / 2 + LABEL_LINE_HEIGHT / 2;
-    const firstW =
-      lineW[ax.key]?.[0] ?? lines[0].length * (LABEL_FONT_SIZE * 0.58);
+    // Baselines are centred on ly, so the glyphs' visual centre is ~5 above it.
+    const firstY = ly - 5;
+    // Widest line, so the icon clears every line of a multi-line label.
+    const firstW = lineW[ax.key]?.length
+      ? Math.max(...lineW[ax.key])
+      : Math.max(...lines.map((l) => l.length)) * (LABEL_FONT_SIZE * 0.58);
     const ix =
       Math.abs(cos) < 0.2
         ? lx + firstW / 2 + 11
