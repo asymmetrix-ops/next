@@ -173,7 +173,7 @@ interface EditAlertModalProps {
 }
 
 // Common timezones with user-friendly labels, sorted by UTC offset (west to east)
-const COMMON_TIMEZONES = [
+export const COMMON_TIMEZONES = [
   // UTC
   { value: "UTC", label: "UTC" },
   

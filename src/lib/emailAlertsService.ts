@@ -6,6 +6,8 @@ import type {
   EmailAlertFilters,
   EmailAlertFiltersWire,
   EmailAlertContentType,
+  EmailScope,
+  EmailSection,
 } from "@/types/emailAlerts";
 import {
   buildCeTypeFilterArraysForApi,
@@ -53,6 +55,48 @@ function parseFiltersRaw(raw: unknown): unknown {
   return raw;
 }
 
+const EMAIL_SECTIONS: readonly EmailSection[] = [
+  "corporate_events",
+  "insights_analysis",
+  "deal_radar",
+  "news",
+];
+const EMAIL_SCOPES: readonly EmailScope[] = ["all", "follow", "portfolio", "list"];
+
+/** Email-preferences extras that ride along in the filters JSON. */
+function parsePreferenceExtras(
+  source: Record<string, unknown> | null
+): Partial<EmailAlertFilters> {
+  const out: Partial<EmailAlertFilters> = {};
+  if (!source) return out;
+
+  if (typeof source.name === "string" && source.name.trim()) {
+    out.name = source.name.trim();
+  }
+  if (Array.isArray(source.sections)) {
+    const sections = source.sections.filter((v): v is EmailSection =>
+      EMAIL_SECTIONS.includes(v as EmailSection)
+    );
+    if (sections.length) out.sections = sections;
+  }
+  if (EMAIL_SCOPES.includes(source.scope as EmailScope)) {
+    out.scope = source.scope as EmailScope;
+  }
+  const listId = Number(source.list_id);
+  if (Number.isFinite(listId) && listId > 0) out.list_id = listId;
+  if (Array.isArray(source.countries)) {
+    out.countries = source.countries.filter(
+      (v): v is string => typeof v === "string" && v.trim().length > 0
+    );
+  }
+  if (Array.isArray(source.primary_sectors)) {
+    out.primary_sectors = source.primary_sectors.filter(
+      (n): n is number => typeof n === "number" && Number.isFinite(n)
+    );
+  }
+  return out;
+}
+
 function parseStoredFilters(raw: unknown): EmailAlertFilters {
   const parsed = parseFiltersRaw(raw);
   const out: EmailAlertFilters = {
@@ -75,6 +119,8 @@ function parseStoredFilters(raw: unknown): EmailAlertFilters {
   if (fundingStages) {
     out.funding_stages = fundingStages;
   }
+
+  Object.assign(out, parsePreferenceExtras(source));
 
   return out;
 }
@@ -99,6 +145,12 @@ function buildFiltersWirePayload(
     advisors: entity.advisors ?? [],
     deal_types: ceTypeArrays.deal_types,
     funding_stages: ceTypeArrays.funding_stages,
+    name: filters?.name,
+    sections: filters?.sections,
+    scope: filters?.scope,
+    list_id: filters?.list_id ?? null,
+    countries: filters?.countries ?? [],
+    primary_sectors: filters?.primary_sectors ?? [],
   };
 }
 
