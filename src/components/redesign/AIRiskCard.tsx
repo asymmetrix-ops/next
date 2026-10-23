@@ -234,6 +234,28 @@ function RadarChart({
     },
   });
 
+  // Measure real rendered line widths (SVG user units) so icons sit flush
+  // against the text regardless of font or viewBox scaling.
+  const textRefs = React.useRef<Record<string, SVGTextElement | null>>({});
+  const [lineW, setLineW] = React.useState<Record<string, number[]>>({});
+  const axesSig = axes.map((a) => a.key + a.label).join("|");
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const next: Record<string, number[]> = {};
+      for (const [key, el] of Object.entries(textRefs.current)) {
+        if (!el) continue;
+        next[key] = Array.from(el.querySelectorAll("tspan")).map((t) =>
+          (t as SVGTSpanElement).getComputedTextLength()
+        );
+      }
+      setLineW((prev) =>
+        JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+      );
+    };
+    measure();
+    document.fonts?.ready.then(measure).catch(() => {});
+  }, [axesSig, size]);
+
   const rings: React.ReactNode[] = [];
   for (let s = 1; s <= maxScore; s++) {
     const r = (s / maxScore) * R;
@@ -324,7 +346,10 @@ function RadarChart({
     const lines = wrapLabel(ax.label);
     const totalH = lines.length * LABEL_LINE_HEIGHT;
     const startDy = -(totalH / 2) + LABEL_LINE_HEIGHT / 2;
-    const hitW = Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
+    const hitW =
+      lineW[ax.key] && lineW[ax.key].length
+        ? Math.max(...lineW[ax.key])
+        : Math.max(...lines.map((line) => line.length)) * (LABEL_FONT_SIZE * 0.58);
     const hitH = totalH + 8;
 
     return (
@@ -347,6 +372,9 @@ function RadarChart({
           fill="transparent"
         />
         <text
+          ref={(el) => {
+            textRefs.current[ax.key] = el;
+          }}
           x={lx}
           y={ly}
           textAnchor={anchor}
@@ -380,13 +408,14 @@ function RadarChart({
     const lines = wrapLabel(ax.label);
     const totalH = lines.length * LABEL_LINE_HEIGHT;
     const firstY = ly - totalH / 2 + LABEL_LINE_HEIGHT / 2;
-    const firstW = lines[0].length * (LABEL_FONT_SIZE * 0.58);
+    const firstW =
+      lineW[ax.key]?.[0] ?? lines[0].length * (LABEL_FONT_SIZE * 0.58);
     const ix =
       Math.abs(cos) < 0.2
-        ? lx + firstW / 2 + 10
+        ? lx + firstW / 2 + 11
         : cos > 0
-          ? lx + firstW + 10
-          : lx - firstW - 10;
+          ? lx + firstW + 11
+          : lx - firstW - 11;
     const isOpen = tip?.key === ax.key && tip.kind === "info";
     return (
       <g
