@@ -29,7 +29,7 @@ const RECENT_NEWS_PAGE = 8;
 /** Number of extra cards revealed each time "Load more" is clicked in Recent news. */
 const RECENT_NEWS_LOAD_MORE = 20;
 /** Top Stories shown, newest first. */
-const TOP_STORIES_COUNT = 2;
+const TOP_STORIES_COUNT = 3;
 
 const CHIP_ORDER = [
   "company",
