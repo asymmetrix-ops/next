@@ -2,7 +2,6 @@ import { INDIVIDUALS_COLUMN_CATEGORIES } from "@/components/individuals/individu
 import {
   formatIndividualLocation,
   formatIndividualRoles,
-  getIndividualCurrentCompanies,
   getIndividualFieldAliasesForColumn,
 } from "@/components/individuals/individualsColumnFields";
 import type { Individual } from "@/types/individuals";
@@ -109,16 +108,7 @@ function getIndividualCellValue(
   }
 
   if (column.key === "current_company") {
-    return getIndividualCurrentCompanies(individual)
-      .map((company) => company.company_name)
-      .join(", ") || EMPTY_DISPLAY;
-  }
-
-  if (column.key === "corporate_events") {
-    const count = individual.corporate_events_count;
-    return typeof count === "number" && Number.isFinite(count)
-      ? count.toLocaleString()
-      : EMPTY_DISPLAY;
+    return toPlainText(individual.current_company);
   }
 
   if (column.key === "current_roles") {

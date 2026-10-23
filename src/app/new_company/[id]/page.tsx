@@ -24,6 +24,7 @@ import { OverviewCard } from "@/components/redesign/OverviewCard";
 import { RevenueModelCard } from "@/components/redesign/RevenueModelCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { ProductDataToggleCard } from "@/components/redesign/ProductDataToggleCard";
 import {
   ProductUsersListCard,
@@ -60,6 +61,8 @@ import {
   type CompanyFinancialMetricsCardRow,
 } from "@/lib/companyFinancialMetricsCard";
 import { CompanyFinancialsSection } from "@/components/company/CompanyFinancialsSection";
+import { FinancialIntelligenceWorkspace } from "@/app/financial-intelligence/FinancialIntelligenceWorkspace";
+import ProfileSubnav from "@/components/ProfileSubnav";
 import { EMPTY_DISPLAY, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 import {
   isCompanyMcpPopulated,
@@ -1213,6 +1216,14 @@ const CompanyDetail = () => {
   const insightsRowRef = useRef<HTMLDivElement | null>(null);
   const financeSecondaryRowRef = useRef<HTMLDivElement | null>(null);
   const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
+  const overviewGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef, financePrimaryGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [companyId]
+  );
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Summary");
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
@@ -1631,7 +1642,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();
@@ -3528,11 +3539,11 @@ const CompanyDetail = () => {
     <div className="company-detail-page" style={styles.container}>
 
       {/* ── Company profile header bar ── */}
-      <div style={{ backgroundColor: T.paper, borderBottom: `1px solid ${T.divider}`, padding: "0 24px" }}>
+      <div style={{ backgroundColor: T.paper, padding: "0 24px" }}>
         {/* Top row: logo + name + badges + actions */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap" as const, gap: "12px", padding: "22px 0 16px",
+          flexWrap: "wrap" as const, gap: "12px", padding: "0", minHeight: 80, boxSizing: "border-box" as const,
         }}>
           {/* Left: logo + name */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
@@ -3641,55 +3652,40 @@ const CompanyDetail = () => {
               </div>
 
         {/* Navigation tabs */}
-        <div style={{ display: "flex", gap: "2px", overflowX: "auto" as const, scrollbarWidth: "none" as const }}>
-          {[
+        <ProfileSubnav
+          tabs={[
             "Summary", "Products", "Methodology", "People",
-            "Financials", "Insights", "Deals", "Ownership", "Market",
-          ].map((tab) => {
-            const active = tab === activeProfileTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  setActiveProfileTab(tab);
-                  if (tab === "Financials" && !showFinancialsTab) {
-                    scrollToProfileFinancials();
-                  }
-                }}
-                style={{
-                  padding: "10px 14px",
-                  fontFamily: T.sans, fontSize: "13px",
-                  fontWeight: active ? 600 : 500,
-                  color: active ? T.ink : T.muted,
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  marginBottom: "-1px",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap" as const,
-                  transition: "color 120ms",
-                  background: "transparent",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-                  </div>
+            "Financials",
+            ...(hasFinancialMetricsCardData(financialMetricsCardRows)
+              ? ["Financial Intelligence"]
+              : []),
+            "Insights", "Deals", "Ownership", "Market",
+          ].map((tab) => ({ id: tab, label: tab }))}
+          activeTab={activeProfileTab}
+          onChange={(tab) => {
+            setActiveProfileTab(tab);
+            if (tab === "Financials" && !showFinancialsTab) {
+              scrollToProfileFinancials();
+            }
+          }}
+        />
       </div>
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Financials" && showFinancialsTab ? (
+          {activeProfileTab === "Financial Intelligence" &&
+          hasFinancialMetricsCardData(financialMetricsCardRows) ? (
+            <FinancialIntelligenceWorkspace
+              initialCompanyId={company?.id ?? null}
+              embedded
+            />
+          ) : activeProfileTab === "Financials" && showFinancialsTab ? (
             <CompanyFinancialsSection
               rows={financialMetricsCardRows}
               loading={financialMetricsCardLoading}
               companyName={company?.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
-              employeeHistory={employeeData}
             />
           ) : (
           <>
@@ -3698,6 +3694,7 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
+              ref={overviewGridRef}
               style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}
               className="overview-card company-grid-overview"
             >
@@ -4109,6 +4106,7 @@ const CompanyDetail = () => {
 
             {/* ── Description card (grid row 1, col 2) ── */}
             <div
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -4116,6 +4114,7 @@ const CompanyDetail = () => {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
-import { getLastPageEntrySource, trackKeyAction } from "@/lib/tracking";
+import { getLastPageEntrySource, getPreviousPagePath, trackKeyAction } from "@/lib/tracking";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries, ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
@@ -17,6 +17,7 @@ import {
   getArticleByline,
   getArticleCorrections,
   getLatestCorrection,
+  getNewsSubType,
   getRelatedDocumentUrl,
   isArticleBodyEmpty,
   isNewsArticle,
@@ -27,27 +28,35 @@ import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { EmbeddedArticlePdf } from "@/components/article/EmbeddedArticlePdf";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
-import {
-  getFXRates,
-  formatCurrency,
-  type Currency,
-  type FXRates,
-} from "@/lib/fxRates";
+import { appendPreferredCurrencyIdToSearchParams } from "@/lib/platformCurrency";
 import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
 import {
   currencyCodeToToggleSymbol,
   type CurrencyDisplayMode,
   type FxToggleConfig,
 } from "@/lib/financialsCurrencyToggle";
+import { extractCurrencyField } from "@/lib/currencyField";
+import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import {
   COMPANY_TABLE_DATA_URL,
   extractCompanyTableItems,
+  formatPlainNumber,
 } from "@/lib/companyTableData";
+import {
+  ARTICLE_TABLE_ALL_COLUMNS,
+  type ArticleTableCompanyRow,
+} from "@/lib/articleCustomCompanyTableColumns";
+import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
+import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
+const ARTICLE_PAGE_ROOT_CLASS = "ax-article-page";
 
 // Types for the article detail page
+/** Transaction comps tab on the article financial card is develop-only for now. */
+const SHOW_ARTICLE_TRANSACTION_COMPS = false;
+
 interface ArticleDetail {
   id: number;
   created_at: number;
@@ -56,8 +65,15 @@ interface ArticleDetail {
   Strapline: string;
   Content_Type?: string;
   content_type?: string;
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   // Some API variants may nest under Content
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: {
+    Content_type?: string;
+    Content_Type?: string;
+    News_Sub_Type?: string;
+    news_sub_type?: string;
+  };
   Body: string;
   // New field added to API response (Xano Content table column)
   summary?: unknown;
@@ -66,11 +82,28 @@ interface ArticleDetail {
     sector_name: string;
     Sector_importance: string;
   }>;
+  primary_company?: {
+    id: number;
+    name: string;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    iso2: string | null;
+    iso3: string | null;
+    source: string;
+  } | null;
   companies_mentioned: Array<{
     id: number;
     name: string;
-    /** False => not a D&A company (no profile). */
-    is_data_analytics?: boolean;
+    path?: string;
+    route?: string;
+    page_type?: string;
+    entity_type?: string;
+    type?: string;
+    is_investor?: boolean;
+    _is_that_investor?: boolean;
+    is_advisor?: boolean;
+    _is_that_advisor?: boolean;
   }>;
   companies_of_focus?: Array<{
     id: number;
@@ -79,10 +112,11 @@ interface ArticleDetail {
     hq_country?: string | null;
     locations_id?: number;
     _locations?: {
-      City?: string;
-      State__Province__County?: string;
-      Country?: string;
-      iso2?: string;
+      City?: string | null;
+      State__Province__County?: string | null;
+      Country?: string | null;
+      iso2?: string | null;
+      iso3?: string | null;
     };
   }>;
   Transaction_status?: string;
@@ -147,25 +181,47 @@ interface CompanyOfFocusOverview {
   }>;
 }
 
+// Shape of a single `company_financial_metrics`-style row, as returned
+// inside the `financial_metrics` array of the `aritcle_company_of_focus`
+// endpoint. Money fields (`*_m` / `EV`) are already converted to the
+// requested `preferred_currency_id`; the `*_reported_*` siblings carry the
+// original, native-currency figures (same pattern as the Company Profile's
+// financial metrics card — see `extractCurrencyField`/`FINANCIAL_METRICS_FIELDS`).
 interface CompanyOfFocusFinancialOverview {
-  arr_m?: number | string | null;
-  ebitda_m?: number | string | null;
-  revenue_m?: number | string | null;
-  enterprise_value_m?: number | string | null;
-  revenue_multiple?: number | string | null;
-  revenue_growth_pc?: number | string | null;
-  rule_of_40?: number | string | null;
-  ev_currency?: string | null;
-  ebitda_currency?: string | null;
-  revenue_currency?: string | null;
-  // Source fields for financial metrics (e.g., "Estimate")
-  revenue_source?: string | null;
-  arr_source?: string | null;
-  ebitda_source?: string | null;
-  ev_source?: string | null;
-  revenue_multiple_source?: string | null;
-  revenue_growth_source?: string | null;
-  rule_of_40_source?: string | null;
+  Revenue_m?: number | string | null;
+  Revenue_currency_display?: string | null;
+  Revenue_source_label?: string | null;
+  Revenue_m_reported_value?: number | string | null;
+  Revenue_m_reported_currency_display?: string | null;
+  Revenue_m_converted?: boolean | null;
+
+  ARR_m?: number | string | null;
+  ARR_currency_display?: string | null;
+  ARR_source_label?: string | null;
+  ARR_m_reported_value?: number | string | null;
+  ARR_m_reported_currency_display?: string | null;
+  ARR_m_converted?: boolean | null;
+
+  EBITDA_m?: number | string | null;
+  EBITDA_currency_display?: string | null;
+  EBITDA_source_label?: string | null;
+  EBITDA_m_reported_value?: number | string | null;
+  EBITDA_m_reported_currency_display?: string | null;
+  EBITDA_m_converted?: boolean | null;
+
+  EV?: number | string | null;
+  EV_currency_display?: string | null;
+  EV_source_label?: string | null;
+  EV_reported_value?: number | string | null;
+  EV_reported_currency_display?: string | null;
+  EV_converted?: boolean | null;
+
+  Revenue_multiple?: number | string | null;
+  Revenue_multiple_source_label?: string | null;
+  Rev_Growth_PC?: number | string | null;
+  Rev_growth_source_label?: string | null;
+  Rule_of_40?: number | string | null;
+  Rule_of_40_source_label?: string | null;
 }
 
 interface CompanyOfFocusApiItem {
@@ -187,8 +243,6 @@ interface CompanyCompetitorItem {
   id: number;
   name: string;
   linkedin_logo?: string;
-  /** False => not a D&A company (no profile). */
-  _is_that_data_analytic_company?: boolean;
 }
 
 interface CompanyCompetitorsResponse {
@@ -196,111 +250,6 @@ interface CompanyCompetitorsResponse {
   potential_acquirers: CompanyCompetitorItem[];
   acquisition_targets: CompanyCompetitorItem[];
 }
-
-interface TableCompanyRow {
-  id: number;
-  name: string;
-  url: string;
-  loc: string;
-  year_founded: string;
-  primary_sectors: string;
-  secondary_sectors: string;
-  ownership: string;
-  investors: string;
-  li_emp: string;
-  li_growth_pc: string;
-  revenue_m: string;
-  arr_m: string;
-  ebitda_m: string;
-  ebit_m: string;
-  ev: string;
-  arr_pc: string;
-  churn_pc: string;
-  grr_pc: string;
-  nrr: string;
-  upsell_pc: string;
-  cross_sell_pc: string;
-  price_increase_pc: string;
-  rev_expansion_pc: string;
-  new_client_growth_pc: string;
-  rev_growth_pc: string;
-  ebitda_margin: string;
-  rule_of_40: string;
-  revenue_multiple: string;
-  no_of_clients: string;
-  rev_per_client: string;
-  no_employees: string;
-  rev_per_employee: string;
-}
-
-interface ColumnDefinition {
-  key: string;
-  label: string;
-}
-
-// Column groups mirror Company Profile section titles & labels (`src/app/company/[param]/page.tsx`).
-const COL_GROUPS: Array<{ group: string; cols: ColumnDefinition[] }> = [
-  {
-    group: "Overview",
-    cols: [
-      { key: "primary_sectors", label: "Primary Sector(s)" },
-      { key: "secondary_sectors", label: "Secondary Sector(s)" },
-      { key: "year_founded", label: "Year Founded" },
-      { key: "url", label: "Website" },
-      { key: "ownership", label: "Ownership" },
-      { key: "loc", label: "HQ" },
-      { key: "li_emp", label: "LinkedIn Employee Count" },
-      { key: "li_growth_pc", label: "LinkedIn Growth (%)" },
-      { key: "investors", label: "Investors" },
-    ],
-  },
-  {
-    group: "Financial Metrics",
-    cols: [
-      { key: "revenue_m", label: "Revenue (m)" },
-      { key: "ebitda_m", label: "EBITDA (m)" },
-      { key: "ev", label: "Enterprise Value (m)" },
-      { key: "revenue_multiple", label: "Revenue multiple" },
-      { key: "rev_growth_pc", label: "Revenue Growth" },
-      { key: "ebitda_margin", label: "EBITDA margin" },
-      { key: "rule_of_40", label: "Rule of 40" },
-    ],
-  },
-  {
-    group: "Subscription Metrics",
-    cols: [
-      { key: "arr_pc", label: "Recurring Revenue" },
-      { key: "arr_m", label: "ARR (m)" },
-      { key: "churn_pc", label: "Churn" },
-      { key: "grr_pc", label: "GRR" },
-      { key: "upsell_pc", label: "Upsell" },
-      { key: "cross_sell_pc", label: "Cross-sell" },
-      { key: "price_increase_pc", label: "Price increase" },
-      { key: "rev_expansion_pc", label: "Revenue expansion" },
-      { key: "nrr", label: "NRR" },
-      { key: "new_client_growth_pc", label: "New clients revenue growth" },
-    ],
-  },
-  {
-    group: "Other Metrics",
-    cols: [
-      { key: "ebit_m", label: "EBIT (m)" },
-      { key: "no_of_clients", label: "Number of clients" },
-      { key: "rev_per_client", label: "Revenue per client" },
-      { key: "no_employees", label: "Number of employees" },
-      { key: "rev_per_employee", label: "Revenue per employee" },
-    ],
-  },
-];
-
-const ALL_TABLE_COLUMNS: ColumnDefinition[] = COL_GROUPS.flatMap((g) => g.cols);
-const WRAP_COLS = new Set([
-  "primary_sectors",
-  "secondary_sectors",
-  "loc",
-  "investors",
-  "url",
-]);
 
 // Shared styles object
 const styles = {
@@ -442,16 +391,15 @@ const styles = {
     border: "1px solid #C6D1FB",
     fontWeight: 600,
   },
-  contentTypeMetaCount: {
-    display: "inline-flex",
-    alignItems: "center",
-    height: "24px",
+  newsSubTypeBadge: {
+    display: "inline-block",
     fontSize: "12px",
+    lineHeight: 1,
     color: "#3D4657",
     backgroundColor: "#F5F7FD",
-    border: "1px solid #E4E8F2",
-    padding: "0 10px",
+    padding: "6px 10px",
     borderRadius: "9999px",
+    border: "1px solid #E4E8F2",
     fontWeight: 600,
   },
   transactionStatusBadge: {
@@ -605,18 +553,15 @@ const ArticleDetailPage = () => {
     "overview"
   );
 
-  // Financial Snapshot — platform vs reported currency toggle (mirrors
-  // Company Profile's FinancialsCurrencyToggle behaviour).
-  const { currency: platformCurrency } = usePlatformCurrency();
-  const [snapshotFxRates, setSnapshotFxRates] = useState<FXRates | null>(null);
+  // Financial Snapshot — the `aritcle_company_of_focus` endpoint converts
+  // money figures server-side to the requested `preferred_currency_id`
+  // (platform currency) and also returns the original `*_reported_*`
+  // native-currency figures, so the toggle just switches which of those
+  // two already-fetched values is shown (no client-side FX math needed).
+  const { currency: platformCurrency, currencyId: platformCurrencyId } =
+    usePlatformCurrency();
   const [snapshotCurrencyMode, setSnapshotCurrencyMode] =
     useState<CurrencyDisplayMode>("preferred");
-
-  useEffect(() => {
-    getFXRates()
-      .then(setSnapshotFxRates)
-      .catch(() => setSnapshotFxRates(null));
-  }, []);
   const [companyOfFocus, setCompanyOfFocus] =
     useState<CompanyOfFocusApiItem | null>(null);
   const [companyOfFocusLoading, setCompanyOfFocusLoading] = useState(false);
@@ -645,7 +590,9 @@ const ArticleDetailPage = () => {
     openedTrackedRef.current = articleId;
     const entry = getLastPageEntrySource();
     const source =
-      fromHome || entry === "dashboard"
+      getPreviousPagePath().startsWith("/news")
+        ? "news_page"
+        : fromHome || entry === "dashboard"
         ? "dashboard"
         : entry === "daily_email"
           ? "email"
@@ -665,13 +612,48 @@ const ArticleDetailPage = () => {
   const ENABLE_PDF_EXPORT = true;
   const [showGenerateTableModal, setShowGenerateTableModal] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
-  const [tableRows, setTableRows] = useState<TableCompanyRow[]>([]);
+  const [tableRows, setTableRows] = useState<ArticleTableCompanyRow[]>([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(
     new Set()
   );
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<Set<string>>(
-    new Set(ALL_TABLE_COLUMNS.map((c) => c.key))
+    new Set(ARTICLE_TABLE_ALL_COLUMNS.map((c) => c.key))
   );
+
+  // Mentioned entities can be companies, investors or advisors; link each to
+  // its own page type rather than always /company/{id}.
+  const getMentionedEntityHref = (
+    entity: ArticleDetail["companies_mentioned"][number]
+  ): string => {
+    const hint = [
+      entity.path,
+      entity.route,
+      entity.page_type,
+      entity.entity_type,
+      entity.type,
+    ]
+      .map((v) => String(v ?? "").toLowerCase())
+      .join(" ");
+    const isAdvisorFromEvents = (article?.Related_Corporate_Event || []).some(
+      (ev) => (ev.advisors || []).some((a) => a._new_company?.id === entity.id)
+    );
+    if (
+      entity.is_advisor ||
+      entity._is_that_advisor ||
+      hint.includes("advisor") ||
+      isAdvisorFromEvents
+    ) {
+      return `/advisor/${entity.id}`;
+    }
+    if (
+      entity.is_investor ||
+      entity._is_that_investor ||
+      hint.includes("investor")
+    ) {
+      return `/investors/${entity.id}`;
+    }
+    return `/company/${entity.id}`;
+  };
 
   const fetchArticle = async () => {
     try {
@@ -718,7 +700,7 @@ const ArticleDetailPage = () => {
             }>
           >(raw.sectors) || [],
         companies_mentioned:
-          tryParse<ContentArticle["companies_mentioned"]>(
+          tryParse<ArticleDetail["companies_mentioned"]>(
             raw.companies_mentioned
           ) || [],
         companies_of_focus:
@@ -730,10 +712,11 @@ const ArticleDetailPage = () => {
               hq_country?: string | null;
               locations_id?: number;
               _locations?: {
-                City?: string;
-                State__Province__County?: string;
-                Country?: string;
-                iso2?: string;
+                City?: string | null;
+                State__Province__County?: string | null;
+                Country?: string | null;
+                iso2?: string | null;
+                iso3?: string | null;
               };
             }>
           >(raw.companies_of_focus) ||
@@ -813,15 +796,14 @@ const ArticleDetailPage = () => {
         ""
       ).trim();
 
-      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+      const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview|news)$/i.test(
         contentType
       );
 
-      const hasCompanyOfFocus =
-        (article as unknown as { Company_of_Focus?: unknown })
-          .Company_of_Focus != null;
-
-      if (!isCompanyAnalysisOrExecInterview || !hasCompanyOfFocus) {
+      // The /content payload doesn't reliably carry Company_of_Focus (News
+      // items don't), so let the company_of_focus endpoint decide; it returns
+      // an empty list when nothing is tagged.
+      if (!isCompanyAnalysisOrExecInterview) {
         setCompanyOfFocus(null);
         setCompanyOfFocusCompanyId(null);
         setCompetitors(null);
@@ -837,10 +819,16 @@ const ArticleDetailPage = () => {
           return;
         }
 
+        const companyOfFocusParams = new URLSearchParams({
+          content_id: articleId,
+        });
+        appendPreferredCurrencyIdToSearchParams(
+          companyOfFocusParams,
+          platformCurrencyId
+        );
+
         const response = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/aritcle_company_of_focus?content_id=${encodeURIComponent(
-            articleId
-          )}`,
+          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/aritcle_company_of_focus?${companyOfFocusParams.toString()}`,
           {
             method: "GET",
             headers: {
@@ -865,7 +853,10 @@ const ArticleDetailPage = () => {
               logo?: string;
               linkedin_url?: string;
               company_overview?: unknown;
-              financial_overview?: unknown;
+              // The endpoint now returns financials as a `financial_metrics`
+              // array (one `company_financial_metrics` row) rather than a
+              // single `financial_overview` object.
+              financial_metrics?: unknown;
             }
           | null;
 
@@ -880,14 +871,12 @@ const ArticleDetailPage = () => {
             ? tryParse<CompanyOfFocusOverview>(rawItem.company_overview)
             : (rawItem.company_overview as CompanyOfFocusOverview | undefined);
 
-        const financial =
-          typeof rawItem.financial_overview === "string"
-            ? tryParse<CompanyOfFocusFinancialOverview>(
-                rawItem.financial_overview
-              )
-            : (rawItem.financial_overview as
-                | CompanyOfFocusFinancialOverview
-                | undefined);
+        const financialMetricsRows =
+          tryParse<CompanyOfFocusFinancialOverview[]>(
+            rawItem.financial_metrics
+          ) ?? [];
+        // Latest-year row first when more than one is returned.
+        const financial = financialMetricsRows[financialMetricsRows.length - 1];
 
         const coFocusCompanyIdCandidate =
           (rawItem as unknown as { new_company_id?: unknown })?.new_company_id ??
@@ -929,7 +918,7 @@ const ArticleDetailPage = () => {
     };
 
     fetchCompanyOfFocus();
-  }, [article, articleId]);
+  }, [article, articleId, platformCurrencyId]);
 
   // Fetch competitors for Company Analysis using Company of Focus id
   useEffect(() => {
@@ -1088,6 +1077,14 @@ const ArticleDetailPage = () => {
       name
     )}</figcaption></figure>`;
 
+  // The CMS tags dynamic entities (companies, investors, etc.) inside the
+  // body/summary HTML by prefixing their linked label with "@" (e.g.
+  // <a href="...">@LSEG</a>). That "@" is only an authoring marker — it
+  // should never be shown to readers, so strip it from the start of any
+  // link's visible text right before rendering.
+  const stripEntityTagMarker = (html: string): string =>
+    html ? html.replace(/(<a\b[^>]*>)(\s|&nbsp;)*@/gi, "$1") : html;
+
   // Replace placeholders like <image_1>, <image_2> with corresponding image attachments
   const replaceImagePlaceholders = (
     bodyHtml: string,
@@ -1199,6 +1196,28 @@ const ArticleDetailPage = () => {
     return /(\.(png|jpe?g|gif|webp|svg))($|\?)/i.test(nameOrUrl);
   };
 
+  const getRenderableAttachmentDocs = (
+    docs: ArticleDetail["Related_Documents"] | undefined,
+    kind: "image" | "document"
+  ) => {
+    const withUrl = (docs || []).filter(Boolean).filter((d) => Boolean(d.url));
+    return kind === "image"
+      ? withUrl.filter(isImageDoc)
+      : withUrl.filter((d) => !isImageDoc(d));
+  };
+
+  /** Find a PDF attachment to embed inline when the article Body is empty. */
+  const getEmbeddablePdfDoc = (
+    docs: ArticleDetail["Related_Documents"] | undefined,
+    bodyText: string | undefined
+  ) => {
+    if (!isArticleBodyEmpty(bodyText)) return undefined;
+    return (docs || [])
+      .filter(Boolean)
+      .filter((d) => !isImageDoc(d))
+      .find((d) => isPdfRelatedDocument(d) && getRelatedDocumentUrl(d));
+  };
+
   const formatCompanyOfFocusYearFounded = (candidate: unknown): string => {
     if (candidate === null || candidate === undefined) return "-";
     const n = Number(candidate);
@@ -1207,26 +1226,6 @@ const ArticleDetailPage = () => {
       return String(n);
     }
     return "-";
-  };
-
-  // Plain number formatter copied from Company Profile (no currency, preserve decimals)
-  const formatPlainNumber = (
-    value?: number | string | null
-  ): string => {
-    if (value === undefined || value === null) return "-";
-    if (typeof value === "number") {
-      return value.toLocaleString("en-US", { maximumFractionDigits: 10 });
-    }
-    const trimmed = String(value).trim();
-    if (trimmed.length === 0) return "-";
-    const num = Number(trimmed.replace(/,/g, ""));
-    if (!Number.isFinite(num)) return trimmed;
-    const match = trimmed.match(/\.([0-9]+)/);
-    const frac = match ? Math.min(10, match[1].length) : 0;
-    return num.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: frac,
-    });
   };
 
   const formatMultiple = (value: unknown): string => {
@@ -1254,54 +1253,40 @@ const ArticleDetailPage = () => {
     return trimmed || "-";
   };
 
-  const SUPPORTED_CURRENCIES: Currency[] = ["USD", "GBP", "EUR"];
-  const isSupportedCurrency = (code?: string | null): code is Currency =>
-    !!code && SUPPORTED_CURRENCIES.includes(code.trim().toUpperCase() as Currency);
-
-  /** Convert a value between any two of the platform's supported currencies
-   * (USD/GBP/EUR), using the USD-anchored FX table as the pivot. */
-  const convertBetweenCurrencies = (
-    value: number | null,
-    sourceCode: Currency,
-    targetCode: Currency,
-    rates: FXRates | null
-  ): number | null => {
-    if (value === null || !Number.isFinite(value)) return null;
-    if (sourceCode === targetCode) return value;
-    if (!rates) return value;
-    const usdValue = sourceCode === "USD" ? value : value / rates[sourceCode];
-    return targetCode === "USD" ? usdValue : usdValue * rates[targetCode];
+  /** Formats a value with an arbitrary ISO currency code (the reported
+   * figure's native currency isn't limited to the platform's USD/GBP/EUR
+   * set), falling back to a plain number if the code isn't formattable. */
+  const formatWithCurrencyCode = (value: number, code: string): string => {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: code.trim().toUpperCase(),
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(value);
+    } catch {
+      return formatPlainNumber(value);
+    }
   };
 
-  /** Currency-aware money formatter for the Financial Snapshot card — shows
-   * the value in the platform or reported currency depending on `mode`. */
+  /** Money formatter for the Financial Snapshot card — picks the preferred
+   * (platform-currency, already converted) or reported (native-currency)
+   * value/currency pair extracted via `extractCurrencyField`, depending on
+   * the toggle mode. No client-side FX conversion needed; both figures
+   * come straight from the API. */
   const formatSnapshotMoney = (
-    value: number | string | null | undefined,
-    reportedCode: string | null | undefined,
+    field: ReturnType<typeof extractCurrencyField> | null,
     mode: CurrencyDisplayMode
   ): string => {
-    if (value === null || value === undefined || value === "") return "-";
-    const num = Number(value);
-    if (!Number.isFinite(num)) return "-";
-
-    const nativeCode = isSupportedCurrency(reportedCode)
-      ? reportedCode.trim().toUpperCase() as Currency
-      : null;
-
-    if (!nativeCode) {
-      // Unknown/unsupported reported currency — show the plain figure.
-      return formatPlainNumber(num);
-    }
-    if (mode === "native") {
-      return formatCurrency(num, nativeCode);
-    }
-    const converted = convertBetweenCurrencies(
-      num,
-      nativeCode,
-      platformCurrency,
-      snapshotFxRates
-    );
-    return formatCurrency(converted, platformCurrency);
+    if (!field) return "-";
+    const value = mode === "native" ? field.reportedValue : field.preferredValue;
+    if (value === null || value === undefined) return "-";
+    const currency =
+      (mode === "native" ? field.reportedCurrency : field.preferredCurrency) ||
+      field.preferredCurrency ||
+      null;
+    if (!currency) return formatPlainNumber(value);
+    return formatWithCurrencyCode(value, currency);
   };
 
   const toDisplayString = (value: unknown): string => {
@@ -1327,7 +1312,7 @@ const ArticleDetailPage = () => {
     return `https://${trimmed}`;
   };
 
-  const getTableCellValue = (row: TableCompanyRow, key: string): string => {
+  const getTableCellValue = (row: ArticleTableCompanyRow, key: string): string => {
     const raw = (row as unknown as Record<string, unknown>)[key];
     const v =
       typeof raw === "string" ? raw.trim() : toDisplayString(raw).trim();
@@ -1371,7 +1356,7 @@ const ArticleDetailPage = () => {
     return setLike;
   };
 
-  const mapCompanyTableApiRow = (row: Record<string, unknown>): TableCompanyRow => {
+  const mapCompanyTableApiRow = (row: Record<string, unknown>): ArticleTableCompanyRow => {
       const id = Number(row.id) || 0;
       const primarySectors = parseMaybeSetLikeList(row.primary_sector_names).join(", ");
       const secondarySectors = parseMaybeSetLikeList(row.secondary_sector_names).join(", ");
@@ -1390,6 +1375,7 @@ const ArticleDetailPage = () => {
       return {
         id,
         name: toDisplayString(row.name) || `Company ${id}`,
+        logo: readLogoFromRecord(row),
         url: na(urlRaw),
         loc: na(hqLocation),
         year_founded: formatCompanyOfFocusYearFounded(
@@ -1495,9 +1481,11 @@ const ArticleDetailPage = () => {
 
   const handleExportTableCsv = () => {
     const activeRows = tableRows.filter((r) => selectedCompanyIds.has(r.id));
-    const activeColumns = ALL_TABLE_COLUMNS.filter((c) =>
-      selectedColumnKeys.has(c.key)
-    );
+    const columnsByKey = new Map(ARTICLE_TABLE_ALL_COLUMNS.map((c) => [c.key, c]));
+    const activeColumns = Array.from(selectedColumnKeys).flatMap((key) => {
+      const col = columnsByKey.get(key);
+      return col ? [col] : [];
+    });
     if (!activeRows.length || !activeColumns.length) return;
 
     const sanitizeFilenamePart = (input: string): string => {
@@ -1541,7 +1529,7 @@ const ArticleDetailPage = () => {
   if (loading) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.loading}>Loading article...</div>
         </div>
@@ -1554,7 +1542,7 @@ const ArticleDetailPage = () => {
   if (error) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1571,7 +1559,7 @@ const ArticleDetailPage = () => {
   if (!article) {
     return (
       <AppShell>
-      <div style={styles.container}>
+      <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
         <div style={styles.maxWidth}>
           <div style={styles.error}>
             {fromHome
@@ -1614,30 +1602,10 @@ const ArticleDetailPage = () => {
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(contentArticle);
   const latestCorrection = getLatestCorrection(contentArticle);
-  const relatedAttachmentDocs = (article.Related_Documents || []).filter(
-    Boolean
-  );
-  const bodyEmpty = isArticleBodyEmpty(article.Body);
-  const primaryPdfWhenBodyEmpty = bodyEmpty
-    ? relatedAttachmentDocs
-        .filter((d) => !isImageDoc(d))
-        .find(
-          (d) => isPdfRelatedDocument(d) && getRelatedDocumentUrl(d)
-        )
-    : undefined;
-  const embeddedPdfUrl = primaryPdfWhenBodyEmpty
-    ? getRelatedDocumentUrl(primaryPdfWhenBodyEmpty)
-    : "";
-  const relatedNonImageDocs = relatedAttachmentDocs
-    .filter((d) => !isImageDoc(d))
-    .filter((d) => {
-      const url = getRelatedDocumentUrl(d);
-      return url && url !== embeddedPdfUrl;
-    });
 
   return (
     <AppShell>
-    <div style={styles.container}>
+    <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
       <div style={styles.maxWidth}>
         <button onClick={handleBackClick} style={styles.backButton}>
           ← Back to Insights & Analysis
@@ -1686,23 +1654,18 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const companiesCount = article.companies_mentioned?.length || 0;
-              const sectorsCount = article.sectors?.length || 0;
-              return ct ? (
+              const newsSubType = getNewsSubType(article);
+              if (!ct && !newsSubType) return null;
+              return (
                 <div style={styles.contentTypeRow}>
-                  <span style={styles.contentTypeBadge}>{ct}</span>
-                  {companiesCount > 0 && (
-                    <span style={styles.contentTypeMetaCount}>
-                      {companiesCount} {companiesCount === 1 ? "company" : "companies"}
-                    </span>
-                  )}
-                  {sectorsCount > 0 && (
-                    <span style={styles.contentTypeMetaCount}>
-                      {sectorsCount} {sectorsCount === 1 ? "sector" : "sectors"}
-                    </span>
-                  )}
+                  {ct ? (
+                    <span style={styles.contentTypeBadge}>{ct}</span>
+                  ) : null}
+                  {newsSubType ? (
+                    <span style={styles.newsSubTypeBadge}>{newsSubType}</span>
+                  ) : null}
                 </div>
-              ) : null;
+              );
             })()}
             {isNews && byline ? (
               <p
@@ -1734,7 +1697,9 @@ const ArticleDetailPage = () => {
                 ? replaceImagePlaceholders(rawSummary, allImageDocs)
                 : { html: "" };
 
-              const items = parseSummaryItems(summaryHtml || article.summary);
+              const items = parseSummaryItems(
+                summaryHtml ? stripEntityTagMarker(summaryHtml) : article.summary
+              );
               if (!items.length) return null;
               const visibleItems = summaryOpen ? items : [items[0]!];
 
@@ -1787,9 +1752,20 @@ const ArticleDetailPage = () => {
               );
             })()}
 
-            {/* Article Body (or embedded PDF when body is empty) */}
+            {/* Article Body (or embedded PDF viewer when body is empty) */}
             {(() => {
-              if (embeddedPdfUrl) {
+              const embeddablePdfDoc = getEmbeddablePdfDoc(
+                article.Related_Documents,
+                article.Body
+              );
+              if (embeddablePdfDoc) {
+                const embeddedPdfUrl = getRelatedDocumentUrl(embeddablePdfDoc);
+                const pdfFileName =
+                  embeddablePdfDoc.name?.trim() ||
+                  `${article.Headline || "document"}.pdf`;
+                const downloadHref = `/api/article/pdf-proxy?url=${encodeURIComponent(
+                  embeddedPdfUrl
+                )}&download=${encodeURIComponent(pdfFileName)}`;
                 return (
                   <div
                     style={styles.body}
@@ -1797,13 +1773,17 @@ const ArticleDetailPage = () => {
                   >
                     <EmbeddedArticlePdf
                       url={embeddedPdfUrl}
-                      title={primaryPdfWhenBodyEmpty?.name || "Document"}
+                      title={embeddablePdfDoc.name || "Document"}
+                      downloadHref={downloadHref}
+                      downloadName={pdfFileName}
                     />
                   </div>
                 );
               }
 
-              const allImageDocs = relatedAttachmentDocs.filter(isImageDoc);
+              const allImageDocs = (article.Related_Documents || []).filter(
+                isImageDoc
+              );
               const { html: withPlaceholders, usedIndices } =
                 replaceImagePlaceholders(article.Body, allImageDocs);
               const remainingImages = allImageDocs.filter(
@@ -1817,14 +1797,19 @@ const ArticleDetailPage = () => {
                 <div
                   style={styles.body}
                   className="article-body"
-                  dangerouslySetInnerHTML={{ __html: html }}
+                  dangerouslySetInnerHTML={{ __html: stripEntityTagMarker(html) }}
                 />
               );
             })()}
 
             {/* Inline image grid (if additional images remain useful outside body) */}
-            {article.Related_Documents &&
-              article.Related_Documents.filter(Boolean).some(isImageDoc) && (
+            {(() => {
+              const imageAttachmentDocs = getRenderableAttachmentDocs(
+                article.Related_Documents,
+                "image"
+              );
+              if (!imageAttachmentDocs.length) return null;
+              return (
                 <div style={styles.section}>
                   <h2 style={styles.sectionTitle}>Images</h2>
                   <div
@@ -1835,34 +1820,39 @@ const ArticleDetailPage = () => {
                       gap: 16,
                     }}
                   >
-                    {(article.Related_Documents || [])
-                      .filter(Boolean)
-                      .filter(isImageDoc)
-                      .map((doc, idx) => (
-                        <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
-                          <img src={doc.url || ""} alt={doc.name || ""} />
-                          <figcaption>{doc.name || ""}</figcaption>
-                        </figure>
-                      ))}
+                    {imageAttachmentDocs.map((doc, idx) => (
+                      <figure key={`${doc.url}-${idx}`} style={{ margin: 0 }}>
+                        <img src={doc.url} alt={doc.name || ""} />
+                        <figcaption>{doc.name || ""}</figcaption>
+                      </figure>
+                    ))}
                   </div>
                 </div>
-              )}
+              );
+            })()}
 
-            {/* Related Documents (attachments; skip PDF shown inline as body) */}
-            {relatedNonImageDocs.length > 0 && (
-              <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Related Documents</h2>
-                <div style={styles.tagContainer}>
-                  {relatedNonImageDocs.map((doc, index) => {
-                    const url = getRelatedDocumentUrl(doc);
-                    const name = doc.name;
-                    if (!url) {
-                      return null;
-                    }
-                    return (
+            {/* Related Documents (attachments; skip the PDF shown inline as body) */}
+            {(() => {
+              const embeddablePdfDoc = getEmbeddablePdfDoc(
+                article.Related_Documents,
+                article.Body
+              );
+              const embeddedPdfUrl = embeddablePdfDoc
+                ? getRelatedDocumentUrl(embeddablePdfDoc)
+                : "";
+              const documentAttachments = getRenderableAttachmentDocs(
+                article.Related_Documents,
+                "document"
+              ).filter((d) => !embeddedPdfUrl || d.url !== embeddedPdfUrl);
+              if (!documentAttachments.length) return null;
+              return (
+                <div style={styles.section}>
+                  <h2 style={styles.sectionTitle}>Related Documents</h2>
+                  <div style={styles.tagContainer}>
+                    {documentAttachments.map((doc, index) => (
                       <a
-                        key={index}
-                        href={url}
+                        key={`${doc.url}-${index}`}
+                        href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
@@ -1870,13 +1860,13 @@ const ArticleDetailPage = () => {
                           textDecoration: "none",
                         }}
                       >
-                        {name || "Document"}
+                        {doc.name || "Document"}
                       </a>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Right: Metadata (1/3) */}
@@ -1937,7 +1927,7 @@ const ArticleDetailPage = () => {
                 article.Content?.Content_Type ||
                 ""
               ).trim();
-              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview)$/i.test(
+              const isCompanyAnalysisOrExecInterview = /^(company\s*analysis|executive\s*interview|news)$/i.test(
                 ct
               );
               if (!isCompanyAnalysisOrExecInterview) return null;
@@ -1985,80 +1975,114 @@ const ArticleDetailPage = () => {
                   ? overview.employee_count.toLocaleString("en-US")
                   : "-";
 
-              const reportedCurrencyRaw =
-                financial?.ev_currency ||
-                financial?.revenue_currency ||
-                financial?.ebitda_currency ||
-                null;
-              const reportedCurrency = isSupportedCurrency(reportedCurrencyRaw)
-                ? (reportedCurrencyRaw!.trim().toUpperCase() as Currency)
-                : null;
-
-              const snapshotFxToggleConfig: FxToggleConfig | null =
-                reportedCurrency && reportedCurrency !== platformCurrency
-                  ? {
-                      preferredCode: platformCurrency,
-                      nativeCode: reportedCurrency,
-                      preferredSymbol: currencyCodeToToggleSymbol(platformCurrency),
-                      nativeSymbol: currencyCodeToToggleSymbol(reportedCurrency),
-                    }
-                  : null;
-
               const pubYear = article?.Publication_Date
                 ? new Date(article.Publication_Date).getFullYear()
                 : null;
               const fyLabel =
                 pubYear && Number.isFinite(pubYear) ? `FY${pubYear}F` : null;
 
-              const revenueDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.revenue_m,
-                    financial.revenue_currency,
-                    snapshotCurrencyMode
+              // Per-metric preferred(platform)/reported(native) value pairs,
+              // same extraction used by the Company Profile financials card.
+              const revenueField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "Revenue_m",
+                    FINANCIAL_METRICS_FIELDS.Revenue_m
                   )
-                : "-";
+                : null;
+              const arrField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "ARR_m",
+                    FINANCIAL_METRICS_FIELDS.ARR_m
+                  )
+                : null;
+              const ebitdaField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "EBITDA_m",
+                    FINANCIAL_METRICS_FIELDS.EBITDA_m
+                  )
+                : null;
+              const evField = financial
+                ? extractCurrencyField(
+                    financial as unknown as Record<string, unknown>,
+                    "EV",
+                    FINANCIAL_METRICS_FIELDS.EV
+                  )
+                : null;
 
-              const arrDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.arr_m,
-                    financial.revenue_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              // Toggle only appears when some metric actually carries a
+              // reported currency that differs from the platform currency.
+              const toggleSourceField = [
+                revenueField,
+                arrField,
+                ebitdaField,
+                evField,
+              ].find(
+                (field) =>
+                  field?.converted &&
+                  field.reportedCurrency &&
+                  field.reportedCurrency.trim().toUpperCase() !==
+                    (field.preferredCurrency ?? platformCurrency)
+                      .trim()
+                      .toUpperCase()
+              );
+              const snapshotFxToggleConfig: FxToggleConfig | null =
+                toggleSourceField
+                  ? {
+                      preferredCode:
+                        toggleSourceField.preferredCurrency ?? platformCurrency,
+                      nativeCode: toggleSourceField.reportedCurrency as string,
+                      preferredSymbol: currencyCodeToToggleSymbol(
+                        toggleSourceField.preferredCurrency ?? platformCurrency
+                      ),
+                      nativeSymbol: currencyCodeToToggleSymbol(
+                        toggleSourceField.reportedCurrency as string
+                      ),
+                    }
+                  : null;
 
-              const ebitdaDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.ebitda_m,
-                    financial.ebitda_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              const revenueDisplay = formatSnapshotMoney(
+                revenueField,
+                snapshotCurrencyMode
+              );
 
-              const evDisplay = financial
-                ? formatSnapshotMoney(
-                    financial.enterprise_value_m,
-                    financial.ev_currency,
-                    snapshotCurrencyMode
-                  )
-                : "-";
+              const arrDisplay = formatSnapshotMoney(
+                arrField,
+                snapshotCurrencyMode
+              );
+
+              const ebitdaDisplay = formatSnapshotMoney(
+                ebitdaField,
+                snapshotCurrencyMode
+              );
+
+              const evDisplay = formatSnapshotMoney(evField, snapshotCurrencyMode);
 
               const revenueMultipleDisplay = financial
-                ? formatMultiple(financial.revenue_multiple)
+                ? formatMultiple(financial.Revenue_multiple)
                 : "-";
 
-              const evNum = financial ? Number(financial.enterprise_value_m) : NaN;
-              const ebitdaNum = financial ? Number(financial.ebitda_m) : NaN;
+              const evNum =
+                snapshotCurrencyMode === "native"
+                  ? evField?.reportedValue ?? NaN
+                  : evField?.preferredValue ?? NaN;
+              const ebitdaNum =
+                snapshotCurrencyMode === "native"
+                  ? ebitdaField?.reportedValue ?? NaN
+                  : ebitdaField?.preferredValue ?? NaN;
               const evEbitdaMultipleDisplay =
                 Number.isFinite(evNum) && Number.isFinite(ebitdaNum) && ebitdaNum !== 0
                   ? formatMultiple(evNum / ebitdaNum)
                   : "-";
 
               const revenueGrowthDisplay = financial
-                ? formatPercent(financial.revenue_growth_pc)
+                ? formatPercent(financial.Rev_Growth_PC)
                 : "-";
 
               const ruleOf40Display = financial
-                ? formatPercent(financial.rule_of_40)
+                ? formatPercent(financial.Rule_of_40)
                 : "-";
 
               const isEmptyVal = (v: string) => !v || v === "-";
@@ -2228,6 +2252,7 @@ const ArticleDetailPage = () => {
                           >
                             Financial Overview
                           </button>
+                          {SHOW_ARTICLE_TRANSACTION_COMPS && (
                           <button
                             type="button"
                             role="tab"
@@ -2239,6 +2264,7 @@ const ArticleDetailPage = () => {
                           >
                             Transaction comps
                           </button>
+                          )}
                         </div>
                         <div
                           style={{
@@ -2273,42 +2299,46 @@ const ArticleDetailPage = () => {
                             <span className="k">Revenue (m)</span>
                             <span className="v">{revenueDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.revenue_source)}
+                              {getFinancialSourceLabel(financial.Revenue_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">ARR (m)</span>
                             <span className="v">{arrDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.arr_source)}
+                              {getFinancialSourceLabel(financial.ARR_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">EBITDA (m)</span>
                             <span className="v">{ebitdaDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.ebitda_source)}
+                              {getFinancialSourceLabel(financial.EBITDA_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Enterprise value (m)</span>
                             <span className="v">{evDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.ev_source)}
+                              {getFinancialSourceLabel(financial.EV_source_label)}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Revenue growth</span>
                             <span className="v">{revenueGrowthDisplay}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.revenue_growth_source)}
+                              {getFinancialSourceLabel(
+                                financial.Rev_growth_source_label
+                              )}
                             </span>
                           </div>
                           <div className="r">
                             <span className="k">Rule of 40</span>
                             <span className="v">{ruleOf40Display}</span>
                             <span className="s">
-                              {getFinancialSourceLabel(financial.rule_of_40_source)}
+                              {getFinancialSourceLabel(
+                                financial.Rule_of_40_source_label
+                              )}
                             </span>
                           </div>
                         </div>
@@ -2324,7 +2354,7 @@ const ArticleDetailPage = () => {
                             <span className="v">{revenueMultipleDisplay}</span>
                             <span className="s">
                               {getFinancialSourceLabel(
-                                financial.revenue_multiple_source
+                                financial.Revenue_multiple_source_label
                               )}
                             </span>
                           </div>
@@ -2333,7 +2363,8 @@ const ArticleDetailPage = () => {
                             <span className="v">{evEbitdaMultipleDisplay}</span>
                             <span className="s">
                               {getFinancialSourceLabel(
-                                financial.ev_source || financial.ebitda_source
+                                financial.EV_source_label ||
+                                  financial.EBITDA_source_label
                               )}
                             </span>
                           </div>
@@ -2362,8 +2393,7 @@ const ArticleDetailPage = () => {
                           <EntityChip
                             key={`peer-${c.id}`}
                             kind="company"
-                            href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
-                            nonDa={c._is_that_data_analytic_company === false}
+                            href={`/company/${c.id}`}
                             label={c.name}
                           />
                         ))}
@@ -2387,8 +2417,7 @@ const ArticleDetailPage = () => {
                             <EntityChip
                               key={`acq-${c.id}`}
                               kind="company"
-                              href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
-                            nonDa={c._is_that_data_analytic_company === false}
+                              href={`/company/${c.id}`}
                               label={c.name}
                             />
                           ))}
@@ -2413,8 +2442,7 @@ const ArticleDetailPage = () => {
                             <EntityChip
                               key={`tgt-${c.id}`}
                               kind="company"
-                              href={c._is_that_data_analytic_company === false ? undefined : `/company/${c.id}`}
-                            nonDa={c._is_that_data_analytic_company === false}
+                              href={`/company/${c.id}`}
                               label={c.name}
                             />
                           ))}
@@ -2451,12 +2479,7 @@ const ArticleDetailPage = () => {
                         <EntityChip
                           key={company.id}
                           kind="company"
-                          href={
-                            company.is_data_analytics === false
-                              ? undefined
-                              : `/company/${company.id}`
-                          }
-                          nonDa={company.is_data_analytics === false}
+                          href={getMentionedEntityHref(company)}
                           label={company.name}
                         />
                       ))}
@@ -2475,16 +2498,17 @@ const ArticleDetailPage = () => {
                   {article.sectors.map((sector) => {
                     const sid = getSectorId(sector);
                     if (!sid) return null;
+                    const isPrimary = sector.Sector_importance === "Primary";
                     return (
                       <EntityChip
                         key={sid}
                         kind="sector"
-                        href={`/sector/${sid}`}
+                        href={isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`}
                         title="Open sector page"
                         label={
                           <>
                             {sector.sector_name}
-                            {sector.Sector_importance === "Primary" && " (Primary)"}
+                            {isPrimary && " (Primary)"}
                           </>
                         }
                       />
@@ -2539,413 +2563,17 @@ const ArticleDetailPage = () => {
       </div>
       <Footer />
       {showGenerateTableModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.45)",
-            zIndex: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#fff",
-              width: "min(96vw, calc(100vw - 32px))",
-              maxWidth: 1920,
-              maxHeight: "92vh",
-              borderRadius: 12,
-              border: "1px solid #E4E8F2",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid #E4E8F2",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: 18, color: "#0A0E1A" }}>
-                Custom Company Table
-              </h3>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ color: "#8A93A8", fontSize: 12 }}>
-                  {tableRows.filter((r) => selectedCompanyIds.has(r.id)).length} companies ·{" "}
-                  {ALL_TABLE_COLUMNS.filter((c) => selectedColumnKeys.has(c.key)).length + 1} columns
-                </span>
-                <button
-                  type="button"
-                  onClick={handleExportTableCsv}
-                  disabled={
-                    tableRows.filter((r) => selectedCompanyIds.has(r.id)).length ===
-                      0 || selectedColumnKeys.size === 0
-                  }
-                  style={{
-                    border: "1px solid #2A46EA",
-                    color: "#2A46EA",
-                    background: "#fff",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Export CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGenerateTableModal(false)}
-                  style={{
-                    border: "1px solid #E4E8F2",
-                    color: "#0A0E1A",
-                    background: "#fff",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(260px, 320px) minmax(0, 1fr)",
-                minHeight: 0,
-                flex: 1,
-              }}
-            >
-              <div
-                style={{
-                  borderRight: "1px solid #E4E8F2",
-                  padding: 14,
-                  overflow: "auto",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 8,
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <h4
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      textTransform: "uppercase",
-                      color: "#8A93A8",
-                      flex: "1 1 auto",
-                      minWidth: 0,
-                    }}
-                  >
-                    Companies
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allOn = tableRows.every((r) => selectedCompanyIds.has(r.id));
-                      setSelectedCompanyIds(allOn ? new Set() : new Set(tableRows.map((r) => r.id)));
-                    }}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "#2A46EA",
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {tableRows.every((r) => selectedCompanyIds.has(r.id))
-                      ? "Deselect all"
-                      : "Select all"}
-                  </button>
-                </div>
-                {tableRows.length === 0 ? (
-                  <p style={{ margin: 0, color: "#6B7488", fontSize: 14 }}>
-                    {tableLoading
-                      ? "Loading companies..."
-                      : "No companies available for this article."}
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {tableRows.map((row) => (
-                      <label
-                        key={`row-${row.id}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontSize: 14,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedCompanyIds.has(row.id)}
-                          onChange={(e) => {
-                            setSelectedCompanyIds((prev) => {
-                              const next = new Set(prev);
-                              if (e.target.checked) next.add(row.id);
-                              else next.delete(row.id);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span>{row.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    margin: "16px 0 8px",
-                  }}
-                >
-                  <h4 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", color: "#8A93A8" }}>
-                    Columns
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allOn = selectedColumnKeys.size === ALL_TABLE_COLUMNS.length;
-                      setSelectedColumnKeys(
-                        allOn ? new Set() : new Set(ALL_TABLE_COLUMNS.map((c) => c.key))
-                      );
-                    }}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "#2A46EA",
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {selectedColumnKeys.size === ALL_TABLE_COLUMNS.length
-                      ? "Deselect all"
-                      : "Select all"}
-                  </button>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {COL_GROUPS.map((group) => (
-                    <div key={group.group}>
-                      <p
-                        style={{
-                          margin: "4px 0",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#E4E8F2",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {group.group}
-                      </p>
-                      {group.cols.map((column) => (
-                        <label
-                          key={column.key}
-                          style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedColumnKeys.has(column.key)}
-                            onChange={(e) => {
-                              setSelectedColumnKeys((prev) => {
-                                const next = new Set(prev);
-                                if (e.target.checked) next.add(column.key);
-                                else next.delete(column.key);
-                                return next;
-                              });
-                            }}
-                          />
-                          <span>{column.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  padding: 14,
-                  overflow: "auto",
-                  WebkitOverflowScrolling: "touch",
-                  minWidth: 0,
-                }}
-              >
-                {tableLoading ? (
-                  <div style={{ color: "#6B7488", fontSize: 14 }}>
-                    Preparing table data...
-                  </div>
-                ) : (
-                  <table
-                    style={{
-                      width: "max-content",
-                      borderCollapse: "collapse",
-                      minWidth: Math.max(
-                        960,
-                        (1 +
-                          ALL_TABLE_COLUMNS.filter((c) =>
-                            selectedColumnKeys.has(c.key)
-                          ).length) *
-                          118
-                      ),
-                    }}
-                  >
-                    <thead>
-                      <tr>
-                        <th
-                          style={{
-                            textAlign: "left",
-                            borderBottom: "1px solid #E4E8F2",
-                            padding: "8px 10px",
-                            backgroundColor: "#F5F7FD",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                            minWidth: 168,
-                          }}
-                        >
-                          Company Name
-                        </th>
-                        {ALL_TABLE_COLUMNS.filter((c) =>
-                          selectedColumnKeys.has(c.key)
-                        ).map((column) => (
-                          <th
-                            key={`header-${column.key}`}
-                            style={{
-                              textAlign: "left",
-                              borderBottom: "1px solid #E4E8F2",
-                              padding: "8px 10px",
-                              backgroundColor: "#F5F7FD",
-                              fontSize: 13,
-                              fontWeight: 700,
-                              whiteSpace: "nowrap",
-                              minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
-                            }}
-                          >
-                            {column.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tableRows
-                        .filter((r) => selectedCompanyIds.has(r.id))
-                        .map((row) => (
-                          <tr key={`table-row-${row.id}`}>
-                            <td
-                              style={{
-                                borderBottom: "1px solid #F5F7FD",
-                                padding: "8px 10px",
-                                fontSize: 13,
-                                color: "#0A0E1A",
-                                verticalAlign: "top",
-                                fontWeight: 600,
-                                whiteSpace: "nowrap",
-                                minWidth: 168,
-                              }}
-                            >
-                              <Link
-                                href={`/company/${row.id}`}
-                                prefetch={false}
-                                style={{
-                                  color: "#1F35C4",
-                                  textDecoration: "none",
-                                }}
-                              >
-                                {row.name}
-                              </Link>
-                            </td>
-                            {ALL_TABLE_COLUMNS.filter((c) =>
-                              selectedColumnKeys.has(c.key)
-                            ).map((column) => {
-                              const value = getTableCellValue(row, column.key);
-                              const isWebsiteColumn = column.key === "url";
-                              const isLocationColumn = column.key === "loc";
-                              return (
-                                <td
-                                  key={`${row.id}-${column.key}`}
-                                  style={{
-                                    borderBottom: "1px solid #F5F7FD",
-                                    padding: "8px 10px",
-                                    fontSize: 13,
-                                    color: "#0A0E1A",
-                                    verticalAlign: "top",
-                                    minWidth: WRAP_COLS.has(column.key) ? 200 : 112,
-                                    maxWidth: WRAP_COLS.has(column.key) ? 280 : undefined,
-                                    whiteSpace: WRAP_COLS.has(column.key)
-                                      ? "normal"
-                                      : "nowrap",
-                                    wordBreak: WRAP_COLS.has(column.key)
-                                      ? "break-word"
-                                      : "normal",
-                                    overflowWrap: WRAP_COLS.has(column.key)
-                                      ? "break-word"
-                                      : "normal",
-                                  }}
-                                >
-                                  {isWebsiteColumn &&
-                                  value &&
-                                  value !== "-" &&
-                                  /^https?:\/\//i.test(value) ? (
-                                    <a
-                                      href={value}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        color: "#2A46EA",
-                                        textDecoration: "none",
-                                        wordBreak: "break-all",
-                                      }}
-                                    >
-                                      {value}
-                                    </a>
-                                  ) : (
-                                    <span
-                                      style={
-                                        isLocationColumn
-                                          ? {
-                                              display: "block",
-                                              wordBreak: "break-word",
-                                              overflowWrap: "break-word",
-                                            }
-                                          : undefined
-                                      }
-                                    >
-                                      {value}
-                                    </span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CustomCompanyTableModal
+          onClose={() => setShowGenerateTableModal(false)}
+          tableLoading={tableLoading}
+          tableRows={tableRows}
+          selectedCompanyIds={selectedCompanyIds}
+          onSelectedCompanyIdsChange={setSelectedCompanyIds}
+          selectedColumnKeys={selectedColumnKeys}
+          onSelectedColumnKeysChange={setSelectedColumnKeys}
+          getCellValue={getTableCellValue}
+          onExportCsv={handleExportTableCsv}
+        />
       )}
       <style
         dangerouslySetInnerHTML={{
@@ -3001,6 +2629,35 @@ const ArticleDetailPage = () => {
             margin: 6px 0;
             line-height: 1.5;
           }
+          /* Content builder: highlight & key point (TipTap asymmetrix-* marks) */
+          .article-body .asymmetrix-highlight,
+          .summary-list .asymmetrix-highlight,
+          .article-body mark,
+          .summary-list mark {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px;
+            display: inline;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
+          .article-body .asymmetrix-key-point,
+          .summary-list .asymmetrix-key-point {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 0 2px 0 4px;
+            display: inline;
+            border-left: 3px solid #f59e0b;
+            font-weight: 600;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+          }
+          .article-body .asymmetrix-highlight-section {
+            background: #fff3bf;
+            border-radius: 3px;
+            padding: 12px 14px;
+            margin: 1rem 0;
+          }
           /* Preserve HTML formatting inside article body */
           .article-body p { margin: 0 0 1rem 0; }
           .article-body ul { list-style: disc; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
@@ -3022,6 +2679,48 @@ const ArticleDetailPage = () => {
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
           .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
+          .article-inline-image { margin: 1.25rem 0; }
+          /* Embedded PDF viewer (vertical slider) shown in place of an empty body */
+          .article-body a.article-pdf-embed-download,
+          .article-pdf-embed-download {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+            padding: 9px 16px;
+            border-radius: 8px;
+            border: 1px solid #2A46EA;
+            background: #2A46EA;
+            color: #fff !important;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none !important;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(10, 14, 26, 0.18);
+            transition: background 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease;
+          }
+          .article-pdf-embed-download svg {
+            flex-shrink: 0;
+            display: block;
+          }
+          .article-body a.article-pdf-embed-download:hover,
+          .article-pdf-embed-download:hover {
+            background: #1F35C2;
+            border-color: #1F35C2;
+            box-shadow: 0 4px 12px rgba(10, 14, 26, 0.24);
+          }
+          .article-body a.article-pdf-embed-download:visited,
+          .article-pdf-embed-download:visited {
+            color: #fff !important;
+          }
           .article-pdf-embed {
             user-select: none;
             -webkit-user-select: none;
@@ -3113,7 +2812,6 @@ const ArticleDetailPage = () => {
             font-weight: 600;
             letter-spacing: 0.02em;
           }
-          .article-inline-image { margin: 1.25rem 0; }
           /* ---- Sidebar rail: card shell + rows/tabs/chips (verbatim from
              New Design/ReportDetail.html's right-rail handoff) ---- */
           .article-meta .card {

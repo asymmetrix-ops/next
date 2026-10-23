@@ -24,7 +24,7 @@ const SolutionSection = () => {
       ),
       title: "Track",
       description: "Data & Analytics sector",
-      metric: "700+ sub-sectors",
+      metric: "700+ secondary sectors",
     },
     {
       icon: (

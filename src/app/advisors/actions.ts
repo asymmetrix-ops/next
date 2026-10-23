@@ -32,10 +32,6 @@ export interface AdvisorListItem {
   linkedin_members?: number;
   country?: string;
   linkedin_logo?: string;
-  key_people?: {
-    total: number;
-    items: Array<{ individual_id: number; name: string }>;
-  } | null;
 }
 
 export interface AdvisorsListResponse {
@@ -61,7 +57,7 @@ function normalizeAdvisorListItem(item: AdvisorListItem): AdvisorListItem {
   return {
     ...item,
     ...(logo ? { linkedin_logo: logo } : {}),
-    ...(areaOfFocus.length > 0 ? { area_of_focus: areaOfFocus } : {}),
+    area_of_focus: areaOfFocus,
   };
 }
 

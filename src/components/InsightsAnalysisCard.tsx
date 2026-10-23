@@ -186,9 +186,11 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   const byline = isNews ? getArticleByline(article) : "";
   const plainSummary = decodeHtmlEntities(article.Strapline || "");
 
-  const hqCountryIso2 = getInsightHqCountryIso2(
-    article as unknown as Record<string, unknown>
-  );
+  // `getInsightHqCountryIso2` already gates on a tagged company of focus
+  // (or a precomputed `hq_country_iso2`/`iso2` on the article itself) —
+  // no need to duplicate that check here.
+  const articleRecord = article as unknown as Record<string, unknown>;
+  const hqCountryIso2 = getInsightHqCountryIso2(articleRecord);
 
   const companyNames = getCompanyNames(article.companies_mentioned);
   const sectorNames = getSectorNames(article.sectors);
@@ -294,16 +296,6 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 whiteSpace: "nowrap",
               }}
             >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 999,
-                  background: accent.fg,
-                  flexShrink: 0,
-                }}
-              />
               {effectiveContentType}
             </span>
           ) : (
@@ -411,7 +403,10 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
 
         {/* Transaction status */}
         {article.Transaction_status && (
-          <TransactionStatusPill status={article.Transaction_status} />
+          <TransactionStatusPill
+            status={article.Transaction_status}
+            style={{ alignSelf: "flex-start", width: "fit-content" }}
+          />
         )}
 
         {/* Summary */}

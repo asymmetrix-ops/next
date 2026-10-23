@@ -6,6 +6,7 @@ import { T } from "@/components/redesign/primitives";
 import { formatPlatformMetricMillions } from "@/lib/formatPlatformCurrency";
 import type { Currency } from "@/lib/fxRates";
 import { DEFAULT_PLATFORM_CURRENCY } from "@/lib/platformCurrency";
+import type { HoldingPeriodCoverage } from "@/lib/holdingPeriod";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -20,6 +21,9 @@ interface PortfolioHeadstatsRowProps {
   loading?: boolean;
   currencyCode?: Currency;
   avgHoldingPeriodDisplay?: string | null;
+  avgHoldingPeriodCoverage?: HoldingPeriodCoverage | null;
+  /** Total companies in scope; denominator for each tile's coverage. */
+  totalCompanies?: number | null;
 }
 
 function millionsMetricLabel(base: string, currencyCode: Currency): string {
@@ -37,8 +41,14 @@ function formatTileValue(
   return formatPlatformMetricMillions(display, currencyCode);
 }
 
-function tileFootnote(tile: PortfolioHeadstatTile | null | undefined): string | null {
+function tileFootnote(
+  tile: PortfolioHeadstatTile | null | undefined,
+  totalCompanies?: number | null
+): string | null {
   if (!tile || tile.n_companies === 0) return null;
+  if (typeof totalCompanies === "number" && totalCompanies >= tile.n_companies) {
+    return `${tile.n_companies} / ${totalCompanies} companies`;
+  }
   if (tile.low_sample || tile.n_companies < 3) {
     return `Based on ${tile.n_companies} ${tile.n_companies === 1 ? "company" : "companies"}`;
   }
@@ -66,13 +76,15 @@ function StatTile({
   tile,
   loading,
   currencyCode,
+  totalCompanies,
 }: {
   label: string;
   tile: PortfolioHeadstatTile | null | undefined;
   loading?: boolean;
   currencyCode?: Currency;
+  totalCompanies?: number | null;
 }) {
-  const footnote = tileFootnote(tile);
+  const footnote = tileFootnote(tile, totalCompanies);
   const value = currencyCode
     ? formatTileValue(tile, currencyCode)
     : formatCountTileValue(tile);
@@ -140,6 +152,8 @@ export function PortfolioHeadstatsRow({
   loading = false,
   currencyCode = DEFAULT_PLATFORM_CURRENCY,
   avgHoldingPeriodDisplay,
+  avgHoldingPeriodCoverage,
+  totalCompanies,
 }: PortfolioHeadstatsRowProps) {
   return (
     <div
@@ -155,14 +169,21 @@ export function PortfolioHeadstatsRow({
         tile={medianRevenue}
         loading={loading}
         currencyCode={currencyCode}
+        totalCompanies={totalCompanies}
       />
       <StatTile
         label={millionsMetricLabel("Median EBITDA", currencyCode)}
         tile={medianEbitda}
         loading={loading}
         currencyCode={currencyCode}
+        totalCompanies={totalCompanies}
       />
-      <StatTile label="Median FTE" tile={medianFte} loading={loading} />
+      <StatTile
+        label="Median FTE"
+        tile={medianFte}
+        loading={loading}
+        totalCompanies={totalCompanies}
+      />
       <div
         style={{
           flex: "1 1 0",
@@ -209,7 +230,8 @@ export function PortfolioHeadstatsRow({
             color: T.muted,
           }}
         >
-          Active holdings, weighted by first investment date
+          {avgHoldingPeriodCoverage?.label ??
+            "Active holdings, weighted by first investment date"}
         </span>
       </div>
     </div>

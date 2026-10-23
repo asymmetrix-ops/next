@@ -8,12 +8,15 @@ import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PlatformCurrencyProvider } from "@/components/providers/PlatformCurrencyProvider";
 import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
+import { GlobalSearchProvider } from "@/components/search/GlobalSearchProvider";
+import { GlobalSearchModal } from "@/components/search/GlobalSearchModal";
 import { Toaster } from "react-hot-toast";
 import TitleUpdater from "@/components/TitleUpdater";
 import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
+import SessionExpiredModal from "@/components/SessionExpiredModal";
 import NpsGate from "@/components/nps/NpsGate";
 
 export const metadata: Metadata = {
@@ -141,12 +144,16 @@ export default function RootLayout({
               <ChunkErrorRecovery />
               <TitleUpdater />
               <TrialRouteGuard />
+              <SessionExpiredModal />
               <Suspense fallback={null}>
                 <RouteTracker />
               </Suspense>
               <ErrorTracker />
               <NpsGate />
-              {children}
+              <GlobalSearchProvider>
+                {children}
+                <GlobalSearchModal />
+              </GlobalSearchProvider>
               {showTestBanner && (
                 <div className="fixed bottom-3 right-3 z-[9999] pointer-events-none">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-full border shadow-sm bg-amber-100/95 text-amber-900 border-amber-200">

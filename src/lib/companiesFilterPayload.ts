@@ -17,7 +17,7 @@ import {
 import { DEFAULT_PLATFORM_CURRENCY_ID } from "@/lib/platformCurrency";
 
 export const COMPANIES_API_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
 
 type SectorRef = { id: number; sector_name: string };
 type OwnershipTypeRef = { id: number; ownership: string };
@@ -138,13 +138,6 @@ export function buildCompaniesSearchPayload(args: {
   scopedSecondarySectorIds?: number[];
   portfolioCompanyIds?: number[];
   hybridBusinessFocusIds?: number[];
-  /** Label → id lookups for multi-value company filters (product type etc.). */
-  multiValueOptions?: Partial<
-    Record<
-      "product_type" | "data_collection_method" | "revenue_model",
-      Array<{ id: number; label: string }>
-    >
-  >;
   columns?: string[];
   page?: number;
   perPage?: number;
@@ -160,7 +153,6 @@ export function buildCompaniesSearchPayload(args: {
     scopedSecondarySectorIds = [],
     portfolioCompanyIds = [],
     hybridBusinessFocusIds = [],
-    multiValueOptions = {},
     columns = [],
     page = 1,
     perPage = 20,
@@ -336,30 +328,6 @@ export function buildCompaniesSearchPayload(args: {
       }
       continue;
     }
-    if (
-      (item.id === "product_type" ||
-        item.id === "data_collection_method" ||
-        item.id === "revenue_model") &&
-      Array.isArray(v) &&
-      v.length > 0
-    ) {
-      pushClause({
-        id: item.key,
-        type: item.id,
-        value: {
-          value: v as string[],
-          ids: (v as string[])
-            .map((label) =>
-              multiValueOptions[item.id as keyof typeof multiValueOptions]?.find(
-                (o) => o.label === label
-              )?.id
-            )
-            .filter((id): id is number => id != null),
-        },
-        op,
-      });
-      continue;
-    }
     if (item.id === "headcount" && hasRangeValue(v)) {
       pushClause({
         id: item.key,
@@ -416,14 +384,15 @@ export function buildCompaniesSearchPayload(args: {
       continue;
     }
     if (item.id === "transaction" && Array.isArray(v)) {
-      (v as string[]).forEach((status, i) => {
+      const statuses = (v as string[]).map((status) => status.trim()).filter(Boolean);
+      if (statuses.length > 0) {
         pushClause({
-          id: `${item.key}-${i}`,
+          id: item.key,
           type: "transaction_status",
-          value: { value: status },
-          op: i === 0 ? op : "OR",
+          value: { value: statuses },
+          op,
         });
-      });
+      }
       continue;
     }
     if (item.id === "date_added" && hasDateRangeValue(v)) {
@@ -496,12 +465,28 @@ export function buildCompaniesSearchPayload(args: {
     }
 
     // ── SUBSCRIPTION METRICS ───────────────────────────────────────────────
-    // "Recurring Revenue" (%) — filter id arr_growth, backed by Subscription_revenue_pc.
-    // Without this case the filter was shown in the picker but never sent to the API.
+    if (item.id === "arr" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "arr_m",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
     if (item.id === "arr_growth" && hasRangeValue(v)) {
       pushClause({
         id: item.key,
         type: "arr_pc",
+        value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+    if (item.id === "subscription_revenue_m" && hasRangeValue(v)) {
+      pushClause({
+        id: item.key,
+        type: "subscription_revenue_m",
         value: { min: v.min, max: v.max },
         op,
       });
@@ -575,6 +560,22 @@ export function buildCompaniesSearchPayload(args: {
         id: item.key,
         type: "rev_expansion",
         value: { min: v.min, max: v.max },
+        op,
+      });
+      continue;
+    }
+
+    // ── TAG FILTERS (jsonb tag columns) ────────────────────────────────────
+    if (
+      (item.id === "product_type" ||
+        item.id === "revenue_model" ||
+        item.id === "data_collection_method") &&
+      Array.isArray(v)
+    ) {
+      pushClause({
+        id: item.key,
+        type: item.id,
+        value: { value: v as string[] },
         op,
       });
       continue;

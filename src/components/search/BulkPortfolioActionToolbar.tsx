@@ -32,8 +32,7 @@ function parseListOptions(raw: unknown): ListOption[] {
     .map((item) => {
       const id = Number(item.id);
       const label =
-        (typeof item.portfolio_label === "string" &&
-          item.portfolio_label.trim()) ||
+        (typeof item.portfolio_label === "string" && item.portfolio_label.trim()) ||
         (typeof item.list_name === "string" && item.list_name.trim()) ||
         `List ${id}`;
       return { id, label };
@@ -86,13 +85,10 @@ export function BulkPortfolioActionToolbar({
 
   const selectedListLabel = useMemo(
     () => lists.find((list) => list.id === selectedListId)?.label ?? "",
-    [lists, selectedListId],
+    [lists, selectedListId]
   );
 
-  const runAction = async (
-    action: BulkPortfolioAction,
-    destination: string,
-  ) => {
+  const runAction = async (action: BulkPortfolioAction, destination: string) => {
     const token =
       typeof window !== "undefined"
         ? localStorage.getItem("asymmetrix_auth_token")
@@ -110,7 +106,7 @@ export function BulkPortfolioActionToolbar({
         entityType,
         entityIds,
         action,
-        setProgress,
+        setProgress
       );
       await fetchPortfolio();
 
@@ -119,7 +115,7 @@ export function BulkPortfolioActionToolbar({
         toast.success(`Added ${entityLabel} to ${destination}.`);
       } else if (result.success > 0) {
         toast.success(
-          `Added ${result.success} of ${count} ${labels.plural} to ${destination}. ${result.failed} failed.`,
+          `Added ${result.success} of ${count} ${labels.plural} to ${destination}. ${result.failed} failed.`
         );
       } else {
         toast.error(`Failed to add ${labels.plural}. Please try again.`);
@@ -130,9 +126,7 @@ export function BulkPortfolioActionToolbar({
       setNewListName("");
       onClearSelection();
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Failed to update portfolio.",
-      );
+      toast.error(e instanceof Error ? e.message : "Failed to update portfolio.");
     } finally {
       setSubmitting(false);
       setProgress(null);
@@ -147,7 +141,7 @@ export function BulkPortfolioActionToolbar({
     if (selectedListId === "") return;
     void runAction(
       { mode: "lists", listIds: [selectedListId] },
-      selectedListLabel || "list",
+      selectedListLabel || "list"
     );
   };
 
@@ -160,9 +154,7 @@ export function BulkPortfolioActionToolbar({
   if (count === 0) return null;
 
   return (
-    <div
-      className={`search-bulk-action-toolbar${exportOnly ? " search-bulk-action-toolbar-compact" : ""}`}
-    >
+    <div className={`search-bulk-action-toolbar${exportOnly ? " search-bulk-action-toolbar-compact" : ""}`}>
       <div className="search-bulk-action-toolbar-summary">
         <span className="search-bulk-action-toolbar-count">
           {count.toLocaleString()} selected
@@ -180,80 +172,74 @@ export function BulkPortfolioActionToolbar({
       <div className="search-bulk-action-toolbar-actions">
         {!exportOnly && (
           <>
-            <button
-              type="button"
-              className="search-bulk-action-toolbar-btn search-bulk-action-toolbar-btn-primary"
-              onClick={handleFollow}
-              disabled={submitting}
-            >
-              Follow / Add to My Portfolio
-            </button>
+        <button
+          type="button"
+          className="search-bulk-action-toolbar-btn search-bulk-action-toolbar-btn-primary"
+          onClick={handleFollow}
+          disabled={submitting}
+        >
+          Follow / Add to My Portfolio
+        </button>
 
-            <div className="search-bulk-action-toolbar-group">
-              <label
-                className="search-bulk-action-toolbar-label"
-                htmlFor="bulk-list-select"
-              >
-                Add to list
-              </label>
-              <select
-                id="bulk-list-select"
-                className="search-bulk-action-toolbar-select"
-                value={selectedListId === "" ? "" : String(selectedListId)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedListId(value ? Number.parseInt(value, 10) : "");
-                }}
-                disabled={submitting || listsLoading}
-              >
-                <option value="">
-                  {listsLoading ? "Loading lists…" : "Select a list…"}
-                </option>
-                {lists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="search-bulk-action-toolbar-btn"
-                onClick={handleAddToList}
-                disabled={submitting || selectedListId === ""}
-              >
-                Add
-              </button>
-            </div>
+        <div className="search-bulk-action-toolbar-group">
+          <label className="search-bulk-action-toolbar-label" htmlFor="bulk-list-select">
+            Add to list
+          </label>
+          <select
+            id="bulk-list-select"
+            className="search-bulk-action-toolbar-select"
+            value={selectedListId === "" ? "" : String(selectedListId)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedListId(value ? Number.parseInt(value, 10) : "");
+            }}
+            disabled={submitting || listsLoading}
+          >
+            <option value="">
+              {listsLoading ? "Loading lists…" : "Select a list…"}
+            </option>
+            {lists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="search-bulk-action-toolbar-btn"
+            onClick={handleAddToList}
+            disabled={submitting || selectedListId === ""}
+          >
+            Add
+          </button>
+        </div>
 
-            <div className="search-bulk-action-toolbar-group">
-              <label
-                className="search-bulk-action-toolbar-label"
-                htmlFor="bulk-new-list"
-              >
-                Create new list
-              </label>
-              <input
-                id="bulk-new-list"
-                type="text"
-                className="search-bulk-action-toolbar-input"
-                placeholder="List name…"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                disabled={submitting}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newListName.trim())
-                    handleCreateList();
-                }}
-              />
-              <button
-                type="button"
-                className="search-bulk-action-toolbar-btn"
-                onClick={handleCreateList}
-                disabled={submitting || !newListName.trim()}
-              >
-                Create &amp; add
-              </button>
-            </div>
+        <div className="search-bulk-action-toolbar-group">
+          <label className="search-bulk-action-toolbar-label" htmlFor="bulk-new-list">
+            Create new list
+          </label>
+          <input
+            id="bulk-new-list"
+            type="text"
+            className="search-bulk-action-toolbar-input"
+            placeholder="List name…"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+            disabled={submitting}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newListName.trim()) handleCreateList();
+            }}
+          />
+          <button
+            type="button"
+            className="search-bulk-action-toolbar-btn"
+            onClick={handleCreateList}
+            disabled={submitting || !newListName.trim()}
+          >
+            Create &amp; add
+          </button>
+        </div>
+
           </>
         )}
 

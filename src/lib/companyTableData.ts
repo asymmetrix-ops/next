@@ -7,7 +7,7 @@ import type { CompanyColumnType } from "@/components/companies/companiesColumnCa
 import { EMPTY_DISPLAY, normalizeEmptyDisplay, isEmptyDisplayValue } from "@/lib/emptyDisplay";
 
 export const COMPANY_TABLE_DATA_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_company_table_data";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_company_table_data";
 
 /** Unwraps `get_company_table_data` as a bare array or `{ items: [...] }`. */
 export function extractCompanyTableItems(
@@ -192,6 +192,7 @@ const PERCENT_COLUMN_KEYS = new Set([
   "linkedin_growth",
   "revenue_growth",
   "ebitda_margin",
+  "arr_pc",
   "churn_pc",
   "grr_pc",
   "nrr",
@@ -246,7 +247,8 @@ export function formatCompanyColumnDisplay(
     columnKey === "enterprise_value" ||
     columnKey === "ev" ||
     columnKey === "ebit_m" ||
-    columnKey === "arr_m"
+    columnKey === "arr_m" ||
+    columnKey === "subscription_revenue_m"
   ) {
     return formatMetricMillions(raw, currencyCode);
   }

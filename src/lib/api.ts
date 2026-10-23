@@ -1,4 +1,5 @@
 import { authService } from "./auth";
+import { notifySessionExpired } from "./sessionExpired";
 
 interface ApiResponse<T> {
   data: T;
@@ -41,9 +42,10 @@ class ApiService {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Token expired or invalid
-        authService.logout();
-        window.location.href = "/login";
+        // Token expired or invalid — the global fetch guard also picks this up
+        // and shows the session-expired modal; notify here too in case this
+        // runs before that guard is installed.
+        notifySessionExpired();
         throw new Error("Authentication required");
       }
       throw new Error(`API request failed: ${response.statusText}`);
@@ -128,3 +130,30 @@ class ApiService {
 
 export const apiService = new ApiService();
 export type { ApiResponse, CollectionParams };
+
+/** Basic user row from `all_users` (admin Email Builder multi-select). */
+export type BasicUserItem = {
+  id: number;
+  name: string;
+  email: string;
+  Company?: number;
+  created_at?: number;
+};
+
+/** Full list from `/api/all-users` (Bearer auth). Filter client-side for search. */
+export async function fetchAllUsers(token: string): Promise<BasicUserItem[]> {
+  const res = await fetch("/api/all-users", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load users");
+  }
+  const data = (await res.json()) as unknown;
+  if (!Array.isArray(data)) return [];
+  return data as BasicUserItem[];
+}

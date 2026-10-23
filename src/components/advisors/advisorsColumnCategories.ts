@@ -87,13 +87,6 @@ export const ADVISORS_COLUMN_CATEGORIES: AdvisorColumnCategory[] = [
         defaultVisible: true,
       },
       {
-        id: "key_people",
-        columnKey: "key_people",
-        label: "Key People",
-        type: "text",
-        defaultVisible: true,
-      },
-      {
         id: "linkedin_members",
         columnKey: "linkedin_members",
         label: "LinkedIn Members",
@@ -125,7 +118,6 @@ export const PROD_DEFAULT_ADVISOR_COLUMN_KEYS = [
   "description",
   "events_advised",
   "sectors",
-  "key_people",
   "linkedin_members",
   "country",
 ] as const;

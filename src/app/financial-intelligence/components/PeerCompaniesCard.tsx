@@ -140,6 +140,8 @@ export function PeerCompaniesCard({
           gridTemplateColumns:
             peers.length === 0 ? undefined : "repeat(auto-fill, minmax(190px, 1fr))",
           alignItems: "start",
+          alignContent: "start",
+          gridAutoRows: "max-content",
         }}
       >
         {peers.length === 0 ? (

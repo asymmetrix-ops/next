@@ -31,7 +31,7 @@ const SECTOR_NODES = [
     h: 66,
     big: true,
     primary: ["Market Map"],
-    secondary: "Companies by sub-sector",
+    secondary: "Companies by secondary sector",
     detail: "Visual · Live",
     spark: true,
   },
@@ -417,7 +417,7 @@ export function SectorTaxonomyVisual() {
                     <line x1={16} y1={44} x2={CARD_W - 16} y2={44} stroke="rgba(0,11,41,0.08)" />
 
                     <CardRow label="Companies" value="150+" x={16} y={62} delay={0.44} reduceMotion={reduceMotion} />
-                    <CardRow label="Sub-sectors" value="12" x={112} y={62} delay={0.5} reduceMotion={reduceMotion} />
+                    <CardRow label="Secondary sectors" value="12" x={112} y={62} delay={0.5} reduceMotion={reduceMotion} />
                     <CardRow label="Coverage" value="Global · D&A" x={16} y={90} valueSize={9.5} delay={0.58} reduceMotion={reduceMotion} />
                     <CardRow label="Stage Mix" value="Seed → Public" x={16} y={116} valueSize={9.5} delay={0.66} reduceMotion={reduceMotion} />
 

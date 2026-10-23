@@ -205,11 +205,11 @@ export function PercentileBar({
             <div
               style={{
                 position: "absolute",
-                top: -4,
+                top: "50%",
                 left: clampPos(p),
                 width: knobD,
                 height: knobD,
-                transform: "translateX(-50%)",
+                transform: "translate(-50%, -50%)",
                 borderRadius: "50%",
                 background: "white",
                 border: "2.5px solid var(--ax-cyan-600)",

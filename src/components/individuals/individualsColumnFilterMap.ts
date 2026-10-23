@@ -9,6 +9,7 @@ export const FILTER_PINNED_TOOLTIP =
 
 export const COLUMN_KEYS_WITHOUT_FILTERS = new Set([
   "name",
+  "current_company",
   "current_roles",
   "location",
 ]);
@@ -24,8 +25,6 @@ export const FILTER_ID_TO_COLUMN_KEY: Record<string, string> = {
   job_title: "current_roles",
   status: "current_roles",
   followed: "follow",
-  current_company: "current_company",
-  corporate_events: "corporate_events",
 };
 
 export const COLUMN_KEY_TO_FILTER_ID: Record<string, string> = Object.fromEntries(
@@ -67,8 +66,6 @@ export function getColumnKeysForActiveFilters(
     if (columnKey) keys.add(columnKey);
     if (locationFilterIds.has(filterId)) keys.add("location");
     if (roleFilterIds.has(filterId)) keys.add("current_roles");
-    if (filterId === "current_company") keys.add("current_company");
-    if (filterId === "corporate_events") keys.add("corporate_events");
   }
 
   if (roleTabActive) {

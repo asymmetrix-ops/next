@@ -8,6 +8,10 @@ export interface TransactionCompRow {
   logo?: string | null;
   hq_country?: string | null;
   hq_city?: string | null;
+  /** EV / revenue / EBITDA in the user's preferred currency (see TransactionCompsResponse.preferred_currency_code). */
+  ev_m?: number | null;
+  revenue_m?: number | null;
+  ebitda_m?: number | null;
   ev_m_usd?: number | null;
   ev_revenue?: number | null;
   /** Null when there is no EV / Revenue. */
@@ -33,6 +37,8 @@ export interface TransactionCompRow {
 }
 
 export interface TransactionCompsResponse {
+  preferred_currency_id?: number;
+  preferred_currency_code?: string;
   total: number;
   page: number;
   per_page: number;

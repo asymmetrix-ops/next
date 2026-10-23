@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { LinkPanel, LinkedH, KV, T, Pill, Delta } from "@/components/redesign/primitives";
-import { EMPTY_DISPLAY, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { LinkPanel, LinkedH, KV, T, Pill, Delta, CappedPillTags } from "@/components/redesign/primitives";
+import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
 
 export type InvestorFocusSector = {
@@ -14,7 +13,6 @@ export type InvestorFocusSector = {
 
 export type InvestorOverviewCardProps = {
   focusSectors?: InvestorFocusSector[];
-  type?: string | null;
   yearFounded?: string | number | null;
   website?: string | null;
   websiteLabel?: string | null;
@@ -48,17 +46,14 @@ function FocusTags({ sectors }: { sectors: InvestorFocusSector[] }) {
   if (sectors.length === 0) return faintDash();
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
-        s.href ? (
-          <Link key={`${s.name}-${s.href}`} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone="lavender">{s.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={s.name} tone="lavender">{s.name}</Pill>
-        )
-      )}
-    </div>
+    <CappedPillTags
+      tone="lavender"
+      items={sectors.map((s, i) => ({
+        key: s.href ?? `${s.name}-${i}`,
+        label: s.name,
+        href: s.href,
+      }))}
+    />
   );
 }
 
@@ -79,7 +74,6 @@ function StatusTag({ label }: { label: string }) {
 
 export function InvestorOverviewCard({
   focusSectors = [],
-  type,
   yearFounded,
   website,
   websiteLabel,
@@ -94,13 +88,15 @@ export function InvestorOverviewCard({
   avgHoldingPeriodLowSampleSize,
   fillGridCell = false,
 }: InvestorOverviewCardProps) {
-  const rows: { k: string; v: React.ReactNode }[] = [
-    { k: "Focus", v: <FocusTags sectors={focusSectors} /> },
-    { k: "Type", v: displayText(type) },
-    { k: "Year Founded", v: displayText(yearFounded) },
-    { k: "HQ", v: displayText(hq) },
+  const hasEmployees = employees != null && employees > 0;
+
+  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
+    { k: "Type", show: focusSectors.length > 0, v: <FocusTags sectors={focusSectors} /> },
+    { k: "Year Founded", show: !isEmptyDisplayValue(yearFounded ?? null), v: displayText(yearFounded) },
+    { k: "HQ", show: !isEmptyDisplayValue(hq ?? null), v: displayText(hq) },
     {
       k: "Website",
+      show: Boolean(website?.trim()),
       v: website?.trim() ? (
         <a
           href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
@@ -110,12 +106,11 @@ export function InvestorOverviewCard({
         >
           {websiteLabel || website.trim()}
         </a>
-      ) : (
-        faintDash()
-      ),
+      ) : null,
     },
     {
       k: "LinkedIn",
+      show: Boolean(linkedinUrl?.trim()),
       v: linkedinUrl?.trim() ? (
         <a
           href={linkedinUrl.trim()}
@@ -125,27 +120,20 @@ export function InvestorOverviewCard({
         >
           LinkedIn
         </a>
-      ) : (
-        faintDash()
-      ),
+      ) : null,
     },
-    { k: "Ownership", v: displayText(ownership) },
+    { k: "Ownership", show: !isEmptyDisplayValue(ownership ?? null), v: displayText(ownership) },
     {
       k: "Status",
       v: <StatusTag label={status?.trim() || "Active"} />,
     },
     {
       k: "Employees",
+      show: hasEmployees,
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {employees != null && employees > 0 ? (
-            <>
-              <span style={{ fontFamily: T.mono }}>{employees.toLocaleString("en-US")}</span>
-              {employeesYoY ? <Delta value={employeesYoY} /> : null}
-            </>
-          ) : (
-            faintDash()
-          )}
+          <span>{employees != null && Number.isFinite(employees) ? employees.toLocaleString("en-US") : "-"}</span>
+          {employeesYoY ? <Delta value={employeesYoY} /> : null}
         </span>
       ),
     },
@@ -172,9 +160,11 @@ export function InvestorOverviewCard({
     });
   }
 
+  const visible = rows.filter((r) => r.show !== false);
+
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH showArrow>Overview</LinkedH>
+      <LinkedH>Overview</LinkedH>
       <div
         style={{
           padding: "2px 14px 8px",
@@ -183,8 +173,8 @@ export function InvestorOverviewCard({
             : {}),
         }}
       >
-        {rows.map((row, i) => (
-          <KV key={row.k} k={row.k} v={row.v} last={i === rows.length - 1} />
+        {visible.map((row, i) => (
+          <KV key={row.k} k={row.k} v={row.v} last={i === visible.length - 1} />
         ))}
       </div>
     </LinkPanel>

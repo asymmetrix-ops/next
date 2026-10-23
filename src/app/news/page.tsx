@@ -6,12 +6,13 @@ import Footer from "@/components/Footer";
 import NewsCard from "@/components/news/NewsCard";
 import NewsSearchBar from "@/components/news/NewsSearchBar";
 import NewsFilterBar from "@/components/news/NewsFilterBar";
-import NewsCarousel from "@/components/news/NewsCarousel";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
+import { formatTransactionStatusLabel } from "@/lib/tagColors";
 import Link from "next/link";
 import { usePortfolioStore } from "@/store/portfolioStore";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   addNewsFilter,
   fetchNewsFeed,
@@ -24,22 +25,68 @@ import {
   type NewsFilters,
 } from "@/lib/news";
 
-const CHIP_ORDER = ["company", "investor", "sector", "subType", "followedOnly", "text"] as const;
+/** Cards shown in Recent news (4 per row x 2 rows on desktop). */
+const RECENT_NEWS_PAGE = 8;
+/** Number of extra cards revealed each time "Load more" is clicked in Recent news. */
+const RECENT_NEWS_LOAD_MORE = 20;
+/** Top Stories shown, newest first. */
+const TOP_STORIES_COUNT = 3;
+
+const CHIP_ORDER = [
+  "company",
+  "investor",
+  "sector",
+  "subType",
+  "transactionStatus",
+  "countries",
+  "dateRange",
+  "followedOnly",
+  "text",
+] as const;
 const CHIP_LABEL = {
   company: "Company",
   investor: "Investor",
   sector: "Sector",
   subType: "Type",
+  transactionStatus: "Status",
+  countries: "Geography",
+  dateRange: "Date",
   followedOnly: "Followed",
   text: "Search",
 } as const;
 
-function chipsOf(f: NewsFilters) {
-  return CHIP_ORDER.flatMap((kind) => {
+function formatDateRangeLabel(dateFrom?: string, dateTo?: string): string {
+  if (dateFrom && dateTo) return `${dateFrom} – ${dateTo}`;
+  if (dateFrom) return `From ${dateFrom}`;
+  return `Until ${dateTo}`;
+}
+
+type NewsChip = { kind: (typeof CHIP_ORDER)[number]; label: string };
+
+function chipsOf(f: NewsFilters): NewsChip[] {
+  const chips: NewsChip[] = [];
+  for (const kind of CHIP_ORDER) {
+    if (kind === "countries") {
+      if (f.countries && f.countries.length > 0) chips.push({ kind, label: f.countries.join(", ") });
+      continue;
+    }
+    if (kind === "dateRange") {
+      if (f.dateFrom || f.dateTo) chips.push({ kind, label: formatDateRangeLabel(f.dateFrom, f.dateTo) });
+      continue;
+    }
     const v = f[kind];
-    if (!v) return [];
-    return [{ kind, label: v === true ? "Followed only" : typeof v === "string" ? v : v.label }];
-  });
+    if (!v) continue;
+    const label =
+      v === true
+        ? "Followed only"
+        : kind === "transactionStatus"
+          ? formatTransactionStatusLabel(v as string)
+          : typeof v === "string"
+            ? v
+            : v.label;
+    chips.push({ kind, label });
+  }
+  return chips;
 }
 
 function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
@@ -49,6 +96,25 @@ function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
 
 export default function NewsPage() {
   const [filters, setFilters] = useState<NewsFilters>({});
+
+  // Section Insights: one event each time a filter (or a search text) newly appears on the page.
+  const trackedFiltersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const current = new Set<string>();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value == null || value === "" || (Array.isArray(value) && !value.length)) continue;
+      const id = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const tag = `${key}:${id}`;
+      current.add(tag);
+      if (trackedFiltersRef.current.has(tag)) continue;
+      if (key === "text") {
+        trackKeyAction({ section: "news", action: "search", actionDetail: "news_page", query: String(value) });
+      } else {
+        trackKeyAction({ section: "news", action: "filter_applied", actionDetail: key });
+      }
+    }
+    trackedFiltersRef.current = current;
+  }, [filters]);
   const [topStories, setTopStories] = useState<NewsArticle[]>([]);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [page, setPage] = useState(1);
@@ -58,6 +124,7 @@ export default function NewsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allTotal, setAllTotal] = useState<number | null>(null);
+  const [recentShown, setRecentShown] = useState(RECENT_NEWS_PAGE);
   const requestRef = useRef(0);
   const topIdsRef = useRef<number[]>([]);
   const followedCount = usePortfolioStore((st) => st.data?.followed_companies?.length ?? 0);
@@ -137,6 +204,7 @@ export default function NewsPage() {
     setArticles([]);
     setTopStories([]);
     setHasMore(false);
+    setRecentShown(RECENT_NEWS_PAGE);
     void load(filters, 1);
   }, [filters, load]);
 
@@ -144,8 +212,15 @@ export default function NewsPage() {
     if (hasMore && !loadingMore && !loading) void load(filters, page + 1);
   }, [hasMore, loadingMore, loading, load, filters, page]);
 
+  // Recent news "Load more": reveal 20 more cards, fetching more pages if needed.
+  const loadMoreRecent = useCallback(() => {
+    const nextShown = recentShown + RECENT_NEWS_LOAD_MORE;
+    setRecentShown(nextShown);
+    if (nextShown >= articles.length) loadMore();
+  }, [recentShown, articles.length, loadMore]);
+
   const filtered = hasNewsFilters(filters);
-  const top = !filtered && topStories.length > 0 ? topStories : null;
+  const top = !filtered && topStories.length > 0 ? topStories.slice(0, TOP_STORIES_COUNT) : null;
   
   const seriesFor = (a: NewsArticle) => a.series_others;
 
@@ -181,10 +256,10 @@ export default function NewsPage() {
               filters={filters}
               totalAll={allTotal}
               onChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))}
+              searchSlot={
+                <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
+              }
             />
-            <div className="nw-controls-search">
-              <NewsSearchBar onApplyFilter={(f: NewsFilter) => setFilters((cur) => addNewsFilter(cur, f))} />
-            </div>
           </div>
 
           {filtered && (
@@ -196,7 +271,13 @@ export default function NewsPage() {
                   <button
                     type="button"
                     aria-label={`Remove filter ${chip.label}`}
-                    onClick={() => setFilters((cur) => ({ ...cur, [chip.kind]: undefined }))}
+                    onClick={() =>
+                      setFilters((cur) => {
+                        if (chip.kind === "dateRange") return { ...cur, dateFrom: undefined, dateTo: undefined };
+                        const kind: Exclude<typeof chip.kind, "dateRange"> = chip.kind;
+                        return { ...cur, [kind]: undefined };
+                      })
+                    }
                   >
                     ×
                   </button>
@@ -210,7 +291,7 @@ export default function NewsPage() {
 
           {loading ? (
             <div className={filtered ? "nw-feed" : "nw-top"} aria-busy="true">
-              {Array.from({ length: filtered ? 6 : 2 }).map((_, i) => (
+              {Array.from({ length: filtered ? 6 : TOP_STORIES_COUNT }).map((_, i) => (
                 <div className="nw-skel" key={i} style={{ minHeight: filtered ? 180 : 260 }} />
               ))}
             </div>
@@ -229,17 +310,31 @@ export default function NewsPage() {
                         seriesLinks={seriesFor(a)}
                       />
                     ))}
-                    {top.length < 2 && <div className="nw-card nw-card-empty">No other stories yet.</div>}
+                    {Array.from({ length: Math.max(0, TOP_STORIES_COUNT - top.length) }).map((_, i) => (
+                      <div className="nw-card nw-card-empty" key={`top-placeholder-${i}`}>
+                        No other stories yet.
+                      </div>
+                    ))}
                   </div>
                 </section>
               )}
 
               {!filtered && feed.length > 0 && (
-                <NewsCarousel title="Recent news" onNearEnd={loadMore} loadingMore={loadingMore}>
-                  {feed.map((a) => (
-                    <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
-                  ))}
-                </NewsCarousel>
+                <section aria-labelledby="nw-recent-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <h2 className="nw-section-title" id="nw-recent-h">Recent news</h2>
+                  <div className="nw-feed nw-recent-feed">
+                    {feed.slice(0, recentShown).map((a) => (
+                      <NewsCard key={a.id} article={a} seriesLinks={seriesFor(a)} />
+                    ))}
+                  </div>
+                  {(recentShown < feed.length || hasMore) && (
+                    <div className="nw-more">
+                      <button type="button" className="nw-btn nw-btn-outline" disabled={loadingMore} onClick={loadMoreRecent}>
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
+                </section>
               )}
 
               {filtered && (

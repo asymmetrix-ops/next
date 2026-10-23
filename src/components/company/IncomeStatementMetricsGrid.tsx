@@ -19,7 +19,24 @@ import {
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
 
+const GRID_COLUMN_GAP = 16;
 const ROW_PADDING = "12px 16px";
+const LABEL_COL_MIN = 180;
+const PERIOD_COL_MIN = 88;
+const TRAILING_COL_MIN = 72;
+
+function buildIncomeStatementMinWidth(
+  periodCount: number,
+  includeYoyColumn: boolean
+): number {
+  const colCount = 1 + periodCount + (includeYoyColumn ? 1 : 0) + 1;
+  const colsMin =
+    LABEL_COL_MIN +
+    periodCount * PERIOD_COL_MIN +
+    (includeYoyColumn ? TRAILING_COL_MIN : 0) +
+    TRAILING_COL_MIN;
+  return colsMin + GRID_COLUMN_GAP * (colCount - 1);
+}
 
 function columnKey(
   model: IncomeStatementFinancialsViewModel,
@@ -67,7 +84,7 @@ function YoyValueCell({ value, visible }: { value: string; visible: boolean }) {
       style={{
         fontFamily: T.sans,
         fontSize: 13,
-        fontWeight: isEmpty ? 600 : 600,
+        fontWeight: 600,
         color,
         textAlign: "center",
       }}
@@ -121,7 +138,6 @@ export function IncomeStatementMetricsGrid({
   reserveYoyColumn?: boolean;
   allowedSources: FiMetricSourceType[];
   currencyMode?: CurrencyDisplayMode;
-  /** When set, aligns columns with the financial metrics tables below. */
   gridTemplate?: string;
 }) {
   const sourceVisible = allowedSources.includes(model.sourceType);
@@ -138,93 +154,109 @@ export function IncomeStatementMetricsGrid({
     [gridTemplateOverride, periodCount, includeYoyColumn]
   );
 
+  const minGridWidth = useMemo(
+    () => buildIncomeStatementMinWidth(periodCount, includeYoyColumn),
+    [periodCount, includeYoyColumn]
+  );
+
   const rowGridStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: gridTemplate,
     alignItems: "center",
     padding: ROW_PADDING,
-    minWidth: 0,
+    minWidth: minGridWidth,
+    width: "100%",
   };
 
   return (
-    <div className="income-statement-table" style={{ width: "100%", minWidth: 0 }}>
+    <div style={{ width: "100%", overflowX: "auto" }}>
       <div
-        style={{
-          ...tableColHeaderBarStyle,
-          gridTemplateColumns: gridTemplate,
-        }}
+        className="income-statement-table"
+        style={{ width: "100%", minWidth: minGridWidth }}
       >
-        <span>Metric</span>
-        {model.columnLabels.map((label, index) => (
-          <span key={columnKey(model, index)} style={{ textAlign: "center" }}>
-            {label}
-          </span>
-        ))}
-        {includeYoyColumn ? (
-          <span style={{ textAlign: "center" }}>YoY</span>
-        ) : null}
-        <span style={{ textAlign: "center" }}>Source</span>
-      </div>
-
-      {model.metrics.map((metric, index) => (
         <div
-          key={metric.key}
-          className="income-statement-row"
           style={{
-            ...rowGridStyle,
-            borderBottom:
-              index === model.metrics.length - 1
-                ? "none"
-                : `1px solid ${T.hair}`,
+            ...tableColHeaderBarStyle,
+            gridTemplateColumns: gridTemplate,
+            minWidth: minGridWidth,
           }}
         >
-          <span
-            style={{
-              ...finMetricLabelStyle,
-              fontSize: 13,
-              fontWeight: 600,
-              color: T.ink2,
-              minWidth: 0,
-            }}
-          >
-            {metric.label}
-          </span>
-          {model.columnLabels.map((_, valueIndex) => (
-            <div
-              key={`${metric.key}-${columnKey(model, valueIndex)}`}
-              style={{ display: "flex", justifyContent: "center" }}
-            >
-              <ValueCell
-                cell={
-                  metric.cells[valueIndex] ?? {
-                    display: metric.values[valueIndex] ?? "-",
-                  }
-                }
-                visible={sourceVisible}
-                currencyMode={currencyMode}
-                sourceType={model.sourceType}
-              />
-            </div>
+          <span>Metric</span>
+          {model.columnLabels.map((label, index) => (
+            <span key={columnKey(model, index)} style={{ textAlign: "center" }}>
+              {label}
+            </span>
           ))}
           {includeYoyColumn ? (
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              {showYoyColumn ? (
-                <YoyValueCell
-                  value={resolveIncomeStatementMetricYoY(metric, currencyMode)}
-                  visible={sourceVisible}
-                />
-              ) : (
-                <span aria-hidden="true" />
-              )}
-            </div>
+            <span style={{ textAlign: "center" }}>YoY</span>
           ) : null}
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <SourceCell
-              sourceType={sourceVisible ? model.sourceType : null}
-            />
-          </div>
+          <span style={{ textAlign: "center" }}>Source</span>
         </div>
-      ))}
+
+        {model.metrics.map((metric, index) => (
+          <div
+            key={metric.key}
+            className="income-statement-row"
+            style={{
+              ...rowGridStyle,
+              borderBottom:
+                index === model.metrics.length - 1
+                  ? "none"
+                  : `1px solid ${T.hair}`,
+            }}
+          >
+            <span
+              style={{
+                ...finMetricLabelStyle,
+                fontSize: 13,
+                fontWeight: 600,
+                color: T.ink2,
+                minWidth: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {metric.label}
+            </span>
+            {model.columnLabels.map((_, valueIndex) => (
+              <div
+                key={`${metric.key}-${columnKey(model, valueIndex)}`}
+                style={{ display: "flex", justifyContent: "center" }}
+              >
+                <ValueCell
+                  cell={
+                    metric.cells[valueIndex] ?? {
+                      display: metric.values[valueIndex] ?? "-",
+                    }
+                  }
+                  visible={sourceVisible}
+                  currencyMode={currencyMode}
+                  sourceType={model.sourceType}
+                />
+              </div>
+            ))}
+            {includeYoyColumn ? (
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                {showYoyColumn ? (
+                  <YoyValueCell
+                    value={resolveIncomeStatementMetricYoY(
+                      metric,
+                      currencyMode
+                    )}
+                    visible={sourceVisible}
+                  />
+                ) : (
+                  <span aria-hidden="true" />
+                )}
+              </div>
+            ) : null}
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <SourceCell
+                sourceType={sourceVisible ? model.sourceType : null}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

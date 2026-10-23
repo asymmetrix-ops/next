@@ -226,7 +226,7 @@ const BM_DEFAULT_FILTERS = [
 /* Catalogue of filters a user can add to refine the peer pool */
 const BM_FILTER_CATALOGUE = [
   { id: 'sector',    label: 'Sector',       editor: 'enum', options: [...new Set(BM_UNIVERSE.map(c => c.sector))] },
-  { id: 'subSector', label: 'Sub-sector',   editor: 'enum', options: [...new Set(BM_UNIVERSE.map(c => c.subSector))] },
+  { id: 'subSector', label: 'Secondary sector',   editor: 'enum', options: [...new Set(BM_UNIVERSE.map(c => c.subSector))] },
   { id: 'region',    label: 'Region',       editor: 'enum', options: ['Europe', 'North America', 'Asia-Pacific', 'Latin America'] },
   { id: 'country',   label: 'Country',      editor: 'enum', options: [...new Set(BM_UNIVERSE.map(c => c.country))] },
   { id: 'ownership', label: 'Ownership',    editor: 'enum', options: ['Public', 'PE-owned', 'VC-owned', 'Private'] },

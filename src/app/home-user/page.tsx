@@ -2,38 +2,40 @@
 
 import "./dashboard.css";
 import {
-  Fragment,
   useState,
   useEffect,
   useCallback,
-  useMemo,
   useRef,
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  CalendarDaysIcon,
+  LightBulbIcon,
+} from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
-import { trackEvent, trackLogout } from "@/lib/tracking";
-import DashboardLeftNav, {
-  type DashboardNavCounts,
-} from "@/components/dashboard/DashboardLeftNav";
-import AsymIQButton from "@/components/AsymIQButton";
+import AppLeftNav from "@/components/layout/AppLeftNav";
+import { NavOpenProvider, useNavOpen } from "@/components/layout/NavOpenContext";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
+import { GlobalSearchTrigger } from "@/components/search/GlobalSearchTrigger";
 import { NewFeatureCallout } from "@/components/ui/new-feature-callout";
-import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
 import {
   appendDealRadarItems,
-  applyHqCountryIso2ToDealRadarItems,
   getDealRadarContentCtaLabel,
   mapDealRadarItem,
+  COUNTRY_FLAG_INLINE_SIZE_PX,
   readHqCountryIso2,
   type DealRadarItem,
 } from "@/lib/dealRadar";
-import { CorporateEventPartyLink, CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { CorporateEventTargetLink, CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { normalizeEntityHref as sharedNormalizeEntityHref } from "@/lib/corporateEventEntityHref";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import NewsArticleCard from "@/components/NewsArticleCard";
-import { isNewsArticle } from "@/lib/contentArticleDisplay";
+import { InsightSummaryModal } from "@/components/insights/InsightSummaryModal";
+import { hasInsightSummary } from "@/lib/insightSummary";
+import { getNewsSubType, isNewsArticle } from "@/lib/contentArticleDisplay";
 import type { ContentArticle } from "@/types/insightsAnalysis";
 import {
   getContentTypeAccentColor,
@@ -42,14 +44,15 @@ import {
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
+import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks";
+import {
+  entityLinksToMultiValueItems,
+  namesToMultiValueItems,
+} from "@/components/search/searchMultiValueUtils";
+import { DEFAULT_TAG_CAP } from "@/components/redesign/primitives";
 // import { useRightClick } from "@/hooks/useRightClick";
 
 // Types for dashboard data
-interface AsymmetrixData {
-  label: string;
-  value: string;
-}
-
 interface CorporateEvent {
   id?: number;
   corporate_event_id?: number;
@@ -129,7 +132,14 @@ interface InsightArticle {
   // Content type fields may arrive in different shapes/keys
   Content_Type?: string;
   content_type?: string;
-  Content?: { Content_type?: string; Content_Type?: string };
+  Content?: {
+    Content_type?: string;
+    Content_Type?: string;
+    News_Sub_Type?: string;
+    news_sub_type?: string;
+  };
+  News_Sub_Type?: string;
+  news_sub_type?: string;
   keywords?: string[];
   related_documents?: Array<{
     url: string;
@@ -144,6 +154,7 @@ interface InsightArticle {
     };
     _is_that_investor: boolean;
   }>;
+  summary?: unknown;
   Transaction_status?: string;
   transaction_status?: string;
   hq_country_iso2?: string | null;
@@ -155,6 +166,16 @@ interface InsightArticle {
     hqCountryIso2?: string | null;
     hq_iso2?: string | null;
   }>;
+}
+
+function dashNewsSubtypeTagClass(subtype: string): string {
+  const s = subtype.toLowerCase().trim();
+  if (s.includes("fundraise")) return "dash-tag dash-tag-fund";
+  if (s.includes("sale process")) return "dash-tag dash-tag-sale";
+  if (s.includes("deal close")) return "dash-tag dash-tag-close";
+  if (s.includes("carve")) return "dash-tag dash-tag-carve";
+  if (s === "ipo") return "dash-tag dash-tag-ipo";
+  return "dash-tag dash-tag-lead";
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {
@@ -181,6 +202,12 @@ const DEAL_STAGE_DEFINITIONS = [
     description:
       "Based on proprietary intelligence obtained by Asymmetrix suggesting the asset is in market and a sale process has begun or will commence imminently.",
     styleKey: "rumored",
+  },
+  {
+    label: "Anticipated within 6 months",
+    description:
+      "Based on proprietary intelligence obtained by Asymmetrix, a sale process is expected to launch within the next six months.",
+    styleKey: "anticipated",
   },
   {
     label: "Anticipated within 18 months",
@@ -344,40 +371,20 @@ function DealStageInfoTooltip() {
   );
 }
 
-import {
-  type GlobalSearchResult,
-  type GlobalSearchPagination,
-  type SearchPageType,
-  fetchGlobalSearchProgressive,
-  sortSearchResults,
-  badgeClassForSearchType,
-  resolveSearchHref,
-  getSearchBadgeLabel,
-  SEARCH_PAGE_TYPES,
-  SEARCH_PAGE_TYPE_LABELS,
-} from "@/lib/globalSearch";
 
 // Removed NewCompany interface along with the related UI section
 
-export default function HomeUserPage() {
+function HomeUserPageContent() {
   const router = useRouter();
   const {
     isAuthenticated,
-    user,
     loading: authLoading,
     isTrialActive,
     trialDaysLeft,
-    logout,
   } = useAuth();
   // Right-click handled via native anchors now
 
-  const [leftNavOpen, setLeftNavOpen] = useState(true);
-  const handleDashboardLogout = useCallback(() => {
-    const userId = user?.id ? Number.parseInt(user.id, 10) : 0;
-    trackLogout(Number.isFinite(userId) ? userId : 0);
-    logout();
-    router.push("/login");
-  }, [user?.id, logout, router]);
+  const { open: leftNavOpen } = useNavOpen();
 
   // Helper function to format dates consistently
   const formatDate = (dateString?: string) => {
@@ -391,27 +398,6 @@ export default function HomeUserPage() {
     } catch {
       return "Invalid date";
     }
-  };
-
-  const formatRelativeTime = (
-    dateString?: string,
-    createdAtMs?: number
-  ): string => {
-    const ms = dateString
-      ? new Date(dateString).getTime()
-      : typeof createdAtMs === "number"
-      ? createdAtMs
-      : NaN;
-    if (!Number.isFinite(ms)) return "";
-    const diffMs = Date.now() - ms;
-    if (diffMs < 0) return "now";
-    const minutes = Math.floor(diffMs / 60000);
-    if (minutes < 1) return "now";
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
   };
 
   // Resolve corporate event id from inconsistent API shapes
@@ -465,31 +451,33 @@ export default function HomeUserPage() {
     return [];
   };
 
-  // Normalize entity link based on new API flags (route/path/entity_type)
-  // Prefer ID-based routes; fall back to path when ID or route is missing/unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const normalizeEntityHref = (entity: any | null | undefined): string => {
+  // Normalize entity link. Delegates to the shared corporate-events href
+  // resolver (checks path/route/page_type/entity_type/is_investor, in that
+  // order) instead of this page's own stale copy, which only ever checked
+  // route/entity_type and defaulted everything else to `/company/{id}` —
+  // including entities that were only ever identifiable as investors via the
+  // `is_investor` flag, or via which bucket (e.g. `investors`) they came from.
+  const normalizeEntityHref = (
+    entity: unknown,
+    opts?: { isInvestorHint?: boolean }
+  ): string => {
     if (!entity || typeof entity !== "object") return "";
     const id = Number((entity as { id?: unknown }).id);
-    const route = String(
-      ((entity as { route?: unknown }).route ||
-        (entity as { entity_type?: unknown }).entity_type ||
-        "company") as string
-    )
-      .toLowerCase()
-      .trim();
-    if (Number.isFinite(id) && id > 0) {
-      // Our app uses plural investors route
-      if (route === "investor" || route === "investors")
-        return `/investors/${id}`;
-      return `/company/${id}`;
+    if (!Number.isFinite(id) || id <= 0) {
+      const rawPath = String((entity as { path?: unknown }).path || "").trim();
+      return rawPath ? rawPath.replace(/^\/investor\//, "/investors/") : "";
     }
-    // Fallback to provided path (normalize investor singular to plural)
-    const rawPath = String((entity as { path?: unknown }).path || "").trim();
-    if (rawPath) {
-      return rawPath.replace(/^\/investor\//, "/investors/");
-    }
-    return "";
+    return (
+      sharedNormalizeEntityHref({
+        id,
+        route: (entity as { route?: string }).route,
+        page_type: (entity as { page_type?: string }).page_type,
+        path: (entity as { path?: string }).path,
+        entity_type: (entity as { entity_type?: string }).entity_type,
+        is_investor: (entity as { is_investor?: boolean }).is_investor,
+        isInvestorHint: opts?.isInvestorHint,
+      }) ?? ""
+    );
   };
 
   const dedupeById = (entities: EntityRef[]): EntityRef[] => {
@@ -511,26 +499,65 @@ export default function HomeUserPage() {
     name?: string;
     path?: string;
     route?: string;
+    page_type?: string;
     entity_type?: string;
+    is_investor?: boolean;
     hq_country_iso2?: string | null;
     hqCountryIso2?: string | null;
   };
 
   const partyLinkClassName = "dash-ev-link";
+  const partyOverflowClassName =
+    "inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0 align-middle";
+  const partyShowLessClassName =
+    "text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer border-0 bg-transparent p-0 mt-0.5";
 
-  const renderPartyEntityInline = (
-    entity: EntityRef,
-    opts?: { trailingComma?: boolean }
+  const renderCappedEntityLinks = (
+    entities: EntityRef[],
+    keyPrefix: string,
+    opts?: { isInvestorHint?: boolean }
   ): React.ReactNode => {
-    const href = normalizeEntityHref(entity);
-    const name = entity?.name || "Unknown";
+    const items = entityLinksToMultiValueItems(
+      dedupeById(entities).map((entity) => ({
+        id: entity.id,
+        name: entity.name || "Unknown",
+        href: normalizeEntityHref(entity, opts) || null,
+        hqIso2: readHqCountryIso2(entity as unknown as Record<string, unknown>),
+      })),
+      keyPrefix
+    );
+    if (items.length === 0) return <span>Not Available</span>;
     return (
-      <CorporateEventPartyLink
-        name={name}
-        href={href || undefined}
+      <CappedMultiValueLinks
+        items={items}
+        max={DEFAULT_TAG_CAP}
+        flagSize={COUNTRY_FLAG_INLINE_SIZE_PX}
         linkClassName={partyLinkClassName}
-        linkStyle={{ fontWeight: "500" }}
-        trailingComma={opts?.trailingComma}
+        overflowClassName={partyOverflowClassName}
+        showLessClassName={partyShowLessClassName}
+        emptyFallback={<span>Not Available</span>}
+        onLinkClick={(e) => {
+          const href = e.currentTarget.getAttribute("href");
+          if (href) void router.push(href);
+        }}
+      />
+    );
+  };
+
+  const renderCappedNameLinks = (
+    names: string[],
+    keyPrefix: string
+  ): React.ReactNode => {
+    const items = namesToMultiValueItems(names, keyPrefix);
+    if (items.length === 0) return <span>Not Available</span>;
+    return (
+      <CappedMultiValueLinks
+        items={items}
+        max={DEFAULT_TAG_CAP}
+        linkClassName={partyLinkClassName}
+        overflowClassName={partyOverflowClassName}
+        showLessClassName={partyShowLessClassName}
+        emptyFallback={<span>Not Available</span>}
       />
     );
   };
@@ -721,19 +748,12 @@ export default function HomeUserPage() {
   );
 
   const [isLoading, setIsLoading] = useState(true);
-  const [asymmetrixData, setAsymmetrixData] = useState<AsymmetrixData[]>([]);
 
   const DEAL_RADAR_PAGE_LIMIT = 25;
   const DEAL_RADAR_SCROLL_THRESHOLD_PX = 48;
 
   const [dealRadarItems, setDealRadarItems] = useState<DealRadarItem[]>([]);
   const [dealRadarNextOffset, setDealRadarNextOffset] = useState<number | null>(
-    null
-  );
-  const [dealRadarTotalCount, setDealRadarTotalCount] = useState<
-    number | null
-  >(null);
-  const [insightsTotalCount, setInsightsTotalCount] = useState<number | null>(
     null
   );
   const [dealRadarLoading, setDealRadarLoading] = useState(true);
@@ -757,484 +777,21 @@ export default function HomeUserPage() {
     Record<string, number>
   >({});
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
+  const [summaryArticle, setSummaryArticle] = useState<InsightArticle | null>(
+    null
+  );
   const [insightsArticles, setInsightsArticles] = useState<InsightArticle[]>(
     []
   );
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const searchWrapRef = useRef<HTMLDivElement | null>(null);
-  const [searchPopupOpen, setSearchPopupOpen] = useState(false);
-  const [, setSearchPagination] =
-    useState<GlobalSearchPagination | null>(null);
-  const [popupResults, setPopupResults] = useState<GlobalSearchResult[]>([]);
-  const [searchPageType, setSearchPageType] = useState<SearchPageType | null>(
-    null
-  );
-  const [popupFiltering, setPopupFiltering] = useState(false);
-  const [searchLoadingSources, setSearchLoadingSources] = useState(false);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const popupAbortRef = useRef<AbortController | null>(null);
-  const searchRunIdRef = useRef(0);
-  const loggedSearchRunIdRef = useRef(0);
-
-  const mergeResults = useCallback(
-    (prev: GlobalSearchResult[], newItems: GlobalSearchResult[]) => {
-      const seen = new Set(prev.map((r) => `${r.type}-${r.id}`));
-      const added = newItems.filter((r) => {
-        const key = `${r.type}-${r.id}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      return [...prev, ...added];
-    },
+  const [homeNewsArticles, setHomeNewsArticles] = useState<InsightArticle[]>(
     []
   );
-
-  useEffect(() => {
-    if (isTrialActive) {
-      setSearchOpen(false);
-      return;
-    }
-    const q = searchQuery.trim();
-    if (!q) {
-      setSearchResults([]);
-      setSearchError(null);
-      setSearchLoading(false);
-      setSearchLoadingSources(false);
-      return;
-    }
-    if (q.length < 2) {
-      setSearchResults([]);
-      setSearchError(null);
-      setSearchLoading(false);
-      setSearchLoadingSources(false);
-      return;
-    }
-
-    const ac = new AbortController();
-    searchAbortRef.current = ac;
-    setSearchLoading(true);
-    setSearchLoadingSources(true);
-    setSearchError(null);
-    setSearchOpen(true);
-    setSearchResults([]);
-
-    searchRunIdRef.current += 1;
-    const runId = searchRunIdRef.current;
-
-    const allResultsRef = { current: [] as GlobalSearchResult[] };
-
-    const t = window.setTimeout(() => {
-      fetchGlobalSearchProgressive(q, null, {
-        signal: ac.signal,
-        onBatch: (items) => {
-          if (ac.signal.aborted) return;
-          const merged = mergeResults(allResultsRef.current, items);
-          allResultsRef.current = merged;
-          setSearchResults(merged);
-
-          // Log platform-wide search only once per search run, and only when we actually have results.
-          if (merged.length > 0 && loggedSearchRunIdRef.current !== runId) {
-            loggedSearchRunIdRef.current = runId;
-            const parsedUserId = Number.parseInt(String(user?.id || ""), 10);
-            const userId =
-              Number.isFinite(parsedUserId) && parsedUserId > 0
-                ? parsedUserId
-                : undefined;
-            trackEvent({
-              eventType: "platform_wide_search",
-              userId,
-              pageVisit: "home_user",
-              pageHeading: "Asymmetrix Dashboard",
-              query: q,
-            });
-          }
-        },
-        onComplete: () => {
-          if (ac.signal.aborted) return;
-          setSearchResults(sortSearchResults(allResultsRef.current));
-          setSearchLoading(false);
-          setSearchLoadingSources(false);
-          const total = allResultsRef.current.length;
-          const perPage = 25;
-          const totalPages = Math.max(1, Math.ceil(total / perPage));
-          setSearchPagination({
-            current_page: 1,
-            per_page: perPage,
-            total_results: total,
-            total_pages: totalPages,
-            next_page: totalPages > 1 ? 2 : null,
-            prev_page: null,
-            pages_left: Math.max(0, totalPages - 1),
-          });
-        },
-        onError: (_source, err) => {
-          const name =
-            err && typeof err === "object" ? String((err as { name?: unknown }).name) : "";
-          if (name !== "AbortError") {
-            setSearchError("Search failed. Please try again.");
-          }
-        },
-      });
-    }, 250);
-
-    return () => {
-      window.clearTimeout(t);
-      ac.abort();
-      searchAbortRef.current = null;
-    };
-  }, [searchQuery, mergeResults, isTrialActive, user?.id]);
-
-  const [popupDisplayedCount, setPopupDisplayedCount] = useState(25);
-  const popupQueryRef = useRef("");
-
-  const handleLoadMoreInPopup = useCallback(() => {
-    setPopupDisplayedCount((prev) => prev + 25);
+  // The hero-screen stat counts this used to fetch only fed the dashboard's
+  // own left-nav badges; AppLeftNav now fetches those independently, so this
+  // just gates the initial "Loading dashboard…" state.
+  const fetchDashboardData = useCallback(() => {
+    setIsLoading(false);
   }, []);
-
-  const openSearchPopup = useCallback(() => {
-    setPopupResults(searchResults);
-    setPopupDisplayedCount(25);
-    setSearchPageType(null);
-    setSearchPopupOpen(true);
-    popupQueryRef.current = searchQuery;
-  }, [searchResults, searchQuery]);
-
-  const closeSearchPopup = useCallback(() => {
-    popupAbortRef.current?.abort();
-    popupAbortRef.current = null;
-    setPopupFiltering(false);
-    setSearchPopupOpen(false);
-    setSearchPageType(null);
-  }, []);
-
-  const handleSearchFilterChange = useCallback(
-    (pageType: SearchPageType | null) => {
-      popupAbortRef.current?.abort();
-      popupAbortRef.current = null;
-
-      setSearchPageType(pageType);
-      popupQueryRef.current = searchQuery;
-      const q = searchQuery.trim();
-      setPopupDisplayedCount(25);
-      if (!q || q.length < 2) {
-        setPopupResults([]);
-        setPopupFiltering(false);
-        return;
-      }
-
-      // For "All", just mirror the main progressive results (and let the effect keep it updated)
-      if (pageType === null) {
-        setPopupResults(searchResults);
-        setPopupFiltering(false);
-        setSearchPagination({
-          current_page: 1,
-          per_page: 25,
-          total_results: searchResults.length,
-          total_pages: Math.max(1, Math.ceil(searchResults.length / 25)),
-          next_page: searchResults.length > 25 ? 2 : null,
-          prev_page: null,
-          pages_left: Math.max(0, Math.ceil(searchResults.length / 25) - 1),
-        });
-        return;
-      }
-
-      setPopupFiltering(true);
-      // Critical: clear stale results so we don't "carry over" from the previous tab.
-      setPopupResults([]);
-
-      const ac = new AbortController();
-      popupAbortRef.current = ac;
-
-      const allResultsRef = { current: [] as GlobalSearchResult[] };
-      fetchGlobalSearchProgressive(q, pageType, {
-        signal: ac.signal,
-        onBatch: (items) => {
-          if (ac.signal.aborted) return;
-          const merged = mergeResults(allResultsRef.current, items);
-          allResultsRef.current = merged;
-          setPopupResults(merged);
-        },
-        onComplete: () => {
-          if (ac.signal.aborted) return;
-          setPopupResults(sortSearchResults(allResultsRef.current));
-          const total = allResultsRef.current.length;
-          const perPage = 25;
-          const totalPages = Math.max(1, Math.ceil(total / perPage));
-          setSearchPagination({
-            current_page: 1,
-            per_page: perPage,
-            total_results: total,
-            total_pages: totalPages,
-            next_page: totalPages > 1 ? 2 : null,
-            prev_page: null,
-            pages_left: Math.max(0, totalPages - 1),
-          });
-          setPopupFiltering(false);
-        },
-        onError: (_source, err) => {
-          const name =
-            err && typeof err === "object"
-              ? String((err as { name?: unknown }).name)
-              : "";
-          if (name === "AbortError") return;
-          setPopupFiltering(false);
-        },
-      });
-    },
-    [searchQuery, mergeResults, searchResults]
-  );
-
-  const matchesPopupFilter = useCallback(
-    (result: GlobalSearchResult, pageType: SearchPageType | null) => {
-      if (!pageType) return true;
-      const t = String(result.type || "").toLowerCase().trim();
-      const allowed: Record<SearchPageType, string[]> = {
-        companies: ["company", "companies"],
-        sectors: ["sector", "sectors", "sub_sector", "sub-sector"],
-        investors: ["investor", "investors"],
-        advisors: ["advisor", "advisors"],
-        individuals: ["individual", "individuals"],
-        "corporate events": ["corporate_event", "corporate-events", "event"],
-        "insights and analysis": ["insight", "insights", "article"],
-      };
-      return (allowed[pageType] || []).includes(t);
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!searchPopupOpen || searchPageType !== null) return;
-    setPopupResults(searchResults);
-    setPopupDisplayedCount(25);
-  }, [searchPopupOpen, searchPageType, searchResults]);
-
-  useEffect(() => {
-    if (!searchPopupOpen || searchPageType === null) return;
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      // If the user clears the query while a filtered search is in-flight,
-      // abort and reset so the UI doesn't get "stuck" in loading/disabled state.
-      popupAbortRef.current?.abort();
-      popupAbortRef.current = null;
-      setPopupFiltering(false);
-      setPopupResults([]);
-      setPopupDisplayedCount(25);
-      popupQueryRef.current = searchQuery;
-      return;
-    }
-    if (searchQuery === popupQueryRef.current) return;
-    popupQueryRef.current = searchQuery;
-    const t = window.setTimeout(() => {
-      handleSearchFilterChange(searchPageType);
-    }, 250);
-    return () => window.clearTimeout(t);
-  }, [searchPopupOpen, searchQuery, searchPageType, handleSearchFilterChange]);
-
-  useEffect(() => {
-    if (!searchOpen) return;
-    const onMouseDown = (e: MouseEvent) => {
-      const el = searchWrapRef.current;
-      if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-    };
-  }, [searchOpen]);
-
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const [
-        companiesCountResponse,
-        eventsCountResponse,
-        individualsCountResponse,
-        sectorsCountResponse,
-        advisorsCountResponse,
-        investorsResponse,
-      ] = await Promise.allSettled([
-        dashboardApiService.getHeroScreenStatisticCompanies(),
-        dashboardApiService.getHeroScreenStatisticEventsCount(),
-        dashboardApiService.getAllIndividualsCount(),
-        dashboardApiService.getHeroScreenStatisticSectors(),
-        dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
-        dashboardApiService.getHeroScreenStatisticInvestors(),
-      ]);
-
-      const statsData: AsymmetrixData[] = [];
-
-      if (companiesCountResponse.status === "fulfilled") {
-        const companiesCount =
-          (companiesCountResponse.value as unknown as number) || 0;
-        if (companiesCount) {
-          statsData.push({
-            label: "Companies",
-            value: companiesCount.toString(),
-          });
-        }
-      }
-
-      if (eventsCountResponse.status === "fulfilled") {
-        const responseValue = eventsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const eventsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Corporate_Events_count as number) || 0
-            : 0;
-
-        if (eventsCount) {
-          statsData.push({
-            label: "Corporate Events",
-            value: eventsCount.toString(),
-          });
-        }
-      }
-
-      if (individualsCountResponse.status === "fulfilled") {
-        const responseValue =
-          individualsCountResponse.value as unknown as Record<string, unknown>;
-        const individualsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.count as number) || 0
-            : 0;
-
-        if (individualsCount) {
-          statsData.push({
-            label: "Individuals",
-            value: individualsCount.toString(),
-          });
-        }
-      }
-
-      if (sectorsCountResponse.status === "fulfilled") {
-        const responseValue = sectorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const primarySectorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.primarySectors as number) || 0
-            : 0;
-        const secondarySectorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.secondarySectors as number) || 0
-            : 0;
-
-        if (primarySectorsCount) {
-          statsData.push({
-            label: "Primary Sectors",
-            value: primarySectorsCount.toString(),
-          });
-        }
-
-        if (secondarySectorsCount) {
-          statsData.push({
-            label: "Secondary Sectors",
-            value: secondarySectorsCount.toString(),
-          });
-        }
-      }
-
-      if (investorsResponse.status === "fulfilled") {
-        const responseValue = investorsResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const peInvestors =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.peInvestors as number) || 0
-            : 0;
-        const vcInvestors =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.vcInvestors as number) || 0
-            : 0;
-
-        if (peInvestors) {
-          statsData.push({
-            label: "PE Investors",
-            value: peInvestors.toString(),
-          });
-        }
-
-        if (vcInvestors) {
-          statsData.push({
-            label: "VC Investors",
-            value: vcInvestors.toString(),
-          });
-        }
-      }
-
-      if (advisorsCountResponse.status === "fulfilled") {
-        const responseValue = advisorsCountResponse.value as unknown as Record<
-          string,
-          unknown
-        >;
-        const advisorsCount =
-          responseValue && typeof responseValue === "object"
-            ? (responseValue.Advisorc_companies_count as number) || 0
-            : 0;
-
-        if (advisorsCount) {
-          statsData.push({
-            label: "Advisors",
-            value: advisorsCount.toString(),
-          });
-        }
-      }
-
-      setAsymmetrixData(statsData);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      if (
-        error instanceof Error &&
-        error.message === "Authentication required"
-      ) {
-        // Modal is shown by the global auth interceptor; no redirect needed
-        return;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const enrichDealRadarCountryFlags = useCallback(
-    async (items: DealRadarItem[]): Promise<DealRadarItem[]> => {
-      const missingCompanyIds = items
-        .filter((item) => !item.hqCountryIso2 && item.companyId > 0)
-        .map((item) => item.companyId);
-      if (missingCompanyIds.length === 0) return items;
-
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return items;
-
-      try {
-        const rows = await fetchCompanyTableDataByIds(missingCompanyIds, token);
-        const isoByCompanyId = new Map<number, string | null>(
-          Array.from(rows.entries()).map(([companyId, row]) => [
-            companyId,
-            readHqCountryIso2(row),
-          ])
-        );
-        return applyHqCountryIso2ToDealRadarItems(items, isoByCompanyId);
-      } catch (error) {
-        console.error("Error enriching Deal Radar country flags:", error);
-        return items;
-      }
-    },
-    []
-  );
 
   const fetchDealRadar = useCallback(async () => {
     dealRadarFetchAbortRef.current?.abort();
@@ -1256,17 +813,12 @@ export default function HomeUserPage() {
       });
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      setDealRadarTotalCount(
-        typeof res.total_items === "number" ? res.total_items : null
-      );
-
       const mappedItems = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
-      const enrichedItems = await enrichDealRadarCountryFlags(mappedItems);
       if (generation !== dealRadarFetchGenerationRef.current) return;
 
-      setDealRadarItems(enrichedItems);
+      setDealRadarItems(mappedItems);
       dealRadarLoadedOffsetsRef.current.add(initialOffset);
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1279,7 +831,7 @@ export default function HomeUserPage() {
         setDealRadarLoading(false);
       }
     }
-  }, [enrichDealRadarCountryFlags]);
+  }, []);
 
   const isDealRadarNearBottom = useCallback((): boolean => {
     const scrollRoot = dealRadarScrollRef.current;
@@ -1314,10 +866,8 @@ export default function HomeUserPage() {
       const incoming = res.items.map((item) =>
         mapDealRadarItem(item as unknown as Record<string, unknown>)
       );
-      const enrichedIncoming = await enrichDealRadarCountryFlags(incoming);
-
       setDealRadarItems((prev) =>
-        appendDealRadarItems(prev, enrichedIncoming)
+        appendDealRadarItems(prev, incoming)
       );
       const nextOffset = res.has_next_page ? res.next_offset : null;
       setDealRadarNextOffset(nextOffset);
@@ -1329,7 +879,7 @@ export default function HomeUserPage() {
       dealRadarLoadingMoreRef.current = false;
       setDealRadarLoadingMore(false);
     }
-  }, [enrichDealRadarCountryFlags]);
+  }, []);
 
   const tryLoadMoreDealRadarIfNearBottom = useCallback(() => {
     if (
@@ -1392,8 +942,24 @@ export default function HomeUserPage() {
     try {
       setInsightsArticlesLoading(true);
 
-      const insightsResponse =
-        await dashboardApiService.getAllContentArticlesHome();
+      const [insightsResponse, newsResponse] = await Promise.all([
+        dashboardApiService.getAllContentArticlesHome(),
+        dashboardApiService.getHomeNewsArticles(16),
+      ]);
+
+      const newsSorted = (newsResponse.items as unknown as InsightArticle[]).sort(
+        (a, b) =>
+          Date.parse(b.Publication_Date || "0") -
+          Date.parse(a.Publication_Date || "0")
+      );
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      const newsThisWeek = newsSorted.filter((article) => {
+        const t = Date.parse(article.Publication_Date || "");
+        return !Number.isNaN(t) && t >= Date.now() - weekMs;
+      });
+      setHomeNewsArticles(
+        (newsThisWeek.length >= 4 ? newsThisWeek : newsSorted).slice(0, 4)
+      );
 
       let insightsData: InsightArticle[] = [];
       if (Array.isArray(insightsResponse)) {
@@ -1417,6 +983,7 @@ export default function HomeUserPage() {
         return;
       }
       setInsightsArticles([]);
+      setHomeNewsArticles([]);
     } finally {
       setInsightsArticlesLoading(false);
     }
@@ -1434,7 +1001,7 @@ export default function HomeUserPage() {
     }
 
     if (!isAuthenticated) {
-      // AuthRouteGuard will show the login modal — no redirect needed
+      router.replace("/login");
       return;
     }
 
@@ -1443,7 +1010,7 @@ export default function HomeUserPage() {
     if (isAuthenticated) {
       fetchDashboardData();
     }
-  }, [fetchDashboardData, isAuthenticated, authLoading]);
+  }, [fetchDashboardData, isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -1519,77 +1086,6 @@ export default function HomeUserPage() {
     fetchInsightsArticles();
   }, [authLoading, isAuthenticated, fetchInsightsArticles]);
 
-  // Lightweight Per_page=1 request for a real total count (same pattern
-  // used on the Insights & Analysis page) — left unset rather than faked
-  // if the request fails.
-  useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
-    let cancelled = false;
-    const run = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
-      try {
-        const params = new URLSearchParams({
-          Offset: "0",
-          Per_page: "1",
-          portfolio_only: "false",
-        });
-        const res = await fetch(
-          `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              "X-Data-Source": "live",
-            },
-          }
-        );
-        if (!res.ok || cancelled) return;
-        const json = (await res.json()) as { itemsTotal?: number };
-        if (!cancelled && typeof json.itemsTotal === "number") {
-          setInsightsTotalCount(json.itemsTotal);
-        }
-      } catch {
-        // Leave unset rather than show a fake count.
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, isAuthenticated]);
-
-  const getStatValue = (label: string): number | undefined => {
-    const item = asymmetrixData.find((d) => d.label === label);
-    if (!item) return undefined;
-    const n = parseInt(item.value, 10);
-    return Number.isFinite(n) ? n : undefined;
-  };
-
-  const leftNavCounts: DashboardNavCounts = useMemo(() => {
-    const pe = getStatValue("PE Investors") ?? 0;
-    const vc = getStatValue("VC Investors") ?? 0;
-    const investorsTotal = pe + vc;
-    return {
-      companies: getStatValue("Companies"),
-      corporateEvents: getStatValue("Corporate Events"),
-      investors: investorsTotal > 0 ? investorsTotal : undefined,
-      advisors: getStatValue("Advisors"),
-      individuals: getStatValue("Individuals"),
-      sectors: getStatValue("Primary Sectors"),
-      insightsAnalysis: insightsTotalCount ?? undefined,
-      dealRadar: dealRadarTotalCount ?? undefined,
-      // financialIntelligence intentionally omitted — no real count exists.
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asymmetrixData, insightsTotalCount, dealRadarTotalCount]);
-
-  const allNewsArticles = useMemo(
-    () => insightsArticles.filter(isNewsArticle),
-    [insightsArticles]
-  );
-
-  const visibleNews = allNewsArticles.slice(0, 4);
 
   if (authLoading) {
     return (
@@ -1641,21 +1137,17 @@ export default function HomeUserPage() {
   };
 
   return (
-    <div
-      className="dash h-screen overflow-hidden flex"
-      data-entry-source="dashboard"
-    >
-      <DashboardLeftNav
-        open={leftNavOpen}
-        onToggleOpen={() => setLeftNavOpen((v) => !v)}
-        counts={leftNavCounts}
-        userName={user?.name}
-        onLogout={handleDashboardLogout}
-      />
-      <div className="flex-1 min-w-0 h-full overflow-hidden">
+    <div className="flex h-screen overflow-hidden">
+      <AppLeftNav />
+      {/* `.dash` sets its own font-family/background — scoped to this content
+          column only, so it can't leak into the shared sidebar. */}
+      <div
+        className="dash flex-1 min-w-0 h-full overflow-hidden"
+        data-entry-source="dashboard"
+      >
       {/* Main Content */}
       <main
-        className="h-full flex flex-col px-2 py-4 mx-auto w-full sm:px-4 sm:py-8"
+        className="h-full flex flex-col px-2 pt-14 pb-4 mx-auto w-full sm:px-4 md:pt-8 md:pb-8 overflow-y-auto lg:overflow-hidden"
         style={{ position: "relative" }}
         onClickCapture={handleClickCapture}
       >
@@ -1673,144 +1165,8 @@ export default function HomeUserPage() {
         )}
         {/* Dashboard Subheader */}
         <div className="dash-searchrow shrink-0 flex items-center justify-between gap-4 sm:gap-6 mb-4 sm:mb-6 w-full">
-          <div
-            ref={searchWrapRef}
-            className={`dash-searchwrap relative w-full min-w-0 rounded-full border-2 bg-white shadow-sm lg:w-[calc(50%-0.75rem)] xl:w-[30%] ${
-              isTrialActive
-                ? "border-gray-200"
-                : "border-blue-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"
-            }`}
-          >
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              type="search"
-              value={searchQuery}
-              disabled={isTrialActive}
-              placeholder={
-                isTrialActive
-                  ? "Search is disabled during trial access"
-                  : "Search companies, investors, advisors, events…"
-              }
-              className={`w-full px-4 py-3 text-base rounded-full border-0 bg-transparent focus:outline-none focus:ring-0 ${
-                isTrialActive
-                  ? "text-gray-500 cursor-not-allowed"
-                  : "text-gray-900 placeholder-gray-500"
-              }`}
-              onFocus={() => {
-                if (!isTrialActive) setSearchOpen(true);
-              }}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-              }}
-            />
-
-            {searchOpen && !isTrialActive && searchQuery.trim().length >= 2 && (
-              <div
-                data-entry-source="global_search"
-                className="absolute z-50 mt-2 w-full bg-white rounded-lg border-2 border-blue-200 shadow-lg"
-              >
-                {searchLoading && searchResults.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-gray-600">
-                    Searching…
-                  </div>
-                ) : searchLoadingSources && searchResults.length > 0 ? (
-                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
-                    Loading more results…
-                  </div>
-                ) : null}
-                {searchError ? (
-                  <div className="px-3 py-3 text-xs text-red-600">
-                    {searchError}
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-gray-600">
-                    No results
-                  </div>
-                ) : (
-                  <>
-                    <ul className="py-1 max-h-72 overflow-auto">
-                      {searchResults.slice(0, 25).map((r, idx) => {
-                        const href = resolveSearchHref(r);
-                        const t = String(r.type || "").toLowerCase().trim();
-                        const isInsight =
-                          t === "insight" || t === "insights" || t === "article";
-                        const badgeLabel = getSearchBadgeLabel(r.type);
-                        return (
-                          <li key={`${r.type}-${r.id}-${idx}`}>
-                            <a
-                              href={href || "#"}
-                              className="group flex items-start justify-between gap-3 px-3 py-2 w-full hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150 rounded-md"
-                              onClick={(e) => {
-                                if (!href) {
-                                  e.preventDefault();
-                                  return;
-                                }
-                                if (
-                                  e.defaultPrevented ||
-                                  e.button !== 0 ||
-                                  e.metaKey ||
-                                  e.ctrlKey ||
-                                  e.shiftKey ||
-                                  e.altKey
-                                ) {
-                                  return;
-                                }
-                                e.preventDefault();
-                                setSearchOpen(false);
-                                setSearchQuery("");
-                                setSearchResults([]);
-                                setSearchPopupOpen(false);
-                                router.push(href);
-                              }}
-                            >
-                              <span className="text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
-                                {r.title}
-                              </span>
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
-                                  String(r.type || "")
-                                )} ${isInsight ? "normal-case" : "uppercase"}`}
-                              >
-                                {badgeLabel}
-                              </span>
-                            </a>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <div className="px-3 py-3 border-t border-gray-200">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          openSearchPopup();
-                        }}
-                        className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                      >
-                        View more
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          <GlobalSearchTrigger variant="hero" className="flex-1" />
           <div className="flex shrink-0 items-center gap-2 ml-auto sm:gap-3">
-            <AsymIQButton
-              disabled={isTrialActive}
-              initialQuery={searchQuery}
-            />
             <NewFeatureCallout
               featureKey="dashboard-request-data-research"
               launchedAt="2026-05-26T00:00:00.000Z"
@@ -1841,10 +1197,7 @@ export default function HomeUserPage() {
                 </span>
                 <span className="dash-card-title">News</span>
               </div>
-              <span className="text-xs text-gray-500 ml-auto sm:ml-0">
-                {allNewsArticles.length} this week
-              </span>
-              <a href="/insights-analysis?content_type=News" className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap">
+              <a href="/insights-analysis?content_type=News" className="dash-view-all ml-auto px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
               </a>
             </div>
@@ -1852,35 +1205,29 @@ export default function HomeUserPage() {
               <div className="p-4 text-center">
                 <p className="text-sm text-gray-500">Loading news...</p>
               </div>
-            ) : visibleNews.length > 0 ? (
+            ) : homeNewsArticles.length > 0 ? (
               <div className="dash-news-lane">
-                {visibleNews.map((article) => {
+                {homeNewsArticles.map((article) => {
                   const href = `/article/${article.id}?from=home`;
-                  const firstCompany = article.companies_mentioned?.[0];
-                  const contentType = (
-                    article.Content_Type ||
-                    article.content_type ||
-                    article.Content?.Content_type ||
-                    article.Content?.Content_Type ||
-                    "News"
-                  ).trim();
+                  const newsSubType = getNewsSubType(article);
                   return (
                     <a key={article.id} href={href} className="dash-news-item">
-                      <span className="ago">
-                        {formatRelativeTime(article.Publication_Date, article.created_at)}
+                      <span className="dash-news-item-meta">
+                        {newsSubType ? (
+                          <span className={dashNewsSubtypeTagClass(newsSubType)}>
+                            {newsSubType}
+                          </span>
+                        ) : null}
+                        {article.Publication_Date && (
+                          <span className="dt">
+                            {formatDate(article.Publication_Date)}
+                          </span>
+                        )}
                       </span>
                       <span className="h">{article.Headline}</span>
                       {article.Strapline && (
                         <span className="d">{article.Strapline}</span>
                       )}
-                      <span className="tg">
-                        <span style={getContentTypeBadgeStyle(contentType)}>
-                          {contentType}
-                        </span>
-                        {firstCompany && (
-                          <span className="dash-co-pill">{firstCompany.name}</span>
-                        )}
-                      </span>
                     </a>
                   );
                 })}
@@ -1893,216 +1240,30 @@ export default function HomeUserPage() {
           </div>
         )}
 
-        {/* Search results popup */}
-        {searchPopupOpen && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="search-popup-title"
-            onClick={closeSearchPopup}
-          >
-            <div
-              data-entry-source="global_search"
-              className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 p-4 border-b border-gray-200">
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search all pages..."
-                  className="flex-1 px-4 py-2.5 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  aria-label="Search"
-                  id="search-popup-title"
-                />
-                <button
-                  type="button"
-                  onClick={closeSearchPopup}
-                  className="p-2 text-gray-500 rounded-md hover:bg-gray-100 hover:text-gray-700"
-                  aria-label="Close"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 p-4 border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => handleSearchFilterChange(null)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    searchPageType === null
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  All
-                </button>
-                {SEARCH_PAGE_TYPES.map((pt) => (
-                  <button
-                    key={pt}
-                    type="button"
-                    onClick={() => handleSearchFilterChange(pt)}
-                    disabled={popupFiltering}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors shrink-0 ${
-                      searchPageType === pt
-                        ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    }`}
-                  >
-                    {SEARCH_PAGE_TYPE_LABELS[pt]}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {(() => {
-                  const visibleResults =
-                    searchPageType === null
-                      ? popupResults
-                      : popupResults.filter((r) =>
-                          matchesPopupFilter(r, searchPageType)
-                        );
-                  const displayed = visibleResults.slice(0, popupDisplayedCount);
-                  const allTabLoading =
-                    searchPageType === null &&
-                    searchQuery.trim().length >= 2 &&
-                    (searchLoading || searchLoadingSources);
-
-                  if (
-                    (popupFiltering || allTabLoading) &&
-                    visibleResults.length === 0
-                  ) {
-                    return (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" />
-                        <span className="ml-2 text-sm text-gray-600">
-                          Searching…
-                        </span>
-                      </div>
-                    );
-                  }
-                  if (searchPageType === null && searchError) {
-                    return (
-                      <p className="text-sm text-red-600 py-4">{searchError}</p>
-                    );
-                  }
-                  if (visibleResults.length === 0) {
-                    return (
-                      <p className="text-sm text-gray-500 py-4">No results</p>
-                    );
-                  }
-                  return (
-                    <>
-                      {(popupFiltering || allTabLoading) && (
-                        <div className="pb-2 text-xs text-gray-500">
-                          Loading more results…
-                        </div>
-                      )}
-                      <ul className="space-y-1">
-                        {displayed.map((r, idx) => {
-                          const href = resolveSearchHref(r);
-                          const t = String(r.type || "").toLowerCase().trim();
-                          const isInsight =
-                            t === "insight" ||
-                            t === "insights" ||
-                            t === "article";
-                          const badgeLabel = getSearchBadgeLabel(r.type);
-                          return (
-                            <li key={`popup-${r.type}-${r.id}-${idx}`}>
-                              <a
-                                href={href || "#"}
-                                className="group flex items-start justify-between gap-3 px-3 py-2.5 w-full rounded-md hover:bg-blue-50 hover:shadow-sm no-underline cursor-pointer transition-all duration-150"
-                                onClick={(e) => {
-                                  if (!href) {
-                                    e.preventDefault();
-                                    return;
-                                  }
-                                  // Allow default behavior for right-click, ctrl+click, cmd+click, etc.
-                                  if (
-                                    e.defaultPrevented ||
-                                    e.button !== 0 ||
-                                    e.metaKey ||
-                                    e.ctrlKey ||
-                                    e.shiftKey ||
-                                    e.altKey
-                                  ) {
-                                    return;
-                                  }
-                                  e.preventDefault();
-                                  closeSearchPopup();
-                                  setSearchOpen(false);
-                                  setSearchQuery("");
-                                  setSearchResults([]);
-                                  router.push(href);
-                                }}
-                              >
-                                <span className="text-sm text-gray-900 group-hover:text-blue-700 line-clamp-2 transition-colors">
-                                  {r.title}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold tracking-wide rounded-full border shrink-0 ${badgeClassForSearchType(
-                                    String(r.type || "")
-                                  )} ${
-                                    isInsight ? "normal-case" : "uppercase"
-                                  }`}
-                                >
-                                  {badgeLabel}
-                                </span>
-                              </a>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </>
-                  );
-                })()}
-              </div>
-              <div className="p-4 border-t border-gray-200 space-y-3">
-                {(() => {
-                  const visibleResults =
-                    searchPageType === null
-                      ? popupResults
-                      : popupResults.filter((r) =>
-                          matchesPopupFilter(r, searchPageType)
-                        );
-                  const showing = Math.min(
-                    popupDisplayedCount,
-                    visibleResults.length
-                  );
-                  const canLoadMore = showing < visibleResults.length;
-
-                  if (visibleResults.length === 0) return null;
-                  return (
-                    <>
-                      <p className="text-xs text-gray-600">
-                        Showing {showing} of {visibleResults.length} results
-                      </p>
-                      {canLoadMore ? (
-                        <button
-                          type="button"
-                          onClick={handleLoadMoreInPopup}
-                          className="w-full py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                        >
-                          Load more
-                        </button>
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 flex-1 min-h-0">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3 lg:flex-1 lg:min-h-0">
           {/* Deal Radar - last on mobile, last on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-3 lg:order-3"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-3 lg:order-3"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49" />
+                    <path d="M20.49 3.51a12 12 0 0 1 0 16.97M3.51 3.51a12 12 0 0 0 0 16.97" />
+                  </svg>
+                </span>
                 <NewFeatureCallout
                   featureKey="dashboard-deal-radar"
                   launchedAt="2026-05-26T00:00:00.000Z"
@@ -2110,29 +1271,21 @@ export default function HomeUserPage() {
                   persistDismissal
                   side="right"
                 >
-                  <span className="flex items-center gap-2">
-                    <h2 className="dash-card-title">Deal Radar</h2>
-                    <span className="dash-eyebrow">Live</span>
-                  </span>
+                  <a href="/deal-radar" className="dash-card-title">
+                    Deal Radar
+                  </a>
                 </NewFeatureCallout>
               </div>
-              <div className="hidden sm:flex items-center gap-3 shrink-0">
-                {dealRadarItems.length > 0 && (
-                  <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
-                    {dealRadarItems.length} companies
-                  </span>
-                )}
-                <a
-                  href="/deal-radar"
-                  className="dash-view-all px-3 py-1.5 text-xs whitespace-nowrap"
-                >
-                  View all
-                </a>
-              </div>
+              <a
+                href="/deal-radar"
+                className="dash-view-all hidden sm:inline-flex px-3 py-1.5 text-xs whitespace-nowrap shrink-0"
+              >
+                View all
+              </a>
             </div>
             <div
               ref={dealRadarScrollRef}
-              className="min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+              className="min-h-0 min-w-0 lg:overflow-y-auto overflow-x-hidden"
             >
               {dealRadarLoading ? (
                 <div className="p-4 space-y-3">
@@ -2158,13 +1311,13 @@ export default function HomeUserPage() {
                       </colgroup>
                       <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="pl-3 pr-1 py-3 text-left">
+                          <th className="text-left">
                             Company
                           </th>
-                          <th className="px-2 py-3 text-center">
+                          <th className="text-center">
                             Sector
                           </th>
-                          <th className="pl-3 pr-2 py-3 text-center">
+                          <th className="text-center">
                             <span className="inline-flex items-center gap-1.5">
                               Stage
                               <DealStageInfoTooltip />
@@ -2236,41 +1389,24 @@ export default function HomeUserPage() {
                               </td>
                               <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-center">
                                 {item.primarySectors.length > 0 ? (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    {item.primarySectors.map((sector, idx) => (
-                                      <div
-                                        key={`${sector.id}-${sector.name}-${idx}`}
-                                        className="leading-snug break-normal text-xs"
-                                      >
-                                        {sector.id > 0 ? (
-                                          <a
-                                            href={`/sector/${sector.id}`}
-                                            className="text-blue-700 hover:text-blue-900 hover:underline"
-                                            onClick={(
-                                              e: React.MouseEvent<HTMLAnchorElement>
-                                            ) => {
-                                              if (
-                                                e.defaultPrevented ||
-                                                e.button !== 0 ||
-                                                e.metaKey ||
-                                                e.ctrlKey ||
-                                                e.shiftKey ||
-                                                e.altKey
-                                              ) {
-                                                return;
-                                              }
-                                              e.preventDefault();
-                                              router.push(`/sector/${sector.id}`);
-                                            }}
-                                          >
-                                            {sector.name}
-                                          </a>
-                                        ) : (
-                                          sector.name
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                  <CappedMultiValueLinks
+                                    layout="stack"
+                                    items={item.primarySectors.map((sector, idx) => ({
+                                      key: `${sector.id}-${sector.name}-${idx}`,
+                                      name: sector.name,
+                                      href:
+                                        sector.id > 0
+                                          ? `/sector/${sector.id}`
+                                          : undefined,
+                                    }))}
+                                    linkClassName="text-blue-700 hover:text-blue-900 hover:underline text-xs"
+                                    overflowClassName="inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0"
+                                    showLessClassName="text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer border-0 bg-transparent p-0 mt-0.5"
+                                    onLinkClick={(e) => {
+                                      const href = e.currentTarget.getAttribute("href");
+                                      if (href) void router.push(href);
+                                    }}
+                                  />
                                 ) : (
                                   "—"
                                 )}
@@ -2323,18 +1459,23 @@ export default function HomeUserPage() {
             </div>
           </div>
 
+          {summaryArticle ? (
+            <InsightSummaryModal
+              article={summaryArticle}
+              onClose={() => setSummaryArticle(null)}
+            />
+          ) : null}
           {/* Insights & Analysis - first on mobile */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-1 lg:order-2"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-1 lg:order-2"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <a
-                  href="/insights-analysis"
-                  className="dash-card-title flex items-center gap-2"
-                >
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <LightBulbIcon className="w-4 h-4" aria-hidden="true" />
+                </span>
+                <a href="/insights-analysis" className="dash-card-title">
                   Insights &amp; Analysis
-                  <span className="dash-eyebrow">Weekly</span>
                 </a>
               </div>
               <a
@@ -2344,7 +1485,9 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-4">
+            <div className="min-h-0 min-w-0 lg:overflow-y-auto">
+              <div className="dash-card-subhead" aria-hidden="true" />
+              <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-3 sm:pt-4 lg:pt-0">
               {insightsArticlesLoading ? (
                 <div className="py-6 text-center sm:py-8">
                   <p className="text-sm text-gray-500">
@@ -2359,6 +1502,7 @@ export default function HomeUserPage() {
                         <NewsArticleCard
                           key={article.id}
                           article={article as unknown as ContentArticle}
+                          onViewSummary={() => setSummaryArticle(article)}
                         />
                       );
                     }
@@ -2448,6 +1592,15 @@ export default function HomeUserPage() {
                         >
                           Read full article <span aria-hidden="true">→</span>
                         </a>
+                        {hasInsightSummary(article.summary) ? (
+                          <button
+                            type="button"
+                            onClick={() => setSummaryArticle(article)}
+                            className="mt-3 ml-3 rounded border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            View Summary
+                          </button>
+                        ) : null}
                         </div>
                       </div>
                     );
@@ -2458,21 +1611,21 @@ export default function HomeUserPage() {
                   <p className="text-sm text-gray-500">No insights available</p>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
           {/* Corporate Events - second on mobile, first on lg+ */}
           <div
-            className="dash-card grid grid-rows-[auto_1fr] overflow-hidden min-h-0 order-2 lg:order-1"
+            className="dash-card dash-triplet-card grid grid-rows-[auto_auto] lg:grid-rows-[auto_1fr] lg:overflow-hidden lg:min-h-0 order-2 lg:order-1"
           >
-            <div className="dash-card-header flex items-center justify-between gap-3 p-3 sm:p-4 shrink-0">
+            <div className="dash-card-header shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <a
-                  href="/corporate-events"
-                  className="dash-card-title flex items-center gap-2"
-                >
+                <span className="dash-card-icon flex items-center justify-center w-7 h-7 shrink-0">
+                  <CalendarDaysIcon className="w-4 h-4" aria-hidden="true" />
+                </span>
+                <a href="/corporate-events" className="dash-card-title">
                   Corporate Events
-                  <span className="dash-eyebrow">Last 7 days</span>
                 </a>
               </div>
               <a
@@ -2482,7 +1635,7 @@ export default function HomeUserPage() {
                 View all
               </a>
             </div>
-            <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-auto">
+            <div className="min-h-0 min-w-0 lg:overflow-y-auto overflow-x-auto">
               {corporateEventsLoading ? (
                 <div className="p-4 text-center">
                   <p className="text-sm text-gray-500">
@@ -2576,17 +1729,9 @@ export default function HomeUserPage() {
                                   targetObj?.name || targetLegacyName;
 
                                 if (displayTargets.length > 0) {
-                                  return (
-                                    <>
-                                      {displayTargets.map((tgt, i, arr) => (
-                                        <Fragment key={`m-tgt-${tgt?.id ?? i}`}>
-                                          {renderTargetEntityInline(tgt, {
-                                            trailingComma: i < arr.length - 1,
-                                            stackFlag: false,
-                                          })}
-                                        </Fragment>
-                                      ))}
-                                    </>
+                                  return renderCappedEntityLinks(
+                                    displayTargets,
+                                    "m-tgt"
                                   );
                                 } else if (targetName) {
                                   return targetObj ? (
@@ -2613,16 +1758,9 @@ export default function HomeUserPage() {
                                   return <span>Not Available</span>;
                                 }
 
-                                return (
-                                  <>
-                                    {dedupeById(sellersNew).map((s, i, arr) => (
-                                      <Fragment key={`m-seller-${s?.id ?? i}`}>
-                                        {renderPartyEntityInline(s, {
-                                          trailingComma: i < arr.length - 1,
-                                        })}
-                                      </Fragment>
-                                    ))}
-                                  </>
+                                return renderCappedEntityLinks(
+                                  sellersNew,
+                                  "m-seller"
                                 );
                               })()}
                             </div>
@@ -3004,17 +2142,17 @@ export default function HomeUserPage() {
                       </colgroup>
                       <thead className="sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Event Details
                           </th>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Parties
                           </th>
-                          <th className="px-4 py-4 text-left">
+                          <th className="text-left">
                             Deal Details
                           </th>
                           {!leftNavOpen && (
-                            <th className="px-4 py-4 text-left">
+                            <th className="text-left">
                               Sectors
                             </th>
                           )}
@@ -3148,14 +2286,10 @@ export default function HomeUserPage() {
                                               ? "Target(s):"
                                               : "Target:"}
                                           </strong>{" "}
-                                          {displayTargets.map((tgt, i, arr) => (
-                                            <Fragment key={`tgt-${tgt?.id ?? i}`}>
-                                              {renderTargetEntityInline(tgt, {
-                                                trailingComma: i < arr.length - 1,
-                                                stackFlag: false,
-                                              })}
-                                            </Fragment>
-                                          ))}
+                                          {renderCappedEntityLinks(
+                                            displayTargets,
+                                            "tgt"
+                                          )}
                                         </div>
                                       ) : targetName ? (
                                         <div className="dash-ev-kv">
@@ -3177,72 +2311,23 @@ export default function HomeUserPage() {
                                       {buyersArr.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Buyer(s):</strong>{" "}
-                                          {dedupeById(buyersArr).map(
-                                            (b, i, arr) => (
-                                              <Fragment key={`buyer-${i}`}>
-                                                {renderPartyEntityInline(b, {
-                                                  trailingComma:
-                                                    i < arr.length - 1,
-                                                })}
-                                              </Fragment>
-                                            )
+                                          {renderCappedEntityLinks(
+                                            buyersArr,
+                                            "buyer"
                                           )}
                                         </div>
                                       )}
 
-                                      {investorsArr.length > 0 && (() => {
-                                        const dedupedInvestors =
-                                          dedupeById(investorsArr);
-                                        const maxInlineInvestors = 12;
-                                        const visibleInvestors =
-                                          dedupedInvestors.slice(
-                                            0,
-                                            maxInlineInvestors
-                                          );
-                                        const remainingInvestors =
-                                          dedupedInvestors.length -
-                                          visibleInvestors.length;
-                                        return (
+                                      {investorsArr.length > 0 && (
                                           <div className="dash-ev-kv">
                                             <strong>Investor(s):</strong>{" "}
-                                            <span className="dash-ev-investors-inline">
-                                              <span className="dash-ev-investors-clamp">
-                                                {visibleInvestors.map(
-                                                  (inv, i) => (
-                                                    <Fragment
-                                                      key={`investor-${inv?.id ?? i}`}
-                                                    >
-                                                      {renderPartyEntityInline(
-                                                        inv,
-                                                        {
-                                                          trailingComma:
-                                                            i <
-                                                            visibleInvestors.length -
-                                                              1,
-                                                        }
-                                                      )}
-                                                    </Fragment>
-                                                  )
-                                                )}
-                                              </span>
-                                              {remainingInvestors > 0 && (
-                                                <span
-                                                  className="dash-ev-more-tag"
-                                                  title={dedupedInvestors
-                                                    .slice(visibleInvestors.length)
-                                                    .map(
-                                                      (inv) => inv?.name || ""
-                                                    )
-                                                    .filter(Boolean)
-                                                    .join(", ")}
-                                                >
-                                                  +{remainingInvestors}
-                                                </span>
-                                              )}
-                                            </span>
+                                            {renderCappedEntityLinks(
+                                              investorsArr,
+                                              "investor",
+                                              { isInvestorHint: true }
+                                            )}
                                           </div>
-                                        );
-                                      })()}
+                                      )}
 
                                       {buyersArr.length === 0 &&
                                         investorsArr.length === 0 &&
@@ -3253,32 +2338,23 @@ export default function HomeUserPage() {
                                               Buyer(s) / Investor(s):
                                             </strong>{" "}
                                             {buyersInvestorsCombined.length > 0
-                                              ? dedupeById(
-                                                  buyersInvestorsCombined
-                                                ).map((b, i, arr) => (
-                                                  <Fragment key={`bi-${i}`}>
-                                                    {renderPartyEntityInline(b, {
-                                                      trailingComma:
-                                                        i < arr.length - 1,
-                                                    })}
-                                                  </Fragment>
-                                                ))
-                                              : legacyCombinedNames.join(", ")}
+                                              ? renderCappedEntityLinks(
+                                                  buyersInvestorsCombined,
+                                                  "bi"
+                                                )
+                                              : renderCappedNameLinks(
+                                                  legacyCombinedNames,
+                                                  "legacy-bi"
+                                                )}
                                           </div>
                                         )}
 
                                       {sellersNew.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Seller(s):</strong>{" "}
-                                          {dedupeById(sellersNew).map(
-                                            (s, i, arr) => (
-                                              <Fragment key={`seller-${i}`}>
-                                                {renderPartyEntityInline(s, {
-                                                  trailingComma:
-                                                    i < arr.length - 1,
-                                                })}
-                                              </Fragment>
-                                            )
+                                          {renderCappedEntityLinks(
+                                            sellersNew,
+                                            "seller"
                                           )}
                                         </div>
                                       )}
@@ -3286,7 +2362,10 @@ export default function HomeUserPage() {
                                       {advisors.length > 0 && (
                                         <div className="dash-ev-kv">
                                           <strong>Advisor(s):</strong>{" "}
-                                          {advisors.join(", ")}
+                                          {renderCappedNameLinks(
+                                            advisors.filter(Boolean) as string[],
+                                            "advisor"
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -3598,5 +2677,13 @@ export default function HomeUserPage() {
       </main>
       </div>
     </div>
+  );
+}
+
+export default function HomeUserPage() {
+  return (
+    <NavOpenProvider>
+      <HomeUserPageContent />
+    </NavOpenProvider>
   );
 }

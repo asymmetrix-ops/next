@@ -1,6 +1,5 @@
 import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
 import { formatPercentValue } from "@/lib/companyTableData";
-import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import { buildDualCurrencyDisplay, type FinancialMetricFxInfo } from "@/lib/fxDisplay";
 import type { CurrencyDisplayMode } from "@/lib/financialsCurrencyToggle";
@@ -12,7 +11,6 @@ import {
   sortIncomeStatementRowsAsc,
   type NormalizedIncomeStatementRow,
 } from "@/lib/incomeStatement";
-import { resolveLinkedInEmployeeCountForYear } from "@/lib/companyLinkedIn";
 
 export type IncomeStatementExportFormat =
   | "millions_from_units"
@@ -245,40 +243,14 @@ function buildMetricRow(
   };
 }
 
-function resolveFteForYear(
-  row: NormalizedIncomeStatementRow,
-  employeeHistory: EmployeeTimeSeriesPoint[]
-): number | null {
-  if (row.fte_count != null) return row.fte_count;
-  const year = row.period_year;
-  if (year == null) return null;
-  return resolveLinkedInEmployeeCountForYear(year, employeeHistory);
-}
-
-function enrichRowWithFte(
-  row: NormalizedIncomeStatementRow,
-  employeeHistory: EmployeeTimeSeriesPoint[]
-): NormalizedIncomeStatementRow {
-  const fte = resolveFteForYear(row, employeeHistory);
-  if (fte == null) return row;
-  return {
-    ...row,
-    fte_count: fte,
-    revenue_per_fte:
-      row.revenue_per_fte ??
-      (row.revenue != null && fte > 0 ? row.revenue / fte : null),
-  };
-}
-
 export function buildIncomeStatementFinancialsViewModel(
   rows: NormalizedIncomeStatementRow[],
-  employeeHistory: EmployeeTimeSeriesPoint[] = [],
   platformCurrency = ""
 ): IncomeStatementFinancialsViewModel | null {
   // Rows are already merged/year-deduped via resolveDisplayIncomeStatementRows
   // on the company page — use them directly so profile-only years (e.g. FY2024) are kept.
   const columns = sortIncomeStatementRowsAsc(
-    rows.map((row) => enrichRowWithFte(row, employeeHistory))
+    rows
   );
   if (columns.length === 0) return null;
 

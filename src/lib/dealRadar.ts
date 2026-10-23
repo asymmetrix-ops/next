@@ -264,10 +264,12 @@ export const appendDealRadarItems = (
   return uniqueIncoming.length > 0 ? [...existing, ...uniqueIncoming] : existing;
 };
 
-const normalizeIso2 = (value: unknown): string | null => {
+export const normalizeIso2 = (value: unknown): string | null => {
   const text = String(value ?? "").trim();
   if (!text) return null;
-  const normalized = text.toLowerCase();
+  const lowered = text.toLowerCase();
+  if (lowered === "nan") return null;
+  const normalized = lowered === "uk" ? "gb" : lowered;
   return /^[a-z]{2}$/.test(normalized) ? normalized : null;
 };
 
@@ -354,6 +356,7 @@ const readCountryTextAsIso2 = (value: unknown): string | null => {
 
 export const readHqCountryIso2 = (raw: Record<string, unknown>): string | null => {
   const directKeys = [
+    "iso2",
     "hq_iso2",
     "hqIso2",
     "HQ_iso2",

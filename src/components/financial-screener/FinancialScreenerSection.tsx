@@ -61,6 +61,7 @@ const COLUMN_MIN_WIDTHS: Partial<Record<string, number>> = {
   ebit: 88,
   ev: 80,
   ev_revenue: 116,
+  ev_ebit: 96,
   ev_ebitda: 116,
   rev_multiple: 128,
 };

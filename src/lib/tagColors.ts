@@ -65,11 +65,9 @@ export const TRANSACTION_STATUS_TONES: Record<string, TagTone> = {
     dot: "#17A05C",
     border: "transparent",
   },
-  "rumoured in market": {
-    text: "#7A5605",
-    fill: "#FEF6E0",
-    dot: "#E0A32E",
-    border: "transparent",
+  // Same colours as "Reported in Market" — both mean the company is in market.
+  get "rumoured in market"(): TagTone {
+    return TRANSACTION_STATUS_TONES["reported in market"];
   },
   "anticipated within 6 months": {
     text: "#182A9B",
@@ -181,7 +179,9 @@ export function getInsightsTypeTone(contentType: string): TagTone {
 
 export const NEWS_SUBTYPE_TONES: Record<string, TagTone> = {
   fundraise: { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB", dot: "#3D5BF3" },
-  "sale process": { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4", dot: "#E0A32E" },
+  // Rose: scoops should feel livelier than the old mustard, and it doesn't clash with
+  // the other News sub-types (blue, green, teal, purple, grey) or the process-stage tones.
+  "sale process": { text: "#B0235F", fill: "#FDECF3", border: "#F6C8DA", dot: "#E23B7B" },
   "deal close": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", dot: "#17A05C" },
   "carve-out": { text: "#0A5E75", fill: "#E1F3F8", border: "#BCE2EC", dot: "#1898B8" },
   ipo: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", dot: "#7A5BD0" },
@@ -256,9 +256,8 @@ export const TRANSACTION_SIGNAL_TONES: Record<string, TagTone> = {
 
 /** User-facing copy for Deal Radar transaction-signal tooltips (tags.txt §8). */
 export const TRANSACTION_SIGNAL_DESCRIPTIONS: Record<string, string> = {
-  // "long hold": placeholder wording taken from the ticket rule; replace once Piero approves copy.
   "long hold":
-    "Currently owned by a PE fund for more than six years, so a sale is anticipated.",
+    "An observation only — no active transaction signal. Indicates where the call came from, not where the deal is in its process.",
   "asymmetrix assessment":
     "Asymmetrix's own view on the anticipated transaction — house assessment, not sourced externally.",
   "proprietary intel":
@@ -324,12 +323,12 @@ export function pillStyleFromTone(
   };
 }
 
-/** Dotted status pill (Transaction status, News subtypes) — no visible border. */
+/** Status pill (Transaction status, News subtypes) — no dot, no visible border. */
 export function dotPillStyleFromTone(tone: TagTone, bordered = false): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
     fontSize: 11.5,
     lineHeight: 1,
     padding: "5px 10px",

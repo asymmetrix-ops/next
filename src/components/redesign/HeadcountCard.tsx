@@ -215,7 +215,6 @@ export function HeadcountCard({
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH
         right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        showArrow
         leftSlot={linkedinIcon}
       >
         LinkedIn employee count
@@ -409,7 +408,13 @@ export function HeadcountCard({
                   position: "absolute",
                   left: `${(cx(hoveredIndex) / W) * 100}%`,
                   top: `${(cy(seriesPoints[hoveredIndex]!.value) / H) * 100}%`,
-                  transform: "translate(-50%, calc(-100% - 10px))",
+                  transform: `translate(${
+                    cx(hoveredIndex) / W > 0.65
+                      ? "calc(-100% + 12px)"
+                      : cx(hoveredIndex) / W < 0.35
+                        ? "-12px"
+                        : "-50%"
+                  }, calc(-100% - 10px))`,
                   backgroundColor: "#ffffff",
                   border: "1px solid #ccc",
                   borderRadius: 4,

@@ -3,7 +3,6 @@
  * ProductDataToggleCard — matches redesign/ProductDataToggle.jsx (tabs + bars / weight rows).
  */
 import React from "react";
-import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import {
   LinkPanel,
   LinkedH,
@@ -128,7 +127,7 @@ function DataCollectionBody({ dataRows }: { dataRows: DataMixRow[] }) {
             fontFamily: T.sans,
           }}
         >
-          {EMPTY_DISPLAY}
+          No data available
         </div>
       ) : null}
       {dataRows.map((d, i) => (

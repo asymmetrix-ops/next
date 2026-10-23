@@ -441,6 +441,32 @@ export function extractSellerLinks(event: CorporateEvent): EntityLink[] {
   return sellers;
 }
 
+export type AdvisorLinkSource = {
+  id?: number;
+  advisor_company?: { id?: number; name?: string };
+  advisor_company_id?: number;
+  _new_company?: { id?: number; name?: string };
+};
+
+export function resolveAdvisorRouteId(
+  advisor: AdvisorLinkSource
+): number | undefined {
+  const id =
+    advisor.id ??
+    advisor.advisor_company?.id ??
+    advisor.advisor_company_id ??
+    advisor._new_company?.id;
+  return typeof id === "number" && Number.isFinite(id) ? id : undefined;
+}
+
+export function resolveAdvisorDisplayName(advisor: AdvisorLinkSource): string {
+  return (
+    advisor.advisor_company?.name ||
+    advisor._new_company?.name ||
+    ""
+  ).trim();
+}
+
 export function extractAdvisorLinks(event: CorporateEvent): EntityLink[] {
   const e = event as LooseEvent;
   const advisors: EntityLink[] = [];

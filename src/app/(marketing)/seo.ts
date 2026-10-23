@@ -1,0 +1,50 @@
+import type { Metadata } from "next";
+import { DEFAULT_OG_IMAGE, SITE_URL } from "@/lib/articleSeo";
+
+/**
+ * Shared metadata for the marketing site (home, about, contact, press
+ * releases, privacy policy). Promoted from the /landing-test-version1
+ * A/B variant to the permanent top-level routes — indexable.
+ */
+export function buildLandingMetadata({
+  path,
+  title,
+  description,
+  ogImage = DEFAULT_OG_IMAGE,
+}: {
+  path: string;
+  title: string;
+  description: string;
+  ogImage?: string;
+}): Metadata {
+  const url = `${SITE_URL}${path}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "Asymmetrix",
+      images: [
+        { url: ogImage, width: 1200, height: 630, alt: title, type: "image/jpeg" },
+      ],
+      locale: "en_US",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}

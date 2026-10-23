@@ -35,6 +35,8 @@ const partyValueStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 400,
   lineHeight: 1.4,
+  overflowWrap: "break-word",
+  wordBreak: "break-word",
 };
 
 const entityLinkStyle: React.CSSProperties = {
@@ -50,11 +52,21 @@ const metaStyle: React.CSSProperties = {
   lineHeight: 1.45,
 };
 
-function PartyLinks({ links }: { links: PartyLink[] }) {
+function PartyLinks({
+  links,
+  maxVisible,
+}: {
+  links: PartyLink[];
+  maxVisible?: number;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
   if (links.length === 0) return <>Not Available</>;
+  const showAll = expanded || !maxVisible;
+  const visible = showAll ? links : links.slice(0, maxVisible);
+  const extra = !showAll ? Math.max(0, links.length - maxVisible!) : 0;
   return (
     <>
-      {links.map((item, idx) => (
+      {visible.map((item, idx) => (
         <span key={`${item.name}-${item.id ?? idx}`}>
           {item.href ? (
             <a href={item.href} style={entityLinkStyle}>
@@ -63,9 +75,47 @@ function PartyLinks({ links }: { links: PartyLink[] }) {
           ) : (
             <span>{item.name}</span>
           )}
-          {idx < links.length - 1 ? ", " : ""}
+          {idx < visible.length - 1 ? ", " : ""}
         </span>
       ))}
+      {extra > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          style={{
+            marginLeft: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: PARTY_LINK_COLOR,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          +{extra}
+        </button>
+      ) : null}
+      {showAll && maxVisible && links.length > maxVisible ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          style={{
+            marginLeft: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: PARTY_LABEL_COLOR,
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Show less
+        </button>
+      ) : null}
     </>
   );
 }
@@ -74,6 +124,7 @@ function formatPartyLabel(label: string): string {
   return label.replace(/:$/, "").trim().toUpperCase();
 }
 
+/** Label + value on the same line (e.g. "TARGET  BioCatch"). */
 function PartyBlock({
   label,
   children,
@@ -86,13 +137,21 @@ function PartyBlock({
   return (
     <div
       style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "baseline",
+        gap: 6,
         marginBottom: 8,
+        justifyContent: align === "center" ? "center" : "flex-start",
         textAlign: align,
         width: align === "center" ? "100%" : undefined,
+        minWidth: 0,
       }}
     >
-      <div style={partyLabelStyle}>{formatPartyLabel(label)}</div>
-      <div style={partyValueStyle}>{children}</div>
+      <div style={{ ...partyLabelStyle, marginBottom: 0, flexShrink: 0 }}>
+        {formatPartyLabel(label)}
+      </div>
+      <div style={{ ...partyValueStyle, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -101,15 +160,17 @@ function PartyRow({
   label,
   links,
   align = "left",
+  maxVisible,
 }: {
   label: string;
   links: PartyLink[];
   align?: "left" | "center";
+  maxVisible?: number;
 }) {
   if (links.length === 0) return null;
   return (
     <PartyBlock label={label} align={align}>
-      <PartyLinks links={links} />
+      <PartyLinks links={links} maxVisible={maxVisible} />
     </PartyBlock>
   );
 }
@@ -670,6 +731,7 @@ export function CorporateEventPartiesColumn({
             label="Seller(s)"
             links={collectSellers(event)}
             align={align}
+            maxVisible={3}
           />
         </>
       )}

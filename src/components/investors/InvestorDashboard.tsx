@@ -24,7 +24,6 @@ import {
   type InvestorsTypeCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type InvestorTypeOption,
@@ -120,21 +119,11 @@ export const InvestorDashboard = ({
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
   const provinces = NO_PROVINCES;
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
 
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -162,13 +151,6 @@ export const InvestorDashboard = ({
       )
       .catch(console.error);
   }, []);
-
-  useEffect(() => {
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
@@ -208,7 +190,7 @@ export const InvestorDashboard = ({
         subRegions,
         countries,
         provinces,
-        cities,
+        cities: [],
         primarySectors,
         secondarySectors,
         investorTypes,
@@ -220,7 +202,6 @@ export const InvestorDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
       primarySectors,
       secondarySectors,
       investorTypes,

@@ -89,8 +89,8 @@ function InfoRow({
   }
 
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 last:border-0">
-      <span className="w-[150px] shrink-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 px-5 py-3.5 border-b border-gray-100 last:border-0">
+      <span className="sm:w-[150px] sm:shrink-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
         {label}
       </span>
       <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 break-words">
@@ -100,7 +100,7 @@ function InfoRow({
       {editable && (
         <button
           type="button"
-          className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          className="self-start sm:self-auto shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
           onClick={() => setEditing(true)}
         >
           Edit

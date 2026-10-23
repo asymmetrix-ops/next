@@ -31,6 +31,10 @@ type FinancialMetricsPayload = {
   Subscription_revenue_source_label?: string | null;
   Subscription_revenue_source?: number | string | null;
   Subscription_revenue_currency_display?: string | null;
+  ARR_pc?: number | string | null;
+  ARR_m?: number | null;
+  ARR_source_label?: string | null;
+  ARR_source?: number | string | null;
   Churn_pc?: number | null;
   Churn_source_label?: string | null;
   Churn_Source?: number | string | null;
@@ -249,6 +253,7 @@ export function buildFinancialMetricsSections({
   const ebitdaCell = moneyMillions("EBITDA_m", ebitdaPlain);
   const evCell = moneyMillions("EV");
   const subscriptionRevenueCell = moneyMillions("Subscription_revenue_m");
+  const arrCell = moneyMillions("ARR_m");
   const ebitCell = moneyMillions("EBIT_m");
   const revPerClientCell = moneyWhole("Rev_per_client");
   const revPerEmployeeCell = moneyWhole("Revenue_per_employee");
@@ -321,6 +326,11 @@ export function buildFinancialMetricsSections({
         fm?.Subscription_revenue_source_label,
         fm?.Subscription_revenue_source
       )
+    ),
+    row(
+      "ARR (m):",
+      arrCell.value,
+      src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
       "Churn:",

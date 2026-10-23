@@ -8,9 +8,17 @@ const PDF_RENDER_SCALE = 1.5;
 type EmbeddedArticlePdfProps = {
   url: string;
   title?: string;
+  /** When set, shows a "Download PDF" button overlaid inside the viewer. */
+  downloadHref?: string;
+  downloadName?: string;
 };
 
-export function EmbeddedArticlePdf({ url, title }: EmbeddedArticlePdfProps) {
+export function EmbeddedArticlePdf({
+  url,
+  title,
+  downloadHref,
+  downloadName,
+}: EmbeddedArticlePdfProps) {
   const pagesRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<HTMLDivElement[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -36,11 +44,22 @@ export function EmbeddedArticlePdf({ url, title }: EmbeddedArticlePdfProps) {
 
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+        // Self-hosted, same-origin worker (copied to /public by
+        // scripts/copy-pdf-worker.js) instead of pulling it from a CDN —
+        // avoids an unnecessary cross-origin blob-URL wrapper.
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+        // Route the actual document fetch through our own origin instead of
+        // hitting the Xano vault / GCS URL directly from the browser. pdf.js
+        // issues cross-origin Range-request fetches, and the vault URL
+        // 302-redirects to storage.googleapis.com — WebKit reports that
+        // redirected request's Origin as "null" in Safari, which GCS's CORS
+        // config rejects. Proxying server-side makes it a same-origin
+        // request and sidesteps the issue entirely.
         const token = localStorage.getItem("asymmetrix_auth_token");
+        const proxiedUrl = `/api/article/pdf-proxy?url=${encodeURIComponent(url)}`;
         const loadingTask = pdfjs.getDocument({
-          url,
+          url: proxiedUrl,
           httpHeaders: token
             ? { Authorization: `Bearer ${token}` }
             : undefined,
@@ -156,6 +175,32 @@ export function EmbeddedArticlePdf({ url, title }: EmbeddedArticlePdfProps) {
       ) : null}
 
       <div className="article-pdf-embed-viewport">
+        {downloadHref ? (
+          <a
+            href={downloadHref}
+            download={downloadName || true}
+            className="article-pdf-embed-download"
+            aria-label="Download PDF"
+            title="Download PDF"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            Download PDF
+          </a>
+        ) : null}
         <div ref={pagesRef} className="article-pdf-embed-pages" />
 
         {status === "ready" && pageCount > 1 ? (

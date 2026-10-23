@@ -8,11 +8,13 @@ import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import { decodeHtmlEntities, formatArticleDate } from "@/lib/contentArticleDisplay";
 import { fetchIaContentType, type NewsArticle, type NewsRef } from "@/lib/news";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   dotPillStyleFromTone,
+  formatTransactionStatusLabel,
   getInsightsTypeTone,
   getNewsSubtypeTone,
-  getProcessStageTone,
+  getTransactionStatusTone,
   researchPillStyleFromTone,
 } from "@/lib/tagColors";
 
@@ -84,31 +86,17 @@ function useIaType(id: number, provided?: string) {
 }
 
 /**
- * Link to the related I&A piece: the bulb in the piece type's color, labelled
- * "Read our <type>" (e.g. Company Analysis is green). Top Stories cards have
- * room, so they also show the piece's headline.
+ * Link to the related I&A piece: a distinct, clearly clickable pill (bulb +
+ * label naming the piece's type, e.g. "Read our Company Analysis"), tinted to
+ * match so it reads as a separate action from the article link underneath it.
+ * Same look everywhere it appears (Top Stories, Recent News, and the
+ * daily/weekly email templates).
  */
-function IaLink({ ia, expanded }: { ia: NonNullable<NewsArticle["related_ia"]>; expanded: boolean }) {
+function IaLink({ ia }: { ia: NonNullable<NewsArticle["related_ia"]> }) {
   const type = useIaType(ia.id, ia.contentType);
   const tone = type ? getInsightsTypeTone(type) : NEUTRAL_TONE;
   const label = type ? `Read our ${type}` : "Read our analysis";
   const headline = ia.headline ? decodeHtmlEntities(ia.headline) : "";
-
-  if (expanded) {
-    return (
-      <Link
-        href={`/article/${ia.id}`}
-        className="nw-ia-panel"
-        style={{ background: tone.fill, borderColor: tone.border }}
-      >
-        <LightBulbIcon aria-hidden="true" style={{ color: tone.text }} />
-        <span className="nw-ia-panel-text">
-          <span className="nw-ia-panel-label" style={{ color: tone.text }}>{label}</span>
-          {headline && <span className="nw-ia-panel-headline">{headline}</span>}
-        </span>
-      </Link>
-    );
-  }
 
   return (
     <Link
@@ -123,20 +111,56 @@ function IaLink({ ia, expanded }: { ia: NonNullable<NewsArticle["related_ia"]>; 
   );
 }
 
-/** Company-of-focus tags: Deal Radar process stage and primary sector(s). */
-function FocusTags({ tags }: { tags: NonNullable<NewsArticle["focus_tags"]> }) {
-  const [firstSector, ...otherSectors] = tags.primarySectors;
-  if (!tags.processStage && !firstSector) return null;
+/** Max primary sectors shown before collapsing the rest into a "+n" tag — kept low so the row never wraps to a 2nd line. */
+const SECTOR_TAG_CAP = 2;
+
+/**
+ * Primary sectors of the company of focus: up to 2, on their own single row
+ * below the company/status line. Extra sectors collapse into a "+n" button —
+ * same click-to-expand pattern as the Parties column on Corporate Events
+ * (`PartyLinks`): click it to reveal the rest inline, click "Show less" to
+ * collapse again.
+ */
+function SectorTags({ sectors }: { sectors: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (sectors.length === 0) return null;
+  const overflowCount = Math.max(0, sectors.length - SECTOR_TAG_CAP);
+  const visibleSectors = expanded ? sectors : sectors.slice(0, SECTOR_TAG_CAP);
   return (
     <div className="nw-tags">
-      {tags.processStage && (
-        <span style={researchPillStyleFromTone(getProcessStageTone(tags.processStage))}>{tags.processStage}</span>
-      )}
-      {firstSector && (
-        <span className="nw-sector" title={tags.primarySectors.join(", ")}>
-          {firstSector}
-          {otherSectors.length > 0 && <span className="nw-sector-more">+{otherSectors.length}</span>}
+      {visibleSectors.map((sector) => (
+        <span className="nw-sector" key={sector}>
+          {sector}
         </span>
+      ))}
+      {overflowCount > 0 && !expanded && (
+        <button
+          type="button"
+          className="nw-sector-more"
+          aria-expanded={false}
+          aria-label={`Show ${overflowCount} more sectors`}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded(true);
+          }}
+        >
+          +{overflowCount}
+        </button>
+      )}
+      {expanded && overflowCount > 0 && (
+        <button
+          type="button"
+          className="nw-sector-less"
+          aria-expanded={true}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded(false);
+          }}
+        >
+          Show less
+        </button>
       )}
     </div>
   );
@@ -146,12 +170,11 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
   const headline = decodeHtmlEntities(article.Headline || "") || "-";
   const strap = decodeHtmlEntities(article.Strapline || "");
   const focus = article.companies_of_focus?.[0];
-  const iso2 = focus ? getInsightHqCountryIso2(article) : null;
+  const iso2 = getInsightHqCountryIso2(article);
   const subType = (article.News_Sub_Type || article.news_sub_type || "").trim();
   const subTone = subType ? getNewsSubtypeTone(subType) : null;
   const ia = article.related_ia;
   const hasSeries = !!seriesLinks && seriesLinks.length > 0;
-  const iaInFooter = !!ia && variant !== "top";
 
   return (
     <article
@@ -163,13 +186,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           {relation === "follow-up" && <span className="nw-badge nw-badge-link">Follow-up</span>}
           {relation === "previously" && <span className="nw-badge nw-badge-prev">Previously</span>}
           {subTone ? (
-            <span style={dotPillStyleFromTone(subTone)}>
-              <span
-                aria-hidden="true"
-                style={{ width: 6, height: 6, borderRadius: 999, background: subTone.dot, flexShrink: 0 }}
-              />
-              {subType}
-            </span>
+            <span style={dotPillStyleFromTone(subTone)}>{subType}</span>
           ) : (
             <span className="nw-badge">News</span>
           )}
@@ -177,26 +194,56 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
         </div>
 
         <h3 className="nw-card-title">
-          <Link href={`/article/${article.id}`}>{headline}</Link>
+          <Link href={`/article/${article.id}`} title={headline}>
+            {headline}
+          </Link>
         </h3>
 
-        {strap && <p className="nw-strap">{strap}</p>}
-
-        {focus && (
-          <span className="nw-company">
-            {focus.name}
-            {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
-          </span>
+        {strap ? (
+          <p className="nw-strap">{strap}</p>
+        ) : (
+          // Reserve the "about" rows even without a strapline, so cards line up across the row.
+          <p className="nw-strap" aria-hidden="true">
+            &nbsp;
+          </p>
         )}
 
-        {article.focus_tags && <FocusTags tags={article.focus_tags} />}
+        {focus ? (
+          <span className="nw-company">
+            <Link
+              href={`/company/${focus.id}`}
+              className="nw-company-link"
+              onClick={() => {
+                if (window.location.pathname.startsWith("/news")) {
+                  trackKeyAction({
+                    section: "news",
+                    action: "company_of_focus_clicked",
+                    actionDetail: "news_page",
+                    targetType: "company",
+                    targetId: focus.id,
+                  });
+                }
+              }}
+            >
+              {focus.name}
+            </Link>
+            {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}
+            {article.focus_tags?.transactionStatus && (
+              <span style={researchPillStyleFromTone(getTransactionStatusTone(article.focus_tags.transactionStatus))}>
+                {formatTransactionStatusLabel(article.focus_tags.transactionStatus)}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="nw-company" aria-hidden="true" />
+        )}
 
-        {ia && variant === "top" && <IaLink ia={ia} expanded />}
+        {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
 
-        {(iaInFooter || hasSeries) && (
+        {(ia || hasSeries) && (
           <div className="nw-card-foot">
             {hasSeries && <SeriesTag links={seriesLinks!} />}
-            {iaInFooter && <IaLink ia={ia!} expanded={false} />}
+            {ia && <IaLink ia={ia} />}
           </div>
         )}
       </div>

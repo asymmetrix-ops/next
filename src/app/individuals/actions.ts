@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import type { Individual } from "@/types/individuals";
 import {
   createDefaultIndividualFilters,
-  individualsCountsFiltersToSearchParams,
+  individualsCountsFiltersToRequestBody,
   individualsFiltersToRequestBody,
   type IndividualsSearchFilters,
 } from "@/lib/individualsFilterPayload";
@@ -21,7 +21,6 @@ export interface IndividualsListResponse {
   perPage: number;
   pageTotal: number;
   itemsTotal: number;
-  advisorsTabCount?: number;
 }
 
 type IndividualsApiListResponse = {
@@ -34,7 +33,6 @@ type IndividualsApiListResponse = {
   totalIndividuals?: number;
   totalPages?: number;
   nextOffset?: number | null;
-  advisorsTabCount?: number;
 };
 
 function mapIndividualsListResponse(
@@ -65,11 +63,6 @@ function mapIndividualsListResponse(
       ? Number(data.nextOffset) > 0
       : curPage < pageTotal;
 
-  const advisorsTabCount =
-    typeof data.advisorsTabCount === "number" && Number.isFinite(data.advisorsTabCount)
-      ? data.advisorsTabCount
-      : undefined;
-
   return {
     items,
     curPage,
@@ -78,7 +71,6 @@ function mapIndividualsListResponse(
     perPage,
     pageTotal,
     itemsTotal,
-    advisorsTabCount,
   };
 }
 
@@ -145,14 +137,15 @@ export async function fetchIndividualsCountsServer(
     const token = await resolveAuthToken(authToken);
     if (!token) return null;
 
-    const params = individualsCountsFiltersToSearchParams(filters);
-    const url = `${INDIVIDUALS_API_BASE}/get_individuals_counts?${params.toString()}`;
+    const url = `${INDIVIDUALS_API_BASE}/get_individuals_counts`;
 
     const response = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify(individualsCountsFiltersToRequestBody(filters)),
       cache: "no-store",
     });
 

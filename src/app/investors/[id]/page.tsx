@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { Suspense } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { FollowButton } from "@/components/FollowButton";
@@ -12,7 +13,9 @@ import {
 } from "@heroicons/react/24/outline";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
+import { mixBarColorFor } from "@/components/investors/investorSectorColors";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { InvestorOverviewCard } from "@/components/investors/InvestorOverviewCard";
@@ -23,12 +26,21 @@ import {
 import {
   InvestorFocusMixCard,
   type InvestorMixRow,
+  type InvestorMixTab,
 } from "@/components/investors/InvestorFocusMixCard";
-import { mixBarColorFor } from "@/components/investors/investorSectorColors";
 import { InvestorPeopleCard, type InvestorTeamMember } from "@/components/investors/InvestorPeopleCard";
 import { InvestorPortfolioTab } from "@/components/investors/InvestorPortfolioTab";
-import { fetchInvestorHoldingPeriodAverageServer } from "@/app/investors/[id]/holdingPeriodActions";
-import type { InvestorHoldingPeriodAverageResponse } from "@/lib/holdingPeriod";
+import { CorporateEventsPageContent } from "@/components/corporate-events/CorporateEventsPageContent";
+import {
+  fetchAllInvestorHoldingPeriodsServer,
+  fetchInvestorHoldingPeriodAverageServer,
+} from "@/app/investors/[id]/holdingPeriodActions";
+import {
+  computeActiveHoldingPeriodAverage,
+  normalizeHoldingPeriodDisplay,
+  type InvestorHoldingPeriodAverageResponse,
+} from "@/lib/holdingPeriod";
+import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import {
   EntityLogoTile,
@@ -38,9 +50,10 @@ import {
 } from "@/components/profile/EntityProfileHeader";
 import { readEntityLogo } from "@/lib/companyLogo";
 
-// Only Summary + Portfolio are ready; the remaining sub-section tabs
-// (Strategy, People, Deals, Market) stay hidden until their content ships.
-const INVESTOR_PROFILE_TABS = ["Summary", "Portfolio"] as const;
+// Only Summary + Portfolio + Corporate Events are ready; the remaining
+// sub-section tabs (Strategy, People, Deals, Market) stay hidden until
+// their content ships.
+const INVESTOR_PROFILE_TABS = ["Summary", "Portfolio", "Corporate Events"] as const;
 
 // Types for API integration
 interface InvestorLocation {
@@ -72,23 +85,47 @@ interface Investor {
   description: string;
   url: string;
   street_address: string;
+  /** FK into a lookup table, NOT a literal year — resolve via the top-level `Years_founded`. */
   year_founded: number;
-  _years: InvestorYears;
-  _locations: InvestorLocation;
-  _linkedin_data_of_new_company: LinkedInData;
+  _years?: InvestorYears;
+  _locations?: InvestorLocation;
+  _linkedin_data_of_new_company?: LinkedInData;
 }
 
 interface FocusSector {
   id: number;
   sector_name: string;
+  sector_importance?: string;
+}
+
+/** Top-level, API-resolved location (replaces `Investor._locations`). */
+interface ResolvedLocation {
+  id: number | null;
+  City: string | null;
+  State__Province__County: string | null;
+  Country: string | null;
+}
+
+/** Top-level, API-resolved founding year (replaces `Investor.year_founded`, which is an FK id). */
+interface ResolvedYearsFounded {
+  id: number | null;
+  Year: string | null;
 }
 
 interface TeamMember {
-  Individual_text: string;
-  job_titles_id: Array<{ job_title: string }>;
+  /** @deprecated Older API shape; current API returns `advisor_individuals` instead. */
+  Individual_text?: string;
+  /** Current API's name field for a team member. */
+  advisor_individuals?: string | null;
+  job_titles_id?: Array<{ job_title: string }>;
   job_titles?: unknown;
-  current_employer_url: string;
+  current_employer_url?: string;
   individuals_id?: number;
+  individual_id?: number | null;
+}
+
+function teamMemberName(member: TeamMember): string {
+  return member.advisor_individuals?.trim() || member.Individual_text?.trim() || "";
 }
 
 interface PortfolioCompany {
@@ -98,6 +135,7 @@ interface PortfolioCompany {
   sectors_id: Array<{
     sector_name: string;
     Sector_importance: string;
+    sector_id?: number;
   }>;
   description: string;
   year_exited?: number | string | null;
@@ -110,8 +148,6 @@ interface PortfolioCompany {
     Country: string;
   };
   _is_that_investor: boolean;
-  /** False => not a D&A company (no profile). */
-  _is_that_data_analytic_company?: boolean;
   _linkedin_data_of_new_company: {
     linkedin_employee: number;
     linkedin_logo: string;
@@ -121,17 +157,6 @@ interface PortfolioCompany {
     name: string;
     job_titles?: string[];
   }>;
-}
-
-interface PortfolioResponse {
-  items: PortfolioCompany[];
-  itemsReceived: number;
-  curPage: number;
-  nextPage: number | null;
-  prevPage: number | null;
-  offset: number;
-  perPage: number;
-  pageTotal: number;
 }
 
 interface CorporateEvent {
@@ -244,11 +269,37 @@ interface CorporateEventsResponse {
 
 interface InvestorData {
   Investor: Investor;
+  Location?: ResolvedLocation;
+  LinkedIn_Data?: LinkedInData;
+  Years_founded?: ResolvedYearsFounded;
+  /** Primary sector only (usually a broad bucket such as "Financial"). */
   Focus: FocusSector[];
+  /** Direct secondary sector tags (e.g. "Private Equity", "Venture Capital"). */
+  Secondary?: FocusSector[];
+  /** All direct sector tags, any importance. Preferred when the API returns it. */
+  Sectors?: FocusSector[];
   Invested_DA_sectors: FocusSector[];
   Investment_Team_Roles_current: TeamMember[];
   Investment_Team_Roles_past: TeamMember[];
 }
+
+// Mix-card tab → Portfolio table column that should lead after Name.
+const MIX_TAB_FOCUS_COLUMN: Record<InvestorMixTab, string> = {
+  sector: "primary_sectors",
+  stage: "lifecycle_stage",
+  geography: "hq",
+};
+
+// URL state: ?view=portfolio|corporate-events, &tab=current|past, &column=sector|stage|geography
+const PROFILE_TAB_TO_VIEW: Record<string, string | null> = {
+  Summary: null,
+  Portfolio: "portfolio",
+  "Corporate Events": "corporate-events",
+};
+const VIEW_TO_PROFILE_TAB: Record<string, string> = {
+  portfolio: "Portfolio",
+  "corporate-events": "Corporate Events",
+};
 
 const PDF_SERVICE_BASE_URL = "https://asymmetrix-pdf-service.fly.dev";
 
@@ -442,6 +493,42 @@ function mapPortfolioMixRows(rows: PortfolioMixApiRow[] | undefined): InvestorMi
     });
 }
 
+// Some API fields named "Year"/"year_founded" occasionally carry non-year
+// junk (e.g. an unrelated small integer). Only accept plausible years so we
+// never render garbage like "40" as a founding year.
+function extractValidYear(candidate: unknown): number | null {
+  const currentYear = new Date().getFullYear();
+  if (typeof candidate === "number") {
+    return candidate >= 1800 && candidate <= currentYear ? candidate : null;
+  }
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    const num = parseInt(trimmed, 10);
+    if (!Number.isNaN(num) && num >= 1800 && num <= currentYear) return num;
+    const match = trimmed.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+    if (match) {
+      const mNum = parseInt(match[0], 10);
+      if (mNum >= 1800 && mNum <= currentYear) return mNum;
+    }
+  }
+  return null;
+}
+
+// `Investor.year_founded` is a foreign key row id (not a literal year), so it
+// is deliberately NOT used as a candidate here — only the API-resolved
+// `Years_founded.Year` (and the legacy `Investor._years.Year` shape, kept for
+// backward compatibility) are ever plausible years.
+function getYearFoundedDisplay(
+  investor: Investor,
+  resolvedYearsFounded?: ResolvedYearsFounded
+): number | null {
+  return (
+    extractValidYear(resolvedYearsFounded?.Year) ??
+    extractValidYear(investor._years?.Year) ??
+    null
+  );
+}
+
 function extractOptionalString(raw: unknown, keys: string[]): string | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -461,7 +548,41 @@ const InvestorDetailPage = () => {
   const investorId = params.id as string;
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState<string>("Summary");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeProfileTab =
+    VIEW_TO_PROFILE_TAB[searchParams.get("view") ?? ""] ?? "Summary";
+  const portfolioListStatus: "current" | "past" =
+    searchParams.get("tab") === "past" ? "past" : "current";
+  const columnParam = searchParams.get("column");
+  const portfolioFocusColumn =
+    columnParam && columnParam in MIX_TAB_FOCUS_COLUMN
+      ? MIX_TAB_FOCUS_COLUMN[columnParam as InvestorMixTab]
+      : null;
+  const navigateProfile = useCallback(
+    (tabName: string, opts?: { listTab?: "current" | "past"; column?: InvestorMixTab }) => {
+      const qs = new URLSearchParams();
+      const view = PROFILE_TAB_TO_VIEW[tabName];
+      if (view) qs.set("view", view);
+      if (view === "portfolio") {
+        if (opts?.listTab === "past") qs.set("tab", "past");
+        if (opts?.column) qs.set("column", opts.column);
+      }
+      const query = qs.toString();
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [router, pathname]
+  );
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const focusMixGridRef = useRef<HTMLDivElement>(null);
+  const descriptionGridRef = useRef<HTMLDivElement>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef, focusMixGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [investorId]
+  );
 
   const [investorData, setInvestorData] = useState<InvestorData | null>(null);
   const [portfolioCompanies, setPortfolioCompanies] = useState<
@@ -504,17 +625,22 @@ const InvestorDetailPage = () => {
   useEffect(() => {
     let cancelled = false;
     if (!investorId) return;
-    void fetchInvestorHoldingPeriodAverageServer(investorId).then((data) => {
-      if (!cancelled) setAvgHoldingPeriod(data);
-    });
+    void (async () => {
+      const data = await fetchInvestorHoldingPeriodAverageServer(investorId);
+      if (cancelled) return;
+      if (normalizeHoldingPeriodDisplay(data?.display)) {
+        setAvgHoldingPeriod(data);
+        return;
+      }
+      // Average endpoint is exit-based and empty for many investors; derive from active holdings.
+      const rows = await fetchAllInvestorHoldingPeriodsServer(investorId);
+      if (cancelled) return;
+      setAvgHoldingPeriod(computeActiveHoldingPeriodAverage(rows) ?? data);
+    })();
     return () => {
       cancelled = true;
     };
   }, [investorId]);
-  const [resolvedIndividualIds, setResolvedIndividualIds] = useState<
-    Map<string, number>
-  >(new Map());
-
   const [error, setError] = useState<string | null>(null);
 
   // Fetch investor data
@@ -612,7 +738,11 @@ const InvestorDetailPage = () => {
   const mapPortfolioItem = useCallback((item: unknown): PortfolioCompany => {
     const obj = asRecord(item);
     const sectors = safeParseJSON<
-      Array<{ sector_name: string; Sector_importance: string }>
+      Array<{
+        sector_name: string;
+        Sector_importance: string;
+        sector_id?: number;
+      }>
     >(obj["sectors_id"], []);
 
     const locations = safeParseJSON<{ Country?: string }>(
@@ -689,10 +819,6 @@ const InvestorDetailPage = () => {
       _is_that_investor: Boolean(
         (obj["_is_that_investor"] as boolean) ?? false
       ),
-      _is_that_data_analytic_company:
-        typeof obj["_is_that_data_analytic_company"] === "boolean"
-          ? (obj["_is_that_data_analytic_company"] as boolean)
-          : undefined,
       _linkedin_data_of_new_company: {
         linkedin_employee: Number(linkedinDataNew?.linkedin_employee ?? 0),
         linkedin_logo: String(linkedinDataNew?.linkedin_logo ?? ""),
@@ -731,39 +857,13 @@ const InvestorDetailPage = () => {
         }
 
         const raw = await response.json();
-
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPortfolioCompanies(items);
-          setPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          const data = raw as PortfolioResponse;
-          setPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "current_portfolio"
+        );
+        setPortfolioCompanies(items.map(mapPortfolioItem));
+        setPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching portfolio companies:", err);
         // Don't set main error state for portfolio loading failure
@@ -805,39 +905,13 @@ const InvestorDetailPage = () => {
         }
 
         const raw = await response.json();
-
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPastPortfolioCompanies(items);
-          setPastPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          const data = raw as PortfolioResponse;
-          setPastPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPastPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "past_portfolio"
+        );
+        setPastPortfolioCompanies(items.map(mapPortfolioItem));
+        setPastPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching past portfolio companies:", err);
         // Don't set main error state for portfolio loading failure
@@ -1030,10 +1104,24 @@ const InvestorDetailPage = () => {
   const fetchPortfolioMix = useCallback(async () => {
     setPortfolioMixLoading(true);
     try {
-      const data = await fetchInvestorPortfolioMix(investorId);
-      if (!data) {
-        throw new Error("Portfolio mix API request failed");
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      const response = await fetch(
+        `https://xdil-abvj-o7rq.e2.xano.io/api:y4OAXSVm:develop/investor_portfolio_mix/${encodeURIComponent(investorId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Portfolio mix API request failed: ${response.statusText}`);
       }
+
+      const data = (await response.json()) as PortfolioMixResponse;
       setPortfolioMix(data);
     } catch (err) {
       console.error("Error fetching investor portfolio mix:", err);
@@ -1078,69 +1166,6 @@ const InvestorDetailPage = () => {
       typeof window !== "undefined" ? window.location.href : ""
     }`
   )}`;
-
-  // Resolve individual id by name via API
-  const resolveIndividualIdByName = async (
-    individualName: string
-  ): Promise<number | null> => {
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const params = new URLSearchParams();
-      params.append("search_query", individualName);
-      params.append("Offset", "1");
-      params.append("Per_page", "10");
-      const response = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R:develop/get_all_individuals?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      if (!response.ok) return null;
-      const data = await response.json();
-      const normalizedName = individualName.trim().toLowerCase();
-      const match = data.Individuals_list?.items?.find(
-        (ind: { advisor_individuals: string; id: number }) =>
-          ind.advisor_individuals?.trim().toLowerCase() === normalizedName
-      );
-      return match?.id ?? null;
-    } catch (error) {
-      console.error("Error resolving individual by name:", error);
-      return null;
-    }
-  };
-
-  // Resolve all individual IDs when investor data loads
-  useEffect(() => {
-    const resolveAllIds = async () => {
-      if (!investorData) return;
-
-      const allNames = new Set<string>();
-      investorData.Investment_Team_Roles_current.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-      investorData.Investment_Team_Roles_past.forEach((member) => {
-        allNames.add(member.Individual_text);
-      });
-
-      const resolved = new Map<string, number>();
-      await Promise.all(
-        Array.from(allNames).map(async (name) => {
-          const id = await resolveIndividualIdByName(name);
-          if (id) {
-            resolved.set(name, id);
-          }
-        })
-      );
-
-      setResolvedIndividualIds(resolved);
-    };
-
-    resolveAllIds();
-  }, [investorData]);
 
   const handlePortfolioPageChange = (page: number) => {
     fetchPortfolioCompanies(page);
@@ -1251,8 +1276,8 @@ const InvestorDetailPage = () => {
     pastPortfolioCompanies,
     pastPortfolioPagination,
     portfolioCompanies,
-    portfolioMix,
     portfolioPagination,
+    portfolioMix,
   ]);
 
   if (loading) {
@@ -1316,15 +1341,21 @@ const InvestorDetailPage = () => {
 
   const {
     Investor,
+    Location,
+    LinkedIn_Data,
+    Years_founded,
     Focus,
+    Secondary,
+    Sectors,
     Investment_Team_Roles_current,
     Investment_Team_Roles_past,
   } = investorData;
 
   const investorRaw = Investor as Investor & Record<string, unknown>;
-  const investorType =
-    extractOptionalString(investorRaw, ["investor_type", "type"]) ||
-    extractOptionalString(investorData as unknown, ["investor_type"]);
+  // Prefer granular direct tags (PE, VC, focus areas) over the broad primary sector.
+  const sectorTags = [Sectors, Secondary, Focus].find(
+    (list) => Array.isArray(list) && list.some((f) => f?.sector_name)
+  ) ?? [];
   const investorOwnership =
     extractOptionalString(investorRaw, ["ownership", "ownership_type"]) ||
     (investorRaw._ownership_type && typeof investorRaw._ownership_type === "object"
@@ -1333,23 +1364,32 @@ const InvestorDetailPage = () => {
   const investorStatus =
     extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
-  const hq = `${Investor._locations?.City || ""}, ${
-    Investor._locations?.State__Province__County || ""
-  }, ${Investor._locations?.Country || ""}`
+  const resolvedLocation = Location ?? Investor._locations;
+  const hq = `${resolvedLocation?.City || ""}, ${
+    resolvedLocation?.State__Province__County || ""
+  }, ${resolvedLocation?.Country || ""}`
     .replace(/^,\s*/, "")
     .replace(/,\s*$/, "");
+
+  const resolvedLinkedinUrl =
+    LinkedIn_Data?.LinkedIn_URL ||
+    Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
+    undefined;
 
   const resolveTeamMemberIndividualId = (member: TeamMember): number | undefined => {
     if (typeof member.individuals_id === "number" && member.individuals_id > 0) {
       return member.individuals_id;
     }
-    return resolvedIndividualIds.get(member.Individual_text);
+    if (typeof member.individual_id === "number" && member.individual_id > 0) {
+      return member.individual_id;
+    }
+    return undefined;
   };
 
   const mapTeamMember = (member: TeamMember): InvestorTeamMember => {
     const roleTitle = formatJobTitlesFromId(member.job_titles_id, member.job_titles);
     return {
-      name: member.Individual_text,
+      name: teamMemberName(member),
       roleTitle: roleTitle || null,
       individualId: resolveTeamMemberIndividualId(member),
     };
@@ -1358,7 +1398,7 @@ const InvestorDetailPage = () => {
   const teamMembers: InvestorTeamMember[] = [
     ...Investment_Team_Roles_current.map(mapTeamMember),
     ...Investment_Team_Roles_past.map(mapTeamMember),
-  ];
+  ].filter((member) => member.name.trim().length > 0);
 
   const mapPortfolioCompany = (
     company: PortfolioCompany,
@@ -1366,14 +1406,17 @@ const InvestorDetailPage = () => {
   ): InvestorPortfolioCompany => ({
     id: company.id,
     name: company.name,
-    sectors: company.sectors_id.map((s) => s.sector_name).filter(Boolean),
+    sectors: company.sectors_id
+      .filter((s) => s.sector_name)
+      .map((s) => ({
+        name: s.sector_name,
+        id: s.sector_id,
+        importance: s.Sector_importance,
+      })),
     yearLabel: variant === "past" ? company.year_exited : company.year_invested,
     relatedIndividuals: company.related_to_investor_individuals,
     country: company._locations?.Country,
     logo: company._linkedin_data_of_new_company?.linkedin_logo,
-    nonDa:
-      company._is_that_data_analytic_company === false &&
-      !company._is_that_investor,
   });
 
   const currentPortfolioRows = portfolioCompanies.map((c) =>
@@ -1440,7 +1483,7 @@ const InvestorDetailPage = () => {
     .investor-grid-portfolio { grid-column: 1 / span 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .investor-grid-people { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .investor-grid-corporate-events { grid-column: 1 / span 2; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .investor-grid-headcount { grid-column: 3; grid-row: 3; display: flex; flex-direction: column; min-height: 0; align-self: start; height: fit-content; }
     .investor-grid-portfolio > *,
     .investor-grid-corporate-events > *,
     .investor-grid-people > *,
@@ -1472,15 +1515,6 @@ const InvestorDetailPage = () => {
       <EntityProfileHeader
         logo={<EntityLogoTile logos={[readEntityLogo(Investor)]} name={Investor.name} />}
         title={Investor.name}
-        subtitle={
-          investorType || hq ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {investorType && <span>{investorType}</span>}
-              {investorType && hq && <span aria-hidden>·</span>}
-              {hq && <span>{hq}</span>}
-            </span>
-          ) : undefined
-        }
         actions={
           <>
             {investorId && !Number.isNaN(Number(investorId)) && (
@@ -1515,34 +1549,31 @@ const InvestorDetailPage = () => {
             </a>
           </>
         }
-        tabs={INVESTOR_PROFILE_TABS as readonly string[]}
+        tabs={INVESTOR_PROFILE_TABS.map((tab) => ({ id: tab, label: tab }))}
         activeTab={activeProfileTab}
-        onTabChange={setActiveProfileTab}
+        onTabChange={(t) => navigateProfile(t)}
       />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="investor-detail-content" style={styles.maxWidth}>
           {activeProfileTab === "Summary" ? (
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="investor-grid-overview">
+            <div className="investor-grid-overview" ref={overviewGridRef}>
               <InvestorOverviewCard
                 fillGridCell
-                focusSectors={Focus.filter((f) => f?.sector_name).map((f) => ({
-                  name: f.sector_name,
-                  href: f.id ? `/sector/${f.id}` : undefined,
-                }))}
-                type={investorType}
-                yearFounded={Investor._years?.Year || Investor.year_founded || null}
+                focusSectors={sectorTags
+                  .filter((f) => f?.sector_name)
+                  .map((f) => ({
+                    name: f.sector_name,
+                    href: f.id ? `/sector/${f.id}` : undefined,
+                  }))}
+                yearFounded={getYearFoundedDisplay(Investor, Years_founded)}
                 website={Investor.url}
                 websiteLabel={
                   Investor.url?.trim() ? formatWebsiteDisplayLabel(Investor.url) : undefined
                 }
                 hq={hq || undefined}
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                linkedinUrl={linkedinUrl || resolvedLinkedinUrl}
                 ownership={investorOwnership}
                 status={investorStatus}
                 employees={currentHeadcount > 0 ? currentHeadcount : null}
@@ -1555,6 +1586,7 @@ const InvestorDetailPage = () => {
 
             <div
               className="investor-grid-description"
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -1562,6 +1594,7 @@ const InvestorDetailPage = () => {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -1573,13 +1606,16 @@ const InvestorDetailPage = () => {
               />
             </div>
 
-            <div className="investor-grid-focus-mix">
+            <div className="investor-grid-focus-mix" ref={focusMixGridRef}>
               <InvestorFocusMixCard
                 fillGridCell
                 loading={portfolioMixLoading}
                 sectorMix={sectorMix}
                 stageFocus={stageFocus}
                 geography={geographyMix}
+                onViewPortfolio={(mixTab) =>
+                  navigateProfile("Portfolio", { column: mixTab })
+                }
               />
             </div>
 
@@ -1606,12 +1642,15 @@ const InvestorDetailPage = () => {
                 }}
                 onCurrentPageChange={handlePortfolioPageChange}
                 onPastPageChange={handlePastPortfolioPageChange}
-                pageSize={4}
+                pageSize={5}
+                onViewAllClick={(listTab) =>
+                  navigateProfile("Portfolio", { listTab })
+                }
               />
             </div>
 
             <div className="investor-grid-people">
-              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={6} />
+              <InvestorPeopleCard fillGridCell members={teamMembers} maxVisible={5} />
             </div>
 
             <div className="investor-grid-corporate-events">
@@ -1635,13 +1674,13 @@ const InvestorDetailPage = () => {
                   loading={corporateEventsLoading}
                   primarySectors={corporateEventPrimarySectors}
                   maxInitialEvents={3}
+                  onBrowseAllClick={() => navigateProfile("Corporate Events")}
                 />
               </LinkPanel>
             </div>
 
             <div className="investor-grid-headcount">
               <HeadcountCard
-                fillGridCell
                 data={linkedInHistory.map((e) => e.employees_count)}
                 dates={linkedInHistory.map((e) => e.date)}
                 count={currentHeadcount}
@@ -1667,19 +1706,28 @@ const InvestorDetailPage = () => {
                     ? `${headcountHistoryMonths}-month history`
                     : undefined
                 }
-                linkedinUrl={
-                  linkedinUrl ||
-                  Investor._linkedin_data_of_new_company?.LinkedIn_URL ||
-                  undefined
-                }
+                linkedinUrl={linkedinUrl || resolvedLinkedinUrl}
               />
             </div>
           </div>
           ) : activeProfileTab === "Portfolio" ? (
             <InvestorPortfolioTab
+              key={`${portfolioListStatus}|${columnParam ?? ""}`}
+              initialStatus={portfolioListStatus}
               investorId={investorId}
               investorName={Investor.name}
+              focusColumnKey={portfolioFocusColumn}
               avgHoldingPeriodDisplay={avgHoldingPeriod?.display}
+              avgHoldingPeriodCoverage={avgHoldingPeriod?.coverage}
+            />
+          ) : activeProfileTab === "Corporate Events" ? (
+            <CorporateEventsPageContent
+              embedded
+              investorId={
+                investorId && !Number.isNaN(Number(investorId))
+                  ? Number(investorId)
+                  : undefined
+              }
             />
           ) : (
             <div
@@ -1705,7 +1753,11 @@ const InvestorDetailPage = () => {
 };
 
 const InvestorPage = () => {
-  return <InvestorDetailPage />;
+  return (
+    <Suspense fallback={null}>
+      <InvestorDetailPage />
+    </Suspense>
+  );
 };
 
 export default InvestorPage;

@@ -15,16 +15,9 @@ type Props = {
   content: string;
   children: React.ReactNode;
   maxWidth?: number;
-  /** Also toggle on tap/click (touch devices have no hover). */
-  tapToToggle?: boolean;
 };
 
-export function HoverTooltip({
-  content,
-  children,
-  maxWidth = 260,
-  tapToToggle = false,
-}: Props) {
+export function HoverTooltip({ content, children, maxWidth = 260 }: Props) {
   const tooltipId = useId();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
@@ -91,16 +84,6 @@ export function HoverTooltip({
     };
   }, [open, updatePosition]);
 
-  // Tap outside closes a tap-opened tooltip.
-  useEffect(() => {
-    if (!open || !tapToToggle) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!anchorRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, tapToToggle]);
-
   const show = open && content.trim().length > 0;
 
   return (
@@ -112,7 +95,6 @@ export function HoverTooltip({
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        onClick={tapToToggle ? () => setOpen((o) => !o) : undefined}
         aria-describedby={show ? tooltipId : undefined}
       >
         {children}

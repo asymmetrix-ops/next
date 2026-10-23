@@ -12,11 +12,11 @@ import {
   getIndividualLinkedInUrl,
 } from "../../../utils/individualHelpers";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import { type CorporateEvent as CorporateEventsTableEvent } from "@/components/corporate-events/CorporateEventsTable";
 import { IndividualOverviewCard } from "@/components/individuals/IndividualOverviewCard";
-import { IndividualDealsAdvisedPanel } from "@/components/individuals/IndividualDealsAdvisedPanel";
 import { IndividualRolesProfilePanel } from "@/components/individuals/IndividualRolesProfilePanel";
 import { IndividualRelatedProfilePanel } from "@/components/individuals/IndividualRelatedProfilePanel";
 import type { CorporateEvent as IndividualCorporateEvent } from "@/types/individual";
@@ -86,6 +86,14 @@ export default function IndividualProfilePage() {
   const individualId = parseInt(params.param as string);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const bioGridRef = useRef<HTMLDivElement>(null);
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef],
+    bioGridRef,
+    !isDescriptionExpanded,
+    [individualId]
+  );
 
   const { profileData, eventsData, individualName, loading, error } =
     useIndividualProfile({
@@ -307,7 +315,7 @@ export default function IndividualProfilePage() {
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="individual-detail-content" style={styles.maxWidth}>
           <div style={styles.responsiveGrid} className="responsiveGrid">
-            <div className="individual-grid-overview">
+            <div className="individual-grid-overview" ref={overviewGridRef}>
               <IndividualOverviewCard
                 fillGridCell
                 location={location}
@@ -317,6 +325,7 @@ export default function IndividualProfilePage() {
 
             <div
               className="individual-grid-bio"
+              ref={bioGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -324,6 +333,7 @@ export default function IndividualProfilePage() {
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard
@@ -341,7 +351,7 @@ export default function IndividualProfilePage() {
               </LinkPanel>
             </div>
 
-            <div className="individual-grid-events" id="corporate-events">
+            <div className="individual-grid-events">
               <LinkPanel fillGridCell className="individual-events-v3-card">
                 <CorporateEventsProfilePanel
                   tokens={{
@@ -372,9 +382,6 @@ export default function IndividualProfilePage() {
                 />
               </LinkPanel>
             </div>
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <IndividualDealsAdvisedPanel individualId={individualId} />
           </div>
         </div>
         <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />

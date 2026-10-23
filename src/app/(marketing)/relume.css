@@ -1,0 +1,4 @@
+@config "../../../tailwind.relume.config.js";
+
+@tailwind components;
+@tailwind utilities;

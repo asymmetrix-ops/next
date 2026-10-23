@@ -14,7 +14,6 @@ import {
   summarizeYesNoDualFilter,
   type YesNoDualFilterValue,
 } from "@/lib/yesNoDualFilter";
-import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
   formatFilterCurrencyValue,
@@ -24,6 +23,7 @@ import {
   localizeCurrencyFilterUnit,
   localizeCurrencyPresetLabel,
 } from "@/lib/filterCurrencyFormat";
+import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -88,9 +88,11 @@ function getLocationScopeFromFilters(filters: FilterItem[]): {
   countries: string[];
   provinces: string[];
 } {
+  const countryFilter = filters.find((f) => f.id === "country");
+  const stateFilter = filters.find((f) => f.id === "state");
   return {
-    countries: getFilterEnumValues(filters.find((f) => f.id === "country")?.value),
-    provinces: getFilterEnumValues(filters.find((f) => f.id === "state")?.value),
+    countries: getFilterEnumValues(countryFilter?.value),
+    provinces: getFilterEnumValues(stateFilter?.value),
   };
 }
 
@@ -564,6 +566,25 @@ interface PickerRowProps {
 
 function PickerRow({ def, onPick }: PickerRowProps) {
   const [hover, setHover] = useState(false);
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
+  const localizedUnit = def.unit
+    ? localizeCurrencyFilterUnit(def.unit, currencySymbol)
+    : "";
+  const hint =
+    def.editor === "enum"
+      ? `${def.options?.length ?? 0} options`
+      : def.editor === "range"
+        ? `range${localizedUnit ? ` (${localizedUnit})` : ""}`
+        : def.editor === "date_range"
+          ? "date range"
+          : def.editor === "segmented"
+            ? "choice"
+            : def.editor === "boolean"
+              ? "toggle"
+              : def.editor === "yes_no_dual"
+                ? "Yes / No"
+                : "";
   return (
     <li>
       <button
@@ -619,6 +640,9 @@ function PickerRow({ def, onPick }: PickerRowProps) {
               {def.fullLabel}
             </span>
           )}
+        </span>
+        <span style={{ fontSize: 10.5, color: "var(--fg-4)", flexShrink: 0 }}>
+          {hint}
         </span>
         <span
           style={{
@@ -721,13 +745,8 @@ function AddFilterPicker({
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The popover is visibility:hidden until positioned, so focus on the next
-  // frame once it is visible (an immediate focus() is ignored on hidden nodes).
   useEffect(() => {
-    if (activeDef) return;
-    inputRef.current?.focus();
-    const raf = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(raf);
+    if (!activeDef) inputRef.current?.focus();
   }, [activeDef]);
 
   const activeReservedValues = useMemo(() => {
@@ -928,10 +947,7 @@ function AddFilterPicker({
       </div>
 
       {/* List */}
-      <div
-        className="ax-filter-picker-list"
-        style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}
-      >
+      <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
         {categories.map((cat) => {
           const defs = byCat[cat.id];
           if (!defs || defs.length === 0) return null;
@@ -947,6 +963,12 @@ function AddFilterPicker({
               >
                 <span className="ax-eyebrow" style={{ fontSize: 10.5 }}>
                   {cat.name}
+                </span>
+                <span
+                  className="ax-numeric"
+                  style={{ fontSize: 10.5, color: "var(--fg-4)" }}
+                >
+                  {defs.length}
                 </span>
               </div>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -994,6 +1016,7 @@ function AddFilterPicker({
         <span>
           <kbd style={kbdStyle}>↑↓</kbd> navigate · <kbd style={kbdStyle}>↵</kbd> select
         </span>
+        <span style={{ color: "var(--fg-link)" }}>Same fields as columns</span>
       </div>
     </div>
   );
@@ -2229,15 +2252,16 @@ function FilterEditor({
   onClose,
   portfolioBooleanDescription,
 }: FilterEditorProps) {
-  if (def.id === "state") {
+  if (def.id === "city" || def.id === "state") {
     const { countries, provinces } = getLocationScopeFromFilters(filters);
+    const initial = getFilterEnumValues(value);
     return (
       <ListViewCityEnumEditor
         def={def}
         countries={countries}
         provinces={provinces}
-        kind="state"
-        value={getFilterEnumValues(value)}
+        kind={def.id === "state" ? "state" : "city"}
+        value={initial}
         reservedValues={reservedValues}
         onApply={(picked) => {
           onChange(picked);

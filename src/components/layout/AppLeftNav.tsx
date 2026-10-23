@@ -7,24 +7,28 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bars3Icon,
   HomeIcon,
-  ViewfinderCircleIcon,
-  NewspaperIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
+  Squares2X2Icon,
   UsersIcon,
   BriefcaseIcon,
   UserGroupIcon,
   CalendarDaysIcon,
   LightBulbIcon,
-  Squares2X2Icon,
+  BanknotesIcon,
   BookmarkIcon,
   Cog6ToothIcon,
+  SignalIcon,
+  NewspaperIcon,
   ScaleIcon,
+  ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackLogout } from "@/lib/tracking";
 import { getInitials } from "@/lib/userDisplay";
+import { useGlobalSearch } from "@/components/search/GlobalSearchProvider";
+import { GlobalSearchTrigger } from "@/components/search/GlobalSearchTrigger";
 import { useNavOpen } from "./NavOpenContext";
 
 type NavCounts = {
@@ -34,10 +38,11 @@ type NavCounts = {
   advisors?: number;
   individuals?: number;
   sectors?: number;
+  subSectors?: number;
   insightsAnalysis?: number;
+  financialIntelligence?: number;
   dealRadar?: number;
   news?: number;
-  financialIntelligence?: number;
   transactionComps?: number;
 };
 
@@ -47,6 +52,9 @@ type NavSection = {
   href: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   isActive: (pathname: string) => boolean;
+  comingSoon?: boolean;
+  /** Tiny pill after the label, e.g. "New". */
+  badge?: string;
 };
 
 const SECTIONS: NavSection[] = [
@@ -56,12 +64,14 @@ const SECTIONS: NavSection[] = [
     href: "/news",
     icon: NewspaperIcon,
     isActive: (p) => p.startsWith("/news"),
+    badge: "New",
   },
   {
     key: "dealRadar",
     label: "Deal Radar",
     href: "/deal-radar",
-    icon: ViewfinderCircleIcon,
+    icon: SignalIcon,
+    badge: "New",
     isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
@@ -86,7 +96,7 @@ const SECTIONS: NavSection[] = [
     key: "financialIntelligence",
     label: "Financial Intelligence",
     href: "/financial-intelligence",
-    icon: Squares2X2Icon,
+    icon: BanknotesIcon,
     isActive: (p) => p.startsWith("/financial-intelligence"),
   },
   {
@@ -102,6 +112,7 @@ const SECTIONS: NavSection[] = [
     label: "Transaction Comps",
     href: "/transaction-comps",
     icon: ScaleIcon,
+    badge: "New",
     isActive: (p) => p.startsWith("/transaction-comps"),
   },
   {
@@ -109,10 +120,15 @@ const SECTIONS: NavSection[] = [
     label: "Sectors",
     href: "/sectors",
     icon: ChartBarIcon,
+    isActive: (p) => p.startsWith("/sectors") || p.startsWith("/sector/"),
+  },
+  {
+    key: "subSectors",
+    label: "Secondary Sectors",
+    href: "/sub-sectors",
+    icon: Squares2X2Icon,
     isActive: (p) =>
-      p.startsWith("/sectors") ||
-      p.startsWith("/sector/") ||
-      p.startsWith("/sub-sector/"),
+      p.startsWith("/sub-sectors") || p.startsWith("/sub-sector/"),
   },
   {
     key: "investors",
@@ -151,7 +167,7 @@ const NAV_SLIDE_MS = 320;
 const navRevealClass = (open: boolean) =>
   [
     "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] motion-reduce:transition-none",
-    open ? "max-w-[168px] opacity-100" : "max-w-0 opacity-0",
+    open ? "max-w-[182px] opacity-100" : "max-w-0 opacity-0",
   ].join(" ");
 
 function formatCount(n: number | undefined): string | null {
@@ -167,6 +183,7 @@ export default function AppLeftNav() {
   // Insights & Analysis grid — can read open/collapsed too, and so it
   // persists across navigations instead of resetting on every page mount.
   const { open, setOpen } = useNavOpen();
+  const { openSearch } = useGlobalSearch();
   const [counts, setCounts] = useState<NavCounts>({});
 
   const toggleOpen = () => setOpen((v) => !v);
@@ -180,6 +197,7 @@ export default function AppLeftNav() {
         eventsRes,
         individualsRes,
         sectorsRes,
+        subSectorsRes,
         advisorsRes,
         investorsRes,
       ] = await Promise.allSettled([
@@ -187,6 +205,7 @@ export default function AppLeftNav() {
         dashboardApiService.getHeroScreenStatisticEventsCount(),
         dashboardApiService.getAllIndividualsCount(),
         dashboardApiService.getHeroScreenStatisticSectors(),
+        dashboardApiService.getSecondarySectorsCount(),
         dashboardApiService.getHeroScreenStatisticAdvisorsCount(),
         dashboardApiService.getHeroScreenStatisticInvestors(),
       ]);
@@ -213,6 +232,11 @@ export default function AppLeftNav() {
         const n = Number(v?.primarySectors);
         if (Number.isFinite(n)) next.sectors = n;
       }
+      if (subSectorsRes.status === "fulfilled") {
+        const v = subSectorsRes.value as unknown as Record<string, unknown>;
+        const n = Number(v?.total_count);
+        if (Number.isFinite(n)) next.subSectors = n;
+      }
       if (advisorsRes.status === "fulfilled") {
         const v = advisorsRes.value as unknown as Record<string, unknown>;
         const n = Number(v?.Advisorc_companies_count);
@@ -232,22 +256,6 @@ export default function AppLeftNav() {
     run().catch(() => {
       // Leave counts unset — nav renders without a number rather than a fake one.
     });
-
-    const runDealRadarCount = async () => {
-      try {
-        const res = await dashboardApiService.getDealRadar({
-          limit: 1,
-          offset: 0,
-        });
-        if (cancelled) return;
-        if (typeof res.total_items === "number") {
-          setCounts((prev) => ({ ...prev, dealRadar: res.total_items }));
-        }
-      } catch {
-        // Leave unset.
-      }
-    };
-    runDealRadarCount();
 
     const runInsightsCount = async () => {
       const token = localStorage.getItem("asymmetrix_auth_token");
@@ -295,26 +303,57 @@ export default function AppLeftNav() {
   );
 
   return (
-    <aside
-      data-entry-source="left_menu"
-      className="sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none"
-      style={{
-        width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,
-        transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
-      }}
-    >
-      <div className="flex shrink-0 flex-col items-start gap-2 border-b border-gray-100 px-3 py-3">
+    <>
+      {/* Mobile-only backdrop — tapping it collapses the drawer back down.
+          `md:hidden` keeps this inert on desktop, where the sidebar never
+          leaves the flow, so this can safely key off the same `open` state
+          as the desktop expanded/collapsed toggle. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      {/* Mobile-only floating trigger — on a phone the collapsed rail isn't
+          shown at all (no permanent strip eating into content width), so
+          this is the only way to open the drawer. Desktop keeps the icon
+          rail's own button inside the aside below, hence `md:hidden`. */}
+      {!open && (
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-label="Expand navigation"
+          aria-expanded={false}
+          className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 md:hidden"
+        >
+          <Bars3Icon className="h-[18px] w-[18px]" />
+        </button>
+      )}
+      <aside
+        data-entry-source="left_menu"
+        className={`h-screen shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white motion-reduce:transition-none ${
+          open
+            ? "fixed inset-y-0 left-0 z-50 flex md:sticky md:inset-auto md:top-0 md:z-auto"
+            : "hidden md:sticky md:top-0 md:z-auto md:flex"
+        }`}
+        style={{
+          width: open ? NAV_WIDTH_EXPANDED_PX : NAV_WIDTH_COLLAPSED_PX,
+          transition: `width ${NAV_SLIDE_MS}ms ${NAV_SLIDE_EASE}`,
+        }}
+      >
+      <div className="flex shrink-0 flex-col items-start gap-1 overflow-x-hidden px-3 py-1.5">
         <Link
           href={DASHBOARD_HREF}
-          className="flex h-8 w-8 shrink-0 items-center justify-center"
+          className="flex h-7 w-7 shrink-0 items-center justify-center"
           aria-label="Asymmetrix Dashboard"
         >
           <Image
             src="/icons/logo.svg"
             alt="Asymmetrix"
-            width={28}
-            height={28}
-            style={{ width: 28, height: 28, objectFit: "contain" }}
+            width={24}
+            height={24}
+            style={{ width: 24, height: 24, objectFit: "contain" }}
             priority
           />
         </Link>
@@ -323,13 +362,50 @@ export default function AppLeftNav() {
           onClick={toggleOpen}
           aria-label={open ? "Collapse navigation" : "Expand navigation"}
           aria-expanded={open}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
         >
-          <Bars3Icon className="h-[18px] w-[18px]" />
+          <Bars3Icon className="h-4 w-4" />
         </button>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2 pt-3">
+      {/* Always rendered so the menu below keeps the same vertical position on the dashboard
+          (/home-user has its own hero search): it is hidden, not removed, there. */}
+      <div
+        className={`shrink-0 overflow-x-hidden flex h-[46px] items-center border-b border-gray-100 px-2${open ? " [&>*]:w-full" : ""}${
+          pathname.startsWith("/home-user") ? " invisible" : ""
+        }`}
+        aria-hidden={pathname.startsWith("/home-user") ? true : undefined}
+      >
+        {open ? (
+          <GlobalSearchTrigger variant="sidebar" />
+        ) : (
+          <button
+            type="button"
+            onClick={openSearch}
+            aria-label="Search"
+            className="ml-2 flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          >
+            <svg
+              width={15}
+              height={15}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      <nav
+        className="min-h-0 min-w-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 pb-1 pt-1"
+        style={{ scrollbarWidth: "thin", scrollbarColor: "#d1d5db transparent" }}
+      >
         <NavRow
           open={open}
           href={DASHBOARD_HREF}
@@ -338,7 +414,7 @@ export default function AppLeftNav() {
           count={null}
           active={pathname.startsWith("/home-user")}
         />
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => !s.comingSoon).map((s) => (
           <NavRow
             key={s.key}
             open={open}
@@ -347,6 +423,8 @@ export default function AppLeftNav() {
             icon={s.icon}
             count={formatCount(counts[s.key])}
             active={s.isActive(pathname)}
+            comingSoon={s.comingSoon}
+            badge={s.badge}
           />
         ))}
         <NavRow
@@ -360,45 +438,56 @@ export default function AppLeftNav() {
       </nav>
 
       <div
-        className={`flex shrink-0 border-t border-gray-100 p-2 ${
-          open ? "flex-row items-center gap-1" : "flex-col items-center gap-2"
+        className={`flex shrink-0 overflow-hidden border-t border-gray-100 p-1.5 ${
+          open ? "flex-row items-center gap-1" : "flex-col items-center gap-1"
         }`}
       >
         <Link
           href="/settings"
           title="Settings"
           aria-label="Settings"
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
             pathname.startsWith("/settings")
               ? "bg-blue-50 text-blue-600"
               : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
           }`}
         >
-          <Cog6ToothIcon className="h-[18px] w-[18px]" />
+          <Cog6ToothIcon className="h-[17px] w-[17px]" />
         </Link>
         <Link
           href="/my-info"
           title="Your info"
           aria-label="Your info"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white transition-colors hover:bg-blue-700"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white transition-colors hover:bg-blue-700"
         >
           {getInitials(user?.name)}
         </Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className={`ml-auto px-2 text-sm font-medium text-gray-500 transition-[max-width,opacity] hover:text-blue-600 motion-reduce:transition-none ${navRevealClass(open)}`}
-          style={{
-            transitionDuration: `${NAV_SLIDE_MS}ms`,
-            transitionTimingFunction: NAV_SLIDE_EASE,
-          }}
-          tabIndex={open ? 0 : -1}
-          aria-hidden={!open}
-        >
-          Log out
-        </button>
+        {open ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`ml-auto px-2 text-sm font-medium text-gray-500 transition-[max-width,opacity] hover:text-blue-600 motion-reduce:transition-none ${navRevealClass(open)}`}
+            style={{
+              transitionDuration: `${NAV_SLIDE_MS}ms`,
+              transitionTimingFunction: NAV_SLIDE_EASE,
+            }}
+          >
+            Log out
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Log out"
+            aria-label="Log out"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          >
+            <ArrowRightOnRectangleIcon className="h-[17px] w-[17px]" />
+          </button>
+        )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -409,6 +498,8 @@ function NavRow({
   icon: Icon,
   count,
   active,
+  comingSoon,
+  badge,
 }: {
   open: boolean;
   href: string;
@@ -416,18 +507,50 @@ function NavRow({
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   count: string | null;
   active?: boolean;
+  comingSoon?: boolean;
+  badge?: string;
 }) {
+  if (comingSoon) {
+    return (
+      <div
+        title={`${label} (coming soon)`}
+        aria-disabled="true"
+        className={`flex w-full min-w-0 cursor-not-allowed items-center rounded-full py-0 pl-2 pr-2 text-sm font-medium text-gray-400 ${
+          open ? "h-9" : "h-8"
+        }`}
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+          <Icon className="h-[18px] w-[18px] shrink-0 opacity-60" />
+        </span>
+        <span
+          className={`flex min-w-0 flex-1 items-center gap-2 ${navRevealClass(open)}`}
+          style={{
+            transitionDuration: `${NAV_SLIDE_MS}ms`,
+            transitionTimingFunction: NAV_SLIDE_EASE,
+          }}
+          aria-hidden={!open}
+        >
+          <span className="truncate">{label}</span>
+          <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400">
+            Soon
+          </span>
+        </span>
+      </div>
+    );
+  }
   return (
     <Link
       href={href}
-      title={!open ? label : undefined}
-      className={`group flex min-h-[40px] items-center rounded-full py-2 pl-2 pr-2.5 text-sm font-medium transition-colors ${
+      title={label}
+      className={`group flex w-full min-w-0 items-center rounded-full py-0 pl-2 pr-2 text-sm font-medium transition-colors ${
+        open ? "h-9" : "h-8"
+      } ${
         active
           ? "bg-blue-50 text-blue-600"
           : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
         <Icon
           className={`h-[18px] w-[18px] shrink-0 ${
             active ? "opacity-100" : "opacity-60 group-hover:opacity-100"
@@ -442,9 +565,21 @@ function NavRow({
         }}
         aria-hidden={!open}
       >
-        <span className="truncate">{label}</span>
-        {count && (
-          <span className="ml-auto shrink-0 text-[10.5px] font-bold tabular-nums text-gray-400 group-hover:text-blue-600">
+        <span className={badge ? "whitespace-nowrap" : "min-w-0 flex-1 truncate"}>{label}</span>
+        {badge && (
+          // Same soft-blue pill as the dashboard eyebrow ("Live", "Weekly") and the landing chips.
+          <span
+            className={`inline-flex h-4 shrink-0 items-center rounded-full border px-1.5 text-[9px] font-extrabold uppercase leading-none tracking-[0.06em] text-[#2a46ea] ${
+              active
+                ? "border-[#c9d3fb] bg-white"
+                : "border-[#e2e8fd] bg-[#f1f4fe] group-hover:border-[#c9d3fb] group-hover:bg-white"
+            }`}
+          >
+            {badge}
+          </span>
+        )}
+        {count && open && !badge && (
+          <span className="invisible ml-auto min-w-[2.75rem] shrink-0 text-right text-[10.5px] font-bold tabular-nums text-gray-400 opacity-0 transition-opacity duration-150 [@media(hover:hover)]:visible [@media(hover:hover)]:group-hover:text-blue-600 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-visible:opacity-100">
             {count}
           </span>
         )}

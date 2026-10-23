@@ -1,17 +1,7 @@
 "use client";
 
-import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
-import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
-import { CompanyAvatar } from "@/components/CompanyAvatar";
-import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
-import { MultipleBasisTag } from "@/components/transaction-comps/MultipleBasisTag";
-import {
-  DEFAULT_TRANSACTION_COMPS_QUERY,
-  type MultipleBasis,
-  type TransactionCompRow,
-} from "@/components/transaction-comps/transactionCompsTypes";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 // import Image from "next/image";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
@@ -19,6 +9,19 @@ import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPane
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
 import DealRadarView from "@/components/deal-radar/DealRadarView";
 import CompactPagination from "@/components/ui/CompactPagination";
+import ProfileSubnav from "@/components/ProfileSubnav";
+import { CompanyAvatar } from "@/components/CompanyAvatar";
+import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
+import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
+import { fetchTransactionCompsServer } from "@/app/transaction-comps/actions";
+import { MultipleBasisTag } from "@/components/transaction-comps/MultipleBasisTag";
+import {
+  DEFAULT_TRANSACTION_COMPS_QUERY,
+  type MultipleBasis,
+  type TransactionCompRow,
+} from "@/components/transaction-comps/transactionCompsTypes";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import {
   SectorMostActiveTab,
   type MostActiveSubTabId,
@@ -33,11 +36,7 @@ import {
   type RankedEntity,
 } from "@/lib/sectorMostActiveRanked";
 import { locationsService } from "@/lib/locationsService";
-import {
-  getArticleByline,
-  isNewsArticle,
-  normalizeContentArticles,
-} from "@/lib/contentArticleDisplay";
+import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import {
   ContentArticle,
@@ -48,12 +47,15 @@ import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
-import {
-  getContentTypeAccentColor,
-  getContentTypeBadgeStyle,
-} from "@/lib/contentTypeBadge";
+import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
-import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import {
+  buildGetAllContentArticlesParams,
+  buildSectorInsightsFilters,
+  fetchSectorRecentContentArticles,
+} from "@/lib/sectorInsightsArticles";
+import { getInsightsListItemsTotal } from "@/lib/fetchInsightsLogicalPage";
+import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
@@ -129,46 +131,13 @@ interface SectorStatistics {
   market_map?: unknown;
 }
 
-const normalizeContentTypeLabel = (raw: unknown): string | undefined => {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const inferContentTypeFromHeadline = (headline: unknown): string | undefined => {
-  const normalizedHeadline = normalizeContentTypeLabel(headline);
-  if (!normalizedHeadline) return undefined;
-
-  const parts = normalizedHeadline.split(/\s*[–—-]\s*/);
-  const candidate = (parts[0] || "").trim().toLowerCase();
-
-  const known = new Map<string, string>([
-    ["company analysis", "Company Analysis"],
-    ["deal analysis", "Deal Analysis"],
-    ["deal perspective", "Deal Perspective"],
-    ["market commentary", "Market Commentary"],
-    ["sector analysis", "Sector Analysis"],
-    ["hot take", "Hot Take"],
-    ["executive interview", "Executive Interview"],
-  ]);
-
-  return known.get(candidate);
-};
-
-const getEffectiveContentType = (article: ContentArticle): string | undefined => {
-  const anyArticle = article as ContentArticle & {
-    content_type?: unknown;
-    ContentType?: unknown;
-    contentType?: unknown;
-  };
-
-  return (
-    normalizeContentTypeLabel(anyArticle.Content_Type) ||
-    normalizeContentTypeLabel(anyArticle.content_type) ||
-    normalizeContentTypeLabel(anyArticle.ContentType) ||
-    normalizeContentTypeLabel(anyArticle.contentType) ||
-    inferContentTypeFromHeadline(anyArticle.Headline)
-  );
+const SECTOR_INSIGHTS_GRID_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 16,
+  width: "100%",
+  boxSizing: "border-box",
+  alignItems: "stretch",
 };
 
 interface SectorCompany {
@@ -536,7 +505,7 @@ const TABS = [
   { id: "deal_radar", name: "Deal Radar" },
   { id: "most_active", name: "Most Active" },
   { id: "public", name: "Public Companies" },
-  { id: "subsectors", name: "Sub-Sectors" },
+  { id: "subsectors", name: "Secondary Sectors" },
   { id: "transactions", name: "Corporate Events" },
   { id: "transaction_comps", name: "Transaction Comps" },
   { id: "insights", name: "Insights & Analysis" },
@@ -562,84 +531,35 @@ function TabNavigation({
   hasTransactionComps: boolean;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        padding: "0 20px",
-        background: "#fff",
-        borderBottom: `1px solid ${LINE}`,
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-        overflowX: "auto",
-      }}
-    >
-      {TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => {
-        const on = activeTab === tab.id;
-        const count = counts[tab.id];
-        return (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              if (typeof window !== "undefined") {
-                const url = new URL(window.location.href);
-                url.searchParams.set("tab", tab.id);
-                window.history.replaceState({}, "", url.toString());
-              }
-            }}
-            style={{
-              position: "relative",
-              border: "none",
-              background: "transparent",
-              fontSize: 13.5,
-              fontWeight: on ? 800 : 600,
-              color: on ? INK : MUTED,
-              padding: "14px 15px 13px",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-            }}
-          >
-            {tab.name}
-            {typeof count === "number" && (
-              <b
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  color: on ? BLUE_700 : MUTED_SOFT,
-                  background: on ? BLUE_50 : TINT,
-                  borderRadius: 999,
-                  padding: "2px 7px",
-                }}
-              >
-                {count.toLocaleString()}
-              </b>
-            )}
-            {on && (
-              <span
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  right: 12,
-                  bottom: -1,
-                  height: 2.5,
-                  background: BLUE_600,
-                  borderRadius: "2px 2px 0 0",
-                }}
-              />
-            )}
-          </button>
-        );
-      })}
+    <div style={{ padding: "0 20px", background: "#fff" }}>
+      <ProfileSubnav
+        sticky
+        tabs={TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => ({
+          id: tab.id,
+          label: tab.name,
+          count: counts[tab.id],
+        }))}
+        activeTab={activeTab}
+        onChange={(id) => {
+          setActiveTab(id);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.set("tab", id);
+            window.history.replaceState({}, "", url.toString());
+          }
+        }}
+      />
     </div>
   );
 }
 
-function RecentInsightsCard({ sectorId }: { sectorId: string }) {
+function RecentInsightsCard({
+  sectorId,
+  sectorImportance,
+}: {
+  sectorId: string;
+  sectorImportance?: string;
+}) {
   const [articles, setArticles] = useState<ContentArticle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -651,25 +571,21 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
         const sectorIdNum = Number(sectorId);
         if (Number.isNaN(sectorIdNum)) return;
 
-        const params = new URLSearchParams();
-        params.append("primary_sectors_ids[]", String(sectorIdNum));
+        if (!token) {
+          setArticles([]);
+          return;
+        }
 
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/articles_based_on_sectors?${params.toString()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+        const fetched = await fetchSectorRecentContentArticles({
+          sectorId: sectorIdNum,
+          sectorImportance,
+          token,
+          perPage: 5,
         });
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const arr: ContentArticle[] = Array.isArray(data) ? data : [];
-        const sorted = arr.sort((a, b) =>
-          new Date(b.Publication_Date).getTime() -
-          new Date(a.Publication_Date).getTime()
+        const sorted = [...fetched].sort(
+          (a, b) =>
+            new Date(b.Publication_Date).getTime() -
+            new Date(a.Publication_Date).getTime()
         );
         setArticles(sorted);
       } catch {
@@ -680,7 +596,7 @@ function RecentInsightsCard({ sectorId }: { sectorId: string }) {
     };
 
     if (sectorId) fetchArticles();
-  }, [sectorId]);
+  }, [sectorId, sectorImportance]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
@@ -1058,6 +974,8 @@ function MostActiveTableCard({
 
 // Overview tile: latest transaction comps (deal-date multiples) for companies in this primary sector.
 function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const [rows, setRows] = useState<TransactionCompRow[] | null>(null);
 
   useEffect(() => {
@@ -1144,7 +1062,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
           <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
             <thead>
               <tr>
-                {["Target", "EV ($m)", "EV / Rev", "EV / EBITDA"].map((h, i) => (
+                {["Target", `EV (${currencySymbol}m)`, "EV / Rev", "EV / EBITDA"].map((h, i) => (
                   <th
                     key={h}
                     style={{
@@ -1188,7 +1106,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                         </div>
                       </div>
                     </td>
-                    <td style={numCell}>{r.ev_m_usd ? r.ev_m_usd.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
+                    <td style={numCell}>{r.ev_m ? r.ev_m.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
                     <td style={numCell}>{mult(r.ev_revenue, r.ev_revenue_basis)}</td>
                     <td style={numCell}>{mult(r.ev_ebitda, r.ev_ebitda_basis)}</td>
                   </tr>
@@ -1480,7 +1398,7 @@ function MarketMapGrid({
         display: "grid",
         gridTemplateColumns: "repeat(4, 1fr)",
         gap: 14,
-        alignItems: "start",
+        alignItems: "stretch",
       }}
     >
       {bucketOrder.map((type) => {
@@ -1497,6 +1415,8 @@ function MarketMapGrid({
               padding: "0 14px",
               display: "flex",
               flexDirection: "column",
+              height: "100%",
+              minHeight: 0,
             }}
           >
             <div
@@ -1561,7 +1481,15 @@ function MarketMapGrid({
                 </a>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                paddingBottom: 14,
+                flex: 1,
+              }}
+            >
               {list.length === 0 ? (
                 <div style={{ padding: "10px 8px", fontSize: 12.5, color: EMPTY }}>
                   No companies
@@ -1667,6 +1595,9 @@ const SectorDetailPage = ({
 }: SectorDetailPageProps) => {
   const params = useParams();
   const sectorId = params.id as string;
+  // Transaction comps tab / overview tile only appear when comps are tagged to this sector.
+  const hasTransactionComps =
+    useHasTransactionComps({ primarySectorId: Number(sectorId) }) === true;
 
   const [sectorData, setSectorData] = useState<SectorStatistics | null>(
     initialSectorData as SectorStatistics | null
@@ -1701,9 +1632,6 @@ const SectorDetailPage = ({
   const searchParams = useSearchParams();
   const initialTab = (searchParams?.get("tab") || "overview").toString();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
-  // Transaction comps tab / overview tile only appear when comps are tagged to this sector.
-  const hasTransactionComps =
-    useHasTransactionComps({ primarySectorId: Number(sectorId) }) === true;
   const [mostActiveSubTab, setMostActiveSubTab] =
     useState<MostActiveSubTabId>("strategics");
 
@@ -1817,7 +1745,7 @@ const SectorDetailPage = ({
       const qs = new URLSearchParams();
       qs.set("sectors_id", String(Sector_id));
       const resp = await fetch(
-        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV/sub_sectors?${qs.toString()}`,
+        `https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop/sub_sectors?${qs.toString()}`,
         {
           method: "GET",
           headers: {
@@ -1857,7 +1785,7 @@ const SectorDetailPage = ({
       setSubSectors(mapped);
     } catch (e) {
       setSubSectorsError(
-        e instanceof Error ? e.message : "Failed to fetch sub-sectors"
+        e instanceof Error ? e.message : "Failed to fetch secondary sectors"
       );
     } finally {
       setSubSectorsLoading(false);
@@ -2212,18 +2140,16 @@ const SectorDetailPage = ({
 
   // Removed statistics card; keep totals only when needed elsewhere
 
-  function SectorInsightsTab({ sectorId }: { sectorId: string }) {
-    const router = useRouter();
-    const [filters, setFilters] = useState<InsightsAnalysisFilters>({
-      search_query: "",
-      primary_sectors_ids: [],
-      Secondary_sectors_ids: [],
-      Countries: [],
-      Provinces: [],
-      Cities: [],
-      Offset: 1,
-      Per_page: 10,
-    });
+  function SectorInsightsTab({
+    sectorId,
+    sectorImportance,
+  }: {
+    sectorId: string;
+    sectorImportance?: string;
+  }) {
+    const [filters, setFilters] = useState<InsightsAnalysisFilters>(() =>
+      buildSectorInsightsFilters(Number.parseInt(sectorId, 10) || 0, sectorImportance)
+    );
 
     const [searchTerm, setSearchTerm] = useState("");
     const [contentTypes, setContentTypes] = useState<string[]>([]);
@@ -2252,37 +2178,15 @@ const SectorDetailPage = ({
           return;
         }
 
-        const params = new URLSearchParams();
-        params.append("Offset", String(filters.Offset));
-        params.append("Per_page", String(filters.Per_page));
-        if (filters.search_query)
-          params.append("search_query", filters.search_query);
-        if (filters.Countries?.length)
-          params.append("Countries", filters.Countries.join(","));
-        if (filters.Provinces?.length)
-          params.append("Provinces", filters.Provinces.join(","));
-        if (filters.Cities?.length)
-          params.append("Cities", filters.Cities.join(","));
-        if (filters.primary_sectors_ids?.length)
-          params.append(
-            "primary_sectors_ids",
-            filters.primary_sectors_ids.join(",")
-          );
-        if (filters.Secondary_sectors_ids?.length)
-          params.append(
-            "Secondary_sectors_ids",
-            filters.Secondary_sectors_ids.join(",")
-          );
-        const ct = (filters.Content_Type || filters.content_type || "").trim();
-        if (ct) params.append("content_type", ct);
-
-        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu/Get_All_Content_Articles?${params.toString()}`;
+        const params = buildGetAllContentArticlesParams(filters);
+        const url = `https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles?${params.toString()}`;
 
         const response = await fetch(url, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+            "X-Data-Source": "live",
           },
         });
 
@@ -2295,7 +2199,7 @@ const SectorDetailPage = ({
         setArticles(normalizeContentArticles(data.items || []));
         setPagination({
           itemsReceived: data.itemsReceived,
-          itemsTotal: data.itemsTotal,
+          itemsTotal: getInsightsListItemsTotal(data),
           curPage: data.curPage,
           nextPage: data.nextPage,
           prevPage: data.prevPage,
@@ -2317,17 +2221,17 @@ const SectorDetailPage = ({
 
     // Initial data fetch with sector pre-filter
     useEffect(() => {
-      const sectorIdNum = parseInt(sectorId);
-      if (!isNaN(sectorIdNum)) {
-        const initialFilters = {
-          ...filters,
-          primary_sectors_ids: [sectorIdNum],
-        };
+      const sectorIdNum = parseInt(sectorId, 10);
+      if (!Number.isNaN(sectorIdNum) && sectorIdNum > 0) {
+        const initialFilters = buildSectorInsightsFilters(
+          sectorIdNum,
+          sectorImportance
+        );
         setFilters(initialFilters);
         fetchInsightsAnalysis(initialFilters);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sectorId]);
+    }, [sectorId, sectorImportance]);
 
     // Fetch content types (cached via locationsService)
     useEffect(() => {
@@ -2343,13 +2247,12 @@ const SectorDetailPage = ({
     }, []);
 
     const handleSearch = () => {
-      const sectorIdNum = parseInt(sectorId);
-      const updatedFilters = {
-        ...filters,
-        search_query: searchTerm,
-        primary_sectors_ids: !isNaN(sectorIdNum) ? [sectorIdNum] : [],
-        Offset: 1,
-      };
+      const sectorIdNum = parseInt(sectorId, 10);
+      const updatedFilters = buildSectorInsightsFilters(
+        Number.isNaN(sectorIdNum) ? 0 : sectorIdNum,
+        sectorImportance,
+        { ...filters, search_query: searchTerm, Offset: 1 }
+      );
       setFilters(updatedFilters);
       fetchInsightsAnalysis(updatedFilters);
     };
@@ -2358,40 +2261,6 @@ const SectorDetailPage = ({
       const updatedFilters = { ...filters, Offset: page };
       setFilters(updatedFilters);
       fetchInsightsAnalysis(updatedFilters);
-    };
-
-    const formatDate = (dateString: string) => {
-      if (!dateString) return "-";
-      try {
-        return new Date(dateString).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-      } catch {
-        return "Invalid date";
-      }
-    };
-
-    const formatSectors = (
-      sectors: Array<Array<{ sector_name: string }>> | undefined
-    ) => {
-      if (!sectors || sectors.length === 0) return "-";
-      const allSectors = sectors
-        .flat()
-        .filter((s) => s && s.sector_name)
-        .map((s) => s.sector_name);
-      return allSectors.length > 0 ? allSectors.join(", ") : "-";
-    };
-
-    const formatCompanies = (
-      companies: ContentArticle["companies_mentioned"] | undefined
-    ) => {
-      if (!companies || companies.length === 0) return "-";
-      const validCompanies = companies
-        .filter((c) => c && c.name)
-        .map((c) => c.name);
-      return validCompanies.length > 0 ? validCompanies.join(", ") : "-";
     };
 
     const rangeStart = pagination.pageTotal > 0 ? pagination.offset + 1 : 0;
@@ -2539,127 +2408,55 @@ const SectorDetailPage = ({
           </div>
         )}
 
-        {/* Results panel */}
-        <div
-          style={{
-            background: "#fff",
-            border: `1px solid ${LINE}`,
-            borderRadius: R_LG,
-            boxShadow: SH_SM,
-            overflow: "hidden",
-          }}
-        >
-          {loading ? (
-            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-              Loading articles…
-            </div>
-          ) : articles.length === 0 ? (
-            <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-              No articles found.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {articles.map((article: ContentArticle, index: number) => {
-                const effectiveContentType = getEffectiveContentType(article);
-                const isNews = isNewsArticle({ Content_Type: effectiveContentType });
-                const byline = isNews ? getArticleByline(article) : "";
+        {loading && articles.length === 0 && (
+          <div style={{ padding: "48px 16px", textAlign: "center", color: MUTED, fontSize: 14 }}>
+            Loading reports…
+          </div>
+        )}
 
-                return (
-                  <a
-                    key={article.id || index}
-                    href={`/article/${article.id}`}
-                    style={{
-                      display: "block",
-                      padding: "13px 16px",
-                      borderBottom: `1px solid ${LINE_2}`,
-                      borderTop: `3px solid ${getContentTypeAccentColor(effectiveContentType)}`,
-                      textDecoration: "none",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = BLUE_50)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    onClick={(e) => {
-                      if (
-                        e.defaultPrevented ||
-                        e.button !== 0 ||
-                        e.metaKey ||
-                        e.ctrlKey ||
-                        e.shiftKey ||
-                        e.altKey
-                      )
-                        return;
-                      e.preventDefault();
-                      router.push(`/article/${article.id}`);
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
-                      {effectiveContentType && (
-                        <span style={getContentTypeBadgeStyle(effectiveContentType)}>
-                          {effectiveContentType}
-                        </span>
-                      )}
-                      <span style={{ fontSize: 11.5, color: MUTED }}>
-                        {formatDate(article.Publication_Date)}
-                      </span>
-                    </div>
-                    <h3 style={{ margin: "0 0 4px", fontSize: 13.5, fontWeight: 700, color: INK, lineHeight: 1.35 }}>
-                      {article.Headline || "-"}
-                    </h3>
-                    {article.Transaction_status && (
-                      <div style={{ marginBottom: 6 }}>
-                        <TransactionStatusPill status={article.Transaction_status} />
-                      </div>
-                    )}
-                    {byline ? (
-                      <p style={{ margin: "0 0 4px", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
-                        {byline}
-                      </p>
-                    ) : null}
-                    <p style={{ margin: "0 0 8px", fontSize: 12.5, lineHeight: 1.5, color: BODY }}>
-                      {article.Strapline || "No summary available"}
-                    </p>
-                    <div style={{ fontSize: 12, color: MUTED }}>
-                      <span style={{ fontWeight: 600, color: INK_3 }}>Companies: </span>
-                      {formatCompanies(article.companies_mentioned)}
-                    </div>
-                    <div style={{ fontSize: 12, color: MUTED }}>
-                      <span style={{ fontWeight: 600, color: INK_3 }}>Sectors: </span>
-                      {formatSectors(article.sectors)}
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
+        {!loading && articles.length === 0 && !error && (
+          <div style={{ padding: "48px 16px", textAlign: "center", color: MUTED, fontSize: 14 }}>
+            No reports found.
+          </div>
+        )}
 
-          {/* Pagination footer */}
-          {pagination.pageTotal > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto 1fr",
-                alignItems: "center",
-                gap: 14,
-                padding: "11px 16px",
-                background: "#fff",
-                borderTop: `1px solid ${LINE_2}`,
-                fontSize: 13,
-                color: MUTED,
-              }}
-            >
-              <div>
-                Showing {rangeStart}–{rangeEnd} of {pagination.itemsTotal}
-              </div>
-              <div style={{ justifySelf: "center" }}>
-                <CompactPagination
-                  curPage={pagination.curPage}
-                  pageTotal={pagination.pageTotal}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-              <div />
-            </div>
-          )}
-        </div>
+        {articles.length > 0 && (
+          <div style={SECTOR_INSIGHTS_GRID_STYLE}>
+            {articles.map((article, index) => (
+              <InsightsAnalysisCard key={article.id ?? index} article={article} />
+            ))}
+          </div>
+        )}
+
+        {pagination.pageTotal > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+              padding: "8px 4px",
+              fontSize: 13,
+              color: MUTED,
+            }}
+          >
+            <span style={{ whiteSpace: "nowrap" }}>
+              Showing {rangeStart}–{rangeEnd} of {pagination.itemsTotal} reports
+              {pagination.pageTotal > 1
+                ? ` · page ${pagination.curPage} of ${pagination.pageTotal}`
+                : ""}
+            </span>
+            {pagination.pageTotal > 1 && (
+              <CompactPagination
+                curPage={pagination.curPage}
+                pageTotal={pagination.pageTotal}
+                onPageChange={handlePageChange}
+                disabled={loading}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -2677,7 +2474,15 @@ const SectorDetailPage = ({
 
   return (
     <AppShell>
-    <div style={{ minHeight: "100vh", background: TINT }}>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100%",
+        background: TINT,
+      }}
+    >
       <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>
           <a href="/sectors" style={{ fontWeight: 600, color: BLUE_600, textDecoration: "none" }}>
@@ -2746,7 +2551,7 @@ const SectorDetailPage = ({
         hasTransactionComps={hasTransactionComps}
       />
 
-      <main style={{ padding: "18px 20px 40px" }}>
+      <main style={{ flex: 1, padding: "18px 20px 40px" }}>
         {activeTab === "overview" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Top row: Recent Insights + Recent Transactions + Transaction Comps */}
@@ -2758,7 +2563,16 @@ const SectorDetailPage = ({
                 alignItems: "start",
               }}
             >
-              <RecentInsightsCard sectorId={sectorId} />
+              <RecentInsightsCard
+                sectorId={sectorId}
+                sectorImportance={
+                  sectorData?.Sector?.Sector_importance ||
+                  toStringSafe(
+                    (sectorData as unknown as { Sector_importance?: unknown })
+                      ?.Sector_importance
+                  )
+                }
+              />
               {recentTransactions.length > 0 ? (
                 <RecentTransactionsCard transactions={recentTransactions} />
               ) : (
@@ -2982,7 +2796,7 @@ const SectorDetailPage = ({
           <div>
             {subSectorsLoading ? (
               <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-                Loading sub-sectors…
+                Loading secondary sectors…
               </div>
             ) : subSectorsError ? (
               <div style={{ padding: "16px 0", textAlign: "center", color: "#A62E22", fontSize: 13 }}>
@@ -2990,7 +2804,7 @@ const SectorDetailPage = ({
               </div>
             ) : subSectors.length === 0 ? (
               <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
-                No sub-sectors found.
+                No secondary sectors found.
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
@@ -3052,7 +2866,16 @@ const SectorDetailPage = ({
         ) : activeTab === "transaction_comps" ? (
           <TransactionCompsView embedded primarySectorId={Number(sectorId)} />
         ) : activeTab === "insights" ? (
-          <SectorInsightsTab sectorId={sectorId} />
+          <SectorInsightsTab
+            sectorId={sectorId}
+            sectorImportance={
+              sectorData?.Sector?.Sector_importance ||
+              toStringSafe(
+                (sectorData as unknown as { Sector_importance?: unknown })
+                  ?.Sector_importance
+              )
+            }
+          />
         ) : (
           <div
             style={{

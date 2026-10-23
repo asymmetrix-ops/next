@@ -9,6 +9,9 @@ import {
   renderTransactionCompCell,
 } from "./transactionCompsCells";
 import type { TransactionCompRow } from "./transactionCompsTypes";
+import { localizeCompsLabel } from "./currencyLabels";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 
 const LABELS = new Map(ALL_TRANSACTION_COMPS_COLUMN_META.map((c) => [c.columnKey, c.label]));
 
@@ -38,7 +41,32 @@ const MIN_WIDTH: Record<string, number> = {
 };
 
 /** Caps wide text columns so more columns fit; content wraps instead of widening. */
-const MAX_WIDTH: Record<string, number> = { sector: 150 };
+const MAX_WIDTH: Record<string, number> = { sector: 150, company: 300 };
+
+/** Fixed row height: long company names wrap to two lines and sector lists clamp to three, so every row is the same height. */
+const TC_ROW_HEIGHT_PX = 80;
+const TC_TABLE_STYLES = `
+  .tc-table tbody tr,
+  .tc-table tbody td { height: ${TC_ROW_HEIGHT_PX}px; }
+  .tc-table .company-table-entity-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+  }
+  .company-cards .company-table-entity-name { white-space: normal; }
+  .company-cards .company-card-header { margin-bottom: 10px; }
+  .company-cards .company-card-value { text-align: right; }
+  .tc-table .tc-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.5;
+  }
+`;
 
 /**
  * Same table chrome as the Companies list (`company-table*` classes from
@@ -65,6 +93,8 @@ export function TransactionCompsTable({
   onToggleRow: (id: number) => void;
   onToggleAll: (checked: boolean) => void;
 }) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.company_id));
   const someSelected = rows.some((r) => selectedIds.has(r.company_id));
 
@@ -81,9 +111,9 @@ export function TransactionCompsTable({
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES }} />
+      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES + TC_TABLE_STYLES }} />
       <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
-        <table className="company-table">
+        <table className="company-table tc-table">
           <thead>
             <tr>
               <th
@@ -119,7 +149,7 @@ export function TransactionCompsTable({
                     }}
                     onClick={apiSort ? () => onSort(apiSort) : undefined}
                   >
-                    {LABELS.get(key)}
+                    {localizeCompsLabel(LABELS.get(key) ?? key, currencySymbol)}
                     {active && (
                       <span className="company-table-sort-indicator">
                         {sortDir === "asc" ? " ↑" : " ↓"}
@@ -167,7 +197,11 @@ export function TransactionCompsTable({
                         ...stickyStyle(key, false, selected),
                       }}
                     >
-                      {renderTransactionCompCell(row, key)}
+                      {key === "company" ? (
+                        renderTransactionCompCell(row, key)
+                      ) : (
+                        <div className="tc-clamp">{renderTransactionCompCell(row, key)}</div>
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -189,6 +223,36 @@ export function TransactionCompsTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Phone layout (<= 768px): the table above is hidden by SEARCH_TABLE_STYLES; show one card per comp. */}
+      <div className="company-cards" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
+        {rows.map((row, rowIndex) => (
+          <div
+            key={`card-${row.company_id}-${row.corporate_event?.id ?? ""}-${rowIndex}`}
+            className="company-card"
+          >
+            <div className="company-card-header">{renderTransactionCompCell(row, "company")}</div>
+            <div className="company-card-content">
+              {columnKeys
+                .filter((key) => key !== "company")
+                .map((key) => (
+                  <div key={key} className="company-card-row">
+                    <span className="company-card-label">{localizeCompsLabel(LABELS.get(key) ?? key, currencySymbol)}</span>
+                    <span className="company-card-value">{renderTransactionCompCell(row, key)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+        {!loading && rows.length === 0 && (
+          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>
+            No transactions match your filters.
+          </div>
+        )}
+        {loading && rows.length === 0 && (
+          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>Loading transaction comps…</div>
+        )}
       </div>
     </>
   );

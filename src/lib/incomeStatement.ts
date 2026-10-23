@@ -805,7 +805,28 @@ function buildConvertedIncomeStatementBaseRows({
   profileRows?: NormalizedIncomeStatementRow[];
   financialMetricsRows?: FinancialMetricsIncomeRow[];
 }): NormalizedIncomeStatementRow[] {
-  const fromMetrics = buildIncomeStatementFromFinancialMetrics(financialMetricsRows);
+  // The `income_statements` API rows are actual filed/reported periods — the
+  // source of truth. The `financial_metrics` rows can carry forward-looking
+  // (forecast/TTM) periods that are not always labeled as "Estimate" by the
+  // source, so a stray future year there must never be allowed to outrank or
+  // displace real filed years in the displayed columns. Cap any
+  // metrics-derived year at the latest actual filed year when we have one.
+  const latestActualFiledYear = apiRows.reduce<number | null>((max, row) => {
+    if (row.period_type !== "fiscal_year") return max;
+    const year = resolvePeriodYear(row);
+    if (year == null) return max;
+    return max == null || year > max ? year : max;
+  }, null);
+
+  const fromMetricsRaw = buildIncomeStatementFromFinancialMetrics(financialMetricsRows);
+  const fromMetrics =
+    latestActualFiledYear == null
+      ? fromMetricsRaw
+      : fromMetricsRaw.filter((row) => {
+          const year = resolvePeriodYear(row);
+          return year == null || year <= latestActualFiledYear;
+        });
+
   const metricsByYear = new Map<number, NormalizedIncomeStatementRow>();
   for (const row of fromMetrics) {
     const year = resolvePeriodYear(row);

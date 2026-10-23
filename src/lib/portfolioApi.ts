@@ -1,10 +1,10 @@
 /** Singular user portfolio, portfolio/data, get_users_lists, user_lists, list/data, portfolio/entities, lists/{id}/entities, lists/entity/check, lists/{id} rename, user_lists/{id} delete. */
 export const XANO_USER_PORTFOLIO_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:jlAOWruI:develop";
 
 /** Legacy list routes still on xbsQ0H4R (single-list GET). */
 export const XANO_PORTFOLIO_LISTS_BASE =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R:develop";
 
 export type CreateUserListPayload = {
   portfolio_label: string;

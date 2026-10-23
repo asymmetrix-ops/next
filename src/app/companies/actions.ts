@@ -263,28 +263,28 @@ export async function fetchFilterOptionsServer() {
       continentalRegionsRes,
       subRegionsRes,
     ] = await Promise.all([
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/locations_country", {
+      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/locations_country", {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_primary_sectors_dropdown",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_all_primary_sectors_dropdown",
         { headers, cache: "no-store" }
       ),
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_ownership_types", {
+      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_all_ownership_types", {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_all_hybrid_business_focuses",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_all_hybrid_business_focuses",
         { headers, cache: "no-store" }
       ),
-      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_continental_regions", {
+      fetch("https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_continental_regions", {
         headers,
         cache: "no-store",
       }),
       fetch(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/get_geographical_sub_regions",
+        "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/get_geographical_sub_regions",
         { headers, cache: "no-store" }
       ),
     ]);

@@ -6,6 +6,9 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { locationsService } from "@/lib/locationsService";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useRouter } from "next/navigation";
+import { ChangeStateTab } from "./_components/ChangeStatePanel";
+import { CompanyAnalysisTab } from "./_components/CompanyAnalysisTab";
+import { CompetitorsTab } from "./analytics/_components/AnalyticsViews";
 
 type SourceIdList = number[];
 
@@ -115,7 +118,9 @@ Target company: {query} ({domain})`;
     | "content"
     | "sectors"
     | "company_searches"
-    | "descriptions"
+    | "competitors"
+    | "changeState"
+    | "companyAnalysis"
   >("valuation");
 
   async function onSubmit(e: React.FormEvent) {
@@ -155,7 +160,7 @@ Target company: {query} ({domain})`;
   }
 
   return (
-    <div className="px-4 py-10 mx-auto max-w-5xl">
+    <div className="w-full px-4 py-10">
       <h1 className="mb-6 text-2xl font-semibold">Admin</h1>
 
       <div className="flex gap-4 mb-6 border-b">
@@ -210,14 +215,34 @@ Target company: {query} ({domain})`;
           Company Searches
         </button>
         <button
-          onClick={() => setActiveTab("descriptions")}
+          onClick={() => setActiveTab("competitors")}
           className={`px-3 py-2 -mb-px border-b-2 ${
-            activeTab === "descriptions"
+            activeTab === "competitors"
               ? "border-black font-medium"
               : "border-transparent text-gray-500"
           }`}
         >
-          Descriptions
+          Competitors
+        </button>
+        <button
+          onClick={() => setActiveTab("changeState")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "changeState"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Change State
+        </button>
+        <button
+          onClick={() => setActiveTab("companyAnalysis")}
+          className={`px-3 py-2 -mb-px border-b-2 ${
+            activeTab === "companyAnalysis"
+              ? "border-black font-medium"
+              : "border-transparent text-gray-500"
+          }`}
+        >
+          Company Analysis
         </button>
       </div>
 
@@ -284,7 +309,9 @@ Target company: {query} ({domain})`;
       {activeTab === "content" && <ContentTab />}
       {activeTab === "sectors" && <SectorsTab />}
       {activeTab === "company_searches" && <CompanySearchesTab />}
-      {activeTab === "descriptions" && <DescriptionsTab />}
+      {activeTab === "competitors" && <CompetitorsTab />}
+      {activeTab === "changeState" && <ChangeStateTab />}
+      {activeTab === "companyAnalysis" && <CompanyAnalysisTab />}
     </div>
   );
 }
@@ -2487,179 +2514,6 @@ function SectorsTab() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function normalizeDescriptionText(raw: string): string {
-  const trimmed = raw.trim();
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (typeof parsed === "string") return parsed.trim();
-  } catch {
-    // not JSON-encoded
-  }
-  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-}
-
-function DescriptionsTab() {
-  const [companyId, setCompanyId] = useState("");
-  const [description, setDescription] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const reset = () => {
-    setCompanyId("");
-    setDescription(null);
-    setError(null);
-    setSuccess(null);
-  };
-
-  const fetchDescription = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setDescription(null);
-
-    const id = parseInt(companyId.trim(), 10);
-    if (!Number.isFinite(id) || id <= 0) {
-      setError("Enter a valid company ID");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const res = await fetch(`/api/admin/company-description/${id}`, {
-        method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(data?.error || `Request failed (${res.status})`);
-      }
-      const text = await res.text();
-      setDescription(normalizeDescriptionText(text));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!description) return;
-
-    const id = parseInt(companyId.trim(), 10);
-    if (!Number.isFinite(id) || id <= 0) {
-      setError("Enter a valid company ID");
-      return;
-    }
-
-    setApproving(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      const res = await fetch(`/api/admin/edit-company/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          new_company_id: id,
-          updates: { description: normalizeDescriptionText(description) },
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(data?.error || `Update failed (${res.status})`);
-      }
-      setSuccess("Description approved and saved.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setApproving(false);
-    }
-  };
-
-  return (
-    <div>
-      <h2 className="mb-4 text-xl font-semibold">Company Descriptions</h2>
-      <form onSubmit={fetchDescription} className="mb-6 space-y-4">
-        <div className="max-w-md">
-          <label className="block mb-1 text-sm font-medium">Company ID</label>
-          <input
-            type="number"
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
-            placeholder="10203"
-            className="px-3 py-2 w-full rounded border"
-            min={1}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading || !companyId.trim()}
-          className="px-4 py-2 text-white bg-black rounded disabled:opacity-50"
-        >
-          {loading ? "Loading…" : "Fetch Description"}
-        </button>
-      </form>
-
-      {error && (
-        <div className="p-3 mb-4 text-red-700 bg-red-50 rounded border border-red-300">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 mb-4 text-green-700 bg-green-50 rounded border border-green-300">
-          {success}
-        </div>
-      )}
-
-      {description && (
-        <div className="space-y-4">
-          <div>
-            <label className="block mb-2 text-sm font-medium">
-              Generated Description
-            </label>
-            <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 rounded border">
-              {description}
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleApprove}
-              disabled={approving}
-              className="px-4 py-2 text-white bg-green-600 rounded disabled:opacity-50"
-            >
-              {approving ? "Saving…" : "Approve"}
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              disabled={approving}
-              className="px-4 py-2 text-gray-800 bg-gray-100 rounded border disabled:opacity-50"
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   getSearchBadgeLabel,
   PORTFOLIO_FALLBACK_SOURCES,
 } from "@/lib/globalSearch";
+import { GlobalSearchResultAvatar } from "@/components/search/GlobalSearchResultAvatar";
 import {
   followPortfolioEntity,
   unfollowPortfolioEntity,
@@ -286,6 +287,15 @@ export default function MyPortfolioPage() {
   const abortRef = useRef<AbortController | null>(null);
   const loadGenerationRef = useRef(0);
 
+  // `get_users_lists` only returns list metadata (id/label/total_entities) —
+  // it does not include the followed_* id arrays, so list membership for the
+  // "List" column has to be fetched per-list from `list/data` (the same
+  // endpoint used to populate a single list's tab).
+  const [listItemsByListId, setListItemsByListId] = useState<
+    Map<number, { entity: string; id: number }[]>
+  >(new Map());
+  const fetchedListIdsRef = useRef<Set<number>>(new Set());
+
   // ---- Follow more (global search) ----
   const [followSearch, setFollowSearch] = useState("");
   const [followEntityType, setFollowEntityType] = useState("");
@@ -401,10 +411,46 @@ export default function MyPortfolioPage() {
     };
   }, [loadActiveView]);
 
+  // Populate the "List" column on the "All Followed" tab: fetch each named
+  // list's membership once (skips lists we've already fetched).
+  useEffect(() => {
+    if (activeTabId !== ALL_FOLLOWED_TAB) return;
+    const toFetch = namedPortfolios.filter((p) => !fetchedListIdsRef.current.has(p.id));
+    if (toFetch.length === 0) return;
+
+    let cancelled = false;
+    toFetch.forEach((p) => fetchedListIdsRef.current.add(p.id));
+
+    void Promise.all(
+      toFetch.map(async (p) => {
+        try {
+          const { items } = await fetchPortfolioDataFromXano({ userListId: p.id });
+          return { id: p.id, items };
+        } catch {
+          fetchedListIdsRef.current.delete(p.id);
+          return { id: p.id, items: [] as { entity: string; id: number }[] };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setListItemsByListId((prev) => {
+        const next = new Map(prev);
+        for (const { id, items } of results) next.set(id, items);
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTabId, namedPortfolios]);
+
   // Tab counts come from loadActiveView when each tab is visited — no prefetch needed.
 
   const reloadAfterFollowChange = useCallback(async () => {
     invalidatePortfolioDataCache();
+    fetchedListIdsRef.current.clear();
+    setListItemsByListId(new Map());
     await fetchPortfolio();
     await loadActiveView(true);
   }, [fetchPortfolio, loadActiveView]);
@@ -718,26 +764,25 @@ export default function MyPortfolioPage() {
       : allFollowedTotal ?? rows.length;
 
   // ---- Which lists each followed entity belongs to (for the "Lists" column) ----
+  // `get_users_lists` doesn't return per-list followed_* id arrays, so this is
+  // built from the per-list `list/data` fetches in listItemsByListId instead.
   const listsByEntityKey = useMemo(() => {
     const map = new Map<string, string[]>();
-    const addAll = (ids: number[], entityType: string, label: string) => {
-      for (const id of ids) {
-        const key = entityResultKey(entityType, id);
+    for (const p of namedPortfolios) {
+      const items = listItemsByListId.get(p.id);
+      if (!items) continue;
+      const label = getDisplayLabel(p);
+      for (const item of items) {
+        const entityType = getEntityTypeFromRowEntity(String(item.entity));
+        if (!entityType) continue;
+        const key = entityResultKey(entityType, item.id);
         const existing = map.get(key);
         if (existing) existing.push(label);
         else map.set(key, [label]);
       }
-    };
-    for (const p of namedPortfolios) {
-      const label = getDisplayLabel(p);
-      addAll(p.followed_companies, "company", label);
-      addAll(p.followed_advisors, "advisor", label);
-      addAll(p.followed_investors, "investor", label);
-      addAll(p.followed_sectors, "sector", label);
-      addAll(p.followed_individuals, "individual", label);
     }
     return map;
-  }, [namedPortfolios]);
+  }, [namedPortfolios, listItemsByListId]);
 
   const getListLabelsForRow = useCallback(
     (row: PortfolioEntityRow): string[] => {
@@ -945,8 +990,8 @@ export default function MyPortfolioPage() {
               Searching…
             </div>
           ) : filteredSearchResults.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>
@@ -963,13 +1008,21 @@ export default function MyPortfolioPage() {
                     return (
                       <tr key={`${r.type}-${r.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
-                          {href ? (
-                            <Link href={href} className="font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2">
-                              {r.title}
-                            </Link>
-                          ) : (
-                            <span className="font-medium text-gray-900">{r.title}</span>
-                          )}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <GlobalSearchResultAvatar result={r} size="sm" />
+                            {href ? (
+                              <Link
+                                href={href}
+                                className="min-w-0 font-medium text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 truncate"
+                              >
+                                {r.title}
+                              </Link>
+                            ) : (
+                              <span className="min-w-0 font-medium text-gray-900 truncate">
+                                {r.title}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}>
@@ -1061,8 +1114,8 @@ export default function MyPortfolioPage() {
               Loading…
             </div>
           ) : filteredRows.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border border-gray-200 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-700">Entity Name</th>

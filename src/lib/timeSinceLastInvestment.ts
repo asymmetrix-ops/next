@@ -19,7 +19,7 @@ type TimeSinceLastInvestmentResponse = {
 };
 
 const ENDPOINT =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/get_time_since_last_investment";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/get_time_since_last_investment";
 
 const MS_PER_DAY = 86_400_000;
 

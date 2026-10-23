@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService, type CorporateEventTargetOption } from "@/lib/locationsService";
+import { locationsService } from "@/lib/locationsService";
 import {
   fetchUserPortfolioData,
   portfolioDataToUserPortfolioRecord,
@@ -32,7 +32,6 @@ import {
   type CorporateEventsSummaryStats,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
 } from "@/components/corporate-events/corporateEventsFilterConfig";
@@ -79,6 +78,7 @@ export type CorporateEventsDashboardProps = {
   hideColumns?: boolean;
   excludeFilterIds?: string[];
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   matchCountOverride?: number;
 };
 
@@ -102,6 +102,7 @@ export const CorporateEventsDashboard = ({
   hideColumns = false,
   excludeFilterIds = [],
   scopedPrimarySectorIds = [],
+  scopedSecondarySectorIds = [],
   matchCountOverride,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
@@ -116,13 +117,11 @@ export const CorporateEventsDashboard = ({
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
   const provinces = NO_PROVINCES;
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
   );
   const [fundingStages, setFundingStages] = useState<string[]>([]);
-  const [targetOptions, setTargetOptions] = useState<CorporateEventTargetOption[]>([]);
   const [portfolioEntityOptions, setPortfolioEntityOptions] = useState<string[]>(
     []
   );
@@ -136,15 +135,6 @@ export const CorporateEventsDashboard = ({
     });
   const [activeDealTab, setActiveDealTab] = useState<CorporateEventDealTab>("all");
 
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -185,10 +175,6 @@ export const CorporateEventsDashboard = ({
         }
       })
       .catch(console.error);
-    locationsService
-      .getCorporateEventTargetOptions()
-      .then(setTargetOptions)
-      .catch(console.error);
     fetchUserPortfolioData()
       .then((portfolioData) => {
         const typeLabel: Record<string, string> = {
@@ -210,13 +196,6 @@ export const CorporateEventsDashboard = ({
   }, []);
 
   useEffect(() => {
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
-
-  useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((sector) => sector.sector_name === name)?.id)
@@ -233,12 +212,11 @@ export const CorporateEventsDashboard = ({
         subRegions,
         countries,
         provinces,
-        cities,
+        cities: [],
         primarySectors,
         secondarySectors,
         fundingStages,
         portfolioEntityOptions,
-        targetOptions,
       }).filter(
         (def) => def.id !== "state" && !excludeFilterIds.includes(def.id)
       ),
@@ -247,12 +225,10 @@ export const CorporateEventsDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
       primarySectors,
       secondarySectors,
       fundingStages,
       portfolioEntityOptions,
-      targetOptions,
       excludeFilterIds,
     ]
   );
@@ -278,6 +254,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
       dealTabTypes: tabConfig?.dealTypes,
       followedEntityIds,
     });
@@ -287,6 +264,7 @@ export const CorporateEventsDashboard = ({
     secondarySectors,
     userId,
     scopedPrimarySectorIds,
+    scopedSecondarySectorIds,
     activeDealTab,
     followedEntityIds,
   ]);
@@ -299,6 +277,7 @@ export const CorporateEventsDashboard = ({
         secondarySectors,
         userId,
         scopedPrimarySectorIds,
+        scopedSecondarySectorIds,
         followedEntityIds,
       }),
     [
@@ -307,6 +286,7 @@ export const CorporateEventsDashboard = ({
       secondarySectors,
       userId,
       scopedPrimarySectorIds,
+      scopedSecondarySectorIds,
       followedEntityIds,
     ]
   );

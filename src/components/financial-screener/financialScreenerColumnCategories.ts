@@ -69,7 +69,7 @@ export const FINANCIAL_SCREENER_COLUMN_CATEGORIES: FinancialScreenerColumnCatego
         {
           id: "sub_sector",
           columnKey: "sub_sector",
-          label: "Sub sector",
+          label: "Secondary sector",
           type: "text",
           defaultVisible: false,
         },
@@ -157,6 +157,13 @@ export const FINANCIAL_SCREENER_COLUMN_CATEGORIES: FinancialScreenerColumnCatego
           defaultVisible: true,
         },
         {
+          id: "ev_ebit",
+          columnKey: "ev_ebit",
+          label: "EV / EBIT",
+          type: "multiple",
+          defaultVisible: true,
+        },
+        {
           id: "ev_ebitda",
           columnKey: "ev_ebitda",
           label: "EV / EBITDA",
@@ -192,6 +199,7 @@ export const PROD_DEFAULT_FINANCIAL_SCREENER_COLUMN_KEYS = [
   "ebit",
   "ev",
   "ev_revenue",
+  "ev_ebit",
   "ev_ebitda",
   "rev_multiple",
 ] as const;

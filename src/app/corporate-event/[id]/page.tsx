@@ -7,30 +7,25 @@ import Footer from "@/components/Footer";
 import { PlusIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import { corporateEventsService } from "../../../lib/corporateEventsService";
 import {
-  CorporateEvent,
   CorporateEventDetailResponse,
   CorporateEventAdvisor,
   Target,
 } from "../../../types/corporateEvents";
 import { ContentArticle } from "@/types/insightsAnalysis";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
+import { useDescriptionRowHeight } from "@/hooks/useDescriptionRowHeight";
 import { LinkPanel, T } from "@/components/redesign/primitives";
 import { CorporateEventOverviewCard } from "@/components/corporate-events/CorporateEventOverviewCard";
-import { fetchCorporateEventTransactionCompsServer } from "@/app/transaction-comps/actions";
-import type { CorporateEventTransactionComp } from "@/components/transaction-comps/transactionCompsTypes";
-import { CorporateEventTransactionCompsPanel } from "@/components/corporate-events/CorporateEventTransactionCompsPanel";
 import { CorporateEventCounterpartiesPanel } from "@/components/corporate-events/CorporateEventCounterpartiesPanel";
-import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { CorporateEventAdvisorsPanel } from "@/components/corporate-events/CorporateEventAdvisorsPanel";
 import {
   CorporateEventTransactionsPanel,
   type CorporateEventTransactionRow,
 } from "@/components/corporate-events/CorporateEventTransactionsPanel";
-import {
-  CorporateEventInsightsPanel,
-  type CorporateEventInsight,
-} from "@/components/corporate-events/CorporateEventInsightsPanel";
-import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
+import { fetchCorporateEventTransactionCompsServer } from "@/app/transaction-comps/actions";
+import type { CorporateEventTransactionComp } from "@/components/transaction-comps/transactionCompsTypes";
+import { CorporateEventTransactionCompsPanel } from "@/components/corporate-events/CorporateEventTransactionCompsPanel";
+import { CorporateEventInsightsPanel } from "@/components/corporate-events/CorporateEventInsightsPanel";
 import { CorporateEventPartyLink } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX, readHqCountryIso2 } from "@/lib/dealRadar";
 import { resolveCompanyLogoSrcBlockingLinkedIn } from "@/lib/companyLogo";
@@ -56,6 +51,10 @@ const RELATED_PARTY_LINK_STYLE: React.CSSProperties = {
   textDecoration: "underline",
 };
 
+type CorporateEventListItem = NonNullable<
+  Awaited<ReturnType<typeof corporateEventsService.getCorporateEvents>>["items"]
+>[number];
+
 type CorporateEventTransactionExportRow = {
   id: number;
   title: string;
@@ -66,7 +65,7 @@ type CorporateEventTransactionExportRow = {
 };
 
 function mapCorporateEventToExportTransaction(
-  e: CorporateEvent,
+  e: CorporateEventListItem,
   formatDate: (dateString: string) => string
 ): CorporateEventTransactionExportRow {
   const targetNames: string[] = [];
@@ -111,6 +110,8 @@ const CorporateEventDetail = ({
   const { currency: platformCurrency } = usePlatformCurrency();
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const overviewGridRef = useRef<HTMLDivElement>(null);
+  const descriptionGridRef = useRef<HTMLDivElement>(null);
   type FlatEventFields = {
     investment_amount_m?: string | number | null;
     investment_amount?: string | number | null;
@@ -123,6 +124,12 @@ const CorporateEventDetail = ({
     Array.isArray(data?.Event) && data.Event.length > 0
       ? data.Event[0]
       : undefined;
+  const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
+    [overviewGridRef],
+    descriptionGridRef,
+    !isDescriptionExpanded,
+    [event?.id]
+  );
   const counterparties = React.useMemo(
     () =>
       Array.isArray(data?.Event_counterparties)
@@ -140,73 +147,6 @@ const CorporateEventDetail = ({
   const previousCorporateEventsRaw = Array.isArray(data?.Previous_Corporate_Events)
     ? data.Previous_Corporate_Events
     : [];
-
-  // Deal-level bankers per advisor row (CE → Advisor → Individual).
-  type KeyPerson = { id: number; name: string; role?: string };
-  const eventId = (event as { id?: number } | undefined)?.id;
-
-  const [eventComps, setEventComps] = useState<CorporateEventTransactionComp[]>([]);
-  useEffect(() => {
-    if (!eventId) return;
-    let cancelled = false;
-    fetchCorporateEventTransactionCompsServer(eventId).then((items) => {
-      if (!cancelled) setEventComps(items);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId]);
-  const hasEventComps = eventComps.length > 0;
-  const [keyPeopleByRow, setKeyPeopleByRow] = useState<Map<number, KeyPerson[]>>(
-    new Map()
-  );
-  const [keyPeopleByCompany, setKeyPeopleByCompany] = useState<
-    Map<number, KeyPerson[]>
-  >(new Map());
-  useEffect(() => {
-    if (!eventId) return;
-    let cancelled = false;
-    const base = "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
-    const token = localStorage.getItem("asymmetrix_auth_token");
-    fetch(`${base}/corporate_event/advisors_key_people?event_id=${eventId}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: unknown) => {
-        if (cancelled || !Array.isArray(rows)) return;
-        const byRow = new Map<number, KeyPerson[]>();
-        const byCompany = new Map<number, KeyPerson[]>();
-        for (const row of rows) {
-          let list: unknown = row?.individuals;
-          if (typeof list === "string") {
-            try {
-              list = JSON.parse(list);
-            } catch {
-              list = [];
-            }
-          }
-          const people: KeyPerson[] = (Array.isArray(list) ? list : [])
-            .filter((p) => p && typeof p.individual_id === "number" && p.name)
-            .map((p) => ({
-              id: p.individual_id,
-              name: p.name,
-              role: Array.isArray(p.job_titles)
-                ? p.job_titles.join(", ") || undefined
-                : undefined,
-            }));
-          if (typeof row?.advisor_row_id === "number")
-            byRow.set(row.advisor_row_id, people);
-          if (typeof row?.advisor_company_id === "number")
-            byCompany.set(row.advisor_company_id, people);
-        }
-        setKeyPeopleByRow(byRow);
-        setKeyPeopleByCompany(byCompany);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId]);
 
   // Fast lookup for counterparties by id
   const counterpartiesById = React.useMemo(() => {
@@ -296,13 +236,18 @@ const CorporateEventDetail = ({
   };
 
   const getInvestmentAmount = (): string | undefined => {
-    const nested = event?.investment_data?.investment_amount_m;
-    if (nested) return nested;
+    // The API returns the deal amount two ways: `investment_data.investment_amount_m`
+    // is the native, unconverted figure, while the top-level `investment_amount_m`
+    // is that same figure converted to the requested `preferred_currency_id`. Prefer
+    // the converted top-level value so the platform-currency label we display matches
+    // the actual number.
     const flatEvent = (event ?? {}) as FlatEventFields;
     const top =
       flatEvent.investment_amount_m ?? flatEvent.investment_amount ?? undefined;
     if (typeof top === "number") return String(top);
     if (typeof top === "string" && top.trim().length > 0) return top.trim();
+    const nested = event?.investment_data?.investment_amount_m;
+    if (nested) return nested;
     return undefined;
   };
 
@@ -325,8 +270,22 @@ const CorporateEventDetail = ({
   const [relatedTransactionsForExport, setRelatedTransactionsForExport] = useState<
     CorporateEventTransactionExportRow[]
   >([]);
-  const [relatedInsights, setRelatedInsights] = useState<CorporateEventInsight[]>([]);
+  const [relatedInsights, setRelatedInsights] = useState<ContentArticle[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const [eventComps, setEventComps] = useState<CorporateEventTransactionComp[]>([]);
+  useEffect(() => {
+    const id = event?.id;
+    if (!id) return;
+    let cancelled = false;
+    fetchCorporateEventTransactionCompsServer(id).then((items) => {
+      if (!cancelled) setEventComps(items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [event?.id]);
+  const hasEventComps = eventComps.length > 0;
 
   useEffect(() => {
     const run = async () => {
@@ -455,12 +414,15 @@ const CorporateEventDetail = ({
     currency: undefined,
     enterpriseValue: (() => {
       const flatEvent = (event ?? {}) as FlatEventFields;
-      const amountRaw =
-        event?.ev_data?.enterprise_value_m ??
-        flatEvent.enterprise_value_m ??
-        "";
-      // Check if the value is empty, null, or 0
-      if (amountRaw === null || amountRaw === undefined || amountRaw === "" || amountRaw === 0 || amountRaw === "0") {
+      const isUsable = (v: unknown) =>
+        v !== null && v !== undefined && v !== "" && v !== 0 && v !== "0";
+      // Same as investmentAmount: `enterprise_value_m` at the top level is the
+      // figure converted to the requested platform currency; `ev_data.enterprise_value_m`
+      // is the native, unconverted one. Prefer the converted value.
+      const amountRaw = isUsable(flatEvent.enterprise_value_m)
+        ? flatEvent.enterprise_value_m
+        : (event?.ev_data?.enterprise_value_m ?? "");
+      if (!isUsable(amountRaw)) {
         return undefined;
       }
       const amount =
@@ -504,15 +466,7 @@ const CorporateEventDetail = ({
       return db - da;
     });
 
-  const insightsForEvent = insightsForEventRaw.map((article) => ({
-    id: article.id,
-    tag: (article.Content_Type || "Article").trim() || "Article",
-    date: article.Publication_Date
-      ? new Date(article.Publication_Date).toLocaleDateString()
-      : undefined,
-    title: article.Headline || "Untitled",
-    content: article.Strapline || "",
-  }));
+  const insightsForEvent = insightsForEventRaw;
 
   // Memoize primary sector IDs string to prevent infinite loops
   const primarySectorIdsString = useMemo(() => {
@@ -590,8 +544,6 @@ const CorporateEventDetail = ({
           id: number;
           individuals_id?: number;
           advisor_individuals: string;
-          job_titles_id?: unknown;
-          _job_titles?: unknown;
         }>)
       : undefined;
 
@@ -602,14 +554,8 @@ const CorporateEventDetail = ({
             .map((ind) => ({
               id: ind.individuals_id as number,
               name: ind.advisor_individuals,
-              role:
-                formatJobTitlesFromId(ind.job_titles_id, ind._job_titles) ||
-                undefined,
             }))
         : [];
-
-    const keyPeople =
-      keyPeopleByRow.get(a.id) ?? keyPeopleByCompany.get(a._new_company.id);
 
     return {
       id: a.id,
@@ -621,7 +567,7 @@ const CorporateEventDetail = ({
       advisedHqIso2: nc
         ? readHqCountryIso2(nc as unknown as Record<string, unknown>)
         : null,
-      individuals: keyPeople ?? individuals,
+      individuals,
       href: `/advisor/${a._new_company.id}`,
       hqIso2: readHqCountryIso2(
         a._new_company as unknown as Record<string, unknown>
@@ -697,11 +643,10 @@ const CorporateEventDetail = ({
                       entity={inv as unknown as Record<string, unknown>}
                       linkStyle={RELATED_PARTY_LINK_STYLE}
                       flagSize={ENTITY_FLAG_SIZE_PX}
+                      hideFlag
                     />
-                  ) : name ? (
-                    <NonDaCompanyName>{name}</NonDaCompanyName>
                   ) : (
-                    <span>-</span>
+                    <span>{name || "-"}</span>
                   );
                 return (
                   <span key={typeof id === "number" ? id : idx}>
@@ -742,7 +687,8 @@ const CorporateEventDetail = ({
         setRelatedTransactionsForExport(
           sectorPeerEvents.map((e) => mapCorporateEventToExportTransaction(e, formatDate))
         );
-        const filtered = sectorPeerEvents.map((e) => {
+        const filtered = sectorPeerEvents
+          .map((e) => {
             const investors = Array.isArray(e?.other_counterparties)
               ? (() => {
                   const investorCounterparties = e.other_counterparties
@@ -775,6 +721,7 @@ const CorporateEventDetail = ({
                                 }
                                 linkStyle={RELATED_PARTY_LINK_STYLE}
                                 flagSize={ENTITY_FLAG_SIZE_PX}
+                                hideFlag
                               />
                               {idx < investorsArray.length - 1 && ", "}
                       </span>
@@ -788,6 +735,7 @@ const CorporateEventDetail = ({
                                 (nc ?? c) as unknown as Record<string, unknown>
                               }
                               flagSize={ENTITY_FLAG_SIZE_PX}
+                              hideFlag
                             />
                             {idx < investorsArray.length - 1 && ", "}
                             </span>
@@ -942,16 +890,7 @@ const CorporateEventDetail = ({
         const filteredIA = itemsIA.filter(
           (article) => !(typeof article?.id === "number" && eventArticleIds.has(article.id))
         );
-        const mapped = filteredIA.slice(0, SECTOR_INSIGHTS_PDF_LIMIT).map((article) => ({
-          id: article.id,
-          tag: (article.Content_Type || "Article").trim() || "Article",
-          date: article.Publication_Date
-            ? new Date(article.Publication_Date).toLocaleDateString()
-            : undefined,
-          title: article.Headline || "Untitled",
-          content: article.Strapline || "",
-        }));
-        setRelatedInsights(mapped);
+        setRelatedInsights(filteredIA.slice(0, 5));
       } catch {
         // ignore
       }
@@ -980,6 +919,18 @@ const CorporateEventDetail = ({
       const endpoint =
         "https://asymmetrix-pdf-service.fly.dev/api/export-corporate-event-pdf?version=v2";
 
+      const toInsightRow = (article: ContentArticle) => ({
+        id: article.id,
+        tag: (article.Content_Type || "Article").trim() || "Article",
+        date: article.Publication_Date
+          ? new Date(article.Publication_Date).toLocaleDateString()
+          : undefined,
+        title: article.Headline || "Untitled",
+        content: article.Strapline || "",
+      });
+      const sectorInsightsForExport = (relatedInsights || []).map(toInsightRow);
+      const insightsForEventForExport = (insightsForEvent || []).map(toInsightRow);
+      
       // Prepare the full data payload
       const payload = {
         Event: data?.Event || [],
@@ -989,9 +940,9 @@ const CorporateEventDetail = ({
         "Sub-sectors": data?.["Sub-sectors"] || [],
         event_articles: eventArticles || [],
         related_transactions: relatedTransactions || [],
-        related_insights: relatedInsights || [],
-        insights_and_analysis: insightsForEvent,
-        sector_insights_and_analysis: relatedInsights.slice(0, SECTOR_INSIGHTS_PDF_LIMIT),
+        related_insights: sectorInsightsForExport,
+        insights_and_analysis: insightsForEventForExport,
+        sector_insights_and_analysis: sectorInsightsForExport.slice(0, SECTOR_INSIGHTS_PDF_LIMIT),
         recent_sector_transactions: relatedTransactionsForExport.slice(
           0,
           RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT
@@ -1005,9 +956,6 @@ const CorporateEventDetail = ({
         articles_count: payload.event_articles.length,
         transactions_count: payload.related_transactions.length,
         insights_count: payload.related_insights.length,
-        insights_and_analysis_count: payload.insights_and_analysis.length,
-        sector_insights_count: payload.sector_insights_and_analysis.length,
-        recent_sector_transactions_count: payload.recent_sector_transactions.length,
       });
 
       const res = await fetch(endpoint, {
@@ -1044,10 +992,10 @@ const CorporateEventDetail = ({
     event?.description,
     data,
     eventArticles,
-    insightsForEvent,
-    relatedInsights,
     relatedTransactions,
     relatedTransactionsForExport,
+    relatedInsights,
+    insightsForEvent,
   ]);
 
   const eventTitle = event?.description || "Corporate Event";
@@ -1224,7 +1172,7 @@ const CorporateEventDetail = ({
         <div style={styles.maxWidth}>
           <style>{responsiveCss}</style>
           <div className="responsiveGrid">
-            <div className="ce-grid-overview">
+            <div className="ce-grid-overview" ref={overviewGridRef}>
               <CorporateEventOverviewCard
                 fillGridCell
                 primarySectors={primarySectors}
@@ -1244,7 +1192,7 @@ const CorporateEventDetail = ({
 
             <div
               className="ce-grid-description"
-              ref={descriptionRef}
+              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
@@ -1252,6 +1200,7 @@ const CorporateEventDetail = ({
                 flexDirection: "column",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
+                ...(!isDescriptionExpanded ? descriptionCollapsedHeightStyle : {}),
               }}
             >
               <DescriptionCard

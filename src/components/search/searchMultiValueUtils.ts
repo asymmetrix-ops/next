@@ -3,8 +3,6 @@ export type SearchMultiValueItem = {
   href?: string;
   key?: string;
   hqIso2?: string | null;
-  /** Company name: without href it is a non-D&A company and gets the explanatory tooltip. */
-  isCompany?: boolean;
 };
 
 export function splitCommaSeparatedValues(text: string): string[] {
@@ -47,7 +45,6 @@ export function entityLinksToMultiValueItems(
         name: label,
         href: link.href ?? undefined,
         hqIso2: link.hqIso2,
-        isCompany: true,
         key: `${keyPrefix}-${link.id ?? index}-${label}`,
       },
     ];

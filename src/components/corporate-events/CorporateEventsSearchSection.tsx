@@ -783,7 +783,11 @@ export const CorporateEventsSearchSection = ({
                   {selectedColumns.map((column) => (
                     <td
                       key={`${column.key}-${index}`}
-                      className={getSearchTableColumnClassName(column, frozenColumnKeys)}
+                      className={getSearchTableColumnClassName(column, frozenColumnKeys, [
+                        column.key === "description"
+                          ? "company-table-cell-event"
+                          : undefined,
+                      ])}
                       style={{
                         minWidth: column.minWidth,
                         ...getStickyColumnStyle(
@@ -794,7 +798,22 @@ export const CorporateEventsSearchSection = ({
                       }}
                     >
                       {column.wrap ? (
-                        <div className="company-table-cell-wrap-inner">
+                        <div
+                          className={
+                            // "description" is plain text — clamp it to 2 lines.
+                            // Columns whose content already self-limits via a
+                            // "+N"/"Show less" control (Parties, Advisors,
+                            // Sectors) must NOT also get the CSS line-clamp:
+                            // once expanded, the extra items (and the "Show
+                            // less" button) would render past line 2 and get
+                            // clipped by `overflow: hidden`, making it look
+                            // like clicking "+N" truncates further with no
+                            // way back.
+                            column.key === "description"
+                              ? "company-table-cell-wrap-inner"
+                              : "company-table-cell-wrap-inner company-table-cell-wrap-inner--expandable"
+                          }
+                        >
                           {renderEventCell(column.key, event)}
                         </div>
                       ) : (
@@ -834,6 +853,9 @@ export const CorporateEventsSearchSection = ({
               height: auto;
               vertical-align: top;
             }
+            .ce-search-table td.company-table-cell-event {
+              vertical-align: middle;
+            }
             .ce-search-table .company-table-cell-wrap-inner {
               display: -webkit-box;
               -webkit-line-clamp: 2;
@@ -842,6 +864,16 @@ export const CorporateEventsSearchSection = ({
               word-break: break-word;
               overflow-wrap: break-word;
               max-width: 320px;
+            }
+            /* Parties / Advisors / Sectors cells already cap their own item
+               count via a "+N" / "Show less" control — the 2-line CSS clamp
+               above must not also apply here, or expanding hides the extra
+               items (and the "Show less" button) past line 2 with no way
+               to see them or collapse back. */
+            .ce-search-table .company-table-cell-wrap-inner--expandable {
+              display: block;
+              -webkit-line-clamp: unset;
+              overflow: visible;
             }
           `,
         }}

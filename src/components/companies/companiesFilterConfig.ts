@@ -42,6 +42,12 @@ export type CompaniesOwnershipCounts = {
   otherCompanies: number;
 };
 
+export const COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS = [
+  "Rumoured in Market",
+  "Transaction anticipated within 18 months",
+  "Reported in Market",
+] as const;
+
 export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   totalCount: 0,
   publicCompanies: 0,
@@ -52,6 +58,10 @@ export const EMPTY_OWNERSHIP_COUNTS: CompaniesOwnershipCounts = {
   acquiredCompanies: 0,
   otherCompanies: 0,
 };
+
+export const PRODUCT_TYPES = ["Data","Research","Software","News / Other Media","Events","Consulting","Training","Executive Networks","Expert Networks","Other"];
+export const REVENUE_MODELS = ["Subscription","Consumption-Based / Usage-Based","Freemium","Consulting","Advertising","Sponsorship","Transaction Fees","Licensing","Other"];
+export const DATA_COLLECTION_METHODS = ["Crowd Sourced","Customer Data","Data Co-op","Data Exhaust","Give-to-Get / Contributory","Manual","Public Filings / Government Data","Purchased Data","Satellite Data","Sensor / IoT Data","Surveys","Transaction-Generated","Web Scraping","Telemetry"];
 
 export const FILTER_CATEGORIES: FilterCategory[] = [
   { id: "lists",        name: "Lists" },
@@ -72,9 +82,7 @@ export function buildCompaniesFilterDefs({
   primarySectors,
   secondarySectors,
   ownershipTypes,
-  productTypes = [],
-  dataCollectionMethods = [],
-  revenueModels = [],
+  transactionStatusOptions,
 }: {
   continentalRegions: string[];
   subRegions: string[];
@@ -84,9 +92,7 @@ export function buildCompaniesFilterDefs({
   primarySectors: PrimarySector[];
   secondarySectors: SecondarySector[];
   ownershipTypes: OwnershipType[];
-  productTypes?: string[];
-  dataCollectionMethods?: string[];
-  revenueModels?: string[];
+  transactionStatusOptions?: string[];
 }): FilterDef[] {
   const overrides: Record<string, Partial<FilterDef>> = {
     region: { options: continentalRegions },
@@ -97,14 +103,14 @@ export function buildCompaniesFilterDefs({
     primary_sector: { options: primarySectors.map((s) => s.sector_name) },
     secondary_sector: { options: secondarySectors.map((s) => s.sector_name) },
     ownership: { options: ownershipTypes.map((o) => o.ownership) },
-    product_type: { options: productTypes },
-    data_collection_method: { options: dataCollectionMethods },
-    revenue_model: { options: revenueModels },
+    product_type: { options: PRODUCT_TYPES },
+    revenue_model: { options: REVENUE_MODELS },
+    data_collection_method: { options: DATA_COLLECTION_METHODS },
     transaction: {
       options: [
-        "Rumoured in Market",
-        "Transaction anticipated within 18 months",
-        "Reported in Market",
+        ...(transactionStatusOptions && transactionStatusOptions.length > 0
+          ? transactionStatusOptions
+          : COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS),
       ],
     },
     year_founded: {
@@ -249,6 +255,18 @@ export function buildCompaniesFilterDefs({
         ["0–19%", 0, 19],
         ["20–39%", 20, 39],
         ["40%+", 40, 200],
+      ],
+    },
+    subscription_revenue_m: {
+      unit: "$m",
+      min: 0,
+      max: 5000,
+      presets: [
+        ["<$10m", 0, 9],
+        ["$10–49m", 10, 49],
+        ["$50–99m", 50, 99],
+        ["$100–499m", 100, 499],
+        ["$500m+", 500, 5000],
       ],
     },
     churn: {

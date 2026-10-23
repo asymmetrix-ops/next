@@ -8,6 +8,10 @@
  */
 import React from "react";
 import { sourceTypeColor } from "@/lib/financialIntelligence/sourceTypes";
+import Link from "next/link";
+
+/** Default max visible entity tags before a "+N" overflow control. */
+export const DEFAULT_TAG_CAP = 3;
 
 // ── Design tokens (mirrors page.tsx T and redesign/tokens.jsx) ──────────────
 // Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
@@ -19,7 +23,7 @@ export const T = {
   divider:      "#E4E8F2",
   hair:         "#EFF2F8",
   ink:          "#0A0E1A",
-  /** Card titles and financials table metric names (CompanyFinancials.html `.mt td.m`). */
+  /** Financials table metric names (CompanyFinancials.html `.mt td.m`). */
   ink2:         "#1E2536",
   body:         "#566078",
   muted:        "#6B7488",
@@ -323,10 +327,13 @@ const PILL_TONES: Record<PillTone, { bg: string; fg: string; bd: string }> = {
 export function Pill({
   children,
   tone = "neutral",
+  wrap = false,
   style,
 }: {
   children: React.ReactNode;
   tone?: PillTone;
+  /** Allow multi-line label (sector names in narrow columns). */
+  wrap?: boolean;
   style?: React.CSSProperties;
 }) {
   const t = PILL_TONES[tone];
@@ -335,9 +342,12 @@ export function Pill({
       style={{
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: 6,
-        height: 24,
-        padding: "0 10px",
+        height: wrap ? "auto" : 24,
+        minHeight: wrap ? 24 : undefined,
+        maxWidth: wrap ? "100%" : undefined,
+        padding: wrap ? "4px 10px" : "0 10px",
         borderRadius: 999,
         background: t.bg,
         color: t.fg,
@@ -345,8 +355,10 @@ export function Pill({
         fontFamily: T.sans,
         fontSize: 12,
         fontWeight: 600,
-        lineHeight: 1.5,
-        whiteSpace: "nowrap",
+        lineHeight: wrap ? 1.35 : 1.5,
+        whiteSpace: wrap ? "normal" : "nowrap",
+        textAlign: wrap ? ("center" as const) : undefined,
+        overflowWrap: wrap ? "anywhere" : undefined,
         ...style,
       }}
     >
@@ -450,6 +462,7 @@ export function LinkPanel({
         ...(fillGridCell
           ? {
               height: "100%",
+              flex: "1 1 auto",
               display: "flex" as const,
               flexDirection: "column" as const,
               minHeight: 0,
@@ -523,68 +536,153 @@ export function MiniKV({
   );
 }
 
-// ── TagRow — pills with "+N more" overflow tooltip ───────────────────────────
+export type CappedPillTagItem = {
+  key: string;
+  label: string;
+  href?: string;
+};
+
+const cappedTagRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 4,
+  alignItems: "flex-start",
+  minWidth: 0,
+  width: "100%",
+};
+
+const overflowButtonReset: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: 0,
+  margin: 0,
+  border: "none",
+  background: "none",
+  cursor: "pointer",
+  font: "inherit",
+};
+
+function CappedPillTag({
+  item,
+  tone,
+  wrap,
+  pillStyle,
+}: {
+  item: CappedPillTagItem;
+  tone: PillTone;
+  wrap: boolean;
+  pillStyle?: React.CSSProperties;
+}) {
+  const pillProps = {
+    tone,
+    wrap,
+    style: { maxWidth: "100%", ...pillStyle },
+  };
+  if (item.href) {
+    return (
+      <Link
+        key={item.key}
+        href={item.href}
+        prefetch={false}
+        style={{
+          textDecoration: "none",
+          maxWidth: "100%",
+          minWidth: 0,
+        }}
+      >
+        <Pill {...pillProps}>{item.label}</Pill>
+      </Link>
+    );
+  }
+  return (
+    <Pill key={item.key} {...pillProps}>
+      {item.label}
+    </Pill>
+  );
+}
+
+/**
+ * Entity tag row: show up to `max` pills, then a clickable `+N` that expands
+ * to reveal the rest. Items with `href` render as Next.js links (clickable).
+ */
+export function CappedPillTags({
+  items,
+  tone = "neutral",
+  max = DEFAULT_TAG_CAP,
+  wrap = true,
+  pillStyle,
+}: {
+  items: CappedPillTagItem[];
+  tone?: PillTone;
+  max?: number;
+  wrap?: boolean;
+  pillStyle?: React.CSSProperties;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const overflowCount = Math.max(0, items.length - max);
+  const visibleItems = expanded ? items : items.slice(0, max);
+
+  return (
+    <div style={{ minWidth: 0, width: "100%" }}>
+      <div style={cappedTagRowStyle}>
+        {visibleItems.map((item) => (
+          <CappedPillTag
+            key={item.key}
+            item={item}
+            tone={tone}
+            wrap={wrap}
+            pillStyle={pillStyle}
+          />
+        ))}
+        {!expanded && overflowCount > 0 ? (
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-label={`Show ${overflowCount} more`}
+            onClick={() => setExpanded(true)}
+            style={overflowButtonReset}
+          >
+            <Pill tone="ghost" style={{ cursor: "pointer" }}>+{overflowCount}</Pill>
+          </button>
+        ) : null}
+      </div>
+      {expanded && overflowCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          style={{
+            background: "none",
+            border: "none",
+            color: T.azure,
+            cursor: "pointer",
+            fontSize: 11.5,
+            marginTop: 4,
+            padding: 0,
+            fontFamily: T.sans,
+          }}
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── TagRow — plain-label pills with "+N" click-to-expand ───────────────────
 export function TagRow({
   items,
   tone = "neutral",
-  max = 3,
+  max = DEFAULT_TAG_CAP,
 }: {
   items: string[];
   tone?: PillTone;
   max?: number;
 }) {
-  const [hover, setHover] = React.useState(false);
-  const visible = items.slice(0, max);
-  const hidden = items.slice(max);
-  return (
-    <span
-      style={{
-        display: "flex",
-        gap: 4,
-        flexWrap: "nowrap",
-        alignItems: "center",
-        minWidth: 0,
-      }}
-    >
-      {visible.map((s) => (
-        <Pill key={s} tone={tone}>
-          {s}
-        </Pill>
-      ))}
-      {hidden.length > 0 && (
-        <span
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          style={{ position: "relative", cursor: "default" }}
-        >
-          <Pill tone="ghost">+{hidden.length}</Pill>
-          {hover && (
-            <span
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                right: 0,
-                background: T.ink,
-                color: "#fff",
-                fontFamily: T.sans,
-                fontSize: 11.5,
-                padding: "6px 10px",
-                borderRadius: 6,
-                boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
-                whiteSpace: "nowrap",
-                zIndex: 20,
-                lineHeight: 1.55,
-              }}
-            >
-              {hidden.map((h) => (
-                <div key={h}>{h}</div>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
-    </span>
-  );
+  const cappedItems = items.map((label, i) => ({
+    key: `${label}-${i}`,
+    label,
+  }));
+  return <CappedPillTags items={cappedItems} tone={tone} max={max} wrap={false} />;
 }
 
 // ── KV — overview-style key / value row ─────────────────────────────────────
@@ -616,7 +714,14 @@ export function KV({
       }}
     >
       <div style={{ ...kvLabelStyle, whiteSpace: "nowrap" }}>{k}</div>
-      <div style={{ ...kvValueStyle, fontFamily: mono ? T.mono : T.sans }}>
+      <div
+        style={{
+          ...kvValueStyle,
+          fontFamily: mono ? T.mono : T.sans,
+          minWidth: 0,
+          overflowWrap: "anywhere",
+        }}
+      >
         {v}
       </div>
     </div>

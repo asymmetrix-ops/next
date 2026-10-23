@@ -6,7 +6,7 @@ export const AZURE_OAUTH_STATE_COOKIE = "azure_oauth_state";
 export const AZURE_SCOPES = "openid profile email User.Read";
 
 export const DEFAULT_XANO_AZURE_SSO_CALLBACK_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/sso/callback";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop/auth/sso/callback";
 
 type AzureTokenResponse = {
   access_token?: string;

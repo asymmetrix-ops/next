@@ -32,6 +32,7 @@ export type FilterType =
   | "rule_of_40"
   | "arr_m"
   | "arr_pc"
+  | "subscription_revenue_m"
   | "churn"
   | "grr"
   | "nrr"
@@ -49,14 +50,14 @@ export type FilterType =
   | "holding_period_years"
   | "financial_year_range"
   | "linkedin_growth_range"
-  | "has_mcp"
   | "product_type"
+  | "revenue_model"
   | "data_collection_method"
-  | "revenue_model";
+  | "has_mcp";
 
 export type FilterValue =
   | { min?: number; max?: number }
-  | { value: string | number | string[] | number[]; ids?: number[] };
+  | { value: string | number | string[] | number[] };
 
 export interface FilterClause {
   id: string;
@@ -77,6 +78,7 @@ const FINANCIAL_FIELD_MAP: Record<string, string> = {
   rule_of_40: '"Rule_of_40"',
   arr_m: '"ARR_m"',
   arr_pc: '"Subscription_revenue_pc"',
+  subscription_revenue_m: '"Subscription_revenue_m"',
   churn: '"Churn_pc"',
   grr: '"GRR_pc"',
   nrr: '"NRR"',
@@ -99,21 +101,6 @@ const FINANCIAL_TYPES = new Set(Object.keys(FINANCIAL_FIELD_MAP));
 
 const esc = (s: string) => `'${String(s).replace(/'/g, "''")}'`;
 
-/**
- * Matches labels and/or ids against a multi-value column cast to text
- * (text, text[], int[] or jsonb) on element boundaries.
- */
-const multiValueSql = (column: string, labels: string[], ids: number[]) => {
-  const reEscape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const tokens = [
-    ...labels.map((l) => String(l).trim()).filter(Boolean),
-    ...ids.filter((i) => Number.isFinite(i)).map(String),
-  ];
-  if (tokens.length === 0) return null;
-  const re = `(^|[{\\["|,])\\s*(${tokens.map(reEscape).join("|")})\\s*($|[}\\]"|,])`;
-  return `${column}::text ~* ${esc(re)}`;
-};
-
 const inList = (values: string[] | number[]) =>
   (values as string[]).map((v) => esc(String(v))).join(",");
 
@@ -128,8 +115,28 @@ function buildRangeSql(field: string, min?: number, max?: number): string | null
   return null;
 }
 
-const toLabelList = (val: unknown): string[] =>
-  Array.isArray(val) ? val.map(String) : val == null ? [] : [String(val)];
+// JSONB tag columns on nc: [{ "<key>": "<value>", ... }]. Match any of the values.
+const TAG_FIELD_MAP: Record<string, { col: string; keys: string[] }> = {
+  product_type: { col: "Product_Type", keys: ["Product_Type"] },
+  revenue_model: { col: "Revenue_Model", keys: ["Revenue_Model_", "Revenue_Model"] },
+  data_collection_method: {
+    col: "Data_Collection_Method",
+    keys: ["Data_Collection_Method"],
+  },
+};
+
+// Values are stored with non-breaking hyphens (U+2011); normalise both sides.
+const normTagValue = (s: string) => String(s).trim().replace(/\u2011/g, "-");
+
+function buildTagSql(type: string, values: string[]): string | null {
+  const meta = TAG_FIELD_MAP[type];
+  const list = values.map(normTagValue).filter(Boolean);
+  if (!meta || list.length === 0) return null;
+  const arr = `ARRAY[${list.map((v) => esc(v)).join(",")}]::text[]`;
+  const pick = `COALESCE(${meta.keys.map((k) => `tag ->> '${k}'`).join(", ")})`;
+  const col = `nc."${meta.col}"::jsonb`;
+  return `EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(${col}) = 'array' THEN ${col} ELSE '[]'::jsonb END) AS tag WHERE replace(${pick}, chr(8209), '-') = ANY(${arr}))`;
+}
 
 // ─── CORE BUILDER ────────────────────────────────────────────────────────────
 
@@ -227,8 +234,15 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return Array.isArray(val)
           ? `nc.ownership_type_id IN (${(val as number[]).join(",")})`
           : `nc.ownership_type_id = ${Number(val)}`;
-      case "transaction_status":
-        return `LOWER(nc."Transaction_status") = LOWER(${esc(String(val))})`;
+      case "transaction_status": {
+        const labels = (Array.isArray(val) ? val : [val])
+          .map((item) => String(item).trim())
+          .filter(Boolean);
+        if (labels.length === 0) return null;
+        return `LOWER(ts.label) IN (${labels
+          .map((label) => `LOWER(${esc(label)})`)
+          .join(", ")})`;
+      }
 
       case "portfolio_companies": {
         const ids = Array.isArray(val) ? (val as number[]) : [];
@@ -265,15 +279,12 @@ export function buildFilterClauseSql(clause: FilterClause): string | null {
         return `nc.primary_business_focus_id && ARRAY[${ids.join(",")}]::bigint[]`;
       }
 
+      case "product_type":
+      case "revenue_model":
+      case "data_collection_method":
+        return Array.isArray(val) ? buildTagSql(type, val.map(String)) : null;
       case "has_mcp":
         return Number(val) === 0 ? `nc.has_mcp = false` : `nc.has_mcp = true`;
-
-      case "product_type":
-        return multiValueSql('nc."Product_Type"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
-      case "data_collection_method":
-        return multiValueSql('nc."Data_Collection_Method"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
-      case "revenue_model":
-        return multiValueSql('nc."Revenue_Model"', toLabelList(val), (value as { ids?: number[] }).ids ?? []);
 
       default:
         return null;

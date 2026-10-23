@@ -2,12 +2,12 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import {
   LinkPanel,
   LinkedH,
   Pill,
   T,
+  CappedPillTags,
   profileTableCellStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
@@ -315,11 +315,7 @@ function renderTargetCell(event: CorporateEvent): React.ReactNode {
         </a>
       );
     }
-    return (
-      <NonDaCompanyName style={{ fontWeight: 500 }}>
-        {ne.target_company.name}
-      </NonDaCompanyName>
-    );
+    return <span style={{ fontWeight: 500 }}>{ne.target_company.name}</span>;
   }
 
   if (isNonEmptyString(ne.target_label)) {
@@ -330,49 +326,19 @@ function renderTargetCell(event: CorporateEvent): React.ReactNode {
 }
 
 function CoinvestorChips({ coinvestors }: { coinvestors: Coinvestor[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const maxVisible = 2;
-  const visible = expanded ? coinvestors : coinvestors.slice(0, maxVisible);
-  const hiddenCount = coinvestors.length - maxVisible;
-
   if (coinvestors.length === 0) {
     return <span style={{ color: T.muted }}>-</span>;
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", minWidth: 0 }}>
-      {visible.map((cp) =>
-        cp.href ? (
-          <Link
-            key={`${cp.name}-${cp.id ?? "na"}`}
-            href={cp.href}
-            prefetch={false}
-            style={{ textDecoration: "none" }}
-          >
-            <Pill tone="ghost">{cp.name}</Pill>
-          </Link>
-        ) : (
-          <NonDaCompanyName key={`${cp.name}-${cp.id ?? "na"}`}>
-            <Pill tone="ghost">{cp.name}</Pill>
-          </NonDaCompanyName>
-        )
-      )}
-      {!expanded && hiddenCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            fontFamily: T.sans,
-          }}
-        >
-          <Pill tone="ghost">+ {hiddenCount}</Pill>
-        </button>
-      ) : null}
-    </div>
+    <CappedPillTags
+      tone="ghost"
+      items={coinvestors.map((cp, i) => ({
+        key: `${cp.name}-${cp.id ?? i}`,
+        label: cp.name,
+        href: cp.href,
+      }))}
+    />
   );
 }
 
@@ -397,7 +363,7 @@ export function InvestorCorporateEventsProfilePanel({
   if (loading) {
     return (
       <LinkPanel fillGridCell={fillGridCell}>
-        <LinkedH showArrow>Corporate Events</LinkedH>
+        <LinkedH>Corporate Events</LinkedH>
         <div style={{ textAlign: "center", padding: "20px 16px", color: T.muted, fontSize: 12.5 }}>
           Loading corporate events…
         </div>
@@ -407,7 +373,7 @@ export function InvestorCorporateEventsProfilePanel({
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="corporate-events-v3-card">
-      <LinkedH showArrow>Corporate Events</LinkedH>
+      <LinkedH>Corporate Events</LinkedH>
 
       <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0, flex: fillGridCell ? 1 : undefined }}>
         {displayed.length > 0 ? (
@@ -535,7 +501,7 @@ export function InvestorCorporateEventsProfilePanel({
                 fontFamily: T.sans,
               }}
             >
-              View all {total} →
+              View all {total}
             </button>
           ) : showAll && total > maxInitialEvents ? (
             <button

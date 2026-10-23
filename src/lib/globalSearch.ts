@@ -26,6 +26,10 @@ export const SEARCH_PAGE_TYPE_LABELS: Record<SearchPageType, string> = {
   "insights and analysis": "Insights & Analysis",
 };
 
+/** Home dashboard search input — keep in sync with SEARCH_PAGE_TYPES coverage. */
+export const GLOBAL_SEARCH_INPUT_PLACEHOLDER =
+  "Search companies, sectors, investors, advisors, individuals, insights, events…";
+
 export type GlobalSearchResult = {
   id: number;
   title: string;
@@ -33,6 +37,8 @@ export type GlobalSearchResult = {
   match_rank?: number;
   type_order?: number;
   sort_date?: string;
+  /** Raw logo payload from search APIs (base64 JPEG/PNG or URL) for companies, investors, and advisors. */
+  logo?: string | null;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -319,5 +325,6 @@ export function getSearchBadgeLabel(type: string): string {
   const t = (type || "").toLowerCase().trim();
   if (t === "insight" || t === "insights" || t === "article")
     return "Insights & Analysis";
+  if (t === "sub_sector" || t === "sub-sector") return "Secondary sector";
   return String(type).replace(/_/g, " ");
 }

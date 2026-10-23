@@ -28,24 +28,23 @@ export function IndividualOverviewCard({
   linkedinUrl,
   fillGridCell = false,
 }: IndividualOverviewCardProps) {
-  const rows = [
-    { k: "Location", v: displayText(location) },
+  const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
+    { k: "Location", show: Boolean(location?.trim()), v: displayText(location) },
     {
       k: "LinkedIn",
-      v: linkedinUrl?.trim() ? (
-        <LinkedInProfileButton href={linkedinUrl.trim()} />
-      ) : (
-        faintDash()
-      ),
+      show: Boolean(linkedinUrl?.trim()),
+      v: linkedinUrl?.trim() ? <LinkedInProfileButton href={linkedinUrl.trim()} /> : null,
     },
   ];
+
+  const visible = rows.filter((r) => r.show !== false);
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <LinkedH>Overview</LinkedH>
       <div style={{ padding: "2px 14px 8px" }}>
-        {rows.map((row, i) => (
-          <KV key={row.k} k={row.k} v={row.v} last={i === rows.length - 1} />
+        {visible.map((row, i) => (
+          <KV key={row.k} k={row.k} v={row.v} last={i === visible.length - 1} />
         ))}
       </div>
     </LinkPanel>

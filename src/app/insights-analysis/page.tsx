@@ -17,11 +17,22 @@ import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import { T } from "@/components/redesign/primitives";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import CompactPagination from "@/components/ui/CompactPagination";
+import {
+  IA_DEFAULT_PER_PAGE,
+  alignPerPageToGrid,
+  getAdaptiveDefaultPerPage,
+  getInsightsGridColumns,
+  getInsightsPerPageOptions,
+  isPerPageAlignedWithGrid,
+  snapInsightsPerPage,
+} from "@/lib/insightsAnalysisGrid";
+import {
+  fetchInsightsLogicalPage,
+  type InsightsApiPageCache,
+} from "@/lib/fetchInsightsLogicalPage";
 
 const CONTENT_ARTICLES_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_All_Content_Articles";
-const CONTENT_ARTICLES_TYPE_COUNTS_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/Get_Content_Articles_Type_Counts";
 
 // ── Design tokens local to this page (mirrors src/app/sectors/page.tsx) ──────
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
@@ -69,7 +80,7 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   Provinces: [],
   Cities: [],
   Offset: 1,
-  Per_page: 20,
+  Per_page: IA_DEFAULT_PER_PAGE,
   portfolio_only: false,
   company_id: null,
   // Off by default — this restricts results to the user's followed/portfolio
@@ -77,8 +88,6 @@ const DEFAULT_FILTERS: InsightsAnalysisFilters = {
   // other filter's results to "followed only" from first load.
   show_followed: false,
 };
-
-const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
 // DEV still returns the deprecated `totalItems` field on some builds instead
 // of `itemsTotal` — fall back so pagination doesn't crash on `undefined`.
@@ -125,8 +134,11 @@ function buildContentArticlesParams(
     params.append("Secondary_sectors_ids", filters.Secondary_sectors_ids.join(","));
   const ct = overrides?.content_type ?? (filters.Content_Type || filters.content_type || "").trim();
   if (ct) params.append("content_type", ct);
-  const ts = (filters.Transaction_status || "").trim();
-  if (ts) params.append("Transaction_status", ts);
+  // Xano expects the numeric id here, not the label (ERROR_CODE_INPUT_ERROR
+  // "Value is not a valid integer" if a label string is sent).
+  if (filters.Transaction_status != null && filters.Transaction_status !== "") {
+    params.append("Transaction_status", String(filters.Transaction_status));
+  }
   if (filters.company_id != null && filters.company_id > 0) {
     params.append("company_id", String(filters.company_id));
   }
@@ -136,44 +148,30 @@ function buildContentArticlesParams(
   return params;
 }
 
-// Params for the aggregate type-counts endpoint. Same filter semantics as
-// buildContentArticlesParams (omit optional filters entirely when unset —
-// an empty string is a real filter value to Xano, not "no filter"), but:
-//   - no Offset / Per_page / content_type (this endpoint groups by type)
-//   - company_id and show_followed are REQUIRED params on this endpoint
-//     (it 400s with "Missing param" otherwise), unlike the list endpoint.
-function buildTypeCountsParams(filters: InsightsAnalysisFilters): URLSearchParams {
-  const params = new URLSearchParams();
-  params.append("portfolio_only", String(Boolean(filters.portfolio_only)));
-  params.append("show_followed", String(Boolean(filters.show_followed)));
-  params.append(
-    "company_id",
-    String(filters.company_id != null && filters.company_id > 0 ? filters.company_id : 0)
-  );
-  if (filters.search_query) params.append("search_query", filters.search_query);
-  if (filters.Countries?.length) params.append("Countries", filters.Countries.join(","));
-  if (filters.Provinces?.length) params.append("Provinces", filters.Provinces.join(","));
-  if (filters.Cities?.length) params.append("Cities", filters.Cities.join(","));
-  if (filters.primary_sectors_ids?.length)
-    params.append("primary_sectors_ids", filters.primary_sectors_ids.join(","));
-  if (filters.Secondary_sectors_ids?.length)
-    params.append("Secondary_sectors_ids", filters.Secondary_sectors_ids.join(","));
-  const ts = (filters.Transaction_status || "").trim();
-  if (ts) params.append("Transaction_status", ts);
-  return params;
-}
-
-type ContentArticlesTypeCountsResponse = {
-  total: number;
-  by_type: Array<{ content_type: string; count: number }>;
-};
-
 // Main Insights Analysis Page Component
 function InsightsAnalysisPageContent() {
   const { isTrialActive } = useAuth();
   const { open: navOpen } = useNavOpen();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1280
+  );
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const gridColumns = useMemo(
+    () => getInsightsGridColumns(navOpen, viewportWidth),
+    [navOpen, viewportWidth]
+  );
+  const perPageOptions = useMemo(
+    () => getInsightsPerPageOptions(gridColumns),
+    [gridColumns]
+  );
 
   const companyIdFromUrl = useMemo(
     () => parseCompanyIdFromParam(searchParams.get("company_id")),
@@ -188,14 +186,22 @@ function InsightsAnalysisPageContent() {
       return raw.trim();
     }
   }, [searchParams]);
+  // `?news` / `?news=true` pre-filters to the "News" content type. An explicit
+  // `content_type` param takes precedence.
   const contentTypeFromUrl = useMemo(() => {
     const raw = searchParams.get("content_type");
-    if (!raw) return "";
-    try {
-      return decodeURIComponent(raw).trim();
-    } catch {
-      return raw.trim();
+    if (raw) {
+      try {
+        return decodeURIComponent(raw).trim();
+      } catch {
+        return raw.trim();
+      }
     }
+    if (searchParams.has("news")) {
+      const news = (searchParams.get("news") || "").trim().toLowerCase();
+      if (news !== "false" && news !== "0") return "News";
+    }
+    return "";
   }, [searchParams]);
 
   // State for filters
@@ -212,6 +218,9 @@ function InsightsAnalysisPageContent() {
   const [primarySectors, setPrimarySectors] = useState<
     Array<{ id: number; sector_name: string }>
   >([]);
+  const [transactionStatuses, setTransactionStatuses] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
 
   // State for insights analysis data
   const [articles, setArticles] = useState<ContentArticle[]>([]);
@@ -222,16 +231,11 @@ function InsightsAnalysisPageContent() {
     nextPage: null as number | null,
     prevPage: null as number | null,
     offset: 0,
-    perPage: 20,
+    perPage: IA_DEFAULT_PER_PAGE,
     pageTotal: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Content-type pill counts (real counts read from a lightweight Per_page=1
-  // request per type — see the isTrialActive-style fetchByType pattern below).
-  const [typeCounts, setTypeCounts] = useState<Record<string, number | null>>({});
-  const [allTypesCount, setAllTypesCount] = useState<number | null>(null);
 
   const fetchInsightsAnalysis = async (filters: InsightsAnalysisFilters) => {
     try {
@@ -259,6 +263,7 @@ function InsightsAnalysisPageContent() {
               "Content-Type": "application/json",
               "X-Data-Source": "live",
             },
+            cache: "no-store",
           });
           if (!res.ok) throw new Error(String(res.status));
           const json: InsightsAnalysisResponse = await res.json();
@@ -297,25 +302,24 @@ function InsightsAnalysisPageContent() {
         return;
       }
 
-      const params = buildContentArticlesParams(filters);
-      const url = `${CONTENT_ARTICLES_URL}?${params.toString()}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "X-Data-Source": "live",
-        },
+      const filterKeyForCache = JSON.stringify({
+        ...filters,
+        Offset: 0,
+        Per_page: 0,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (filterKeyForCache !== insightsCacheFilterKeyRef.current) {
+        insightsApiPageCacheRef.current.clear();
+        insightsCacheFilterKeyRef.current = filterKeyForCache;
       }
 
-      const data: InsightsAnalysisResponse = await response.json();
+      const { items, meta: data } = await fetchInsightsLogicalPage(filters, {
+        token,
+        url: CONTENT_ARTICLES_URL,
+        buildParams: buildContentArticlesParams,
+        cache: insightsApiPageCacheRef.current,
+      });
 
-      setArticles(normalizeContentArticles(data.items || []));
+      setArticles(items);
       setPagination({
         itemsReceived: data.itemsReceived,
         itemsTotal: getItemsTotal(data),
@@ -339,14 +343,41 @@ function InsightsAnalysisPageContent() {
   };
 
   const hasFetchedRef = useRef(false);
+  const gridSnapRef = useRef<number | null>(null);
+  const insightsApiPageCacheRef = useRef<InsightsApiPageCache>(new Map());
+  const insightsCacheFilterKeyRef = useRef<string>("");
+
+  // Adapt Per_page when the grid column count changes (3 tablet / 4 nav open /
+  // 5 nav collapsed) so each page fills complete rows (e.g. 21 on tablet).
+  useEffect(() => {
+    if (isTrialActive) return;
+
+    const target = isPerPageAlignedWithGrid(filters.Per_page, gridColumns)
+      ? filters.Per_page
+      : snapInsightsPerPage(
+          alignPerPageToGrid(filters.Per_page, gridColumns),
+          gridColumns,
+          perPageOptions
+        );
+
+    if (target === filters.Per_page) return;
+    if (gridSnapRef.current === target) return;
+    gridSnapRef.current = target;
+
+    const updated = { ...filters, Per_page: target, Offset: 1 };
+    setFilters(updated);
+    fetchInsightsAnalysis(updated);
+  }, [gridColumns, perPageOptions, filters.Per_page, isTrialActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync company filter from URL and fetch
   useEffect(() => {
     setCompanyFilterLabel(companyNameFromUrl);
 
     if (companyIdFromUrl != null) {
+      const cols = getInsightsGridColumns(navOpen, viewportWidth);
       const nextFilters: InsightsAnalysisFilters = {
         ...DEFAULT_FILTERS,
+        Per_page: getAdaptiveDefaultPerPage(cols),
         company_id: companyIdFromUrl,
       };
       setSearchTerm("");
@@ -358,8 +389,11 @@ function InsightsAnalysisPageContent() {
 
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
+      const cols = getInsightsGridColumns(navOpen, viewportWidth);
+      const perPage = getAdaptiveDefaultPerPage(cols);
       const initialFilters: InsightsAnalysisFilters = {
         ...DEFAULT_FILTERS,
+        Per_page: perPage,
         Content_Type: contentTypeFromUrl || undefined,
         content_type: contentTypeFromUrl || undefined,
       };
@@ -384,7 +418,7 @@ function InsightsAnalysisPageContent() {
         const token = localStorage.getItem("asymmetrix_auth_token");
         if (!token) return;
 
-        const [resp, sectors] = await Promise.all([
+        const [resp, sectors, statuses] = await Promise.all([
           fetch(
             "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/content_types_for_articles",
             {
@@ -396,6 +430,7 @@ function InsightsAnalysisPageContent() {
             }
           ),
           locationsService.getPrimarySectors(),
+          locationsService.getTransactionStatuses().catch(() => []),
         ]);
 
         if (!resp.ok) return;
@@ -411,83 +446,17 @@ function InsightsAnalysisPageContent() {
         );
         setContentTypes(values);
         setPrimarySectors(sectors);
+        setTransactionStatuses(
+          (Array.isArray(statuses) ? statuses : [])
+            .filter((s) => s && s.id != null && s.label)
+            .map((s) => ({ id: s.id, label: s.label.trim() }))
+        );
       } catch {
         // ignore
       }
     };
     run();
   }, []);
-
-  // Content-type pill counts — a single aggregate request (grouped by type
-  // server-side) instead of one Per_page=1 request per type. Refetched
-  // whenever a filter OTHER than the active content type changes; never
-  // fires just from switching which type pill is selected.
-  const primarySectorIdsKey = JSON.stringify(filters.primary_sectors_ids);
-  const secondarySectorIdsKey = JSON.stringify(filters.Secondary_sectors_ids);
-  useEffect(() => {
-    if (isTrialActive) return;
-    if (contentTypes.length === 0) return;
-
-    let cancelled = false;
-    // Abort the in-flight request when filters change again before it
-    // resolves — without this, rapid filter changes (e.g. checking several
-    // sectors in a row) pile up superseded requests instead of just the
-    // latest one winning.
-    const ac = new AbortController();
-
-    const run = async () => {
-      const token = localStorage.getItem("asymmetrix_auth_token");
-      if (!token) return;
-
-      try {
-        const params = buildTypeCountsParams(filters);
-        const res = await fetch(`${CONTENT_ARTICLES_TYPE_COUNTS_URL}?${params.toString()}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "X-Data-Source": "live",
-          },
-          signal: ac.signal,
-        });
-        if (!res.ok) return;
-        const json: ContentArticlesTypeCountsResponse = await res.json();
-        if (cancelled) return;
-
-        setAllTypesCount(typeof json.total === "number" ? json.total : null);
-        const next: Record<string, number | null> = {};
-        (Array.isArray(json.by_type) ? json.by_type : []).forEach((row) => {
-          if (row?.content_type) next[row.content_type] = row.count ?? null;
-        });
-        setTypeCounts(next);
-      } catch {
-        // Leave counts unset — pills render without a count rather than a fake one.
-      }
-    };
-
-    // Small debounce so a burst of filter changes (e.g. toggling several
-    // sector checkboxes) collapses into a single request instead of one
-    // per change.
-    const t = window.setTimeout(run, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      ac.abort();
-    };
-    // Intentionally excludes filters.Content_Type / filters.content_type so
-    // toggling the active type pill doesn't refire this effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isTrialActive,
-    contentTypes,
-    filters.search_query,
-    primarySectorIdsKey,
-    secondarySectorIdsKey,
-    filters.Transaction_status,
-    filters.portfolio_only,
-    filters.company_id,
-    filters.show_followed,
-  ]);
 
   // Handle search
   const handleSearch = () => {
@@ -509,7 +478,11 @@ function InsightsAnalysisPageContent() {
   };
 
   const handlePerPageChange = (perPage: number) => {
-    const updatedFilters = { ...filters, Per_page: perPage, Offset: 1 };
+    const aligned = perPageOptions.includes(perPage)
+      ? perPage
+      : snapInsightsPerPage(perPage, gridColumns, perPageOptions);
+    gridSnapRef.current = aligned;
+    const updatedFilters = { ...filters, Per_page: aligned, Offset: 1 };
     setFilters(updatedFilters);
     fetchInsightsAnalysis(updatedFilters);
   };
@@ -752,10 +725,6 @@ function InsightsAnalysisPageContent() {
       border-radius: 999px;
       flex-shrink: 0;
     }
-    .ia-type-count {
-      color: ${T.faint};
-      font-weight: 600;
-    }
     .ia-company-banner {
       display: flex;
       align-items: center;
@@ -882,9 +851,6 @@ function InsightsAnalysisPageContent() {
                   onClick={() => handleTypeSelect("")}
                 >
                   All types
-                  {allTypesCount != null && (
-                    <span className="ia-type-count">{allTypesCount.toLocaleString()}</span>
-                  )}
                 </button>
                 {contentTypes.map((ct) => (
                   <button
@@ -895,9 +861,6 @@ function InsightsAnalysisPageContent() {
                   >
                     <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
                     {ct}
-                    {typeCounts[ct] != null && (
-                      <span className="ia-type-count">{typeCounts[ct]!.toLocaleString()}</span>
-                    )}
                   </button>
                 ))}
               </div>
@@ -931,11 +894,12 @@ function InsightsAnalysisPageContent() {
                   <span className="ia-field-label">Transaction status</span>
                   <select
                     className="ia-select"
-                    value={filters.Transaction_status || ""}
+                    value={filters.Transaction_status ?? ""}
                     onChange={(e) => {
+                      const raw = e.target.value;
                       const updated = {
                         ...filters,
-                        Transaction_status: e.target.value || undefined,
+                        Transaction_status: raw ? Number(raw) : undefined,
                         Offset: 1,
                       };
                       setFilters(updated);
@@ -943,11 +907,11 @@ function InsightsAnalysisPageContent() {
                     }}
                   >
                     <option value="">All transaction statuses</option>
-                    <option value="Rumoured in Market">Rumoured in Market</option>
-                    <option value="Transaction anticipated within 18 months">
-                      Transaction anticipated within 18 months
-                    </option>
-                    <option value="Reported in Market">Reported in Market</option>
+                    {transactionStatuses.map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="ia-field">
@@ -1001,24 +965,30 @@ function InsightsAnalysisPageContent() {
         {/* Pagination — same CompactPagination control used across all
             other entity list views, with the per-page selector kept at the
             bottom right. */}
-        {!isTrialActive && pagination.pageTotal > 1 && (
+        {!isTrialActive && (pagination.itemsTotal ?? 0) > 0 && (
           <div className="ia-pgrow">
             <span className="ia-pg-count">
+              Showing {articles.length.toLocaleString()} of{" "}
               {(pagination.itemsTotal ?? 0).toLocaleString()} reports
+              {pagination.pageTotal > 1
+                ? ` · page ${pagination.curPage} of ${pagination.pageTotal}`
+                : ""}
             </span>
-            <CompactPagination
-              curPage={pagination.curPage}
-              pageTotal={pagination.pageTotal}
-              onPageChange={handlePageChange}
-              disabled={loading}
-            />
+            {pagination.pageTotal > 1 && (
+              <CompactPagination
+                curPage={pagination.curPage}
+                pageTotal={pagination.pageTotal}
+                onPageChange={handlePageChange}
+                disabled={loading}
+              />
+            )}
             <select
               className="ia-select"
               value={pagination.perPage}
               onChange={(e) => handlePerPageChange(Number.parseInt(e.target.value, 10))}
               aria-label="Reports per page"
             >
-              {PER_PAGE_OPTIONS.map((n) => (
+              {perPageOptions.map((n) => (
                 <option key={n} value={n}>
                   {n} / page
                 </option>

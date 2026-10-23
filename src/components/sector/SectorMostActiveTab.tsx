@@ -28,7 +28,7 @@ import {
   getFirstMatchingNumber,
 } from "@/lib/sectorMostActiveRanked";
 
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
 
 export const MOST_ACTIVE_SUB_TABS = [
   { id: "strategics", label: "Strategic Acquirers" },

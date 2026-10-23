@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { readHqCountryIso2, COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
+import { useNavOpen } from "@/components/layout/NavOpenContext";
 import Footer from "@/components/Footer";
-import { useMasonryGrid } from "@/hooks/useMasonryGrid";
-import { FollowButton } from "@/components/FollowButton";
 import {
   EntityLogoTile,
   EntityProfileHeader,
   profileHeaderOutlineButtonStyle,
   profileHeaderPrimaryButtonStyle,
 } from "@/components/profile/EntityProfileHeader";
+import { FollowButton } from "@/components/FollowButton";
 import {
   BellIcon,
   ArrowUpTrayIcon,
@@ -41,7 +41,6 @@ import {
 import { useTimeSinceLastInvestment } from "@/hooks/useTimeSinceLastInvestment";
 import { fetchCompanyHoldingPeriodServer } from "@/app/company/[param]/holdingPeriodActions";
 import type { CompanyHoldingPeriodResponse } from "@/lib/holdingPeriod";
-import { ManagementProfilePanel } from "@/components/company/ManagementProfilePanel";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
@@ -104,7 +103,6 @@ import {
 import { fetchCompanyProductUsers } from "@/lib/companyProductUsers";
 import {
   fetchCompanyFinancialMetricsCard,
-  enrichFinancialMetricsRowWithLinkedInEmployees,
   hasFinancialMetricsCardData,
   mergeFinancialMetricsCardRows,
   resolveLatestFinancialMetricsRow,
@@ -324,10 +322,12 @@ interface CompanyInvestor {
 interface CompanyInvestorFromAPI {
   investor_id: number;
   investor_name: string;
-  counterparty_status: string;
-  event_id: number;
-  deal_type: string;
-  announcement_date: string;
+  /** "current" | "past" (company_investors endpoint) */
+  investor_status?: string;
+  counterparty_status?: string;
+  event_id?: number;
+  deal_type?: string;
+  announcement_date?: string;
 }
 
 // Investors list embedded on the company payload (Company._companies_investors)
@@ -1224,6 +1224,7 @@ const CompanyDetail = () => {
     loading: timeSinceLastInvestmentLoading,
   } = useTimeSinceLastInvestment(companyId);
   const globalSectorNameToId = useGlobalSectorNameLookup();
+  const { open: navOpen } = useNavOpen();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1297,12 +1298,8 @@ const CompanyDetail = () => {
     useState<CompanyPdfExportType | null>(null);
   const [showPdfExportOptions, setShowPdfExportOptions] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [rowOneCardHeight, setRowOneCardHeight] = useState(0);
-  const overviewGridRef = useRef<HTMLDivElement | null>(null);
-  const descriptionGridRef = useRef<HTMLDivElement | null>(null);
   const descriptionRef = useRef<HTMLDivElement | null>(null);
   const profileGridRef = useRef<HTMLDivElement | null>(null);
-  const financePrimaryGridRef = useRef<HTMLDivElement | null>(null);
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
     useState<Record<number, string>>({});
@@ -1774,7 +1771,7 @@ const CompanyDetail = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au/company_investors`;
+      const endpoint = `https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop/company_investors`;
 
       // GET with query param (required by backend)
       const params = new URLSearchParams();
@@ -1792,7 +1789,12 @@ const CompanyDetail = () => {
 
       const data = await res.json();
       if (Array.isArray(data)) {
-        setApiInvestors(data as CompanyInvestorFromAPI[]);
+        // Only current investors belong in the Investors row; past ones are excluded.
+        setApiInvestors(
+          (data as CompanyInvestorFromAPI[]).filter(
+            (inv) => String(inv?.investor_status ?? "").toLowerCase() !== "past"
+          )
+        );
       } else {
         setApiInvestors([]);
       }
@@ -2110,14 +2112,31 @@ const CompanyDetail = () => {
   }, [company?.id, fetchIncomeStatementCard, fetchFinancialMetricsCard]);
 
   useEffect(() => {
-    if (
-      !showFinancialsTab &&
-      (activeProfileTab === "Financials" ||
-        activeProfileTab === "Financial Intelligence")
-    ) {
+    if (!showFinancialsTab && activeProfileTab === "Financials") {
       setActiveProfileTab("Summary");
     }
   }, [showFinancialsTab, activeProfileTab]);
+
+  const companyProfileSubnavTabs = useMemo(() => {
+    const tabs: Array<"Summary" | "Financials" | "Financial Intelligence"> = [
+      "Summary",
+    ];
+    if (showFinancialsTab) tabs.push("Financials");
+    if (hasFinancialMetricsCardData(financialMetricsCardRows)) {
+      tabs.push("Financial Intelligence");
+    }
+    return tabs.map((tab) => ({ id: tab, label: tab }));
+  }, [showFinancialsTab, financialMetricsCardRows]);
+
+  useEffect(() => {
+    if (
+      activeProfileTab === "Financial Intelligence" &&
+      !financialMetricsCardLoading &&
+      !hasFinancialMetricsCardData(financialMetricsCardRows)
+    ) {
+      setActiveProfileTab("Summary");
+    }
+  }, [activeProfileTab, financialMetricsCardLoading, financialMetricsCardRows]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
@@ -2165,70 +2184,6 @@ const CompanyDetail = () => {
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [company?.description]);
-
-  useMasonryGrid(profileGridRef, {
-    deps: [company?.id, activeProfileTab, isDescriptionExpanded],
-  });
-
-  const rowOneHeightStyle = useMemo((): React.CSSProperties => {
-    if (rowOneCardHeight <= 0) return {};
-    return {
-      height: rowOneCardHeight,
-      minHeight: rowOneCardHeight,
-      maxHeight: rowOneCardHeight,
-    };
-  }, [rowOneCardHeight]);
-
-  // Lock Overview + Description + Financial Metrics to the same height (driven by Overview / Finance, not description text)
-  useEffect(() => {
-    setRowOneCardHeight(0);
-  }, [
-    company?.id,
-    financialMetrics,
-    transactionStatusDisplayLabel,
-    apiInvestorsLoading,
-    company?.have_parent_company,
-  ]);
-
-  useEffect(() => {
-    if (!isDescriptionExpanded) {
-      setRowOneCardHeight(0);
-    }
-  }, [isDescriptionExpanded]);
-
-  useLayoutEffect(() => {
-    if (isDescriptionExpanded || rowOneCardHeight !== 0) return;
-
-    const overviewEl = overviewGridRef.current;
-    const financeEl = financePrimaryGridRef.current;
-    const descEl = descriptionGridRef.current;
-    if (!overviewEl || !financeEl || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const measure = () => {
-      const prevDisplay = descEl?.style.display ?? "";
-      if (descEl) descEl.style.display = "none";
-      const max = Math.max(overviewEl.offsetHeight, financeEl.offsetHeight);
-      if (descEl) descEl.style.display = prevDisplay;
-      if (max > 0) setRowOneCardHeight(max);
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(overviewEl);
-    ro.observe(financeEl);
-    return () => ro.disconnect();
-  }, [
-    rowOneCardHeight,
-    isDescriptionExpanded,
-    company?.id,
-    financialMetrics,
-    transactionStatusDisplayLabel,
-    apiInvestorsLoading,
-    company?.have_parent_company,
-  ]);
-
 
   // Update page title when company data is loaded
   useEffect(() => {
@@ -2647,18 +2602,7 @@ const CompanyDetail = () => {
       return formatLinkedInEmployeeCountDate(latest.date);
     })();
 
-  const financialMetricsForDisplay = (() => {
-    if (!financialMetrics) return null;
-    const year =
-      getNumeric(financialMetrics.financial_year_text) ??
-      getNumeric(financialMetrics.Financial_Year);
-    if (year == null || employeeData.length === 0) return financialMetrics;
-    return enrichFinancialMetricsRowWithLinkedInEmployees(
-      financialMetrics as CompanyFinancialMetricsCardRow,
-      year,
-      employeeData
-    ) as CompanyFinancialMetrics;
-  })();
+  const financialMetricsForDisplay = financialMetrics;
 
   const finMetricsFxToggleConfig = resolveFxToggleConfig(
     financialMetricsForDisplay
@@ -2830,6 +2774,7 @@ const CompanyDetail = () => {
     maxWidth: {
       width: "100%",
       maxWidth: "100%",
+      minWidth: 0,
       padding: "18px",
       flex: "1",
       display: "flex",
@@ -3173,11 +3118,8 @@ const CompanyDetail = () => {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-      gridAutoRows: "4px",
-      gridAutoFlow: "dense",
       columnGap: "12px",
-      rowGap: 0,
-      flex: "1",
+      rowGap: "12px",
       maxWidth: "100%",
       overflow: "hidden",
       alignItems: "start",
@@ -3331,14 +3273,22 @@ const CompanyDetail = () => {
     showDataCollection;
 
   const responsiveCss = `
-    .company-detail-page { overflow-x: hidden; }
+    .company-detail-page { overflow-x: hidden; min-width: 0; }
+    /* Expanded nav: keep 3 columns; give Overview a bit less width */
+    .company-detail-page.company-nav-open .responsiveGrid {
+      grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr);
+    }
+    .company-detail-page.company-nav-open .company-overview-kv > div {
+      grid-template-columns: minmax(92px, 148px) minmax(0, 1fr) !important;
+    }
+    .company-detail-page.company-nav-open .company-overview-kv > div > div:first-child {
+      white-space: normal !important;
+    }
     .responsiveGrid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-auto-rows: 4px;
-      grid-auto-flow: dense;
       column-gap: 12px;
-      row-gap: 0;
+      row-gap: 12px;
       max-width: 100%;
       align-items: start;
     }
@@ -3347,7 +3297,7 @@ const CompanyDetail = () => {
       grid-column: 1;
       grid-row-start: 1;
       min-height: 0;
-      align-self: start;
+      align-self: stretch;
       display: flex;
       flex-direction: column;
     }
@@ -3355,10 +3305,7 @@ const CompanyDetail = () => {
       grid-column: 2;
       grid-row-start: 1;
       min-height: 0;
-      align-self: start;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      align-self: stretch;
     }
     .company-grid-finance-primary {
       grid-column: 3;
@@ -3367,17 +3314,39 @@ const CompanyDetail = () => {
       min-height: 0;
       display: flex;
       flex-direction: column;
-      align-self: start;
+      align-self: stretch;
     }
-    /* Everything below row 1 floats: spans are set by useMasonryGrid so cards fill any gaps. */
-    .company-grid-insights { grid-column: span 2; order: -1; min-height: 0; align-self: start; display: flex; flex-direction: column; }
-    .company-grid-finance-secondary { grid-column: 3; order: -2; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-self: start; }
-    .company-grid-product-zone { grid-column: span 2; order: -1; min-width: 0; align-self: start; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; }
+    /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
+    /* Fixed zones: any leftover gap sits at the bottom-left (main column shorter than the rail). */
+    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    /* Rail keeps natural card heights (no stretched chart cards); any leftover space stays bottom-right. */
+    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
+    .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    .company-zone-top-right { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
+    /* The shorter top block grows so Insights and Financial Metrics end on the same line. */
+    .company-zone-top-left > :last-child,
+    .company-zone-top-right > :last-child { flex: 1 1 auto; }
+    .company-zone-low-left { grid-column: 1 / span 2; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-low-right { grid-column: 3; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-low-left:empty, .company-zone-low-right:empty { display: none; }
+    .company-zone-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-zone-pair:empty { display: none; }
+    /* Product block: [Product type | Core products] over [Data collection | Management]; each row stretches to equal height. */
+    .company-grid-product-zone { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; min-width: 0; }
     .product-zone-cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .company-grid-finance-secondary,
+    .company-grid-insights,
+    .company-grid-product-mix,
+    .company-grid-product-users,
     .company-grid-ai-risk,
-    .company-grid-headcount { grid-column: span 1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; }
+    .company-grid-headcount,
+    .company-grid-management,
     .company-grid-corporate-events,
-    .company-grid-subsidiaries { grid-column: span 2; order: -1; min-width: 0; min-height: 0; align-self: start; display: flex; flex-direction: column; overflow: hidden; max-width: 100%; }
+    .company-grid-subsidiaries { min-width: 0; min-height: 0; display: flex; flex-direction: column; max-width: 100%; }
+    .company-grid-corporate-events,
+    .company-grid-subsidiaries { overflow: hidden; }
     .company-grid-corporate-events > *,
     .company-grid-subsidiaries > * {
       min-width: 0;
@@ -3625,11 +3594,20 @@ const CompanyDetail = () => {
       .company-grid-finance-primary,
       .company-grid-finance-secondary,
       .company-grid-insights,
-      .company-grid-product-zone,
+      .company-grid-product-mix,
+      .company-grid-product-users,
       .company-grid-ai-risk,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
-      .company-grid-headcount {
+      .company-grid-headcount,
+      .company-grid-management,
+      .company-zone-main,
+      .company-zone-rail,
+      .company-zone-top-left,
+      .company-zone-top-right,
+      .company-zone-low-left,
+      .company-zone-low-right,
+      .company-grid-product-zone {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
@@ -3643,6 +3621,7 @@ const CompanyDetail = () => {
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
+      .company-zone-pair { grid-template-columns: 1fr !important; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -3650,7 +3629,7 @@ const CompanyDetail = () => {
   return (
     <AppShell>
     <div
-      className="company-detail-page"
+      className={`company-detail-page${navOpen ? " company-nav-open" : ""}`}
       data-entry-source="company_profile"
       style={styles.container}
     >
@@ -3742,13 +3721,9 @@ const CompanyDetail = () => {
                   </a>
           </>
         }
-        tabs={
-          showFinancialsTab
-            ? (["Summary", "Financials", "Financial Intelligence"] as const)
-            : (["Summary"] as const)
-        }
+        tabs={companyProfileSubnavTabs}
         activeTab={activeProfileTab}
-        onTabChange={setActiveProfileTab}
+        onTabChange={(id) => setActiveProfileTab(id as typeof activeProfileTab)}
       />
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
@@ -3760,7 +3735,6 @@ const CompanyDetail = () => {
               companyName={company.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
-              employeeHistory={employeeData}
             />
           ) : activeProfileTab === "Financial Intelligence" ? (
             <FinancialIntelligenceWorkspace
@@ -3774,14 +3748,12 @@ const CompanyDetail = () => {
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
-              ref={overviewGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
                 width: "100%",
-                ...rowOneHeightStyle,
               }}
               className="overview-card company-grid-overview"
             >
@@ -3827,12 +3799,6 @@ const CompanyDetail = () => {
                     ? {
                         id: company.have_parent_company.Parant_companies[0].id,
                         name: (company.have_parent_company.Parant_companies[0].name || "").trim(),
-                        nonDa: (() => {
-                          const ids = extractPrimaryBusinessFocusIds(
-                            company.have_parent_company.Parant_companies[0].primary_business_focus_id
-                          );
-                          return ids.length > 0 && !ids.includes(75);
-                        })(),
                       }
                     : null
                 }
@@ -4210,230 +4176,66 @@ const CompanyDetail = () => {
               </div>{/* end legacy hidden content */}
             </div>{/* end overview card wrapper */}
 
-            {/* ── Description card (grid row 1, col 2) ── */}
+            {/* ── Description card (grid row 1, col 2) ──
+                Collapsed: the card is absolutely positioned inside a stretched cell, so it
+                adds no height of its own — row 1 height comes from Overview / Financials. */}
             <div
-              ref={descriptionGridRef}
               style={{
                 minWidth: 0,
                 minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
                 width: "100%",
+                position: "relative",
                 alignSelf: isDescriptionExpanded ? "start" : "stretch",
                 overflow: isDescriptionExpanded ? "visible" : "hidden",
-                ...(!isDescriptionExpanded ? rowOneHeightStyle : {}),
               }}
               className="overview-description company-grid-description"
             >
-              <DescriptionCard
-                text={company.description ?? ""}
-                expanded={isDescriptionExpanded}
-                onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
-                contentRef={descriptionRef}
-                fillGridCell={!isDescriptionExpanded}
-              />
-            </div>
-
-            {/* ── Row 2: Insights (grid row 2, cols 1–2) — hidden when no I&A ── */}
-            {showInsights && (
               <div
-                className="insights-summary-card company-grid-insights"
-                style={{
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
+                style={
+                  isDescriptionExpanded
+                    ? { display: "flex", flexDirection: "column" }
+                    : {
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                      }
+                }
               >
-                <InsightsCard
-                                    articles={companyArticles}
-                  loading={articlesLoading}
-                  totalCount={insightsTotal}
-                  rangeStart={insightsShowingFrom}
-                  rangeEnd={insightsShowingTo}
-                  canPrev={canInsightPrev}
-                  canNext={canInsightNext}
-                  onPrev={() => {
-                    if (company?.id && insightsPage > 1) {
-                      fetchCompanyArticles(company.id, insightsPage - 1);
-                    }
-                  }}
-                  onNext={() => {
-                    if (company?.id && canInsightNext) {
-                      fetchCompanyArticles(company.id, insightsPage + 1);
-                    }
-                  }}
-                  companyId={company.id}
-                  companyName={company.name}
+                <DescriptionCard
+                  text={company.description ?? ""}
+                  expanded={isDescriptionExpanded}
+                  onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
+                  contentRef={descriptionRef}
+                  fillGridCell={!isDescriptionExpanded}
                 />
               </div>
-            )}
+            </div>
 
-            {/* Rows 3–4: Product attributes (type + revenue + data collection) | Core products | AI Defensibility Index (tall) */}
-            {/* Product zone (cols 1–2): [Product type | Core products] over [Data collection | Management].
-                Each pair stretches to the same height; missing cards just close up. */}
-            {(showProductAttributes || showCoreProducts || hasManagement) && (
-              <div className="company-grid-product-zone">
-                {(showProductType || showRevenueModel) && (
-                  <div className="product-zone-cell">
-                    <ProductTypeRevenueCard
-                      fillGridCell
-                      productRows={productTypeBarRows}
-                      revenueRows={revenueModelRows.map((r) => ({
-                        name: r.label,
-                        weight: r.value,
-                      }))}
-                    />
-                  </div>
-                )}
-                {showCoreProducts && (
-                  <div className="product-zone-cell">
-                    <ProductUsersListCard
-                      sections={coreProductsSections}
-                      useCaseSections={usersUseCaseSections}
-                      fillGridCell
-                    />
-                  </div>
-                )}
-                {showDataCollection && (
-                  <div className="product-zone-cell">
-                    <DataCollectionCard
-                      fillGridCell
-                      productRows={productTypeBarRows}
-                      dataRows={productDataToggleDataRows}
-                    />
-                  </div>
-                )}
-                {hasManagement && (
-                  <div className="product-zone-cell">
-                    <ManagementCard
-                      fillGridCell
-                      current={managementCurrentPeople}
-                      past={managementPastPeople}
-                      maxVisible={4}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {aiRiskData != null && aiRiskData.axes.length > 0 && (
-              <div className="company-grid-ai-risk">
-                <AIRiskCard
-                  fillGridCell
-                  axes={aiRiskData.axes}
-                  avgDefensibility={aiRiskData.avgDefensibility}
-                  tier={aiRiskData.tier}
-                  defaultActiveKey="data_moat"
-                />
-              </div>
-            )}
-
-            {/* Rows 5–6: Col 1 = events + subs (Revenue-model width); Col 3 = headcount + management under AI Defensibility Index */}
-            {corporateEvents.length > 0 && (
-              <div className="company-grid-corporate-events">
-                <LinkPanel
-                  fillGridCell
-                  className="corporate-events-v3-card"
-                >
-                  <CorporateEventsProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    events={corporateEvents}
-                    loading={corporateEventsLoading}
-                    primarySectors={augmentedPrimarySectors}
-                    primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
-                    sectorNameToId={sectorNameToId}
-                    totalCount={ceTotal}
-                    rangeStart={ceShowingFrom}
-                    rangeEnd={ceShowingTo}
-                    canPrev={canCePrev}
-                    canNext={canCeNext}
-                    onPrev={() => {
-                      if (company?.id && cePage > 1) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
-                      }
-                    }}
-                    onNext={() => {
-                      if (company?.id && cePage < ceTotalPages) {
-                        void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
-                      }
-                    }}
-                    browseAllHref={
-                      company?.id
-                        ? `/corporate-events?target_company_id=${company.id}`
-                        : "/corporate-events"
-                    }
-                    fillGridCell
-                  />
-                </LinkPanel>
-              </div>
-            )}
-
-            {employeeData.length > 0 && (
-            <div className="company-grid-headcount">
-              <HeadcountCard
-                fillGridCell
-                data={employeeData.map((e) => e.employees_count)}
-                dates={employeeData.map((e) => e.date)}
-                count={currentEmployeeCount}
-                yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={employeeCountAsOf}
-                linkedinUrl={linkedinUrl}
+            {/* Mobile Financial Metrics — shown only below 768px, placed here so it
+                reads in the same left-to-right/top-to-bottom order as the desktop
+                right rail (Overview, Description, Financials) once columns collapse */}
+            <div
+              id="profile-financials-mobile"
+              ref={profileFinancialsMobileRef}
+              style={{ display: "none", marginTop: 0, scrollMarginTop: 24 }}
+              className="mobile-financial-metrics"
+            >
+              <FinMetricsIncomeCard
+                fillGridCell={false}
+                data={finMetricsData}
+                hasIncomeStatement={hasIncomeStatementData}
+                incomeStatementRows={normalizedIncomeStatements}
+                incomeStatementCurrency={platformCurrency}
+                fxToggleConfig={finMetricsFxToggleConfig}
+                currencyMode={finMetricsCurrencyMode}
+                onCurrencyModeChange={setFinMetricsCurrencyMode}
               />
             </div>
-            )}
-
-            {hasSubsidiaries && (
-              <div className="company-grid-subsidiaries">
-                <LinkPanel
-                  fillGridCell
-                  className="subsidiaries-profile-card"
-                >
-                  <SubsidiariesProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                      up: T.up,
-                    }}
-                    subsidiaries={
-                      company.have_subsidiaries_companies
-                        ?.Subsidiaries_companies ?? []
-                    }
-                    acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
-                    sectorNameToId={sectorNameToId}
-                    maxInitial={3}
-                  />
-                  </LinkPanel>
-              </div>
-            )}
-
 
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
             <div
               id="profile-financials"
-              ref={financePrimaryGridRef}
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
               style={{
                 minWidth: 0,
@@ -4442,7 +4244,6 @@ const CompanyDetail = () => {
                 flexDirection: "column",
                 width: "100%",
                 scrollMarginTop: 24,
-                ...rowOneHeightStyle,
               }}
             >
               <FinMetricsPrimaryCard
@@ -4457,22 +4258,340 @@ const CompanyDetail = () => {
               />
             </div>
 
-            {/* ══ Col 3 row 2: Subscription / other metrics (aligned with Insights when shown) ══ */}
-            <div
-              className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-              }}
-            >
-              <FinMetricsSecondaryCard
-                subscription={finMetricsData.subscription}
-                other={finMetricsData.other}
-              />
-            </div>
+            {/* Fixed zones below row 1: main column (cols 1–2) and right rail (col 3) keep a set card order so positions never shift between profiles. */}
+            {(() => {
+              // Card matrix: cards hide when empty, and tall rail cards that would
+              // leave a blank hole under the main column move over to balance heights.
+              type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
+              const cards: ZoneCard[] = [
+                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
+                <div
+                  className="insights-summary-card company-grid-insights"
+                  style={{
+                    minHeight: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <InsightsCard
+                    fillGridCell
+                    articles={companyArticles}
+                    loading={articlesLoading}
+                    totalCount={insightsTotal}
+                    rangeStart={insightsShowingFrom}
+                    rangeEnd={insightsShowingTo}
+                    canPrev={canInsightPrev}
+                    canNext={canInsightNext}
+                    onPrev={() => {
+                      if (company?.id && insightsPage > 1) {
+                        fetchCompanyArticles(company.id, insightsPage - 1);
+                      }
+                    }}
+                    onNext={() => {
+                      if (company?.id && canInsightNext) {
+                        fetchCompanyArticles(company.id, insightsPage + 1);
+                      }
+                    }}
+                    companyId={company.id}
+                    companyName={company.name}
+                  />
+                </div>
+                ) },
+                { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
+                <div className="company-grid-corporate-events">
+                  <LinkPanel
+                    fillGridCell
+                    className="corporate-events-v3-card"
+                  >
+                    <CorporateEventsProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                      }}
+                      events={corporateEvents}
+                      loading={corporateEventsLoading}
+                      primarySectors={augmentedPrimarySectors}
+                      primarySectorsByCompanyId={corporateEventPrimarySectorsByCompanyId}
+                      sectorNameToId={sectorNameToId}
+                      totalCount={ceTotal}
+                      rangeStart={ceShowingFrom}
+                      rangeEnd={ceShowingTo}
+                      canPrev={canCePrev}
+                      canNext={canCeNext}
+                      onPrev={() => {
+                        if (company?.id && cePage > 1) {
+                          void fetchCompanyCorporateEventsPage(company.id, cePage - 1);
+                        }
+                      }}
+                      onNext={() => {
+                        if (company?.id && cePage < ceTotalPages) {
+                          void fetchCompanyCorporateEventsPage(company.id, cePage + 1);
+                        }
+                      }}
+                      browseAllHref={
+                        company?.id
+                          ? `/corporate-events?new_company_id=${company.id}`
+                          : "/corporate-events"
+                      }
+                      fillGridCell
+                    />
+                  </LinkPanel>
+                </div>
+                ) },
+                { id: "subsidiaries", col: "main" as const, weight: 190, movable: false, show: Boolean(hasSubsidiaries), node: () => (
+                <div className="company-grid-subsidiaries">
+                  <LinkPanel
+                    fillGridCell
+                    className="subsidiaries-profile-card"
+                  >
+                    <SubsidiariesProfilePanel
+                      tokens={{
+                        paper: T.paper,
+                        hair: T.hair,
+                        ink: T.ink,
+                        body: T.body,
+                        muted: T.muted,
+                        inset: T.inset,
+                        azure: T.azure,
+                        azureSoft: T.azureSoft,
+                        coralSoft: T.coralSoft,
+                        down: T.down,
+                        sans: T.sans,
+                        mono: T.mono,
+                        up: T.up,
+                      }}
+                      subsidiaries={
+                        company.have_subsidiaries_companies
+                          ?.Subsidiaries_companies ?? []
+                      }
+                      acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
+                      sectorNameToId={sectorNameToId}
+                      maxInitial={3}
+                    />
+                    </LinkPanel>
+                </div>
+                ) },
+                { id: "headcount", col: "pair" as const, weight: 320, movable: true, show: Boolean(employeeData.length > 0), node: () => (
+                <div className="company-grid-headcount">
+                  <HeadcountCard
+                    fillGridCell
+                    data={employeeData.map((e) => e.employees_count)}
+                    dates={employeeData.map((e) => e.date)}
+                    count={currentEmployeeCount}
+                    yoyLabel={overviewEmployeesYoY || undefined}
+                    asOf={employeeCountAsOf}
+                    linkedinUrl={linkedinUrl}
+                  />
+                </div>
+                ) },
+                { id: "management", col: "pair" as const, weight: 200, movable: true, show: Boolean(hasManagement), node: () => (
+                  <div className="company-grid-management">
+                    <ManagementCard
+                      fillGridCell
+                      current={managementCurrentPeople}
+                      past={managementPastPeople}
+                      maxVisible={4}
+                    />
+                  </div>
+                ) },
+                { id: "fin2", col: "rail" as const, weight: 370, movable: false, show: Boolean(true), node: () => (
+              <div
+                className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
+                style={{
+                  minWidth: 0,
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                }}
+              >
+                <FinMetricsSecondaryCard
+                  subscription={finMetricsData.subscription}
+                  other={finMetricsData.other}
+                />
+              </div>
+                ) },
+                { id: "productmix", col: "pair" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => null },
+                { id: "coreproducts", col: "pair" as const, weight: 170, movable: false, show: Boolean(showCoreProducts), node: () => (
+                <div
+                  className="company-grid-product-users"
+                >
+                  <ProductUsersListCard
+                    sections={coreProductsSections}
+                    useCaseSections={usersUseCaseSections}
+                    fillGridCell
+                  />
+                </div>
+                ) },
+                { id: "airisk", col: "rail" as const, weight: 520, movable: false, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
+                <div className="company-grid-ai-risk">
+                  <AIRiskCard
+                    fillGridCell
+                    axes={aiRiskData!.axes}
+                    avgDefensibility={aiRiskData!.avgDefensibility}
+                    tier={aiRiskData!.tier}
+                    defaultActiveKey="data_moat"
+                  />
+                </div>
+                ) },
+              ].filter((c) => c.show);
+              const wide = cards.filter((c) => c.col === "main");
+              const pairOrder = ["headcount", "management"];
+              // Product cards (Product type / Core products) sit above Corporate Events.
+              const productIds = ["productmix", "coreproducts", "management"];
+              const productCards = cards
+                .filter((c) => productIds.includes(c.id))
+                .sort((x, y) => productIds.indexOf(x.id) - productIds.indexOf(y.id));
+              const eventsIdx = wide.findIndex((c) => c.id === "events");
+              const wideAbove = eventsIdx >= 0 ? wide.slice(0, eventsIdx) : wide;
+              const wideBelow = eventsIdx >= 0 ? wide.slice(eventsIdx) : [];
+              const pair = cards
+                .filter((c) => c.col === "pair" && !productIds.includes(c.id))
+                .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
+              const rail = cards.filter((c) => c.col === "rail");
+              const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
+              // Product block is a fixed 2-col grid: [productmix | coreproducts] over [data collection | management].
+              // Its height is the taller column, not the sum of its cards.
+              const zoneW = (id: string) => productCards.find((c) => c.id === id)?.weight ?? 0;
+              const productZoneW = Math.max(zoneW("productmix"), zoneW("coreproducts") + zoneW("management"));
+              const renderProductZone = () =>
+                productCards.length > 0 && (
+                  <div className="company-grid-product-zone">
+                    {(showProductType || showRevenueModel) && (
+                      <div className="product-zone-cell">
+                        <ProductTypeRevenueCard
+                          fillGridCell
+                          productRows={productTypeBarRows}
+                          revenueRows={revenueModelRows.map((r) => ({
+                            name: r.label,
+                            weight: r.value,
+                          }))}
+                        />
+                      </div>
+                    )}
+                    {showCoreProducts && (
+                      <div className="product-zone-cell">
+                        <ProductUsersListCard
+                          sections={coreProductsSections}
+                          useCaseSections={usersUseCaseSections}
+                          fillGridCell
+                        />
+                      </div>
+                    )}
+                    {showDataCollection && (
+                      <div className="product-zone-cell">
+                        <DataCollectionCard
+                          fillGridCell
+                          productRows={productTypeBarRows}
+                          dataRows={productDataToggleDataRows}
+                        />
+                      </div>
+                    )}
+                    {hasManagement && (
+                      <div className="product-zone-cell">
+                        <ManagementCard
+                          fillGridCell
+                          current={managementCurrentPeople}
+                          past={managementPastPeople}
+                          maxVisible={4}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              // The lower-main area is two independent vertical stacks; each card goes
+              // into the shorter stack (ties -> left), so nothing is stretched.
+              const splitPair = (a: ZoneCard[]): [ZoneCard[], ZoneCard[]] => {
+                const left: ZoneCard[] = [];
+                const right: ZoneCard[] = [];
+                for (const c of a) (sum(left) <= sum(right) ? left : right).push(c);
+                return [left, right];
+              };
+              const pairWeight = (a: ZoneCard[]) => {
+                const [l, r] = splitPair(a);
+                return Math.max(sum(l), sum(r));
+              };
+              let pairCards = [...pair];
+              let railCards = [...rail];
+              const fin = rail.find((c) => c.id === "fin2");
+              const ai = rail.find((c) => c.id === "airisk");
+              // Aligned mode: when the AI card is shown and the top stack (Insights...) is about
+              // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
+              // AI sits level with Product type / Data Collection / Core Products. The shorter
+              // top block simply leaves extra space under it (nothing is cut or stretched).
+              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
+              const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
+              // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
+              // Only Headcount / Management may hop from the main column to the rail
+              // when the main column is taller, so any leftover gap is always in the
+              // bottom-left corner (main column shorter than the rail), never the right.
+              const cost = (mainHeight: number, railHeight: number) =>
+                mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
+              for (let guard = 0; guard < 4 && !aligned; guard++) {
+                const current = cost(mainH(pairCards), sum(railCards));
+                let best: { cost: number; card: ZoneCard } | null = null;
+                for (const c of pairCards) {
+                  if (!c.movable) continue;
+                  const k = cost(mainH(pairCards.filter((x) => x !== c)), sum(railCards) + c.weight);
+                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c };
+                }
+                if (!best) break;
+                const moving = best.card;
+                pairCards = pairCards.filter((x) => x !== moving);
+                railCards = [...railCards, moving];
+              }
+              const renderPair = (cardsIn: ZoneCard[]) =>
+                cardsIn.length > 0 && (
+                  <div className="company-zone-pair">
+                    {splitPair(cardsIn).map((col, i) => (
+                      <div key={i} className="company-zone-pair-col">
+                        {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                      </div>
+                    ))}
+                  </div>
+                );
+              if (aligned) {
+                return (
+                  <>
+                    <div className="company-zone-top-left">
+                      {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                      {renderProductZone()}
+                      {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    </div>
+                    <div className="company-zone-top-right">{fin?.node()}</div>
+                    <div className="company-zone-low-left">{renderPair(pairCards)}</div>
+                    <div className="company-zone-low-right">
+                      {railCards
+                        .filter((c) => c.id !== "fin2")
+                        .map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    </div>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <div className="company-zone-main">
+                    {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {renderProductZone()}
+                    {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {renderPair(pairCards)}
+                  </div>
+                  <div className="company-zone-rail">
+                    {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Market Overview removed */}
           </div>
@@ -4480,68 +4599,6 @@ const CompanyDetail = () => {
           {company?.id != null && (
             <CapitalRadarSection companyId={company.id} />
           )}
-
-          {/* Mobile Financial Metrics */}
-          <div
-            id="profile-financials-mobile"
-            ref={profileFinancialsMobileRef}
-            style={{ display: "none", marginTop: "8px", scrollMarginTop: 24 }}
-            className="mobile-financial-metrics"
-          >
-            <FinMetricsIncomeCard
-              fillGridCell={false}
-              data={finMetricsData}
-              hasIncomeStatement={hasIncomeStatementData}
-              incomeStatementRows={normalizedIncomeStatements}
-              incomeStatementCurrency={platformCurrency}
-              fxToggleConfig={finMetricsFxToggleConfig}
-              currencyMode={finMetricsCurrencyMode}
-              onCurrencyModeChange={setFinMetricsCurrencyMode}
-            />
-
-            <div style={{ marginTop: 20 }}>
-                <HeadcountCard
-                  data={employeeData.map((e) => e.employees_count)}
-                  dates={employeeData.map((e) => e.date)}
-                  count={currentEmployeeCount}
-                  yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={employeeCountAsOf}
-                  linkedinUrl={linkedinUrl}
-                />
-              </div>
-              {hasManagement && (
-                <div
-                  style={{
-                    ...styles.card,
-                    padding: 0,
-                    overflow: "hidden",
-                    marginTop: 20,
-                    width: "100%",
-                  }}
-                  className="management-v3-card"
-                >
-                  <ManagementProfilePanel
-                    tokens={{
-                      paper: T.paper,
-                      hair: T.hair,
-                      ink: T.ink,
-                      body: T.body,
-                      muted: T.muted,
-                      inset: T.inset,
-                      azure: T.azure,
-                      azureSoft: T.azureSoft,
-                      coralSoft: T.coralSoft,
-                      down: T.down,
-                      sans: T.sans,
-                      mono: T.mono,
-                    }}
-                    current={managementCurrentPeople}
-                    past={managementPastPeople}
-                    maxInitialPerSection={8}
-                  />
-                </div>
-              )}
-          </div>
 
           {/* LinkedIn section (desktop only) removed per request */}
 

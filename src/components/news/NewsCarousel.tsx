@@ -8,10 +8,12 @@ type Props = {
   /** Called when the user scrolls near the end, so the next page can load. */
   onNearEnd?: () => void;
   loadingMore?: boolean;
+  /** Rows of tiles shown at once (they scroll sideways together). */
+  rows?: number;
 };
 
-/** One scrolling row of cards with previous/next arrows. */
-export default function NewsCarousel({ title, children, onNearEnd, loadingMore }: Props) {
+/** A block of tiles, one or more rows tall, that scrolls sideways with previous/next arrows. */
+export default function NewsCarousel({ title, children, onNearEnd, loadingMore, rows = 1 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -52,7 +54,14 @@ export default function NewsCarousel({ title, children, onNearEnd, loadingMore }
           </button>
         </div>
       </div>
-      <div className="nw-carousel" ref={ref} onScroll={update} tabIndex={0} aria-label={title}>
+      <div
+        className="nw-carousel"
+        ref={ref}
+        onScroll={update}
+        tabIndex={0}
+        aria-label={title}
+        style={{ ["--nw-rows" as string]: rows } as React.CSSProperties}
+      >
         {children}
         {loadingMore && <div className="nw-carousel-item nw-skel" aria-hidden="true" />}
       </div>

@@ -8,6 +8,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { T } from "@/components/redesign/primitives";
+import ProfileSubnav, { type ProfileSubnavTab } from "@/components/ProfileSubnav";
 
 export const profileHeaderOutlineButtonStyle: React.CSSProperties = {
   display: "inline-flex",
@@ -123,7 +124,7 @@ export function EntityLogoTile({
   );
 }
 
-type Props<Tab extends string> = {
+type Props = {
   logo: React.ReactNode;
   title: string;
   /** Rendered inline after the name (e.g. country flag). */
@@ -132,12 +133,12 @@ type Props<Tab extends string> = {
   subtitle?: React.ReactNode;
   /** Right-aligned action buttons. */
   actions?: React.ReactNode;
-  tabs?: readonly Tab[];
-  activeTab?: Tab;
-  onTabChange?: (tab: Tab) => void;
+  tabs?: readonly ProfileSubnavTab[];
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 };
 
-export function EntityProfileHeader<Tab extends string>({
+export function EntityProfileHeader({
   logo,
   title,
   titleAdornment,
@@ -146,14 +147,13 @@ export function EntityProfileHeader<Tab extends string>({
   tabs,
   activeTab,
   onTabChange,
-}: Props<Tab>) {
+}: Props) {
   const showTabs = tabs && tabs.length > 0;
   return (
     <div
       className="entity-profile-header"
       style={{
         backgroundColor: "#fff",
-        borderBottom: `1px solid ${T.divider}`,
         padding: "0 24px",
       }}
     >
@@ -164,7 +164,9 @@ export function EntityProfileHeader<Tab extends string>({
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: 12,
-          padding: showTabs ? "20px 0 14px" : "20px 0",
+          minHeight: 80,
+          boxSizing: "border-box",
+          padding: showTabs ? 0 : "20px 0",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: "1 1 280px" }}>
@@ -212,44 +214,12 @@ export function EntityProfileHeader<Tab extends string>({
       </div>
 
       {showTabs ? (
-        <div
-          role="tablist"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 24,
-            overflowX: "auto",
-            scrollbarWidth: "none",
-          }}
-        >
-          {tabs!.map((tab) => {
-            const active = tab === activeTab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onTabChange?.(tab)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: `2px solid ${active ? T.azure : "transparent"}`,
-                  padding: "8px 0 12px",
-                  marginBottom: -1,
-                  fontFamily: T.sans,
-                  fontSize: 13.5,
-                  fontWeight: active ? 700 : 500,
-                  color: active ? T.ink : T.muted,
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                  transition: "color 120ms, border-color 120ms",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
+        <div>
+          <ProfileSubnav
+            tabs={tabs!}
+            activeTab={activeTab ?? ""}
+            onChange={(id) => onTabChange?.(id)}
+          />
         </div>
       ) : null}
     </div>

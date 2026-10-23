@@ -275,24 +275,61 @@ function buildFiltersFromFilterBar(args: {
       filters.filter_individual_ids = parsed.filter_individual_ids;
       continue;
     }
-    if (item.id === "target" && Array.isArray(v) && v.length > 0) {
-      const ids = (v as string[])
-        .map(Number)
-        .filter((id) => Number.isFinite(id) && id > 0);
-      // Each Target chip is its own filter instance — merge, don't overwrite.
-      if (ids.length > 0) {
-        filters.target_company_ids = Array.from(
-          new Set([...(filters.target_company_ids ?? []), ...ids])
-        );
-      }
-      continue;
-    }
     if (item.id === "product_type" && Array.isArray(v) && v.length > 0) {
       filters.Product_Types = v as string[];
     }
   }
 
   return filters;
+}
+
+function parsePositiveScopedId(value: string | null): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return parsed;
+}
+
+export function parseScopedNewCompanyIdFromQuery(
+  search: string | URLSearchParams
+): number | undefined {
+  const params =
+    typeof search === "string"
+      ? new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
+      : search;
+  return (
+    parsePositiveScopedId(params.get("new_company_id")) ??
+    parsePositiveScopedId(params.get("target_company_id"))
+  );
+}
+
+/** Applies deep-link query params (e.g. ?new_company_id=7733) onto API filters. */
+export function applyCorporateEventsUrlScope(
+  filters: CorporateEventsSearchFilters,
+  search: string
+): CorporateEventsSearchFilters {
+  const query = search.startsWith("?") ? search.slice(1) : search;
+  if (!query) return filters;
+
+  const params = new URLSearchParams(query);
+  const newCompanyId = parseScopedNewCompanyIdFromQuery(params);
+  const individualId = parsePositiveScopedId(params.get("individual_id"));
+  const investorId = parsePositiveScopedId(params.get("investor_id"));
+
+  if (
+    newCompanyId == null &&
+    individualId == null &&
+    investorId == null
+  ) {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    ...(newCompanyId != null ? { new_company_id: newCompanyId } : {}),
+    ...(individualId != null ? { individual_id: individualId } : {}),
+    ...(investorId != null ? { investor_id: investorId } : {}),
+  };
 }
 
 export const createDefaultCorporateEventFilters =
@@ -333,6 +370,7 @@ export function buildCorporateEventsSearchPayload(args: {
   secondarySectors: SectorRef[];
   userId?: number | null;
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   page?: number;
   perPage?: number;
   dealTabTypes?: readonly string[];
@@ -342,6 +380,14 @@ export function buildCorporateEventsSearchPayload(args: {
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
     filters.primary_sectors_ids = Array.from(
       new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
+  if (args.scopedSecondarySectorIds && args.scopedSecondarySectorIds.length > 0) {
+    filters.Secondary_sectors_ids = Array.from(
+      new Set([
+        ...args.scopedSecondarySectorIds,
+        ...filters.Secondary_sectors_ids,
+      ])
     );
   }
   if (args.dealTabTypes && args.dealTabTypes.length > 0) {
@@ -359,6 +405,7 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   secondarySectors: SectorRef[];
   userId?: number | null;
   scopedPrimarySectorIds?: number[];
+  scopedSecondarySectorIds?: number[];
   page?: number;
   perPage?: number;
   followedEntityIds?: FollowedEntityIds;
@@ -367,6 +414,14 @@ export function buildCorporateEventsCountsSearchPayload(args: {
   if (args.scopedPrimarySectorIds && args.scopedPrimarySectorIds.length > 0) {
     filters.primary_sectors_ids = Array.from(
       new Set([...args.scopedPrimarySectorIds, ...filters.primary_sectors_ids])
+    );
+  }
+  if (args.scopedSecondarySectorIds && args.scopedSecondarySectorIds.length > 0) {
+    filters.Secondary_sectors_ids = Array.from(
+      new Set([
+        ...args.scopedSecondarySectorIds,
+        ...filters.Secondary_sectors_ids,
+      ])
     );
   }
   return {
@@ -385,13 +440,6 @@ function appendSharedCorporateEventFilterParams(
     (filters.filter_investor_ids?.length ?? 0) > 0 ||
     (filters.filter_sector_ids?.length ?? 0) > 0 ||
     (filters.filter_individual_ids?.length ?? 0) > 0;
-
-  if (filters.advised_by_individual_id) {
-    params.append("advised_by_individual_id", String(filters.advised_by_individual_id));
-    if (filters.advised_by_company_id) {
-      params.append("advised_by_company_id", String(filters.advised_by_company_id));
-    }
-  }
 
   if (filters.show_followed || hasSpecificEntityFilters) {
     params.append("show_followed", "true");
@@ -419,9 +467,6 @@ function appendSharedCorporateEventFilterParams(
   }
 
   params.append("new_company_id", String(filters.new_company_id ?? 0));
-  (filters.target_company_ids ?? []).forEach((id) =>
-    params.append("target_company_ids[]", String(id))
-  );
   params.append("target_company_id", String(filters.target_company_id ?? 0));
   params.append("individual_id", String(filters.individual_id ?? 0));
   params.append("investor_id", String(filters.investor_id ?? 0));
@@ -529,4 +574,78 @@ export function corporateEventsFiltersToSearchParams(
   appendCorporateEventDealTypeParams(params, filters);
 
   return params;
+}
+
+function parsePositiveIntParam(raw: string | null): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function parseEntityIdListParam(
+  params: URLSearchParams,
+  key: string
+): number[] {
+  const values = [...params.getAll(`${key}[]`), ...params.getAll(key)];
+  if (values.length === 0) return [];
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => value.split(","))
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
+}
+
+/** Parse profile-page deep-link filters from the corporate events URL. */
+export function parseCorporateEventsUrlFilters(
+  search?: string
+): Partial<CorporateEventsSearchFilters> {
+  if (typeof window === "undefined" && search == null) return {};
+
+  const params = new URLSearchParams(
+    search ?? (typeof window !== "undefined" ? window.location.search : "")
+  );
+
+  const targetCompanyId = parsePositiveIntParam(
+    params.get("target_company_id")
+  );
+  const newCompanyId = parsePositiveIntParam(params.get("new_company_id"));
+  const individualId = parsePositiveIntParam(params.get("individual_id"));
+  const investorId = parsePositiveIntParam(params.get("investor_id"));
+
+  let filterCompanyIds = parseEntityIdListParam(params, "filter_company_ids");
+  if (filterCompanyIds.length === 0 && newCompanyId > 0) {
+    filterCompanyIds = [newCompanyId];
+  } else if (filterCompanyIds.length === 0 && targetCompanyId > 0) {
+    filterCompanyIds = [targetCompanyId];
+  }
+
+  return {
+    search_query: params.get("search")?.trim() || "",
+    target_company_id: targetCompanyId,
+    new_company_id: newCompanyId,
+    individual_id: individualId,
+    investor_id: investorId,
+    filter_advisor_ids: parseEntityIdListParam(params, "filter_advisor_ids"),
+    filter_company_ids: filterCompanyIds,
+  };
+}
+
+export function mergeCorporateEventsUrlFilters(
+  filters: CorporateEventsSearchFilters,
+  urlFilters: Partial<CorporateEventsSearchFilters>
+): CorporateEventsSearchFilters {
+  return {
+    ...filters,
+    target_company_id: urlFilters.target_company_id ?? 0,
+    new_company_id: urlFilters.new_company_id ?? 0,
+    individual_id: urlFilters.individual_id ?? 0,
+    investor_id: urlFilters.investor_id ?? 0,
+    filter_advisor_ids:
+      urlFilters.filter_advisor_ids ?? filters.filter_advisor_ids ?? [],
+    filter_company_ids:
+      urlFilters.filter_company_ids ?? filters.filter_company_ids ?? [],
+  };
 }

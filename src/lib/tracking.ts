@@ -126,6 +126,18 @@ export function setEntrySource(source: EntrySource): void {
   }
 }
 
+let currentPagePath = "";
+let previousPagePath = "";
+/** Record the route of a page view; the previous route is what the next page was reached from. */
+export function notePagePath(path: string): void {
+  if (path === currentPagePath) return;
+  previousPagePath = currentPagePath;
+  currentPagePath = path;
+}
+export function getPreviousPagePath(): string {
+  return previousPagePath;
+}
+
 let lastPageEntrySource: EntrySource = "direct_url";
 /** Entry source of the most recent page view, for key actions that report where the user came from. */
 export function setLastPageEntrySource(source: EntrySource): void {
@@ -376,8 +388,12 @@ async function waitForRenderSettled(
   await waitForMutationQuiet();
 }
 
+/** Develop branch: user-activity tracking is permanently off. */
+const USER_ACTIVITY_TRACKING_ENABLED = false;
+
 export async function trackEvent(input: TrackingEventInput): Promise<void> {
-  if (typeof window === "undefined") return;
+  // User activity tracking is fully disabled on the develop deployment.
+  if (typeof window === "undefined" || !USER_ACTIVITY_TRACKING_ENABLED) return;
   const isPageView = input.eventType === "page_view";
   if (isPageView) {
     // Heuristic: wait for render to settle to approximate "whole page rendered"

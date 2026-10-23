@@ -1,9 +1,6 @@
 import { useState, useCallback } from "react";
-import type {
-  PortfolioCompany,
-  PortfolioResponse,
-  PaginationState,
-} from "@/types/investor";
+import type { PortfolioCompany, PaginationState } from "@/types/investor";
+import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
 
 // Safely parse JSON that might already be an object or might be invalid
 const safeParseJSON = <T>(value: unknown, fallback: T): T => {
@@ -125,41 +122,13 @@ export const usePortfolioData = (investorId: string) => {
         }
 
         const raw = await response.json();
-
-        // New API returns a flat array of items with pagination fields duplicated per item
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPortfolioCompanies(items);
-          setPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          // Backward compatibility with old shape { items, itemsReceived, ... }
-          const data = raw as PortfolioResponse;
-          setPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "current_portfolio"
+        );
+        setPortfolioCompanies(items.map(mapPortfolioItem));
+        setPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching portfolio companies:", err);
       } finally {
@@ -199,39 +168,13 @@ export const usePortfolioData = (investorId: string) => {
         }
 
         const raw = await response.json();
-
-        if (Array.isArray(raw)) {
-          const items = raw.map(mapPortfolioItem);
-          const first = raw[0] ?? {};
-          setPastPortfolioCompanies(items);
-          setPastPortfolioPagination({
-            itemsReceived: Number(first?.itemsreceived ?? items.length ?? 0),
-            curPage: Number(first?.curpage ?? page ?? 1),
-            nextPage:
-              first?.nextpage === null || first?.nextpage === undefined
-                ? null
-                : Number(first?.nextpage),
-            prevPage:
-              first?.prevpage === null || first?.prevpage === undefined
-                ? null
-                : Number(first?.prevpage),
-            offset: Number(first?.offset ?? 0),
-            perPage: 50,
-            pageTotal: Number(first?.pagetotal ?? 0),
-          });
-        } else {
-          const data = raw as PortfolioResponse;
-          setPastPortfolioCompanies((data.items || []).map(mapPortfolioItem));
-          setPastPortfolioPagination({
-            itemsReceived: data.itemsReceived || 0,
-            curPage: data.curPage || 1,
-            nextPage: data.nextPage || null,
-            prevPage: data.prevPage || null,
-            offset: data.offset || 0,
-            perPage: data.perPage || 50,
-            pageTotal: data.pageTotal || 0,
-          });
-        }
+        const { items, pagination } = parsePortfolioApiResponse(
+          raw,
+          page,
+          "past_portfolio"
+        );
+        setPastPortfolioCompanies(items.map(mapPortfolioItem));
+        setPastPortfolioPagination(pagination);
       } catch (err) {
         console.error("Error fetching past portfolio companies:", err);
       } finally {

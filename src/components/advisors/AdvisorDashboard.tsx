@@ -27,7 +27,6 @@ import {
   type AdvisorsRoleCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
 } from "@/components/advisors/advisorsFilterConfig";
@@ -109,7 +108,6 @@ export const AdvisorDashboard = ({
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
   const provinces = NO_PROVINCES;
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>(
     []
@@ -117,15 +115,6 @@ export const AdvisorDashboard = ({
   const [activeAdvisorRoleTab, setActiveAdvisorRoleTab] =
     useState<AdvisorRoleTab>("all");
 
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -155,13 +144,6 @@ export const AdvisorDashboard = ({
   }, []);
 
   useEffect(() => {
-    locationsService
-      .getCities(selectedCountries, selectedProvinces)
-      .then(setCities)
-      .catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
-
-  useEffect(() => {
     if (selectedPrimaryNames.length === 0) return;
     const ids = selectedPrimaryNames
       .map((name) => primarySectors.find((s) => s.sector_name === name)?.id)
@@ -178,7 +160,7 @@ export const AdvisorDashboard = ({
         subRegions,
         countries,
         provinces,
-        cities,
+        cities: [],
         primarySectors,
         secondarySectors,
       }).filter(
@@ -189,7 +171,6 @@ export const AdvisorDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
       primarySectors,
       secondarySectors,
       excludeFilterIds,

@@ -38,6 +38,7 @@ export const COLUMN_KEY_TO_API_KEY: Record<string, string> = {
   revenue_growth: "revenue_growth",
   ebitda_margin: "ebitda_margin",
   rule_of_40: "rule_of_40",
+  subscription_revenue_m: "subscription_revenue_m",
   arr_pc: "arr_pc",
   arr_m: "arr_m",
   churn_pc: "churn",

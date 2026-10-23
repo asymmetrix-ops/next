@@ -1,27 +1,44 @@
 "use client";
 
+import { OwnershipChip } from "@/components/companies/CompanySection";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { trackKeyAction } from "@/lib/tracking";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import Footer from "@/components/Footer";
-import SearchableMultiSelect from "@/components/ui/SearchableMultiSelect";
+import {
+  CompaniesFilterBar,
+  type FilterBarState,
+  type FilterCategory,
+  type FilterDef,
+} from "@/components/companies/CompaniesFilterBar";
 import {
   getTransactionStatusTone,
   getProcessStageTone,
-  getIntermediaryTone,
+  getBuyerTypeTone,
   getTransactionSignalDescription,
   ENTITY_TONES,
+  DEAL_TYPE_TONE,
+  TRANSACTION_SIGNAL_TONES,
+  type TagTone,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
+import {
+  SEARCH_MULTI_VALUE_STYLES,
+  SearchEntityMultiValueCell,
+} from "@/components/search/SearchEntityMultiValueCell";
+import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import {
   SEARCH_TABLE_ENTITY_LOGO_SIZE_PX,
   SEARCH_TABLE_STYLES,
 } from "@/components/search/searchTableStyles";
 import {
-  SEARCH_DASHBOARD_ACTIONS,
+  SEARCH_DASHBOARD_EYEBROW,
+  SearchListTabs,
   SEARCH_DASHBOARD_FILTER_INNER,
   SEARCH_DASHBOARD_FILTER_SHELL,
   SEARCH_DASHBOARD_HEADER_ROW,
@@ -31,9 +48,8 @@ import {
   SEARCH_DASHBOARD_TITLE,
 } from "@/components/search/searchDashboardLayout";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
-import { appendMetricCurrency } from "@/lib/buildFinancialMetricsSections";
-import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
-import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import { locationsService } from "@/lib/locationsService";
+import type { PrimarySector } from "@/components/companies/companiesFilterConfig";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,11 +63,23 @@ interface NamedRef {
   name: string;
 }
 
+interface AdvisorRef {
+  id: number;
+  name: string;
+  /** True when the firm has an Advisor profile page. */
+  has_profile: boolean;
+  /** Bankers tagged under this Advisor. */
+  bankers: NamedRef[];
+}
+
+/** "Proprietary" | "Public" from Financial Metrics (x2_116.proprietary); null for legacy/empty. */
+type RevenueSourceType = "Proprietary" | "Public" | null;
+
 interface ValSource {
   value: string | null;
   source: string | null;
+  source_type?: RevenueSourceType;
   currency?: string | null;
-  period?: string | null;
 }
 
 interface LinkedEvent {
@@ -59,9 +87,9 @@ interface LinkedEvent {
   announcement_date: string;
 }
 
-interface LinkedReport {
+interface ContentCta {
   id: number;
-  headline: string;
+  label: string;
   content_type: string;
   publication_date: string;
 }
@@ -83,12 +111,15 @@ interface DealRadarDashboardItem {
   buyer_type: string[];
   intermediary_type: string | null;
   intermediary: NamedRef | null;
+  advisors?: AdvisorRef[];
   bidders: NamedRef[];
   revenue: ValSource;
   ev: ValSource;
   potential_acquirers: NamedRef[];
   linked_event: LinkedEvent | null;
-  linked_reports: LinkedReport[];
+  content_cta: ContentCta | null;
+  /** Newer API shape: every linkable report for the company (news and company analysis). */
+  content_ctas?: ContentCta[] | null;
 }
 
 interface Pagination {
@@ -116,56 +147,174 @@ interface OwnershipTypeOption {
   ownership: string;
 }
 
-interface SectorOption {
-  id: number;
-  sector_name: string;
-}
-
 interface CountryOption {
   locations_Country: string;
 }
 
-interface DealRadarFilters {
-  ownershipTypeIds: number[];
-  hqCountries: string[];
-  sectorIds: number[];
-  transactionStatusIds: number[];
-  processStages: string[];
-  transactionSignals: string[];
+interface AdvisorOption {
+  id: number;
+  name: string;
 }
 
-const EMPTY_FILTERS: DealRadarFilters = {
-  ownershipTypeIds: [],
-  hqCountries: [],
-  sectorIds: [],
-  transactionStatusIds: [],
-  processStages: [],
-  transactionSignals: [],
+/** One filter sent to get_deal_radar_dashboard (`filters_json`), combined left to right. */
+interface DealRadarApiFilter {
+  field: string;
+  values: Array<string | number>;
+  logic: "and" | "or";
+}
+
+const FILTER_CATEGORIES: FilterCategory[] = [
+  { id: "transaction", name: "Transaction" },
+  { id: "company", name: "Company" },
+];
+
+/** Agreed tracking names (lowercase, underscores) so a respelling never splits in the dashboard. */
+const DEAL_RADAR_FILTER_NAMES: Record<string, string> = {
+  ownership: "ownership_type",
+  hq_country: "hq_country",
+  sector: "sector",
+  process_stage: "process_stage",
+  transaction_signal: "transaction_signal",
+  buyer_type: "buyer_type",
+  advisor: "advisor",
+  banker: "banker",
+};
+
+type SortDir = "asc" | "desc";
+type SortKey =
+  | "name"
+  | "hq"
+  | "ownership"
+  | "sector"
+  | "status"
+  | "stage"
+  | "advisor"
+  | "buyer_type"
+  | "bidders"
+  | "revenue"
+  | "ev";
+
+/** Agreed tracking names (lowercase, underscores). */
+const DEAL_RADAR_SORT_NAMES: Record<SortKey, string> = {
+  name: "company",
+  hq: "hq",
+  ownership: "ownership",
+  sector: "sector",
+  status: "transaction_status",
+  stage: "process_stage",
+  advisor: "advisor",
+  buyer_type: "buyer_type",
+  bidders: "bidders",
+  revenue: "revenue",
+  ev: "ev",
+};
+
+/** Blue hover on sortable headers so users can tell they are clickable. */
+const SORTABLE_HEADER_HOVER_STYLES = `
+  .company-table thead th.company-table-th-sortable {
+    transition: color 0.12s, background-color 0.12s;
+  }
+  .company-table thead th.company-table-th-sortable:hover {
+    color: #2A46EA;
+    background: #E8EDFB;
+  }
+  .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
+    color: #2A46EA;
+  }
+`;
+
+const BUYER_TYPE_FILTER_OPTIONS = ["Trade", "Sponsor", "Growth Equity"];
+
+const INITIAL_FILTER_BAR_STATE: FilterBarState = {
+  filters: [],
+  viewId: null,
+  searchText: "",
+  filterLogic: "and",
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// `:develop` branch of the Deal Radar API: logo, owner_id, financial-metrics revenue/EV, sorting.
 const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
-const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
+const FILTER_API = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop";
 const PAGE_SIZE = 25;
-const ANTICIPATED_18_MONTHS_ID = 1;
-/** Statuses for which Process Stage applies: Anticipated 18m (1), Rumoured (2), Reported (3), Anticipated 6m (6). */
-const PROCESS_STAGE_STATUS_IDS = [1, 2, 3, 6];
-const TABLE_COL_COUNT = 10;
+const TABLE_COL_COUNT = 11;
+
+/** Advisors for a row; falls back to the single `intermediary` an older API response carries. */
+function advisorsOf(item: DealRadarDashboardItem): AdvisorRef[] {
+  if (Array.isArray(item.advisors)) return item.advisors;
+  return item.intermediary
+    ? [{ ...item.intermediary, has_profile: true, bankers: [] }]
+    : [];
+}
+
+/** Advisor column like other list views: plain links (no tags), each firm with its bankers underneath. */
+function AdvisorCell({ item, align = "left" }: { item: DealRadarDashboardItem; align?: "left" | "right" }) {
+  const advisors = advisorsOf(item);
+  if (advisors.length === 0) {
+    const type = item.intermediary_type;
+    if (type === "No Intermediary") return <>No Advisor</>;
+    return type === "Not Yet Hired" ? <>{type}</> : <>{EMPTY_DISPLAY}</>;
+  }
+  const alignClass = align === "right" ? "items-end text-right" : "items-start text-left";
+  return (
+    <div className={`flex flex-col gap-1.5 text-xs leading-snug ${alignClass}`}>
+      {advisors.map((advisor) => (
+        <div key={advisor.id} className={`flex flex-col gap-0.5 ${alignClass}`}>
+          {advisor.has_profile ? (
+            <a href={`/advisor/${advisor.id}`} className={`search-multi-value-link`}>
+              {advisor.name}
+            </a>
+          ) : (
+            <span className="text-gray-800">{advisor.name}</span>
+          )}
+          {(advisor.bankers ?? [])
+            .filter((banker) => banker.name)
+            .map((banker) => (
+              <a key={banker.id} href={`/individual/${banker.id}`} className="search-multi-value-link text-[11px]">
+                {banker.name}
+              </a>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Buyer Type column: one pill per recorded type, "-" when none. */
+function BuyerTypeCell({ types }: { types: string[] }) {
+  const list = (types ?? []).filter(Boolean);
+  if (list.length === 0) return <>{EMPTY_DISPLAY}</>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {list.map((type) => {
+        const tone = getBuyerTypeTone(type);
+        return (
+          <span
+            key={type}
+            className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+            style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
+          >
+            {type}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 
 const TRANSACTION_STATUS_OPTIONS = [
   { id: 3, label: "Reported in Market", totalsKey: "Reported in Market" },
   { id: 2, label: "Rumoured in Market", totalsKey: "Rumoured in Market" },
   {
-    id: 6,
-    label: "Anticipated 6 months",
-    totalsKey: "Transaction Anticipated within 6 Months",
+    id: 1,
+    label: "Transaction Anticipated within 18 Months",
+    totalsKey: "Transaction anticipated within 18 months",
   },
   {
-    id: 1,
-    label: "Anticipated 18 months",
-    totalsKey: "Transaction anticipated within 18 months",
+    id: 6,
+    label: "Transaction Anticipated within 6 Months",
+    totalsKey: "Transaction Anticipated within 6 Months",
   },
   { id: 5, label: "Process on Hold", totalsKey: "Process on Hold" },
 ];
@@ -173,24 +322,29 @@ const TRANSACTION_STATUS_OPTIONS = [
 const STATUS_FILTERS = [
   { label: "All", statusId: null, totalsKey: "" },
   ...TRANSACTION_STATUS_OPTIONS.map((o) => ({
-    label: o.label,
+    label:
+      o.id === 6
+        ? "Anticipated within 6 months"
+        : o.id === 1
+          ? "Anticipated within 18 months"
+          : o.label,
     statusId: o.id,
     totalsKey: o.totalsKey,
   })),
 ];
 
-const PROCESS_STAGE_OPTIONS = [
-  { value: "Strategic Review", label: "Strategic Review" },
-  { value: "Banker Pitches", label: "Banker Pitches" },
-  { value: "Deal Prep", label: "Deal Prep" },
-  { value: "In Market", label: "In Market" },
-  { value: "In Exclusivity", label: "In Exclusivity" },
+const PROCESS_STAGE_FILTER_OPTIONS = [
+  "Strategic Review",
+  "Banker Pitches",
+  "Deal Prep",
+  "In Market",
+  "In Exclusivity",
 ];
 
-const TRANSACTION_SIGNAL_OPTIONS = [
-  { value: "Long Hold", label: "Long Hold" },
-  { value: "Asymmetrix Assessment", label: "Asymmetrix Assessment" },
-  { value: "Proprietary Intel", label: "Proprietary Intel" },
+const TRANSACTION_SIGNAL_FILTER_OPTIONS = [
+  "Long Hold",
+  "Asymmetrix Assessment",
+  "Proprietary Intel",
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -225,12 +379,47 @@ function isInvalidVal(value: string | number | null | undefined): boolean {
   return v === "null" || v === "nan" || v === "";
 }
 
-/** Revenue / EV as plain text like the other list views (no Est./Prop. tags). */
+/** Revenue / EV formatted value, e.g. "$12.5m". */
 function formatVal(val: ValSource): React.ReactNode {
   if (isInvalidVal(val?.value)) return EMPTY_DISPLAY;
   const plain = formatMetricMillionsPlain(val.value);
   if (plain === EMPTY_DISPLAY) return EMPTY_DISPLAY;
   return appendMetricCurrency(plain, val.currency ?? undefined);
+}
+
+/** Same tones already used for "Proprietary Intel" (transaction signal) and "Trade" (buyer type). */
+const REVENUE_SOURCE_TONES: Record<"Proprietary" | "Public", TagTone> = {
+  Proprietary: TRANSACTION_SIGNAL_TONES["proprietary intel"],
+  Public: DEAL_TYPE_TONE,
+};
+
+/** Colored pill ("Proprietary" / "Public") marking where a Revenue/EV figure came from — identical markup/sizing to BuyerTypeCell's pills (e.g. "Trade"). */
+function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
+  if (type !== "Proprietary" && type !== "Public") return null;
+  const tone = REVENUE_SOURCE_TONES[type];
+  return (
+    <span
+      className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
+      style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
+    >
+      {type}
+    </span>
+  );
+}
+
+/** Revenue / EV value with its source-type tag alongside when available (Financial Metrics only). */
+function formatValWithSourceTag(val: ValSource): React.ReactNode {
+  const formatted = formatVal(val);
+  if (formatted === EMPTY_DISPLAY) return formatted;
+  if (val.source_type !== "Proprietary" && val.source_type !== "Public") {
+    return formatted;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span>{formatted}</span>
+      <SourceTypeTag type={val.source_type} />
+    </div>
+  );
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -246,150 +435,57 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
-/** Most recent linked report; "Read our News" only when that piece is News. */
-function getReportCta(
-  reports: LinkedReport[] | undefined
-): { id: number; label: string } | null {
-  if (!reports?.length) return null;
-  const latest = [...reports].sort((x, y) =>
-    String(y.publication_date).localeCompare(String(x.publication_date))
+function isNewsCta(cta: ContentCta): boolean {
+  return String(cta.content_type ?? "").toLowerCase().trim() === "news";
+}
+
+/** One report link per company: news wins over company analysis, newest first within each. */
+function pickContentCta(item: DealRadarDashboardItem): ContentCta | null {
+  const candidates = [...(item.content_ctas ?? []), ...(item.content_cta ? [item.content_cta] : [])].filter(
+    (c) => c && c.id
+  );
+  if (candidates.length === 0) return null;
+  const time = (c: ContentCta) => new Date(c.publication_date).getTime() || 0;
+  return candidates.sort(
+    (a, b) => Number(isNewsCta(b)) - Number(isNewsCta(a)) || time(b) - time(a)
   )[0];
-  const isNews = latest.content_type?.toLowerCase().trim() === "news";
-  return { id: latest.id, label: isNews ? "Read our News" : "Read our Research" };
+}
+
+function getContentCtaLabel(cta: ContentCta): string {
+  const label = cta.label?.trim();
+  if (label) return label;
+  return isNewsCta(cta) ? "Read our News" : "Read our Company Analysis";
 }
 
 function buildDashboardUrl(
   offset: number,
   search: string,
-  filters: DealRadarFilters,
-  preferredCurrencyId?: number
+  statusId: number | null,
+  barFilters: DealRadarApiFilter[],
+  sort: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" },
+  preferredCurrencyId?: number,
+  sectorId?: number
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
+  if (sectorId != null) url.searchParams.append("sector_ids[]", String(sectorId));
   if (preferredCurrencyId) {
     url.searchParams.set("preferred_currency_id", String(preferredCurrencyId));
   }
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("offset", String(offset));
   if (search) url.searchParams.set("search", search);
-
-  filters.ownershipTypeIds.forEach((id) =>
-    url.searchParams.append("ownership_type_ids[]", String(id))
-  );
-  filters.hqCountries.forEach((c) =>
-    url.searchParams.append("hq_countries[]", c)
-  );
-  filters.sectorIds.forEach((id) =>
-    url.searchParams.append("sector_ids[]", String(id))
-  );
-  filters.transactionStatusIds.forEach((id) =>
-    url.searchParams.append("transaction_status_ids[]", String(id))
-  );
-  filters.processStages.forEach((s) =>
-    url.searchParams.append("process_stage[]", s)
-  );
-  filters.transactionSignals.forEach((s) =>
-    url.searchParams.append("transaction_signal[]", s)
-  );
-
+  if (statusId !== null) {
+    url.searchParams.append("transaction_status_ids[]", String(statusId));
+  }
+  if (barFilters.length > 0) {
+    url.searchParams.set("filters_json", JSON.stringify(barFilters));
+  }
+  if (sort.key) {
+    url.searchParams.set("sort_by", sort.key);
+    url.searchParams.set("sort_dir", sort.dir);
+  }
   return url;
 }
-
-function countActiveFilters(filters: DealRadarFilters): number {
-  return (
-    filters.ownershipTypeIds.length +
-    filters.hqCountries.length +
-    filters.sectorIds.length +
-    filters.transactionStatusIds.length +
-    filters.processStages.length +
-    filters.transactionSignals.length
-  );
-}
-
-type SortKey =
-  | "name" | "date" | "ownership" | "sector" | "status" | "stage"
-  | "intermediary" | "bidders" | "revenue" | "ev";
-type SortDir = "asc" | "desc";
-
-/** Agreed tracking names (lowercase, underscores) so a respelling never splits in the dashboard. */
-const DEAL_RADAR_FILTER_NAMES: Record<keyof DealRadarFilters, string> = {
-  ownershipTypeIds: "ownership_type",
-  hqCountries: "hq_country",
-  sectorIds: "sector",
-  transactionStatusIds: "transaction_status",
-  processStages: "process_stage",
-  transactionSignals: "transaction_signal",
-};
-const DEAL_RADAR_SORT_NAMES: Record<SortKey, string> = {
-  name: "company",
-  date: "date",
-  ownership: "ownership",
-  sector: "sector",
-  status: "status",
-  stage: "process_stage",
-  intermediary: "advisor",
-  bidders: "bidders",
-  revenue: "revenue",
-  ev: "ev",
-};
-
-/** Logical status order, not alphabetical (nearest-term / most advanced first). */
-const STATUS_ORDER: Record<number, number> = { 3: 0, 2: 1, 6: 2, 1: 3, 5: 4 };
-const STAGE_ORDER = PROCESS_STAGE_OPTIONS.map((o) => o.value);
-
-function parseMoney(v: ValSource): number | null {
-  if (isInvalidVal(v?.value)) return null;
-  const n = parseFloat(String(v.value).replace(/,/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
-
-function sortValue(item: DealRadarDashboardItem, key: SortKey): string | number | null {
-  switch (key) {
-    case "name": return item.name?.toLowerCase() ?? null;
-    case "date": return item.active_status_set_at ? Date.parse(item.active_status_set_at) || null : null;
-    case "ownership": return item.ownership_type?.toLowerCase() || null;
-    case "sector": return item.primary_sectors[0] ? cleanSectorName(item.primary_sectors[0].name).toLowerCase() : null;
-    case "status": return STATUS_ORDER[item.transaction_status_id] ?? 99;
-    case "stage": {
-      const i = item.process_stage ? STAGE_ORDER.indexOf(item.process_stage) : -1;
-      return i >= 0 ? i : null;
-    }
-    case "intermediary": return (item.intermediary?.name || (item.intermediary_type !== "No Intermediary" ? item.intermediary_type : null))?.toLowerCase() || null;
-    case "bidders": return item.bidders[0]?.name.toLowerCase() ?? null;
-    case "revenue": return parseMoney(item.revenue);
-    case "ev": return parseMoney(item.ev);
-  }
-}
-
-function sortItems(items: DealRadarDashboardItem[], key: SortKey | null, dir: SortDir) {
-  if (!key) return items;
-  const m = dir === "asc" ? 1 : -1;
-  return items
-    .map((it, i) => ({ it, i, v: sortValue(it, key) }))
-    .sort((a, b) => {
-      if (a.v === null && b.v === null) return a.i - b.i;
-      if (a.v === null) return 1; // empty values always last
-      if (b.v === null) return -1;
-      const c = typeof a.v === "number" && typeof b.v === "number"
-        ? a.v - b.v
-        : String(a.v).localeCompare(String(b.v), undefined, { numeric: true });
-      return c ? c * m : a.i - b.i;
-    })
-    .map((x) => x.it);
-}
-
-/** Same blue hover on sortable headers as the other list tables. */
-const SORTABLE_HEADER_HOVER_STYLES = `
-  .company-table thead th.company-table-th-sortable {
-    transition: color 0.12s, background-color 0.12s;
-  }
-  .company-table thead th.company-table-th-sortable:hover {
-    color: #2A46EA;
-    background: #E8EDFB;
-  }
-  .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
-    color: #2A46EA;
-  }
-`;
 
 // ─── Skeleton Row ─────────────────────────────────────────────────────────────
 
@@ -397,11 +493,192 @@ function TransactionSignalLabel({ signal }: { signal: string }) {
   const description = getTransactionSignalDescription(signal);
   return (
     <p
-      className="mt-1 text-left text-[11px] font-medium text-gray-600"
+      className="mt-1 cursor-help text-center text-[11px] font-medium text-gray-600"
       title={description || undefined}
     >
       {signal}
     </p>
+  );
+}
+
+const DEAL_RADAR_LINK_CLASS = "deal-radar-link";
+
+const DEAL_RADAR_STYLES = `
+  .deal-radar-link,
+  .deal-radar-link-plain,
+  .search-multi-value-link {
+    color: #0075df;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .deal-radar-link:hover,
+  .deal-radar-link-plain:hover,
+  .search-multi-value-link:hover {
+    color: #005bb5;
+    text-decoration: underline;
+  }
+  .deal-radar-table .search-multi-value-cell {
+    max-width: 150px;
+  }
+`;
+
+function DealRadarMobileCard({
+  item,
+  onNavigate,
+}: {
+  item: DealRadarDashboardItem;
+  onNavigate: (href: string) => void;
+}) {
+  const sectors = item.primary_sectors.map((s) => ({ ...s, name: cleanSectorName(s.name) }));
+  const dash = <span>-</span>;
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex items-start justify-between gap-3 py-1.5 text-xs">
+      <span className="w-24 shrink-0 font-medium text-gray-500">{label}</span>
+      <div className="min-w-0 flex-1 text-right text-gray-800">{value}</div>
+    </div>
+  );
+  const chip = (key: string | number, href: string, name: string) => (
+    <a
+      key={key}
+      href={href}
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onNavigate(href);
+      }}
+      className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5"
+      style={{ backgroundColor: ENTITY_TONES.company.fill, color: ENTITY_TONES.company.text }}
+    >
+      {name}
+    </a>
+  );
+  const stageTone = item.process_stage ? getProcessStageTone(item.process_stage) : null;
+  const cta = pickContentCta(item);
+
+  return (
+    <div className="border-b border-gray-100 px-4 py-4">
+      <div className="flex items-start gap-3">
+        <CompanyAvatar name={item.name} logo={item.logo} size={36} />
+        <div className="min-w-0 flex-1">
+          <a
+            href={`/company/${item.company_id}`}
+            onClick={(e) => {
+              trackKeyAction({
+                section: "deal_radar",
+                action: "company_clicked_through",
+                targetType: "company",
+                targetId: item.company_id,
+              });
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              onNavigate(`/company/${item.company_id}`);
+            }}
+            className={`${DEAL_RADAR_LINK_CLASS} text-[15px] font-semibold leading-snug`}
+          >
+            {item.name}
+          </a>
+          {item.active_status_set_at && (
+            <p className="mt-0.5 text-[10px] text-gray-400">{formatDate(item.active_status_set_at)}</p>
+          )}
+          {cta && (
+            <a
+              href={`/article/${cta.id}`}
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                onNavigate(`/article/${cta.id}`);
+              }}
+              className={`${DEAL_RADAR_LINK_CLASS} mt-0.5 block text-[11.5px] font-medium`}
+            >
+              {getContentCtaLabel(cta)}
+            </a>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-end">
+          <TransactionStatusPill
+            status={item.transaction_status}
+            className="inline-block max-w-[9rem]"
+            style={{ textAlign: "left", justifyContent: "flex-start" }}
+            allowWrap
+          />
+          {item.transaction_signal && <TransactionSignalLabel signal={item.transaction_signal} />}
+        </div>
+      </div>
+
+      <div className="mt-3 divide-y divide-gray-50">
+        {row("HQ", item.hq_country ?? dash)}
+        {row(
+          "Ownership",
+          item.ownership_type ? (
+            <>
+              <OwnershipChip value={item.ownership_type} />
+              {item.owner_name && (
+                <p className="text-[10px] text-gray-500">
+                  {item.owner_id ? (
+                    <a
+                      href={`/investors/${item.owner_id}`}
+                      onClick={(e) => {
+                        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                        e.preventDefault();
+                        onNavigate(`/investors/${item.owner_id}`);
+                      }}
+                      className="deal-radar-link-plain"
+                    >
+                      {item.owner_name}
+                    </a>
+                  ) : (
+                    item.owner_name
+                  )}
+                </p>
+              )}
+            </>
+          ) : (
+            dash
+          )
+        )}
+        {row(
+          "Sectors",
+          sectors.length > 0 ? (
+            <SearchEntityMultiValueCell
+              items={sectors.map((s) => ({
+                key: `${s.id}-${s.name}`,
+                name: s.name,
+                href: s.id > 0 ? `/sector/${s.id}` : undefined,
+              }))}
+            />
+          ) : (
+            dash
+          )
+        )}
+        {row(
+          "Process stage",
+          stageTone && item.process_stage ? (
+            <span
+              className="inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              style={{ backgroundColor: stageTone.fill, color: stageTone.text, borderColor: stageTone.border }}
+            >
+              {item.process_stage}
+            </span>
+          ) : (
+            dash
+          )
+        )}
+        {row("Advisor", <AdvisorCell item={item} align="right" />)}
+        {row("Buyer type", <div className="flex justify-end"><BuyerTypeCell types={item.buyer_type} /></div>)}
+        {row(
+          "Bidders",
+          item.bidders.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-1">
+              {item.bidders.map((b) => chip(b.id, `/company/${b.id}`, b.name))}
+            </div>
+          ) : (
+            dash
+          )
+        )}
+        {row("Revenue (m)", <div className="flex justify-end">{formatValWithSourceTag(item.revenue)}</div>)}
+        {row("EV (m)", <div className="flex justify-end">{formatValWithSourceTag(item.ev)}</div>)}
+      </div>
+    </div>
   );
 }
 
@@ -426,52 +703,45 @@ export default function DealRadarView({
   fixedSectorId?: number;
 } = {}) {
   const embedded = fixedSectorId != null;
-  const router = useRouter();
   const { currencyId: preferredCurrencyId } = usePlatformCurrency();
+  const router = useRouter();
   const [items, setItems] = useState<DealRadarDashboardItem[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [statusTotals, setStatusTotals] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [userFilters, setFilters] = useState<DealRadarFilters>(EMPTY_FILTERS);
-  const filters = useMemo<DealRadarFilters>(
-    () => (fixedSectorId != null ? { ...userFilters, sectorIds: [fixedSectorId] } : userFilters),
-    [userFilters, fixedSectorId]
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>(
+    INITIAL_FILTER_BAR_STATE
   );
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [statusBubbleId, setStatusBubbleId] = useState<number | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({
+    key: null,
+    dir: "asc",
+  });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipTypeOption[]>([]);
-  const [sectorOptions, setSectorOptions] = useState<SectorOption[]>([]);
+  const [sectorOptions, setSectorOptions] = useState<PrimarySector[]>([]);
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
-
-  const showSignalFilter = filters.transactionStatusIds.includes(
-    ANTICIPATED_18_MONTHS_ID
-  );
-  const showProcessStageFilter = filters.transactionStatusIds.some((id) =>
-    PROCESS_STAGE_STATUS_IDS.includes(id)
-  );
-
-  const activeStatusBubbleId =
-    filters.transactionStatusIds.length === 1
-      ? filters.transactionStatusIds[0]
-      : filters.transactionStatusIds.length === 0
-        ? null
-        : -1;
+  const [advisorOptions, setAdvisorOptions] = useState<AdvisorOption[]>([]);
+  const [bankerOptions, setBankerOptions] = useState<AdvisorOption[]>([]);
 
   // Debounce search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(
-      () => setDebouncedSearch(searchQuery.trim()),
+      () => {
+        setDebouncedSearch(filterBarState.searchText.trim());
+        setPage(1);
+      },
       300
     );
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery]);
+  }, [filterBarState.searchText]);
 
   // Load filter dropdown options
   useEffect(() => {
@@ -486,23 +756,34 @@ export default function DealRadarView({
 
     async function loadFilterOptions() {
       try {
-        const [ownershipRes, sectorsRes, countriesRes] = await Promise.all([
+        const [ownershipRes, countriesRes, advisorsRes, bankersRes] = await Promise.all([
           fetch(`${FILTER_API}/get_all_ownership_types`, { headers }),
-          fetch(`${FILTER_API}/get_all_primary_sectors_dropdown`, { headers }),
           fetch(`${FILTER_API}/locations_country`, { headers }),
+          fetch(`${API_BASE}/get_deal_radar_advisor_options`, { headers }),
+          fetch(`${API_BASE}/get_deal_radar_banker_options`, { headers }),
         ]);
 
         if (ownershipRes.ok) {
           const data = (await ownershipRes.json()) as OwnershipTypeOption[];
           setOwnershipTypes(Array.isArray(data) ? data : []);
         }
-        if (sectorsRes.ok) {
-          const data = (await sectorsRes.json()) as SectorOption[];
-          setSectorOptions(Array.isArray(data) ? data : []);
+        try {
+          const primarySectors = await locationsService.getPrimarySectors();
+          setSectorOptions(Array.isArray(primarySectors) ? primarySectors : []);
+        } catch {
+          // Primary sectors are optional — other filters still work
         }
         if (countriesRes.ok) {
           const data = (await countriesRes.json()) as CountryOption[];
           setCountryOptions(Array.isArray(data) ? data : []);
+        }
+        if (advisorsRes.ok) {
+          const data = (await advisorsRes.json()) as AdvisorOption[];
+          setAdvisorOptions(Array.isArray(data) ? data : []);
+        }
+        if (bankersRes.ok) {
+          const data = (await bankersRes.json()) as AdvisorOption[];
+          setBankerOptions(Array.isArray(data) ? data : []);
         }
       } catch {
         // Filter options are optional — page still works without them
@@ -519,10 +800,12 @@ export default function DealRadarView({
       offset = 0,
       append = false,
       search = "",
-      activeFilters = EMPTY_FILTERS
+      statusId: number | null = null,
+      barFilters: DealRadarApiFilter[] = [],
+      sortState: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" }
     ) => {
       const requestId = ++latestRequestRef.current;
-      if (!append) setLoading(true);
+      setLoading(true);
       setError(null);
 
       try {
@@ -530,7 +813,7 @@ export default function DealRadarView({
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, activeFilters, preferredCurrencyId);
+        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState, preferredCurrencyId, fixedSectorId);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -555,127 +838,141 @@ export default function DealRadarView({
         if (requestId === latestRequestRef.current) setLoading(false);
       }
     },
-    [preferredCurrencyId]
+    [preferredCurrencyId, fixedSectorId]
   );
 
-  // Numbered pages, like the other list tables. The page resets to 1 whenever search or filters change.
-  const filterKey = JSON.stringify([debouncedSearch, filters]);
-  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
-  const page = pageState.key === filterKey ? pageState.page : 1;
-  const setPage = (next: number) => setPageState({ key: filterKey, page: next });
+  // Filter-bar items -> API filters (labels back to ids where the endpoint filters by id)
+  const barFilters = useMemo<DealRadarApiFilter[]>(() => {
+    const idsByName = (rows: Array<{ id: number; name: string }>, names: string[]) =>
+      rows.filter((row) => names.includes(row.name)).map((row) => row.id);
+    const result: DealRadarApiFilter[] = [];
+    filterBarState.filters.forEach((item, index) => {
+      const names = Array.isArray(item.value)
+        ? (item.value as unknown[]).filter((v): v is string => typeof v === "string")
+        : typeof item.value === "string" && item.value
+          ? [item.value]
+          : [];
+      if (names.length === 0) return;
+      let values: Array<string | number> = names;
+      if (item.id === "ownership") {
+        values = idsByName(
+          ownershipTypes.map((o) => ({ id: o.id, name: o.ownership })),
+          names
+        );
+      } else if (item.id === "sector") {
+        values = idsByName(
+          sectorOptions.map((o) => ({ id: o.id, name: o.sector_name })),
+          names
+        );
+      } else if (item.id === "advisor") {
+        values = idsByName(advisorOptions, names);
+      } else if (item.id === "banker") {
+        values = idsByName(bankerOptions, names);
+      }
+      if (values.length === 0) return;
+      result.push({
+        field: item.id,
+        values,
+        logic:
+          index === 0 ? "and" : (item.combineLogic ?? filterBarState.filterLogic),
+      });
+    });
+    return result;
+  }, [filterBarState.filters, filterBarState.filterLogic, ownershipTypes, sectorOptions, advisorOptions, bankerOptions]);
+  const barFiltersKey = JSON.stringify(barFilters);
 
+  // Track newly applied filter types
+  const trackedFieldsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters);
-  }, [fetchData, page, debouncedSearch, filters]);
-
-  const statusCounts = useMemo<Record<string, number>>(() => {
-    const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
-    return { "": total, ...statusTotals };
-  }, [statusTotals]);
-
-  const updateFilters = (patch: Partial<DealRadarFilters>) => {
-    for (const key of Object.keys(patch) as (keyof DealRadarFilters)[]) {
-      const next = patch[key] as unknown[] | undefined;
-      if (next && next.length > 0 && JSON.stringify(next) !== JSON.stringify(filters[key])) {
+    const current = new Set(barFilters.map((f) => f.field));
+    current.forEach((field) => {
+      if (!trackedFieldsRef.current.has(field)) {
         trackKeyAction({
           section: "deal_radar",
           action: "filter_applied",
-          actionDetail: DEAL_RADAR_FILTER_NAMES[key],
+          actionDetail: DEAL_RADAR_FILTER_NAMES[field] ?? field,
         });
       }
-    }
-    setFilters((prev) => {
-      const next = { ...prev, ...patch };
-      if (patch.transactionStatusIds) {
-        if (!patch.transactionStatusIds.includes(ANTICIPATED_18_MONTHS_ID)) {
-          next.transactionSignals = [];
-        }
-        if (
-          !patch.transactionStatusIds.some((id) =>
-            PROCESS_STAGE_STATUS_IDS.includes(id)
-          )
-        ) {
-          next.processStages = [];
-        }
-      }
-      return next;
     });
-  };
+    trackedFieldsRef.current = current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barFiltersKey]);
 
-  const handleStatusBubbleClick = (statusId: number | null) => {
-    updateFilters({
-      transactionStatusIds: statusId ? [statusId] : [],
-      processStages: [],
-      transactionSignals: [],
-    });
-  };
+  // Back to page 1 whenever the filters change
+  useEffect(() => {
+    setPage(1);
+  }, [barFiltersKey, statusBubbleId, sort]);
 
-  const clearAllFilters = () => setFilters(EMPTY_FILTERS);
+  // Re-fetch when the page, search or filters change
+  useEffect(() => {
+    fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters, sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, page, debouncedSearch, statusBubbleId, barFiltersKey, sort]);
 
-  // Static known stages plus any other stage values the backend returns.
-  const processStageOptions = useMemo(() => {
-    const known = new Set(PROCESS_STAGE_OPTIONS.map((o) => o.value));
-    const extra = Array.from(
-      new Set(items.map((i) => i.process_stage?.trim()).filter(Boolean) as string[])
-    )
-      .filter((v) => !known.has(v))
-      .sort()
-      .map((v) => ({ value: v, label: v }));
-    return [...PROCESS_STAGE_OPTIONS, ...extra];
-  }, [items]);
-
-  const ownershipSelectOptions = useMemo(
-    () =>
-      ownershipTypes
-        .filter((o) => o.ownership?.trim())
-        .map((o) => ({ value: o.id, label: o.ownership })),
-    [ownershipTypes]
-  );
-
-  const sectorSelectOptions = useMemo(
-    () =>
-      sectorOptions
-        .filter((s) => s.sector_name?.trim())
-        .map((s) => ({ value: s.id, label: s.sector_name })),
-    [sectorOptions]
-  );
-
-  const countrySelectOptions = useMemo(
-    () =>
-      countryOptions
-        .filter((c) => c.locations_Country?.trim())
-        .map((c) => ({
-          value: c.locations_Country,
-          label: c.locations_Country,
-        })),
-    [countryOptions]
-  );
-
-  const transactionStatusSelectOptions = useMemo(
-    () =>
-      TRANSACTION_STATUS_OPTIONS.map((o) => ({
-        value: o.id,
-        label: o.label,
-      })),
-    []
-  );
-
-  const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({
-    key: null,
-    dir: "asc",
-  });
-  const sortedItems = useMemo(
-    () => sortItems(items, sort.key, sort.dir),
-    [items, sort]
-  );
   const toggleSort = (key: SortKey) => {
     trackKeyAction({
       section: "deal_radar",
       action: "column_sorted",
       actionDetail: DEAL_RADAR_SORT_NAMES[key],
     });
-    setSort((p) => (p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
+    );
   };
+
+  const statusCounts = useMemo<Record<string, number>>(() => {
+    const total = Object.values(statusTotals).reduce((a, b) => a + b, 0);
+    return { "": total, ...statusTotals };
+  }, [statusTotals]);
+
+  const filterDefs = useMemo<FilterDef[]>(() => {
+    const enumDef = (
+      id: string,
+      label: string,
+      category: string,
+      options: string[]
+    ): FilterDef => ({
+      id,
+      label,
+      fullLabel: label,
+      category,
+      type: "Aa",
+      editor: "enum",
+      options,
+    });
+    const unique = (values: string[]) =>
+      Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+    return [
+      enumDef("process_stage", "Process Stage", "transaction", PROCESS_STAGE_FILTER_OPTIONS),
+      enumDef("transaction_signal", "Transaction Signal", "transaction", TRANSACTION_SIGNAL_FILTER_OPTIONS),
+      enumDef("buyer_type", "Buyer Type", "transaction", BUYER_TYPE_FILTER_OPTIONS),
+      enumDef("advisor", "Advisor", "transaction", unique(advisorOptions.map((a) => a.name))),
+      enumDef("banker", "Banker", "transaction", unique(bankerOptions.map((b) => b.name))),
+      enumDef("ownership", "Ownership Type", "company", unique(ownershipTypes.map((o) => o.ownership))),
+      enumDef("hq_country", "HQ Country", "company", unique(countryOptions.map((c) => c.locations_Country))),
+      ...(embedded
+        ? []
+        : [enumDef("sector", "Primary Sector", "company", unique(sectorOptions.map((o) => o.sector_name)))]),
+    ];
+  }, [embedded, advisorOptions, bankerOptions, ownershipTypes, countryOptions, sectorOptions]);
+
+  const statusTabs = useMemo(
+    () =>
+      STATUS_FILTERS.map((f) => ({
+        id: f.statusId === null ? "all" : String(f.statusId),
+        label: f.label,
+        count: f.totalsKey === "" ? (statusCounts[""] ?? 0) : (statusCounts[f.totalsKey] ?? 0),
+        dot:
+          f.statusId === null
+            ? "#8A93A8"
+            : getStatusStyle(
+                TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)?.label ?? ""
+              ).dot,
+      })),
+    [statusCounts]
+  );
 
   const Th = ({
     label,
@@ -717,306 +1014,86 @@ export default function DealRadarView({
     );
   };
 
-  const activeFilterCount = countActiveFilters(userFilters);
-
   const Shell = embedded ? React.Fragment : AppShell;
   return (
     <Shell>
-    <div className={`${embedded ? "" : "min-h-screen "}flex flex-col bg-white`}>
-      <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES + SORTABLE_HEADER_HOVER_STYLES }} />
-      {!embedded && (
-      <div style={SEARCH_DASHBOARD_SHELL}>
-        <div style={SEARCH_DASHBOARD_INNER}>
-          <div style={SEARCH_DASHBOARD_HEADER_ROW}>
-            <div>
-              <h1 style={SEARCH_DASHBOARD_TITLE}>
-                Deal Radar
-                {pagination && (
-                  <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
-                    {pagination.total_items} active transactions
-                  </span>
-                )}
-              </h1>
-            </div>
+      <div className={`${embedded ? "" : "min-h-screen "}flex flex-col${embedded ? " bg-white" : ""}`}>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: SEARCH_TABLE_STYLES + SEARCH_MULTI_VALUE_STYLES + SORTABLE_HEADER_HOVER_STYLES + DEAL_RADAR_STYLES,
+          }}
+        />
+        <div style={SEARCH_DASHBOARD_SHELL}>
+          <div style={SEARCH_DASHBOARD_INNER}>
+            {!embedded && (
+            <div style={SEARCH_DASHBOARD_HEADER_ROW}>
+              <div>
+                <div style={SEARCH_DASHBOARD_EYEBROW}>Deal Radar</div>
+                <h1 style={SEARCH_DASHBOARD_TITLE}>
+                  Deal Radar search
+                  {pagination && (
+                    <span style={SEARCH_DASHBOARD_MATCH_COUNT}>
+                      {pagination.total_items.toLocaleString()} matches
+                    </span>
+                  )}
+                </h1>
+              </div>
 
-            <div style={SEARCH_DASHBOARD_ACTIONS}>
-            {/* Filter toggle */}
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((o) => !o)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                filtersOpen || activeFilterCount > 0
-                  ? "border-blue-300 bg-blue-50 text-blue-700"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-              </svg>
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="rounded-full bg-blue-600 text-white text-[10px] font-semibold px-1.5 py-0.5 min-w-[18px] text-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+            </div>
+            )}
 
-            {/* Search */}
-            <div className="relative w-full sm:w-72">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search company, sector…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            </div>
+            <SearchListTabs
+              tabs={statusTabs}
+              activeTabId={statusBubbleId === null ? "all" : String(statusBubbleId)}
+              onTabClick={(tabId) =>
+                setStatusBubbleId(tabId === "all" ? null : Number(tabId))
+              }
+            />
           </div>
         </div>
-      </div>
-      )}
 
-      <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
-        <div style={SEARCH_DASHBOARD_FILTER_INNER}>
-        {/* Status filter pills */}
-        <div className="mb-2 flex flex-wrap gap-2">
-          {STATUS_FILTERS.map((f) => {
-            const count =
-              f.totalsKey === ""
-                ? (statusCounts[""] ?? 0)
-                : (statusCounts[f.totalsKey] ?? 0);
-            const active =
-              f.statusId === null
-                ? activeStatusBubbleId === null
-                : activeStatusBubbleId === f.statusId;
-            const style =
-              f.statusId !== null
-                ? getStatusStyle(
-                    TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)
-                      ?.label ?? ""
-                  )
-                : null;
-            const pillStyle: React.CSSProperties =
-              active && style
-                ? {
-                    backgroundColor: style.bg,
-                    color: style.text,
-                    borderColor: style.border,
-                  }
-                : active
-                  ? {
-                      backgroundColor: "#2A46EA",
-                      color: "#FFFFFF",
-                      borderColor: "#2A46EA",
-                    }
-                  : {};
-            return (
-              <button
-                key={f.statusId ?? "all"}
-                type="button"
-                onClick={() => handleStatusBubbleClick(f.statusId)}
-                style={pillStyle}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                  active
-                    ? "shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {f.statusId !== null && style && (
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: active ? style.dot : "#D1D5DB" }}
-                  />
-                )}
-                {f.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                    active
-                      ? "bg-white/40 text-inherit"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Filter panel */}
-        {filtersOpen && (
-          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Transaction status
-                </label>
-                <SearchableMultiSelect
-                  options={transactionStatusSelectOptions}
-                  selectedValues={filters.transactionStatusIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionStatusIds: vals })
-                  }
-                  placeholder="All statuses"
-                />
-              </div>
-              <div
-                title={
-                  showProcessStageFilter
-                    ? undefined
-                    : "Available for Anticipated, Rumoured or Reported statuses"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showProcessStageFilter
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Process stage
-                </label>
-                <SearchableMultiSelect
-                  options={processStageOptions}
-                  selectedValues={filters.processStages}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ processStages: vals })
-                  }
-                  placeholder="All stages"
-                  disabled={!showProcessStageFilter}
-                />
-              </div>
-              <div
-                title={
-                  showSignalFilter
-                    ? undefined
-                    : "Available when Anticipated 18 months is selected"
-                }
-              >
-                <label
-                  className={`mb-1 block text-[11px] font-semibold uppercase tracking-wider ${
-                    showSignalFilter
-                      ? "text-gray-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  Transaction signal
-                </label>
-                <SearchableMultiSelect
-                  options={TRANSACTION_SIGNAL_OPTIONS}
-                  selectedValues={filters.transactionSignals}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ transactionSignals: vals })
-                  }
-                  placeholder="All signals"
-                  disabled={!showSignalFilter}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Ownership type
-                </label>
-                <SearchableMultiSelect
-                  options={ownershipSelectOptions}
-                  selectedValues={filters.ownershipTypeIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ ownershipTypeIds: vals })
-                  }
-                  placeholder="All ownership types"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  HQ (country)
-                </label>
-                <SearchableMultiSelect
-                  options={countrySelectOptions}
-                  selectedValues={filters.hqCountries}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ hqCountries: vals })
-                  }
-                  placeholder="All countries"
-                />
-              </div>
-              {!embedded && (
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Primary sector
-                </label>
-                <SearchableMultiSelect
-                  options={sectorSelectOptions}
-                  selectedValues={filters.sectorIds}
-                  onSelectionChange={(vals) =>
-                    updateFilters({ sectorIds: vals })
-                  }
-                  placeholder="All sectors"
-                />
-              </div>
-              )}
-            </div>
+        <div style={SEARCH_DASHBOARD_FILTER_SHELL}>
+          <div style={SEARCH_DASHBOARD_FILTER_INNER}>
+            <CompaniesFilterBar
+              filterDefs={filterDefs}
+              filterCategories={FILTER_CATEGORIES}
+              state={filterBarState}
+              onStateChange={setFilterBarState}
+              totalCount={pagination?.total_items ?? 0}
+              entityLabel="transactions"
+            />
           </div>
-        )}
-
         </div>
-      </div>
 
-      <main className="flex-1 w-full px-7 py-4">
-        {/* Table */}
-        <div>
+        <main className="flex-1 w-full px-7 py-4">
           {error ? (
             <div className="p-8 text-center">
               <p className="text-sm text-red-600 font-medium">{error}</p>
               <button
                 type="button"
-                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, filters)}
+                onClick={() => fetchData((page - 1) * PAGE_SIZE, false, debouncedSearch, statusBubbleId, barFilters, sort)}
                 className="mt-3 text-sm text-blue-600 hover:underline"
               >
                 Retry
               </button>
             </div>
           ) : (
-            <div className="company-table-scroll" style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}>
-              <table className="company-table">
+            <>
+            <div
+              className="company-table-scroll hidden md:block"
+              style={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.15s" }}
+            >
+              <table className="company-table deal-radar-table">
                 <thead>
                   <tr>
                     <Th label="Company" sortKey="name" frozen minWidth={260} />
-                    <Th label="Date Added" sortKey="date" minWidth={110} />
-                    <Th label="Ownership" sortKey="ownership" minWidth={140} />
-                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={180} />
-                    <Th label="Transaction Status" sortKey="status" minWidth={200} />
+                    <Th label="HQ" sortKey="hq" minWidth={100} />
+                    <Th label="Ownership" sortKey="ownership" minWidth={120} />
+                    <Th label="Primary Sector(s)" sortKey="sector" minWidth={120} />
+                    <Th label="Transaction Status" sortKey="status" minWidth={220} />
                     <Th label="Process Stage" sortKey="stage" minWidth={130} />
-                    <Th label="Advisor" sortKey="intermediary" minWidth={140} />
+                    <Th label="Advisor" sortKey="advisor" minWidth={160} />
+                    <Th label="Buyer Type" sortKey="buyer_type" minWidth={120} />
                     <Th label="Bidders" sortKey="bidders" minWidth={140} />
                     <Th label="Revenue (m)" sortKey="revenue" minWidth={110} />
                     <Th label="EV (m)" sortKey="ev" minWidth={100} />
@@ -1038,13 +1115,11 @@ export default function DealRadarView({
                           </td>
                         </tr>
                       )
-                      : sortedItems.map((item) => {
+                      : items.map((item) => {
                           const sectors = item.primary_sectors.map((s) => ({
                             ...s,
                             name: cleanSectorName(s.name),
                           }));
-
-                          const reportCta = getReportCta(item.linked_reports);
 
                           return (
                             <tr key={item.company_id}>
@@ -1061,8 +1136,12 @@ export default function DealRadarView({
                                 }}
                               >
                                 <div className="company-table-entity-name-cell">
-                                <CompanyAvatar name={item.name} logo={item.logo} size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX} />
-                                <div className="company-table-entity-name-text">
+                                  <CompanyAvatar
+                                    name={item.name}
+                                    logo={item.logo}
+                                    size={SEARCH_TABLE_ENTITY_LOGO_SIZE_PX}
+                                  />
+                                  <div className="company-table-entity-name-text">
                                 <a
                                   href={`/company/${item.company_id}`}
                                   onClick={(e) => {
@@ -1083,130 +1162,90 @@ export default function DealRadarView({
                                     e.preventDefault();
                                     router.push(`/company/${item.company_id}`);
                                   }}
-                                  className="text-sm font-semibold text-blue-700 hover:text-blue-900 hover:underline leading-snug"
+                                  className={`${DEAL_RADAR_LINK_CLASS} text-sm font-semibold leading-snug`}
                                 >
                                   {item.name}
                                 </a>
-                                {item.hq_country && (
-                                  <p className="text-[11px] text-gray-500 mt-0.5">
-                                    {item.hq_country}
+                                {item.active_status_set_at && (
+                                  <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {formatDate(item.active_status_set_at)}
                                   </p>
                                 )}
-                                {reportCta && (
-                                  <a
-                                    href={`/article/${reportCta.id}`}
-                                    onClick={(e) => {
-                                      if (
-                                        e.button !== 0 ||
-                                        e.metaKey ||
-                                        e.ctrlKey ||
-                                        e.shiftKey ||
-                                        e.altKey
-                                      )
-                                        return;
-                                      e.preventDefault();
-                                      router.push(
-                                        `/article/${reportCta.id}`
-                                      );
-                                    }}
-                                    className="mt-0.5 block text-[11.5px] font-medium text-gray-500 hover:text-blue-600 hover:underline"
-                                  >
-                                    {reportCta.label}
-                                  </a>
-                                )}
-                                </div>
+                                {(() => {
+                                  const cta = pickContentCta(item);
+                                  if (!cta) return null;
+                                  return (
+                                    <a
+                                      href={`/article/${cta.id}`}
+                                      onClick={(e) => {
+                                        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                                        e.preventDefault();
+                                        router.push(`/article/${cta.id}`);
+                                      }}
+                                      className={`${DEAL_RADAR_LINK_CLASS} mt-0.5 block text-[11.5px] font-medium`}
+                                    >
+                                      {getContentCtaLabel(cta)}
+                                    </a>
+                                  );
+                                })()}
+                                  </div>
                                 </div>
                               </td>
 
-                              {/* Date Added */}
+                              {/* HQ */}
                               <td className="text-xs text-gray-700">
-                                {item.active_status_set_at ? (
-                                  formatDate(item.active_status_set_at)
-                                ) : (
-                                  <span className="text-gray-300">—</span>
+                                {item.hq_country ?? (
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Ownership */}
-                              <td className="company-table-cell-wrap text-xs text-gray-700">
+                              <td className="text-xs text-gray-700">
                                 {item.ownership_type ? (
                                   <div>
-                                    <span className="font-medium">
-                                      {item.ownership_type}
-                                    </span>
+                                    <OwnershipChip value={item.ownership_type} />
                                     {item.owner_name && (
-                                      <p className="text-[10.5px] mt-0.5">
+                                      <p className="text-[10px] text-gray-500 mt-0.5">
                                         {item.owner_id ? (
                                           <a
                                             href={`/investors/${item.owner_id}`}
-                                            className="text-blue-700 hover:text-blue-900 hover:underline"
+                                            className="deal-radar-link-plain"
                                           >
                                             {item.owner_name}
                                           </a>
                                         ) : (
-                                          <span className="text-gray-500">
-                                            {item.owner_name}
-                                          </span>
+                                          item.owner_name
                                         )}
                                       </p>
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Sectors */}
-                              <td className="company-table-cell-wrap">
-                                <div className="flex flex-wrap gap-1">
-                                  {sectors.length > 0 ? (
-                                    sectors.map((s) => (
-                                      <a
-                                        key={`${s.id}-${s.name}`}
-                                        href={
-                                          s.id > 0 ? `/sector/${s.id}` : undefined
-                                        }
-                                        onClick={
-                                          s.id > 0
-                                            ? (e) => {
-                                                if (
-                                                  e.button !== 0 ||
-                                                  e.metaKey ||
-                                                  e.ctrlKey ||
-                                                  e.shiftKey ||
-                                                  e.altKey
-                                                )
-                                                  return;
-                                                e.preventDefault();
-                                                router.push(`/sector/${s.id}`);
-                                              }
-                                            : undefined
-                                        }
-                                        className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                                          s.id > 0
-                                            ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                                            : "bg-gray-100 text-gray-600 cursor-default"
-                                        }`}
-                                      >
-                                        {s.name}
-                                      </a>
-                                    ))
-                                  ) : (
-                                    <span className="text-gray-300 text-xs">
-                                      —
-                                    </span>
-                                  )}
-                                </div>
+                              <td>
+                                {sectors.length > 0 ? (
+                                  <SearchEntityMultiValueCell
+                                    items={sectors.map((s) => ({
+                                      key: `${s.id}-${s.name}`,
+                                      name: s.name,
+                                      href:
+                                        s.id > 0 ? `/sector/${s.id}` : undefined,
+                                    }))}
+                                  />
+                                ) : (
+                                  <span>-</span>
+                                )}
                               </td>
 
                               {/* Transaction Status + Signal */}
-                              <td className="company-table-cell-wrap">
-                                <div className="inline-flex flex-col items-start">
+                              <td>
+                                <div className="inline-flex flex-col items-center">
                                   <TransactionStatusPill
                                     status={item.transaction_status}
-                                    className="inline-block"
-                                    style={{ textAlign: "left" }}
-                                    allowWrap
+                                    className="inline-flex w-[13rem] justify-center whitespace-nowrap"
                                   />
                                   {item.transaction_signal && (
                                     <TransactionSignalLabel
@@ -1235,83 +1274,22 @@ export default function DealRadarView({
                                     );
                                   })()
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
-                              {/* Intermediary — tags.txt §6 */}
+                              {/* Advisor — each firm with its bankers underneath */}
                               <td className="text-xs text-gray-700">
-                                {item.intermediary && item.intermediary.name ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone(undefined);
-                                    return (
-                                      <a
-                                        href={`/advisor/${item.intermediary.id}`}
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        {item.intermediary.name}
-                                      </a>
-                                    );
-                                  })()
-                                ) : item.intermediary_type &&
-                                  item.intermediary_type !== "No Intermediary" ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone(item.intermediary_type);
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        {item.intermediary_type}
-                                      </span>
-                                    );
-                                  })()
-                                ) : item.intermediary_type === "No Intermediary" ? (
-                                  (() => {
-                                    const tone = getIntermediaryTone("No Intermediary");
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        No Advisor
-                                      </span>
-                                    );
-                                  })()
-                                ) : (
-                                  (() => {
-                                    const tone = getIntermediaryTone("Unknown");
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          border: `1px dashed ${tone.border}`,
-                                        }}
-                                      >
-                                        Unknown
-                                      </span>
-                                    );
-                                  })()
-                                )}
+                                <AdvisorCell item={item} />
+                              </td>
+
+                              {/* Buyer Type */}
+                              <td className="text-xs text-gray-700">
+                                <BuyerTypeCell types={item.buyer_type} />
                               </td>
 
                               {/* Bidders — entity chip, tags.txt §10 (Companies · green) */}
-                              <td className="company-table-cell-wrap">
+                              <td>
                                 {item.bidders.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {item.bidders.map((b) => (
@@ -1337,26 +1315,52 @@ export default function DealRadarView({
                                     ))}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span>-</span>
                                 )}
                               </td>
 
                               {/* Revenue */}
                               <td className="text-xs">
-                                {formatVal(item.revenue)}
+                                {formatValWithSourceTag(item.revenue)}
                               </td>
 
                               {/* EV */}
                               <td className="text-xs">
-                                {formatVal(item.ev)}
+                                {formatValWithSourceTag(item.ev)}
                               </td>
+
                             </tr>
                           );
                         })}
                 </tbody>
               </table>
             </div>
+
+            {/* Phone layout (< md): cards instead of the wide table */}
+            <div className="md:hidden">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="animate-pulse space-y-2 border-b border-gray-100 px-4 py-4">
+                    <div className="h-4 w-2/3 rounded bg-gray-200" />
+                    <div className="h-3 w-full rounded bg-gray-200" />
+                    <div className="h-3 w-5/6 rounded bg-gray-200" />
+                  </div>
+                ))
+              ) : items.length === 0 ? (
+                <p className="py-12 text-center text-sm text-gray-400">No transactions found</p>
+              ) : (
+                items.map((item) => (
+                  <DealRadarMobileCard
+                    key={item.company_id}
+                    item={item}
+                    onNavigate={(href) => router.push(href)}
+                  />
+                ))
+              )}
+            </div>
+            </>
           )}
+
 
           {!error && pagination && (
             <SearchTablePagination
@@ -1364,17 +1368,21 @@ export default function DealRadarView({
               pageTotal={Math.max(1, pagination.total_pages)}
               nextPage={pagination.next_page}
               onPageChange={(next) => {
-                if (next >= 1 && next <= Math.max(1, pagination.total_pages) && next !== page && !loading) {
+                if (
+                  next >= 1 &&
+                  next <= Math.max(1, pagination.total_pages) &&
+                  next !== page &&
+                  !loading
+                ) {
                   setPage(next);
                 }
               }}
               disabled={loading}
             />
           )}
-        </div>
-      </main>
-      {!embedded && <Footer />}
-    </div>
+        </main>
+        {!embedded && <Footer />}
+      </div>
     </Shell>
   );
 }

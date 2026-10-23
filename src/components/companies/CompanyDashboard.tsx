@@ -7,12 +7,13 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { locationsService, type CompanyFilterOption } from "@/lib/locationsService";
+import { locationsService } from "@/lib/locationsService";
 import {
   buildCompaniesCountsSearchPayload,
   buildCompaniesSearchPayload,
 } from "@/lib/companiesFilterPayload";
 import { fetchUserPortfolioRecord } from "@/lib/portfolioFollow";
+import { fetchTransactionStatuses } from "@/lib/transactionStatuses";
 import {
   CompaniesFilterBar,
   FilterBarState,
@@ -24,6 +25,7 @@ import type { Filters } from "@/components/companies/CompanySection";
 import {
   FILTER_CATEGORIES,
   buildCompaniesFilterDefs,
+  COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS,
   OTHER_OWNERSHIP_TOOLTIP_LABELS,
   OWNERSHIP_OTHER_TOOLTIP_STYLES,
   OWNERSHIP_TAB_CONFIG,
@@ -31,7 +33,6 @@ import {
   type CompaniesOwnershipCounts,
   type Country,
   type Province,
-  type City,
   type PrimarySector,
   type SecondarySector,
   type OwnershipType,
@@ -61,6 +62,8 @@ export type CompanyDashboardProps = {
     ownershipTabActive: boolean;
   }) => void;
   initialSearch?: string;
+  /** Pre-applied filter bar state from URL (e.g. Deal Radar → companies preset). */
+  initialFilterBarState?: FilterBarState;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
@@ -102,6 +105,7 @@ export const CompanyDashboard = ({
   onSearch,
   onFilterColumnsChange,
   initialSearch,
+  initialFilterBarState,
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExport,
@@ -131,12 +135,12 @@ export const CompanyDashboard = ({
   showOwnershipTabsWhenListTabId,
 }: CompanyDashboardProps) => {
   // Unified filter bar state — replaces all the individual selected-* state vars
-  const [filterBarState, setFilterBarState] = useState<FilterBarState>({
-    filters: [],
-    viewId: null,
-    searchText: initialSearch || "",
-    filterLogic: "and",
-  });
+  const [filterBarState, setFilterBarState] = useState<FilterBarState>(() => ({
+    filters: initialFilterBarState?.filters ?? [],
+    viewId: initialFilterBarState?.viewId ?? null,
+    searchText: initialSearch || initialFilterBarState?.searchText || "",
+    filterLogic: initialFilterBarState?.filterLogic ?? "and",
+  }));
 
   // Ownership quick-filter tab — independent of FilterBar chips
   const [activeOwnershipTab, setActiveOwnershipTab] = useState<OwnershipTab>("all");
@@ -147,26 +151,16 @@ export const CompanyDashboard = ({
   const [subRegions, setSubRegions] = useState<string[]>([]);
   // State options load lazily (paged + searchable) inside the filter editor.
   const provinces = NO_PROVINCES;
-  const [cities, setCities] = useState<City[]>([]);
   const [primarySectors, setPrimarySectors] = useState<PrimarySector[]>([]);
   const [secondarySectors, setSecondarySectors] = useState<SecondarySector[]>([]);
   const [ownershipTypes, setOwnershipTypes] = useState<OwnershipType[]>([]);
-  const [productTypes, setProductTypes] = useState<CompanyFilterOption[]>([]);
-  const [dataCollectionMethods, setDataCollectionMethods] = useState<CompanyFilterOption[]>([]);
-  const [revenueModels, setRevenueModels] = useState<CompanyFilterOption[]>([]);
+  const [transactionStatusOptions, setTransactionStatusOptions] = useState<string[]>([
+    ...COMPANIES_TRANSACTION_STATUS_FILTER_OPTIONS,
+  ]);
   const [portfolioCompanyIds, setPortfolioCompanyIds] = useState<number[]>([]);
   const [hybridBusinessFocusIds, setHybridBusinessFocusIds] = useState<number[]>([]);
 
   // ── Derived selected values for dependent fetches ───────────────────────
-  const selectedCountries = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "country");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
-
-  const selectedProvinces = useMemo(() => {
-    const item = filterBarState.filters.find((f) => f.id === "state");
-    return Array.isArray(item?.value) ? (item.value as string[]) : [];
-  }, [filterBarState.filters]);
 
   const selectedPrimaryNames = useMemo(() => {
     const item = filterBarState.filters.find((f) => f.id === "primary_sector");
@@ -180,9 +174,13 @@ export const CompanyDashboard = ({
     locationsService.getSubRegions().then(setSubRegions).catch(console.error);
     locationsService.getPrimarySectors().then(setPrimarySectors).catch(console.error);
     locationsService.getOwnershipTypes().then(setOwnershipTypes).catch(console.error);
-    locationsService.getCompanyProductTypeOptions().then(setProductTypes).catch(console.error);
-    locationsService.getDataCollectionMethods().then(setDataCollectionMethods).catch(console.error);
-    locationsService.getRevenueModels().then(setRevenueModels).catch(console.error);
+    // Transaction statuses (populates the "Transaction Status" filter options)
+    fetchTransactionStatuses()
+      .then((statuses) => {
+        const labels = statuses.map((s) => s.label.trim()).filter(Boolean);
+        if (labels.length > 0) setTransactionStatusOptions(labels);
+      })
+      .catch(console.error);
     // Load all secondary sectors up front so the Sectors filter always has options.
     locationsService
       .getAllSecondarySectorsWithPrimary()
@@ -202,11 +200,6 @@ export const CompanyDashboard = ({
       })
       .catch(console.error);
   }, []);
-
-  // Cities depend on selected countries + provinces
-  useEffect(() => {
-    locationsService.getCities(selectedCountries, selectedProvinces).then(setCities).catch(console.error);
-  }, [selectedCountries, selectedProvinces]);
 
   // When specific primary sectors are selected, narrow the secondary sector list.
   // When none are selected we keep the full list loaded on mount.
@@ -264,13 +257,11 @@ export const CompanyDashboard = ({
       subRegions,
       countries,
       provinces,
-      cities,
+      cities: [],
       primarySectors,
       secondarySectors,
       ownershipTypes,
-      productTypes: productTypes.map((o) => o.label),
-      dataCollectionMethods: dataCollectionMethods.map((o) => o.label),
-      revenueModels: revenueModels.map((o) => o.label),
+      transactionStatusOptions,
     });
     const merged = [...extraFilterDefs, ...defs].filter(
       (def) => def.id !== "state"
@@ -283,13 +274,10 @@ export const CompanyDashboard = ({
     subRegions,
     countries,
     provinces,
-    cities,
     primarySectors,
     secondarySectors,
     ownershipTypes,
-    productTypes,
-    dataCollectionMethods,
-    revenueModels,
+    transactionStatusOptions,
     excludeFilterIds,
     extraFilterDefs,
   ]);
@@ -320,15 +308,6 @@ export const CompanyDashboard = ({
   }, [filterBarState, onFilterBarStateChange]);
 
   // ── Auto-search on filter state or ownership tab changes ──────────────
-  const multiValueOptions = useMemo(
-    () => ({
-      product_type: productTypes,
-      data_collection_method: dataCollectionMethods,
-      revenue_model: revenueModels,
-    }),
-    [productTypes, dataCollectionMethods, revenueModels]
-  );
-
   const buildGlobalSearchFilters = useCallback((): Filters => {
     return buildCompaniesCountsSearchPayload({
       state: filterBarState,
@@ -339,7 +318,6 @@ export const CompanyDashboard = ({
       scopedSecondarySectorIds,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
-      multiValueOptions,
     });
   }, [
     filterBarState,
@@ -350,7 +328,6 @@ export const CompanyDashboard = ({
     scopedSecondarySectorIds,
     portfolioCompanyIds,
     hybridBusinessFocusIds,
-    multiValueOptions,
   ]);
 
   const buildSearchFilters = useCallback((opts?: { ignoreOwnership?: boolean }): Filters => {
@@ -368,7 +345,6 @@ export const CompanyDashboard = ({
       scopedSecondarySectorIds,
       portfolioCompanyIds,
       hybridBusinessFocusIds,
-      multiValueOptions,
     });
   }, [
     filterBarState,
@@ -381,7 +357,6 @@ export const CompanyDashboard = ({
     scopedSecondarySectorIds,
     portfolioCompanyIds,
     hybridBusinessFocusIds,
-    multiValueOptions,
   ]);
 
   const buildGlobalSearchFiltersRef = useRef(buildGlobalSearchFilters);
@@ -604,6 +579,7 @@ export const CompanyDashboard = ({
                 color: "#fff",
                 border: "none", borderRadius: 999,
                 fontSize: 13, fontWeight: 700,
+                whiteSpace: "nowrap",
                 fontFamily:
                   "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 cursor: selectedCount > 0 ? "pointer" : "not-allowed",

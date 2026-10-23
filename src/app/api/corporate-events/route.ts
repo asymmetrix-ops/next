@@ -1,10 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { Redis } from "@upstash/redis";
+import { CE_CACHE_KEY } from "@/lib/ce-cache-key";
+
+export const dynamic = "force-dynamic";
+
+function getRedisClient(): Redis | null {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return Redis.fromEnv();
+  }
+  return null;
+}
+
+// Returns true when the request has no filters applied and matches the
+// default warm-ce page (Page=1, Per_page=25, nothing else).
+function isDefaultRequest(searchParams: URLSearchParams): boolean {
+  const page = searchParams.get("Page") ?? "1";
+  const perPage = searchParams.get("Per_page") ?? "25";
+
+  if (page !== "1" || perPage !== "25") return false;
+
+  // Any extra filter param means it's a filtered request — skip cache
+  const ignoredKeys = new Set(["Page", "Per_page"]);
+  let hasExtraKeys = false;
+  searchParams.forEach((_value, key) => {
+    if (!ignoredKeys.has(key)) hasExtraKeys = true;
+  });
+  if (hasExtraKeys) return false;
+  return true;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get auth token from cookies or headers
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const token =
       cookieStore.get("asymmetrix_auth_token")?.value ||
       request.headers.get("authorization")?.replace("Bearer ", "");
@@ -16,27 +44,48 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all search params from the request URL
     const searchParams = request.nextUrl.searchParams;
-    
-    // Build the URL for the external API
+
+    // Serve the default first page from Redis cache when available
+    if (isDefaultRequest(searchParams)) {
+      const redis = getRedisClient();
+      if (redis) {
+        try {
+          const cached = await redis.get<unknown>(CE_CACHE_KEY);
+          if (cached != null) {
+            console.log("[CE] ✅ Cache HIT (default page)");
+            return NextResponse.json(cached);
+          }
+          console.log("[CE] ❌ Cache MISS (default page) — fetching live");
+        } catch (e) {
+          console.warn("[CE] ⚠️ Redis read failed, falling through to live fetch:", e);
+        }
+      }
+    }
+
+    // Build the Xano URL with all search params
     const apiUrl = new URL(
       "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop/get_all_corporate_events"
     );
 
-    // Copy all search params to the external API URL
+    const processedKeys = new Set<string>();
     searchParams.forEach((value, key) => {
-      apiUrl.searchParams.append(key, value);
+      if (processedKeys.has(key)) return;
+      if (key.endsWith("[]")) {
+        searchParams.getAll(key).forEach((val) => apiUrl.searchParams.append(key, val));
+      } else {
+        apiUrl.searchParams.append(key, value);
+      }
+      processedKeys.add(key);
     });
 
-    // Make the request to the external API
     const response = await fetch(apiUrl.toString(), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      cache: "no-store", // Disable caching for fresh data
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -56,4 +105,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

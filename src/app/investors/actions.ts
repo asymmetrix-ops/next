@@ -36,6 +36,16 @@ export interface InvestorListItem {
     days_since?: number | string | null;
   } | null;
   sub_region?: string | null;
+  hq_sub_region?: string | null;
+  hq_region?: string | null;
+  sub_regions?: string[];
+  portfolio_companies_info?: {
+    locations_id: number | null;
+    primary_business_focus_id: number[] | null;
+    sectors_id: number[] | null;
+    country: string | null;
+    sub_region: string | null;
+  }[];
   state?: string | null;
   city?: string | null;
 }
@@ -132,7 +142,7 @@ export async function fetchInvestorTypesServer(): Promise<
     if (!token) return [];
 
     const response = await fetch(
-      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/Get_investor_types_for_filter",
+      "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/Get_investor_types_for_filter",
       {
         method: "GET",
         headers: {

@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
 import CompanyLogo from "@/components/investor/CompanyLogo";
 import CompactPagination from "@/components/ui/CompactPagination";
 import {
@@ -15,17 +14,16 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
+import { getSectorHref, type SectorLinkEntry } from "@/lib/sectorLinks";
 
 export type InvestorPortfolioCompany = {
   id: number;
   name: string;
-  sectors: string[];
+  sectors: SectorLinkEntry[];
   yearLabel?: string | number | null;
   relatedIndividuals?: Array<{ id: number; name: string }>;
   country?: string | null;
   logo?: string | null;
-  /** Not a D&A company: show name as plain text with explanatory tooltip. */
-  nonDa?: boolean;
 };
 
 type Pagination = {
@@ -48,17 +46,50 @@ type Props = {
   onPastPageChange?: (page: number) => void;
   pageSize?: number;
   fillGridCell?: boolean;
+  onViewAllClick?: (tab: PortfolioTab) => void;
 };
 
+// Country/Invested use fixed widths (not auto) — each row renders as its own
+// independent CSS grid, so an `auto` track would size itself to that row's
+// own content only, letting columns drift out of alignment between rows.
 const PORTFOLIO_ROW_GRID =
-  "minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(88px, auto) minmax(72px, auto) minmax(0, 1fr)";
+  "minmax(0, 1.35fr) minmax(0, 1.1fr) 150px 72px minmax(0, 1fr)";
 const HEADERS = ["Name", "Sectors", "Country", "Invested", "Deal Lead"] as const;
+const INVESTED_COL_INDEX = 3;
 
 type PortfolioTab = "current" | "past";
 
-function sectorLabel(sectors: string[]): string {
-  if (sectors.length === 0) return "-";
-  return sectors.slice(0, 3).join(", ");
+function portfolioColAlign(columnIndex: number): "left" | "center" | "right" {
+  if (columnIndex === INVESTED_COL_INDEX) return "center";
+  return profileTableColAlign(columnIndex);
+}
+
+function SectorLinks({ sectors }: { sectors: SectorLinkEntry[] }) {
+  if (sectors.length === 0) return <>-</>;
+  const visible = sectors.slice(0, 3);
+  return (
+    <>
+      {visible.map((sector, idx) => {
+        const href = getSectorHref(sector);
+        return (
+          <span key={`${sector.name}-${sector.id ?? idx}`}>
+            {href ? (
+              <Link
+                href={href}
+                prefetch={false}
+                style={{ color: T.azure, textDecoration: "underline", fontWeight: 500 }}
+              >
+                {sector.name}
+              </Link>
+            ) : (
+              sector.name
+            )}
+            {idx < visible.length - 1 ? ", " : ""}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 function TabButton({
@@ -105,8 +136,9 @@ export function InvestorPortfolioProfilePanel({
   pastPagination,
   onCurrentPageChange,
   onPastPageChange,
-  pageSize = 4,
+  pageSize = 5,
   fillGridCell = false,
+  onViewAllClick,
 }: Props) {
   const [tab, setTab] = useState<PortfolioTab>("current");
   const [showAll, setShowAll] = useState(false);
@@ -123,13 +155,6 @@ export function InvestorPortfolioProfilePanel({
     companies.length;
 
   const displayed = showAll ? companies : companies.slice(0, pageSize);
-
-  const footerLeft =
-    total > 0
-      ? showAll
-        ? `Showing all ${total.toLocaleString("en-US")}`
-        : `1–${Math.min(pageSize, total).toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`
-      : "";
 
   const yearHeader = isCurrent ? "Invested" : "Exited";
 
@@ -210,9 +235,6 @@ export function InvestorPortfolioProfilePanel({
             }}
           />
         ))}
-        <div style={{ marginLeft: "auto", fontSize: 14, color: T.azure, fontWeight: 500, paddingBottom: 2 }}>
-          →
-        </div>
       </div>
 
       <div
@@ -237,7 +259,7 @@ export function InvestorPortfolioProfilePanel({
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: profileTableColAlign(colIndex),
+                  textAlign: portfolioColAlign(colIndex),
                 }}
               >
                 {h === "Invested" ? yearHeader : h}
@@ -255,7 +277,7 @@ export function InvestorPortfolioProfilePanel({
                   ? String(company.yearLabel)
                   : "-";
               const dealLead = company.relatedIndividuals?.[0];
-              const colAlign = (colIndex: number) => profileTableColAlign(colIndex);
+              const colAlign = (colIndex: number) => portfolioColAlign(colIndex);
 
               return (
                 <div
@@ -279,31 +301,19 @@ export function InvestorPortfolioProfilePanel({
                     }}
                   >
                     <CompanyLogo logo={company.logo} name={company.name} size={24} />
-                    {company.nonDa ? (
-                      <NonDaCompanyName
-                        style={{
-                          fontWeight: 500,
-                          minWidth: 0,
-                          wordBreak: "break-word" as const,
-                        }}
-                      >
-                        {company.name}
-                      </NonDaCompanyName>
-                    ) : (
-                      <Link
-                        href={`/company/${company.id}`}
-                        prefetch={false}
-                        style={{
-                          color: T.azure,
-                          textDecoration: "underline",
-                          fontWeight: 500,
-                          minWidth: 0,
-                          wordBreak: "break-word" as const,
-                        }}
-                      >
-                        {company.name}
-                      </Link>
-                    )}
+                    <Link
+                      href={`/company/${company.id}`}
+                      prefetch={false}
+                      style={{
+                        color: T.azure,
+                        textDecoration: "underline",
+                        fontWeight: 500,
+                        minWidth: 0,
+                        wordBreak: "break-word" as const,
+                      }}
+                    >
+                      {company.name}
+                    </Link>
                   </div>
                   <div
                     style={{
@@ -311,7 +321,7 @@ export function InvestorPortfolioProfilePanel({
                       minWidth: 0,
                     }}
                   >
-                    {sectorLabel(company.sectors)}
+                    <SectorLinks sectors={company.sectors} />
                   </div>
                   <div
                     style={{
@@ -377,18 +387,17 @@ export function InvestorPortfolioProfilePanel({
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             gap: 12,
             padding: "10px 16px 14px",
             borderTop: `1px solid ${T.hair}`,
             flexWrap: "wrap",
           }}
         >
-          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.mono }}>{footerLeft}</div>
           {total > pageSize && !showAll ? (
             <button
               type="button"
-              onClick={() => setShowAll(true)}
+              onClick={() => (onViewAllClick ? onViewAllClick(tab) : setShowAll(true))}
               style={{
                 padding: 0,
                 border: "none",
@@ -400,7 +409,7 @@ export function InvestorPortfolioProfilePanel({
                 fontFamily: T.sans,
               }}
             >
-              View all {total.toLocaleString("en-US")} →
+              View all {total.toLocaleString("en-US")}
             </button>
           ) : showAll && total > pageSize ? (
             <button

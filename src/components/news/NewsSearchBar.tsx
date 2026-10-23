@@ -134,7 +134,7 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
           aria-expanded={showPanel}
           aria-controls="nw-suggest"
           aria-label="Search news"
-          placeholder="Search news by company, investor, sector or title…"
+          placeholder="Company, investor, sector, title…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -144,9 +144,6 @@ export default function NewsSearchBar({ onApplyFilter }: Props) {
           onKeyDown={onKeyDown}
         />
       </div>
-      <button type="button" className="nw-btn nw-btn-primary" onClick={submitText}>
-        Search
-      </button>
       </div>
 
       {showPanel && (

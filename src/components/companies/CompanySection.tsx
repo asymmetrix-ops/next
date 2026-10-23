@@ -355,7 +355,7 @@ const OWNERSHIP_CHIP_STYLES: Record<
 // with the ownership quick-filter tabs above the table.
 const OWNERSHIP_CHIP_FALLBACK = { bg: "#EEF0F4", fg: "#4A5468", dot: "#8A93A8" };
 
-const OwnershipChip = ({ value }: { value: string }) => {
+export const OwnershipChip = ({ value }: { value: string }) => {
   const label = value.trim();
   if (!label || label === "-") return <>-</>;
   const tone =
@@ -376,15 +376,6 @@ const OwnershipChip = ({ value }: { value: string }) => {
         whiteSpace: "nowrap",
       }}
     >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: tone.dot,
-          flexShrink: 0,
-        }}
-      />
       {label}
     </span>
   );
@@ -480,6 +471,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               name={company.name || "-"}
               logo={readLogoFromRecord(company, getFieldAliasesForColumn("logo"))}
               subtitle={subtitle}
+              maxTextWidth={260}
               href={
                 readOnlyGuestMode
                   ? MCP_GUEST_CONVERSION_PATH
@@ -732,7 +724,12 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
   {
     group: "Subscription Metrics",
     cols: [
-      makeTextColumn("arr_pc", "Recurring Revenue", "Subscription Metrics"),
+      makeTextColumn("arr_pc", "Subscription revenue %", "Subscription Metrics"),
+      makeTextColumn(
+        "subscription_revenue_m",
+        "Subscription revenue (m)",
+        "Subscription Metrics"
+      ),
       makeTextColumn("arr_m", "ARR (m)", "Subscription Metrics"),
       makeTextColumn("churn_pc", "Churn", "Subscription Metrics"),
       makeTextColumn("grr_pc", "GRR", "Subscription Metrics"),
@@ -1139,9 +1136,24 @@ export const CompanySection = ({
     [portfolioMode]
   );
   const validateColumnKeys = useCallback(
-    (keys: string[], filterPinnedKeys: string[] = []) =>
-      getValidColumnKeys(keys, filterPinnedKeys, allowedColumnKeys),
-    [allowedColumnKeys]
+    (keys: string[], filterPinnedKeys: string[] = []) => {
+      const valid = getValidColumnKeys(keys, filterPinnedKeys, allowedColumnKeys);
+      // Portfolio status/holding columns are forced right after Name; keep an
+      // explicitly requested lead column (keys[1]) ahead of them.
+      if (
+        portfolioMode &&
+        keys[0] === "name" &&
+        keys[1] &&
+        keys[1] !== INVESTMENT_STATUS_COLUMN_KEY &&
+        keys[1] !== HOLDING_PERIOD_COLUMN_KEY &&
+        valid.includes(keys[1])
+      ) {
+        const rest = valid.filter((k) => k !== "name" && k !== keys[1]);
+        return ["name", keys[1], ...rest];
+      }
+      return valid;
+    },
+    [allowedColumnKeys, portfolioMode]
   );
   const applyPortfolioDefaultColumnKeys = useCallback(
     (keys: string[]) => {

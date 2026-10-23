@@ -150,7 +150,7 @@ function BenchmarkSector({ tweaks }) {
       <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', padding: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Group by</span>
         <div style={{ display: 'inline-flex', padding: 2, background: 'var(--ax-gray-50)', border: '1px solid var(--border-1)', borderRadius: 'var(--r-md)' }}>
-          {[['sector', 'Sector'], ['subSector', 'Sub-sector']].map(([v, l]) => (
+          {[['sector', 'Sector'], ['subSector', 'Secondary sector']].map(([v, l]) => (
             <button key={v} onClick={() => setLevel(v)} style={{
               padding: '5px 12px', border: 'none', background: level === v ? 'white' : 'transparent', color: level === v ? 'var(--fg-1)' : 'var(--fg-2)',
               fontWeight: level === v ? 600 : 500, fontSize: 13, borderRadius: 5, cursor: 'pointer', fontFamily: 'var(--font-sans)',
@@ -204,7 +204,7 @@ function BenchmarkSector({ tweaks }) {
       {/* roster: hand-pick which groups are in play, regardless of filters */}
       <div style={{ background: 'white', border: '1px solid var(--border-1)', borderRadius: 'var(--r-lg)', padding: 12, marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{level === 'sector' ? 'Sectors' : 'Sub-sectors'} in play</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{level === 'sector' ? 'Sectors' : 'Secondary sectors'} in play</span>
           <span style={{ fontSize: 11.5, color: 'var(--fg-4)' }}>{compareMode === 'focus' ? 'Pick the peer set to compare your focus against — all medians recompute against just these.' : 'Add or drop groups by hand — every median and color recalculates across only what is shown.'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
@@ -226,13 +226,13 @@ function BenchmarkSector({ tweaks }) {
               </span>
             );
           })}
-          {aggregates.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--fg-4)', fontStyle: 'italic' }}>Nothing selected — add a {level === 'sector' ? 'sector' : 'sub-sector'}.</span>}
+          {aggregates.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--fg-4)', fontStyle: 'italic' }}>Nothing selected — add a {level === 'sector' ? 'sector' : 'secondary sector'}.</span>}
           <button ref={addRef} onClick={() => setAddOpen(v => !v)} disabled={available.length === 0} style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'white',
             border: '1px dashed var(--border-2)', borderRadius: 'var(--r-md)', cursor: available.length === 0 ? 'default' : 'pointer', fontSize: 13, color: available.length === 0 ? 'var(--fg-4)' : 'var(--fg-2)', fontWeight: 600, fontFamily: 'var(--font-sans)', opacity: available.length === 0 ? 0.5 : 1,
           }}>
             <svg width="11" height="11" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-            Add {level === 'sector' ? 'sector' : 'sub-sector'}
+            Add {level === 'sector' ? 'sector' : 'secondary sector'}
           </button>
           {available.length > 0 && addOpen && (
             <SecPop anchorRef={addRef} onClose={() => setAddOpen(false)} width={250}>
@@ -259,7 +259,7 @@ function BenchmarkSector({ tweaks }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-sans)' }}>
             <thead>
               <tr style={{ background: 'var(--ax-gray-25)' }}>
-                <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)', borderBottom: '1px solid var(--border-1)', minWidth: 220, position: 'sticky', left: 0, background: 'var(--ax-gray-25)' }}>{level === 'sector' ? 'Sector' : 'Sub-sector'}</th>
+                <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fg-3)', borderBottom: '1px solid var(--border-1)', minWidth: 220, position: 'sticky', left: 0, background: 'var(--ax-gray-25)' }}>{level === 'sector' ? 'Sector' : 'Secondary sector'}</th>
                 <th style={{ textAlign: 'center', padding: '10px 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--fg-3)', borderBottom: '1px solid var(--border-1)' }}>n</th>
                 {metrics.map(m => (
                   <th key={m.id} style={{ textAlign: 'center', padding: '10px 10px', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--fg-3)', borderBottom: '1px solid var(--border-1)', minWidth: 78 }}>

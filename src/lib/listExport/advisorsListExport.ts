@@ -133,10 +133,9 @@ function getAdvisorCellValue(
   }
 
   if (column.key === "area_of_focus") {
-    const labels =
-      advisor.area_of_focus && advisor.area_of_focus.length > 0
-        ? advisor.area_of_focus
-        : extractAdvisorAreaOfFocusLabels(advisor as unknown as Record<string, unknown>);
+    const labels = extractAdvisorAreaOfFocusLabels(
+      advisor as unknown as Record<string, unknown>
+    );
     return labels.length > 0 ? labels.join(", ") : EMPTY_DISPLAY;
   }
 

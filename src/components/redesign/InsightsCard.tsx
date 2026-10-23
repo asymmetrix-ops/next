@@ -80,13 +80,9 @@ const insightsMetaColStyle: React.CSSProperties = {
   maxWidth: INSIGHTS_META_COL_WIDTH,
 };
 
-/** Long content-type labels must wrap inside the meta column (Pill defaults to nowrap). */
+/** Long content-type labels (e.g. "Market Commentary") wrap inside the meta column. */
 const insightTagPillStyle: React.CSSProperties = {
-  display: "inline-block",
   maxWidth: "100%",
-  whiteSpace: "normal",
-  wordBreak: "break-word",
-  boxSizing: "border-box",
 };
 
 function SkeletonRow({
@@ -142,7 +138,7 @@ function ArticleRow({
   const strapline = decodeHtmlEntitiesLocal(article.Strapline?.trim() || "");
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(article);
-  const showSummaryBtn = !isNews && hasInsightSummary(article.summary);
+  const showSummaryBtn = hasInsightSummary(article.summary);
 
   return (
     <div
@@ -158,7 +154,7 @@ function ArticleRow({
       }}
     >
       <div style={insightsMetaColStyle}>
-        <Pill tone={tone} style={insightTagPillStyle}>
+        <Pill tone={tone} wrap style={insightTagPillStyle}>
           {tag}
         </Pill>
         {isNews && byline ? (

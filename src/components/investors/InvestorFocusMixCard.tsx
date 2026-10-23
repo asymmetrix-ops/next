@@ -9,7 +9,8 @@ export type InvestorMixRow = {
   pct: number;
 };
 
-type Tab = "sector" | "stage" | "geography";
+export type InvestorMixTab = "sector" | "stage" | "geography";
+type Tab = InvestorMixTab;
 
 type Props = {
   sectorMix?: InvestorMixRow[];
@@ -20,6 +21,8 @@ type Props = {
   /** Rows shown before "View all" expand. Default 8. */
   maxVisible?: number;
   fillGridCell?: boolean;
+  /** Arrow click: open the Portfolio tab led by the active mix dimension. */
+  onViewPortfolio?: (tab: InvestorMixTab) => void;
 };
 
 function TabButton({
@@ -194,7 +197,7 @@ function MixFooter({
             fontFamily: T.sans,
           }}
         >
-          View all {total} →
+          View all {total}
         </button>
       ) : (
         <button
@@ -226,6 +229,7 @@ export function InvestorFocusMixCard({
   loading = false,
   maxVisible = 8,
   fillGridCell = false,
+  onViewPortfolio,
 }: Props) {
   const [tab, setTab] = useState<Tab>("sector");
   const [expanded, setExpanded] = useState(false);
@@ -268,7 +272,6 @@ export function InvestorFocusMixCard({
             <TabButton active={false} label="Stage focus" onClick={() => {}} />
             <TabButton active={false} label="Geography" onClick={() => {}} />
           </div>
-          <div style={{ fontSize: 14, color: T.azure, fontWeight: 500, lineHeight: 1 }}>→</div>
         </div>
         <div
           style={{
@@ -302,18 +305,27 @@ export function InvestorFocusMixCard({
           <TabButton active={tab === "stage"} label="Stage focus" onClick={() => selectTab("stage")} />
           <TabButton active={tab === "geography"} label="Geography" onClick={() => selectTab("geography")} />
         </div>
-        <div
-          style={{
-            fontSize: 14,
-            color: T.azure,
-            fontWeight: 500,
-            lineHeight: 1,
-            padding: "2px 4px",
-            flexShrink: 0,
-          }}
-        >
-          →
-        </div>
+        {onViewPortfolio ? (
+          <button
+            type="button"
+            onClick={() => onViewPortfolio(tab)}
+            aria-label="View portfolio"
+            title="View portfolio"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 14,
+              color: T.azure,
+              fontWeight: 500,
+              lineHeight: 1,
+              padding: "2px 4px",
+              flexShrink: 0,
+            }}
+          >
+            →
+          </button>
+        ) : null}
       </div>
 
       <MixBody

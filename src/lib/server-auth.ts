@@ -78,7 +78,7 @@ export class ServerDashboardApiService {
 
   // Sector page specific endpoints
   async getSector(sectorId: string) {
-    return this.request(`/sectors/${sectorId}`, {
+    return this.request(`/sector/${sectorId}`, {
       next: { revalidate: 300 },
     });
   }

@@ -41,6 +41,7 @@ export const COLUMN_SORT_KIND: Record<string, ColumnSortKind | null> = {
   revenue_growth: "number",
   ebitda_margin: "number",
   rule_of_40: "number",
+  subscription_revenue_m: "number",
   arr_pc: "number",
   arr_m: "number",
   churn_pc: "number",

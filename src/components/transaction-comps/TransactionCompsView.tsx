@@ -10,6 +10,9 @@ import RequestDataResearchButton from "@/components/RequestDataResearchButton";
 import { SEARCH_HEADER_ACTION_BUTTON_STYLE } from "@/components/search/searchHeaderActions";
 import { SearchColumnsButton } from "@/components/search/SearchColumnsButton";
 import { SearchExportMenu } from "@/components/search/SearchExportMenu";
+import { localizeCompsLabel } from "./currencyLabels";
+import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
+import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
 import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/types";
 import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
 import { trackKeyAction } from "@/lib/tracking";
@@ -79,6 +82,8 @@ export function TransactionCompsView({
   primarySectorId,
   secondarySectorId,
 }: TransactionCompsViewProps = {}) {
+  const { currency } = usePlatformCurrency();
+  const currencySymbol = getCurrencySymbol(currency);
   const [filterState, setFilterState] = useState<FilterBarState>(EMPTY_FILTER_STATE);
   const [options, setOptions] = useState<TransactionCompsFilterOptions>({
     sectors: [],
@@ -207,14 +212,27 @@ export function TransactionCompsView({
   }, [primarySectorIdsKey]);
 
   const filterDefs = useMemo(() => {
-    const defs = buildTransactionCompsFilterDefs(options);
+    const defs = buildTransactionCompsFilterDefs(options).map((d) => ({
+      ...d,
+      label: localizeCompsLabel(d.label, currencySymbol),
+      fullLabel: localizeCompsLabel(d.fullLabel, currencySymbol),
+    }));
     // The sector scope is fixed by the page, so its own filters would only conflict.
     if (primarySectorId != null) {
       return defs.filter((d) => d.id !== "sector" && d.id !== "secondary_sector");
     }
     if (secondarySectorId != null) return defs.filter((d) => d.id !== "secondary_sector");
     return defs;
-  }, [options, primarySectorId, secondarySectorId]);
+  }, [options, primarySectorId, secondarySectorId, currencySymbol]);
+
+  const localizedColumnCategories = useMemo(
+    () =>
+      TRANSACTION_COMPS_COLUMN_CATEGORIES.map((cat) => ({
+        ...cat,
+        columns: cat.columns.map((c) => ({ ...c, label: localizeCompsLabel(c.label, currencySymbol) })),
+      })),
+    [currencySymbol]
+  );
 
   const buildQuery = useCallback(
     (pageNum: number, perPage = PER_PAGE) => {
@@ -353,7 +371,7 @@ export function TransactionCompsView({
   const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <div className="bg-white">
+    <div className={embedded ? "bg-white" : ""}>
       {embedded ? (
         <div className="flex flex-wrap items-center justify-end gap-2 px-7 pt-3">{headerActions}</div>
       ) : (
@@ -465,7 +483,7 @@ export function TransactionCompsView({
             aria-hidden="true"
           />
           <ColumnsControlRoom
-            categories={TRANSACTION_COMPS_COLUMN_CATEGORIES}
+            categories={localizedColumnCategories}
             defaultVisibleColumnKeys={DEFAULT_TRANSACTION_COMPS_COLUMN_KEYS}
             initial={transactionCompsKeysToVisibility(columnKeys)}
             initialOrder={columnKeys}

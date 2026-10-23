@@ -35,6 +35,22 @@ export function getEffectiveContentType(article: ContentTypeCarrier): string {
   ).trim();
 }
 
+type NewsSubTypeCarrier = {
+  News_Sub_Type?: string;
+  news_sub_type?: string;
+  Content?: { News_Sub_Type?: string; news_sub_type?: string };
+};
+
+export function getNewsSubType(article: NewsSubTypeCarrier): string {
+  return (
+    article.News_Sub_Type ||
+    article.news_sub_type ||
+    article.Content?.News_Sub_Type ||
+    article.Content?.news_sub_type ||
+    ""
+  ).trim();
+}
+
 export function isNewsArticle(article: ContentTypeCarrier): boolean {
   return getEffectiveContentType(article).toLowerCase() === "news";
 }
@@ -244,9 +260,7 @@ export type RelatedDocumentLike = {
 /** True when Body has no meaningful text (empty, whitespace, or empty HTML). */
 export function isArticleBodyEmpty(body: string | null | undefined): boolean {
   if (!body || !body.trim()) return true;
-  const withoutTags = body
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ");
+  const withoutTags = body.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ");
   return decodeHtmlEntities(withoutTags).trim().length === 0;
 }
 

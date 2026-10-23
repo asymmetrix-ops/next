@@ -41,7 +41,11 @@ function normalizeCorporateEventsResponse(
   filters: CorporateEventsSearchFilters
 ): Omit<CorporateEventsListResponse, "summaryStats"> {
   const items = Array.isArray(raw.items) ? raw.items : [];
-  const itemsTotal = raw.itemsTotal ?? raw.itemTotal ?? items.length;
+  const itemsTotal =
+    raw.itemsTotal ??
+    raw.itemTotal ??
+    raw.itemsReceived ??
+    items.length;
   const pageTotal =
     raw.pageTotal ??
     (itemsTotal && filters.Per_page > 0

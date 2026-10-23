@@ -42,7 +42,13 @@ const XANO_ENDPOINT =
   process.env.XANO_USER_ACTIVITY_URL ||
   "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0:develop/user_activity";
 
+const USER_ACTIVITY_TRACKING_ENABLED: boolean = false;
+
 export async function POST(req: NextRequest) {
+  // User activity tracking is fully disabled on the develop deployment.
+  if (USER_ACTIVITY_TRACKING_ENABLED === false) {
+    return new NextResponse(null, { status: 204 });
+  }
   try {
     const body = (await req.json()) as Partial<UserActivityPayload>;
 

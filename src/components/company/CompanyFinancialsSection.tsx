@@ -37,7 +37,6 @@ import {
   buildIncomeStatementFinancialsViewModel,
   remapIncomeStatementToTableYears,
 } from "@/lib/incomeStatementFinancials";
-import type { EmployeeTimeSeriesPoint } from "@/lib/companyLinkedIn";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
 import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
@@ -54,7 +53,6 @@ type Props = {
   incomeStatementRows?: NormalizedIncomeStatementRow[];
   /** Full fiscal-year history for the Financials tab income statement table. */
   incomeStatementHistoryRows?: NormalizedIncomeStatementRow[];
-  employeeHistory?: EmployeeTimeSeriesPoint[];
 };
 
 function ExportButton({
@@ -198,9 +196,7 @@ function MetricValueCell({
         fontFamily: T.sans,
         fontSize: 13,
         fontWeight: isEmpty ? 600 : 700,
-        color: isEmpty
-          ? T.faint
-          : sourceTypeColor(cell.sourceType),
+        color: isEmpty ? T.faint : sourceTypeColor(cell.sourceType),
         fontVariantNumeric: "tabular-nums",
         minWidth: 0,
         textAlign: "center",
@@ -373,7 +369,6 @@ export function CompanyFinancialsSection({
   companyName,
   incomeStatementRows = [],
   incomeStatementHistoryRows = [],
-  employeeHistory = [],
 }: Props) {
   const { currency: platformCurrency } = usePlatformCurrency();
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
@@ -402,18 +397,17 @@ export function CompanyFinancialsSection({
   }, [platformCurrency, rows, incomeStatementSourceRows]);
 
   const model = useMemo(
-    () => buildCompanyFinancialsViewModel(rows, employeeHistory, platformCurrency),
-    [rows, employeeHistory, platformCurrency]
+    () => buildCompanyFinancialsViewModel(rows, platformCurrency),
+    [rows, platformCurrency]
   );
 
   const incomeStatementModel = useMemo(
     () =>
       buildIncomeStatementFinancialsViewModel(
         incomeStatementSourceRows,
-        employeeHistory,
         platformCurrency
       ),
-    [incomeStatementSourceRows, employeeHistory, platformCurrency]
+    [incomeStatementSourceRows, platformCurrency]
   );
 
   const metricsYears = model.years;

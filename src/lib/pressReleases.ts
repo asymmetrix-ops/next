@@ -14,7 +14,7 @@ export type PressRelease = {
   sections: PressReleaseSection[];
 };
 
-export const PRESS_RELEASES: PressRelease[] = [
+const PRESS_RELEASES_CHRONOLOGICAL: PressRelease[] = [
   {
     slug: "seed-funding",
     category: "Seed Funding",
@@ -49,7 +49,188 @@ export const PRESS_RELEASES: PressRelease[] = [
       },
     ],
   },
+  {
+    slug: "product-updates",
+    category: "Product Updates",
+    title:
+      "Asymmetrix Launches Deal Radar, Redesigned Company Profiles, and Enhanced Filtering",
+    strapline:
+      "Q2 2026 product updates bring real-time deal intelligence, AI defensibility benchmarking, and improved search to institutional investors",
+    date: "2026-06-01",
+    location: "London",
+    sections: [
+      {
+        type: "paragraph",
+        text: "London — June 2026 — Asymmetrix Intelligence has shipped three major product updates designed to help institutional investors track and act on market opportunities faster.",
+      },
+      {
+        type: "heading",
+        text: "Deal Radar: Live Transaction Intelligence",
+      },
+      {
+        type: "paragraph",
+        text: "Deal Radar brings proprietary intelligence on upcoming transactions and deal signals directly into the Asymmetrix dashboard. Investors can now see early-stage deal activity across the Data & Analytics sector, surfacing acquisition targets and portfolio company moves up to 18 months before they hit the market.",
+      },
+      {
+        type: "heading",
+        text: "Company Profile Redesign: AI Defensibility Index",
+      },
+      {
+        type: "paragraph",
+        text: "The redesigned company profile goes beyond basic operational metrics. It now includes information on companies' core products, user bases, and use cases — plus Asymmetrix' proprietary AI Defensibility Index, a framework measuring each company's vulnerability to AI replication. This addresses a critical question for investors evaluating software businesses in a rapidly changing AI landscape.",
+      },
+      {
+        type: "heading",
+        text: "Improved Search and Filtering",
+      },
+      {
+        type: "paragraph",
+        text: "Every filter applied now appears as an editable chip at the top of the companies list, giving users complete visibility into what's narrowing their results. Filters can be edited in-place or removed instantly. Any filter can also become a column with a single click, enabling the exact view each user needs.",
+      },
+      {
+        type: "quote",
+        text: "This quarter we focused on helping investors find the deals that matter and understand the companies behind them. Deal Radar changes how early investors identify opportunities. The AI Defensibility Index addresses something institutional money is asking about every week now. And the search redesign makes our platform feel less like a database and more like a working tool.",
+        attribution: "Alex Boden, CEO of Asymmetrix",
+      },
+      {
+        type: "paragraph",
+        text: "The updates are available now to all Asymmetrix subscribers. Q3 priorities include financial intelligence screening (revenue, EBITDA, ARR, NRR benchmarking), MCP integration for AI workflow embedding, and competitive benchmarking tools.",
+      },
+      {
+        type: "contact",
+        name: "Honor Crean",
+        email: "h.crean@asymmetrixintelligence.com",
+      },
+    ],
+  },
+  {
+    slug: "25-clients-milestone",
+    category: "Company Milestone",
+    title:
+      "Asymmetrix Reaches 25+ Clients, Expanding Across PE, Corporates, and Advisors",
+    strapline:
+      "Six months after launch, platform adopted by institutional investors, private equity firms, and M&A advisors across Europe and North America",
+    date: "2026-07-01",
+    location: "London",
+    sections: [
+      {
+        type: "paragraph",
+        text: "London — July 2026 — Asymmetrix Intelligence has crossed 25 active clients, marking a milestone validation of its thesis that institutional investors and operators lack integrated intelligence on the Data & Analytics sector. The client base spans PE firms, corporates, M&A advisors, and institutional investors across Europe and North America.",
+      },
+      {
+        type: "paragraph",
+        text: "Among early adopters are Burghclere, Collingwood, ECI, Endicott Capital, FPE, Mayfair, Motyve, Perwyn, Plural, and Raymond James — representing some of the most active allocators in the D&A space.",
+      },
+      {
+        type: "quote",
+        text: "Getting to 25 clients in six months tells us we're solving a real problem. These aren't pilot users or free trial sign-ups. They're paying customers who rely on our data to make allocation decisions, identify targets, and understand market structure. That validation gave us the confidence to raise our seed round and build toward the next phase.",
+        attribution: "Alex Boden, CEO of Asymmetrix",
+      },
+      {
+        type: "paragraph",
+        text: "The milestone coincides with Asymmetrix' seed funding announcement and the appointment of Neil Bradford as Chairman. The platform now tracks 6,300+ companies across 42 sectors, 2,700+ investors, 270+ advisors, and 5,000+ deals. Recent product launches — Deal Radar, the redesigned Company Profile with AI Defensibility Index, and enhanced search and filtering — are expanding use cases across the investor base.",
+      },
+      {
+        type: "paragraph",
+        text: "The next phase involves geographic expansion, financial metrics integration, and deeper integrations with investor workflows via MCP (Model Context Protocol) partnerships.",
+      },
+      {
+        type: "contact",
+        name: "Honor Crean",
+        email: "h.crean@asymmetrixintelligence.com",
+      },
+    ],
+  },
+  {
+    slug: "news-desk-launch",
+    category: "Company News",
+    title: "Asymmetrix Launches News Desk",
+    strapline:
+      "Jordan Bintcliffe appointed to lead a dedicated news operation breaking M&A, fundraise and live deal stories across the Data & Analytics industry",
+    date: "2026-10-06",
+    location: "London",
+    sections: [
+      {
+        type: "paragraph",
+        text: "LONDON, 6 October 2026 — Asymmetrix, the intelligence platform for the Data & Analytics industry, today announces the appointment of Jordan Bintcliffe to lead the Asymmetrix News Desk. The desk will break news on M&A, fundraises and live deal processes involving Data & Analytics companies worldwide.",
+      },
+      {
+        type: "paragraph",
+        text: "The appointment formalises a news operation that has already broken a series of exclusive stories since August 2026. It also signals Asymmetrix's commitment to becoming the first place dealmakers, investors and operators look for market-moving information on the Data & Analytics sector.",
+      },
+      {
+        type: "heading",
+        text: "The Asymmetrix News Desk",
+      },
+      {
+        type: "paragraph",
+        text: "The News Desk exists to report Data & Analytics deals before they are announced. Its focus is sell-side mandates, live auctions, fundraises, recapitalisations, valuation expectations and the advisers and bidders behind them.",
+      },
+      {
+        type: "paragraph",
+        text: "The desk complements Asymmetrix's existing database of Data & Analytics companies, investors, advisers and corporate events, and its published research reports. News stories are linked to the companies, sectors and transactions they cover, so subscribers can move straight from a scoop to the underlying data.",
+      },
+      {
+        type: "paragraph",
+        text: "Since August 2026, the desk has broken exclusive stories on agreed acquisitions, stalled and relaunched auctions, sell-side adviser pitches and mandates, private credit recapitalisations, and early-stage fundraises. Coverage to date spans Data & Analytics sub-sectors including Data Centres and Digital Infrastructure, Energy & Commodities, Maritime, Wealth Management and Regulatory Technology. Under Jordan Bintcliffe's leadership the desk will broaden that coverage and increase its publishing frequency.",
+      },
+      {
+        type: "quote",
+        text: "Data & Analytics is one of the most active corners of the M&A market, but it has never had a dedicated news service. Jordan brings exactly the sourcing instincts and deal knowledge we need to change that. The news desk means our clients will be privy to exclusive and proprietary news on deals in or coming to market.",
+        attribution: "Alex Boden, CEO and Founder of Asymmetrix",
+      },
+      {
+        type: "quote",
+        text: "The Data & Analytics industry is full of stories that never make it into the mainstream financial press. I want the Asymmetrix News Desk to be where those stories are told first – and told accurately. I'm keen to hear from anyone who is also active in or following the market.",
+        attribution: "Jordan Bintcliffe",
+      },
+      {
+        type: "heading",
+        text: "Got a tip?",
+      },
+      {
+        type: "paragraph",
+        text: "Asymmetrix welcomes information from founders, executives, investors, advisers and other market participants about developments at Data & Analytics companies, such as transactions, fundraises, adviser appointments and leadership changes. Contact Jordan Bintcliffe: j.bintcliffe@asymmetrixintelligence.com or +44 204 634 2027.",
+      },
+      {
+        type: "heading",
+        text: "About Jordan Bintcliffe",
+      },
+      {
+        type: "paragraph",
+        text: "Jordan Bintcliffe is a London-based financial journalist with a background of breaking news in private credit and infrastructure project finance. Most recently he worked as an energy and infrastructure project finance journalist and has bylines in titles including London Stock Exchange Group's Project Finance International (PFI), Exile Group's Proximo, Green Street News, and Octus.",
+      },
+      {
+        type: "paragraph",
+        text: "Before joining Asymmetrix he founded Off Record Story, a specialist freelance news business covering energy and infrastructure project finance.",
+      },
+      {
+        type: "paragraph",
+        text: "Earlier in his career, Jordan Bintcliffe was senior reporter for Western Europe at PFI. He also covered debt issuers, high-yield issuers and distressed borrowers in EEMEA at Octus. Prior to those roles he was senior reporter, EMEA, at Green Street News. Across these roles he has built a track record of sourcing exclusive deal stories from bankers, advisers, investors, sponsors and founders.",
+      },
+      {
+        type: "heading",
+        text: "About Asymmetrix",
+      },
+      {
+        type: "paragraph",
+        text: "Asymmetrix is an intelligence platform dedicated to the Data & Analytics industry. It combines a proprietary database of Data & Analytics companies, investors, advisers and corporate events with company and sector analysis, deal perspectives, executive interviews and, now, breaking news from the Asymmetrix News Desk.",
+      },
+      {
+        type: "contact",
+        name: "Honor Crean",
+        email: "h.crean@asymmetrixintelligence.com",
+      },
+    ],
+  },
 ];
+
+// Newest press release first.
+export const PRESS_RELEASES: PressRelease[] = [
+  ...PRESS_RELEASES_CHRONOLOGICAL,
+].sort(
+  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+);
 
 export function getPressRelease(slug: string): PressRelease | undefined {
   return PRESS_RELEASES.find((release) => release.slug === slug);

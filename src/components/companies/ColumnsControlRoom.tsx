@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   ALL_COMPANIES_COLUMN_META,
@@ -332,13 +332,6 @@ export function ColumnsControlRoom({
 
   const [visible, setVisible] = useState(() => buildState());
   const [query, setQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    searchInputRef.current?.focus();
-    const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
-    return () => cancelAnimationFrame(raf);
-  }, []);
   const [tab, setTab] = useState<"all" | "visible_order">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
@@ -512,7 +505,6 @@ export function ColumnsControlRoom({
         </span>
         <input
           type="text"
-          ref={searchInputRef}
           placeholder="Search columns…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -728,7 +720,8 @@ const panelStyles: Record<string, React.CSSProperties> = {
     right: 0,
     top: 0,
     bottom: 0,
-    width: 360,
+    width: "min(360px, 100vw)",
+    maxWidth: "100vw",
     background: AX.bg1,
     borderLeft: `1px solid ${AX.border1}`,
     boxShadow: "-4px 0 24px rgba(17, 22, 29, 0.10)",

@@ -32,6 +32,7 @@ import {
   getScopedPortfolioIds,
   type InvestmentStatusFilter,
 } from "@/lib/investorPortfolioFilters";
+import type { HoldingPeriodCoverage } from "@/lib/holdingPeriod";
 import { PortfolioHeadstatsRow } from "@/components/investors/PortfolioHeadstatsRow";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
@@ -42,10 +43,17 @@ import {
   getPortfolioProdDefaultColumnKeys,
 } from "@/components/investors/investorPortfolioColumns";
 
+import { getCompanyServerSortColumn } from "@/components/companies/companiesTableSort";
+
 export type InvestorPortfolioTabProps = {
   investorId: string;
   investorName: string;
   avgHoldingPeriodDisplay?: string | null;
+  avgHoldingPeriodCoverage?: HoldingPeriodCoverage | null;
+  /** Column to lead the table (right after Name), e.g. when arriving from a mix card. */
+  focusColumnKey?: string | null;
+  /** Portfolio list tab to open on (defaults to current). */
+  initialStatus?: InvestmentStatusFilter;
 };
 
 function useInvestorPortfolioSearch(
@@ -283,6 +291,9 @@ export function InvestorPortfolioTab({
   investorId,
   investorName,
   avgHoldingPeriodDisplay,
+  avgHoldingPeriodCoverage,
+  focusColumnKey,
+  initialStatus = "current",
 }: InvestorPortfolioTabProps) {
   const { currencyId: preferredCurrencyId, currency: platformCurrency } =
     usePlatformCurrency();
@@ -291,7 +302,7 @@ export function InvestorPortfolioTab({
   const [idsLoading, setIdsLoading] = useState(true);
   const [idsError, setIdsError] = useState<string | null>(null);
   const [investmentStatusFilter, setInvestmentStatusFilter] =
-    useState<InvestmentStatusFilter>("current");
+    useState<InvestmentStatusFilter>(initialStatus);
 
   useEffect(() => {
     let cancelled = false;
@@ -354,8 +365,19 @@ export function InvestorPortfolioTab({
   useEffect(() => {
     if (!portfolioIds || initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
-    fetchCompanies(1, createDefaultFilters(), createDefaultFilters());
-  }, [portfolioIds, fetchCompanies]);
+    // Arriving from a mix card: group by the focus column (A-Z).
+    const sortColumn = focusColumnKey
+      ? getCompanyServerSortColumn(focusColumnKey)
+      : null;
+    const initialFilters: Filters = sortColumn
+      ? {
+          ...createDefaultFilters(),
+          sort_column: sortColumn,
+          sort_direction: "asc",
+        }
+      : createDefaultFilters();
+    fetchCompanies(1, initialFilters, createDefaultFilters());
+  }, [portfolioIds, fetchCompanies, focusColumnKey]);
 
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters) => {
@@ -415,7 +437,16 @@ export function InvestorPortfolioTab({
     [investorName]
   );
 
-  const columnsStorageKey = `investor-portfolio-column-keys-v2-${investorId}`;
+  const columnsStorageKey = `investor-portfolio-column-keys-v2-${investorId}${
+    focusColumnKey ? `-focus2-${focusColumnKey}` : ""
+  }`;
+  const defaultColumnKeys = useMemo(() => {
+    if (!focusColumnKey) return PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS;
+    const rest = PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS.filter(
+      (k) => k !== "name" && k !== focusColumnKey
+    );
+    return ["name", focusColumnKey, ...rest];
+  }, [focusColumnKey]);
   const isInactiveTab = investmentStatusFilter === "past";
   const portfolioListTabs = useMemo(
     () => [
@@ -460,6 +491,8 @@ export function InvestorPortfolioTab({
         loading={headstatsLoading && !headstats}
         currencyCode={platformCurrency}
         avgHoldingPeriodDisplay={avgHoldingPeriodDisplay}
+        avgHoldingPeriodCoverage={avgHoldingPeriodCoverage}
+        totalCompanies={headstats?.n_companies_in_scope}
       />
 
       <div
@@ -522,7 +555,7 @@ export function InvestorPortfolioTab({
           embedded
           columnsStorageKey={columnsStorageKey}
           columnsStorageScope={"session" as ColumnStorageScope}
-          defaultColumnKeys={PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS}
+          defaultColumnKeys={defaultColumnKeys}
           portfolioMode
           columnCategories={PORTFOLIO_COLUMN_CATEGORIES}
           prodDefaultColumnKeys={getPortfolioProdDefaultColumnKeys()}

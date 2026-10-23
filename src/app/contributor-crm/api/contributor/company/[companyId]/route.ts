@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from "next/server";
+import { rejectUnlessContributorCrmPage } from "@/lib/contributorCrm/server/contributorCrmRequestGuard";
+import { CONTRIBUTOR_COMPANY_HEADER } from "@/lib/contributorCrm/linkToken";
+import { fetchServiceCompany } from "@/lib/contributorCrm/server/contributorApi";
+
+export const dynamic = "force-dynamic";
+
+type RouteContext = {
+  params: Promise<{ companyId: string }>;
+};
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const blocked = rejectUnlessContributorCrmPage(request);
+  if (blocked) return blocked;
+
+  try {
+    const { companyId } = await context.params;
+    if (!companyId?.trim()) {
+      return NextResponse.json({ error: "Company id is required." }, { status: 400 });
+    }
+
+    const sessionCompany = request.headers.get(CONTRIBUTOR_COMPANY_HEADER);
+    if (sessionCompany && sessionCompany !== companyId.trim()) {
+      return NextResponse.json({ error: "Not allowed for this company." }, { status: 403 });
+    }
+
+    const data = await fetchServiceCompany(companyId);
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message || "Failed to fetch company" },
+      { status: 500 }
+    );
+  }
+}

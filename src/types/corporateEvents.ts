@@ -32,9 +32,6 @@ export interface CorporateEventsFilters {
   filter_investor_ids?: number[];
   filter_sector_ids?: number[];
   filter_individual_ids?: number[];
-  /** Only deals this individual advised on (optionally narrowed to one advisor firm). */
-  advised_by_individual_id?: number;
-  advised_by_company_id?: number;
   EV_min?: string;
   EV_max?: string;
   Amount_min?: string;
@@ -42,8 +39,6 @@ export interface CorporateEventsFilters {
   Product_Types?: string[];
   target_company_id?: number;
   new_company_id?: number;
-  /** Restrict to events whose target is one of these companies (requires backend support). */
-  target_company_ids?: number[];
   individual_id?: number;
   investor_id?: number;
   /** Platform currency for converted deal amounts (USD=15, EUR=6, GBP=7). */

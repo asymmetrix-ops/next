@@ -9,7 +9,7 @@ import {
 } from "@/lib/advisorFilterBuilder";
 import { parseAdvisorSectors } from "@/components/search/searchEntityLinkUtils";
 
-const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV";
+const SECTOR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
 const PAGE_SIZE = 25;
 
 export type SectorMostActiveInvestorKind = "pe" | "venture" | "strategic";

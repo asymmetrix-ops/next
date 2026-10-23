@@ -34,7 +34,6 @@ import {
 import { SearchEntityLongText } from "@/components/search/SearchEntityDescription";
 import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMultiValueCell";
 import { buildAdvisorSectorItems } from "@/components/search/searchEntityLinkUtils";
-import { AdvisorKeyPeopleCell } from "@/components/advisors/AdvisorKeyPeopleCell";
 import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdentityCell";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import { readLogoFromRecord } from "@/lib/companyLogo";
@@ -86,7 +85,6 @@ const ALL_ADVISOR_COLUMNS: AdvisorColumnDefinition[] = [
   { key: "description", label: "Description", wrap: true, minWidth: 280 },
   { key: "events_advised", label: "# Corporate Events Advised", minWidth: 150 },
   { key: "sectors", label: "Advised D&A Sectors", wrap: true, minWidth: 150 },
-  { key: "key_people", label: "Key People", wrap: true, minWidth: 180 },
   { key: "linkedin_members", label: "LinkedIn Members", minWidth: 130 },
   { key: "country", label: "Country", minWidth: 120 },
   { key: "follow", label: "My Portfolio", minWidth: 120 },
@@ -468,12 +466,9 @@ export const AdvisorSection = ({
       case "description":
         return <SearchEntityLongText text={advisor.description || "-"} />;
       case "area_of_focus": {
-        const labels =
-          advisor.area_of_focus && advisor.area_of_focus.length > 0
-            ? advisor.area_of_focus
-            : extractAdvisorAreaOfFocusLabels(
-                advisor as unknown as Record<string, unknown>
-              );
+        const labels = extractAdvisorAreaOfFocusLabels(
+          advisor as unknown as Record<string, unknown>
+        );
         if (labels.length > 0) return labels.join(", ");
         if (filteredRoleLabels.length > 0) return filteredRoleLabels.join(", ");
         return "-";
@@ -490,8 +485,6 @@ export const AdvisorSection = ({
             maxVisible={10}
           />
         );
-      case "key_people":
-        return <AdvisorKeyPeopleCell advisorId={advisor.id} keyPeople={advisor.key_people} />;
       case "linkedin_members":
         return formatNumber(advisor.linkedin_members);
       case "country":

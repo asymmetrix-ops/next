@@ -1,37 +1,113 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { LinkPanel, T, Pill } from "@/components/redesign/primitives";
+import React, { useEffect, useState } from "react";
+import { T } from "@/components/redesign/primitives";
+import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
+import type { ContentArticle } from "@/types/insightsAnalysis";
 
-export type CorporateEventInsight = {
-  id?: number;
-  tag?: string;
-  date?: string;
-  title: string;
-  content: string;
-};
+const CONTENT_DETAIL_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/content";
+const ENRICH_FIELDS = [
+  "companies_mentioned",
+  "sectors",
+  "companies_of_focus",
+  "primary_company",
+  "Transaction_status",
+  "Content_Type",
+] as const;
+
+// Module-level cache so the same article isn't re-fetched across sections/renders.
+const detailCache = new Map<number, Promise<Record<string, unknown> | null>>();
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function isEmptyValue(v: unknown): boolean {
+  return v == null || v === "" || (Array.isArray(v) && v.length === 0);
+}
+
+function fetchArticleDetail(id: number): Promise<Record<string, unknown> | null> {
+  const cached = detailCache.get(id);
+  if (cached) return cached;
+  const request = (async () => {
+    try {
+      const token = localStorage.getItem("asymmetrix_auth_token");
+      if (!token) return null;
+      const res = await fetch(`${CONTENT_DETAIL_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (!res.ok) return null;
+      const json: unknown = await res.json();
+      const raw = Array.isArray(json) ? json[0] : json;
+      return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  })();
+  detailCache.set(id, request);
+  return request;
+}
+
+/**
+ * The corporate-event content endpoints return a slim payload (no companies or
+ * sectors), so the shared I&A card would render without its coverage rows and
+ * company-count chip. Backfill those fields from the article detail endpoint.
+ */
+function useEnrichedArticles(articles: ContentArticle[]): ContentArticle[] {
+  const [details, setDetails] = useState<Record<number, Record<string, unknown>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    articles.forEach((a) => {
+      if (typeof a?.id !== "number") return;
+      const id = a.id;
+      if (!ENRICH_FIELDS.some((k) => isEmptyValue((a as unknown as Record<string, unknown>)[k]))) return;
+      fetchArticleDetail(id).then((d) => {
+        if (!cancelled && d) setDetails((prev) => (prev[id] ? prev : { ...prev, [id]: d }));
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [articles]);
+
+  return articles.map((a) => {
+    const d = typeof a?.id === "number" ? details[a.id] : undefined;
+    if (!d) return a;
+    const merged = { ...a } as unknown as Record<string, unknown>;
+    for (const k of ENRICH_FIELDS) {
+      if (isEmptyValue(merged[k]) && !isEmptyValue(d[k])) merged[k] = parseMaybeJson(d[k]);
+    }
+    return merged as unknown as ContentArticle;
+  });
+}
 
 type Props = {
   title: string;
-  insights: CorporateEventInsight[];
+  insights: ContentArticle[];
   fillGridCell?: boolean;
 };
 
 export function CorporateEventInsightsPanel({ title, insights, fillGridCell = false }: Props) {
+  const enriched = useEnrichedArticles(insights);
   if (insights.length === 0) return null;
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 16px 12px",
-          borderBottom: `1px solid ${T.hair}`,
-        }}
-      >
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        minWidth: 0,
+        ...(fillGridCell ? { flex: 1, minHeight: 0 } : {}),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div style={{ fontSize: "13.5px", fontWeight: 600, color: T.ink }}>{title}</div>
         <div style={{ fontSize: "11.5px", color: T.muted }}>
           {insights.length} article{insights.length === 1 ? "" : "s"}
@@ -40,74 +116,17 @@ export function CorporateEventInsightsPanel({ title, insights, fillGridCell = fa
 
       <div
         style={{
-          padding: "8px 14px 12px",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: 12,
+          minWidth: 0,
           ...(fillGridCell ? { flex: 1, minHeight: 0, overflow: "auto" } : {}),
         }}
       >
-        {insights.map((insight, index) => (
-          <div
-            key={insight.id ?? index}
-            style={{
-              paddingBottom: index < insights.length - 1 ? 10 : 0,
-              borderBottom: index < insights.length - 1 ? `1px solid ${T.hair}` : "none",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-              {insight.tag ? (
-                <Pill tone="neutral" style={{ fontSize: 10, padding: "1px 6px" }}>
-                  {insight.tag}
-                </Pill>
-              ) : null}
-              {insight.date ? (
-                <span style={{ fontSize: 11, color: T.muted }}>{insight.date}</span>
-              ) : null}
-            </div>
-            {insight.id ? (
-              <Link
-                href={`/article/${insight.id}`}
-                prefetch={false}
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: T.ink,
-                  textDecoration: "none",
-                  lineHeight: 1.35,
-                  marginBottom: 4,
-                }}
-              >
-                {insight.title}
-              </Link>
-            ) : (
-              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, lineHeight: 1.35, marginBottom: 4 }}>
-                {insight.title}
-              </div>
-            )}
-            {insight.content ? (
-              <p style={{ margin: 0, fontSize: 12, color: T.body, lineHeight: 1.45 }}>{insight.content}</p>
-            ) : null}
-            {insight.id ? (
-              <Link
-                href={`/article/${insight.id}`}
-                prefetch={false}
-                style={{
-                  display: "inline-block",
-                  marginTop: 6,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: T.azure,
-                  textDecoration: "underline",
-                }}
-              >
-                Read more
-              </Link>
-            ) : null}
-          </div>
+        {enriched.map((article, index) => (
+          <InsightsAnalysisCard key={article.id ?? index} article={article} />
         ))}
       </div>
-    </LinkPanel>
+    </div>
   );
 }

@@ -6,8 +6,7 @@
  */
 import React from "react";
 import Link from "next/link";
-import { NonDaCompanyName } from "@/components/ui/NonDaCompanyName";
-import { LinkPanel, LinkedH, KV, Delta, Pill, T } from "./primitives";
+import { LinkPanel, LinkedH, KV, Delta, Pill, T, CappedPillTags } from "./primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
 import { getTransactionStatusTone } from "@/lib/tagColors";
@@ -44,7 +43,7 @@ export type OverviewCardProps = {
   totalAmountRaised?: string | null;
   employees?: number | null;
   employeesYoY?: string | null;
-  parentCompany?: { id?: number; name: string; nonDa?: boolean } | null;
+  parentCompany?: { id?: number; name: string } | null;
   investors?: OverviewInvestor[];
   investorsLoading?: boolean;
   /** e.g. "3 years" or "< 1 year" — pass pre-formatted string */
@@ -93,17 +92,14 @@ function SectorTags({
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-      {sectors.map((s) =>
-        s.href ? (
-          <Link key={s.name} href={s.href} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone={tone}>{s.name}</Pill>
-          </Link>
-        ) : (
-          <Pill key={s.name} tone={tone}>{s.name}</Pill>
-        )
-      )}
-    </div>
+    <CappedPillTags
+      tone={tone}
+      items={sectors.map((s, i) => ({
+        key: s.href ?? `${s.name}-${i}`,
+        label: s.name,
+        href: s.href,
+      }))}
+    />
   );
 }
 
@@ -150,15 +146,6 @@ function TransactionStatusHighlight({ label }: { label: string }) {
           height: 24,
         }}
       >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: tone.dot,
-            flexShrink: 0,
-          }}
-        />
         {label}
       </span>
     </div>
@@ -168,13 +155,14 @@ function TransactionStatusHighlight({ label }: { label: string }) {
 function InvestorTags({ investors }: { investors: OverviewInvestor[] }) {
   if (investors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {investors.map((inv) => (
-        <Link key={inv.id} href={`/investors/${inv.id}`} prefetch={false} style={{ textDecoration: "none" }}>
-          <Pill tone="azure">{inv.name}</Pill>
-        </Link>
-      ))}
-    </div>
+    <CappedPillTags
+      tone="azure"
+      items={investors.map((inv) => ({
+        key: String(inv.id),
+        label: inv.name,
+        href: `/investors/${inv.id}`,
+      }))}
+    />
   );
 }
 
@@ -206,33 +194,43 @@ export function OverviewCard({
     holdingPeriod?.display
   );
 
-  const hasText = (v: string | number | null | undefined) =>
-    typeof v === "number" ||
-    (typeof v === "string" && !isEmptyDisplayValue(v) && v.trim() !== "");
+  const hasPrimarySectors = primarySectors.length > 0;
+  const hasSecondarySectors = secondarySectors.length > 0;
+  const hasYearFounded = !isEmptyDisplayValue(yearFounded ?? null);
+  const hasWebsite = Boolean(website?.trim());
+  const hasOwnership = !isEmptyDisplayValue(ownership ?? null);
+  const hasHq = !isEmptyDisplayValue(hq ?? null);
+  const hasLifecycle = !isEmptyDisplayValue(lifecycle ?? null);
+  const hasTotalAmountRaised =
+    Boolean(totalAmountRaised) && !isEmptyDisplayValue(totalAmountRaised);
+  const hasEmployees =
+    employees != null && Number.isFinite(employees);
+  const hasLastInvestment =
+    Boolean(lastInvestment) && !isEmptyDisplayValue(lastInvestment);
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     {
       k: "Primary sector(s)",
-      show: primarySectors.length > 0,
+      show: hasPrimarySectors,
       v: (
         <SectorTags sectors={primarySectors} tone="coral" />
       ),
     },
     {
       k: "Secondary sector(s)",
-      show: secondarySectors.length > 0,
+      show: hasSecondarySectors,
       v: (
         <SectorTags sectors={secondarySectors} tone="lavender" />
       ),
     },
     {
       k: "Year founded",
-      show: hasText(yearFounded),
+      show: hasYearFounded,
       v: displayText(yearFounded),
     },
     {
       k: "Website",
-      show: Boolean(website?.trim()),
+      show: hasWebsite,
       v: website?.trim() ? (
         <a
           href={/^https?:\/\//i.test(website.trim()) ? website.trim() : `https://${website.trim()}`}
@@ -248,24 +246,21 @@ export function OverviewCard({
     },
     {
       k: "Ownership",
-      show: hasText(ownership),
+      show: hasOwnership,
       v: displayText(ownership),
     },
-    { k: "HQ", show: hasText(hq), v: displayText(hq) },
+    { k: "HQ", show: hasHq, v: displayText(hq) },
     {
       k: "Lifecycle stage",
-      show: hasText(lifecycle),
+      show: hasLifecycle,
       v: displayText(lifecycle),
     },
     {
       k: "Total amount raised",
-      show: hasText(totalAmountRaised),
-      v:
-        totalAmountRaised && !isEmptyDisplayValue(totalAmountRaised) ? (
-          <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
-        ) : (
-          faintDash()
-        ),
+      show: hasTotalAmountRaised,
+      v: (
+        <span style={{ fontFamily: T.mono }}>{normalizeEmptyDisplay(totalAmountRaised)}</span>
+      ),
     },
     {
       k: "Holding period",
@@ -293,17 +288,13 @@ export function OverviewCard({
     },
     {
       k: "Employees",
-      show: employees != null,
+      show: hasEmployees,
       v: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {employees != null ? (
-            <>
-              {employees.toLocaleString("en-US")}
-              {employeesYoY && <Delta value={employeesYoY} />}
-            </>
-          ) : (
-            <span style={{ color: T.faint }}>{EM}</span>
-          )}
+          {employees != null && Number.isFinite(employees)
+            ? employees.toLocaleString("en-US")
+            : faintDash()}
+          {employeesYoY && <Delta value={employeesYoY} />}
         </span>
       ),
     },
@@ -316,12 +307,10 @@ export function OverviewCard({
       k: "Parent company",
       show: hasParent,
       v: parentCompany ? (
-        parentCompany.id && !parentCompany.nonDa ? (
+        parentCompany.id ? (
           <Link href={`/company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
             <Pill tone="neutral">{parentCompany.name}</Pill>
           </Link>
-        ) : parentCompany.nonDa ? (
-          <NonDaCompanyName>{parentCompany.name}</NonDaCompanyName>
         ) : (
           <span>{parentCompany.name}</span>
         )
@@ -329,7 +318,7 @@ export function OverviewCard({
     },
     {
       k: "Investors",
-      show: !hasParent && (Boolean(investorsLoading) || investors.length > 0),
+      show: !hasParent && (investorsLoading || investors.length > 0),
       v: investorsLoading ? (
         <span style={{ color: T.faint }}>Loading…</span>
       ) : (
@@ -338,10 +327,8 @@ export function OverviewCard({
     },
     {
       k: "Time since last investment",
-      show: !hasParent && hasText(lastInvestment),
-      v: lastInvestment && !isEmptyDisplayValue(lastInvestment)
-        ? lastInvestment
-        : faintDash(),
+      show: !hasParent && hasLastInvestment,
+      v: lastInvestment,
     },
     {
       k: "MCP",
@@ -366,15 +353,17 @@ export function OverviewCard({
         {transactionStatus ? (
           <TransactionStatusHighlight label={transactionStatus} />
         ) : null}
-        {visible.map((row, i) => (
-          <KV
-            key={row.k}
-            k={row.k}
-            v={row.v}
-            last={i === visible.length - 1}
-            style={OVERVIEW_KV_STYLE}
-          />
-        ))}
+        <div className="company-overview-kv">
+          {visible.map((row, i) => (
+            <KV
+              key={row.k}
+              k={row.k}
+              v={row.v}
+              last={i === visible.length - 1}
+              style={OVERVIEW_KV_STYLE}
+            />
+          ))}
+        </div>
       </div>
     </LinkPanel>
   );

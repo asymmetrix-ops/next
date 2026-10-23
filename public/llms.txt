@@ -8,7 +8,7 @@
 - Covers 3,636 investors (PE firms, venture investors and corporate investors) active in Data & Analytics.
 - Covers 290 M&A advisors active in the space.
 - Tracks 5,708 corporate events (acquisitions, investments, IPOs, sales, partnerships, strategic reviews and divestments) in Data & Analytics.
-- Every company sits within a single, consistent D&A taxonomy spanning data, research and content sub-sectors.
+- Every company sits within a single, consistent D&A taxonomy spanning data, research and content secondary sectors.
 - Publishes original research reports and market commentary on valuations, consolidation and disruption across the sector, including an AI Exposure Index assessing individual companies' AI risk and defensibility.
 
 ## Public pages

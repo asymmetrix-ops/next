@@ -39,10 +39,17 @@ export interface InvestorHoldingPeriodsResponse {
   per_page: number;
 }
 
+export interface HoldingPeriodCoverage {
+  covered: number;
+  total: number;
+  label: string;
+}
+
 export interface InvestorHoldingPeriodAverageResponse {
   display: string | null;
   completed_exits: number;
   low_sample_size: boolean;
+  coverage?: HoldingPeriodCoverage | null;
 }
 
 export interface CompanyHoldingPeriodResponse {
@@ -107,4 +114,49 @@ export function formatHoldingPeriodStatusLabel(raw: unknown): string {
     return "Inactive / Exited";
   }
   return HOLDING_PERIOD_EMPTY_DISPLAY;
+}
+
+function formatMonthsAsHoldingDisplay(totalMonths: number): string | null {
+  if (!Number.isFinite(totalMonths) || totalMonths < 1) return null;
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? "" : "s"}`);
+  if (months > 0) parts.push(`${months} month${months === 1 ? "" : "s"}`);
+  return parts.join(" ");
+}
+
+/**
+ * Fallback for when `holding-period-average` has no value (it is exit-based and comes back
+ * empty for investors with no completed exits): average the active holdings by taking the
+ * mean first-investment date and measuring calendar months from it to `now`.
+ */
+export function computeActiveHoldingPeriodAverage(
+  items: Pick<HoldingPeriodItem, "status" | "acquisition_date">[],
+  now: Date = new Date()
+): InvestorHoldingPeriodAverageResponse | null {
+  const currentItems = items.filter((i) => i.status === "current");
+  const times = currentItems
+    .filter((i) => i.acquisition_date)
+    .map((i) => new Date(i.acquisition_date as string).getTime())
+    .filter((t) => Number.isFinite(t) && t <= now.getTime());
+  if (times.length === 0) return null;
+
+  const mean = new Date(times.reduce((a, b) => a + b, 0) / times.length);
+  let months =
+    (now.getFullYear() - mean.getFullYear()) * 12 + (now.getMonth() - mean.getMonth());
+  if (now.getDate() < mean.getDate()) months -= 1;
+
+  const display = formatMonthsAsHoldingDisplay(months);
+  if (!display) return null;
+  return {
+    display,
+    completed_exits: 0,
+    low_sample_size: times.length < 3,
+    coverage: {
+      covered: times.length,
+      total: currentItems.length,
+      label: `${times.length} / ${currentItems.length} companies`,
+    },
+  };
 }

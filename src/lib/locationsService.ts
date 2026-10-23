@@ -1,30 +1,8 @@
 import { authService } from "./auth";
 
-const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
-const COMPANY_FILTER_OPTIONS_BASE_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:VP2Spm80:develop";
-
-export interface CompanyFilterOption {
-  id: number;
-  label: string;
-}
-const CORPORATE_EVENT_TARGET_OPTIONS_BASE_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l:develop";
-
-export interface CorporateEventTargetOption {
-  id: number;
-  name: string;
-  events_count?: number;
-}
-const INDIVIDUAL_OPTIONS_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:Xpykjv0R";
-
-export interface IndividualCurrentCompanyOption {
-  id: number;
-  name: string;
-  people_count?: number;
-}
-const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I";
-const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz";
+const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob:develop/";
+const REFERENCE_BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8Bv5PK4I:develop";
+const NEW_COMPANY_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:Zy_LlXuz:develop";
 
 interface Country {
   id: number;
@@ -44,10 +22,19 @@ interface City {
   City: string;
 }
 
-export const CITY_FILTER_PAGE_SIZE = 100;
-
-/** Default paging for `locations_get_province` (API max is 200). */
+/** Default paging for `locations_get_province`. */
 export const PROVINCE_FILTER_PAGE_SIZE = 50;
+
+/** Default paging for `locations_get_city` (matches API defaults). */
+export const CITY_FILTER_PAGE_SIZE = 25;
+
+export const CITY_SEARCH_DEFAULTS = {
+  countries: [] as string[],
+  Provinces: [] as string[],
+  query: "",
+  page: 1,
+  per_page: 25,
+} as const;
 
 export type CitySearchResult = {
   cities: City[];
@@ -194,86 +181,8 @@ class LocationsService {
   }
 
   /**
-   * `locations_get_province` is paged ({ items, page, per_page, total, pages })
-   * and works with no countries. Fetches every page and returns distinct,
-   * non-empty province names. Also tolerates the legacy plain-array response.
-   */
-  private provincesCache = new Map<string, Promise<Province[]>>();
-
-  /** Cached per country set so the (multi-page) fetch runs once per session. */
-  getProvinces(countries: string[] = []): Promise<Province[]> {
-    const key = [...countries].sort().join("|");
-    let cached = this.provincesCache.get(key);
-    if (!cached) {
-      cached = this.fetchAllProvinces(countries);
-      this.provincesCache.set(key, cached);
-      cached.catch(() => this.provincesCache.delete(key));
-    }
-    return cached;
-  }
-
-  private async fetchAllProvinces(countries: string[]): Promise<Province[]> {
-    const perPage = 200; // Xano max for locations_get_province
-    const fetchPage = async (page: number) => {
-      const queryParams = new URLSearchParams();
-      countries
-        .filter((c) => c?.trim())
-        .forEach((country) => queryParams.append("countries", country));
-      queryParams.append("search", "");
-      queryParams.append("page", String(page));
-      queryParams.append("per_page", String(perPage));
-
-      const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          ...this.getAuthHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          authService.logout();
-          throw new Error("Authentication required");
-        }
-        throw new Error(
-          `Failed to fetch provinces: ${response.status} ${response.statusText}`
-        );
-      }
-
-      const data = (await response.json()) as
-        | Province[]
-        | { items?: Province[]; pages?: number };
-      if (Array.isArray(data)) return { items: data, pages: 1 };
-      return {
-        items: Array.isArray(data?.items) ? data.items : [],
-        pages: typeof data?.pages === "number" ? data.pages : 1,
-      };
-    };
-
-    const first = await fetchPage(1);
-    const rest = await Promise.all(
-      Array.from({ length: Math.max(0, first.pages - 1) }, (_, i) =>
-        fetchPage(i + 2)
-      )
-    );
-
-    const seen = new Set<string>();
-    const out: Province[] = [];
-    for (const { items } of [first, ...rest]) {
-      for (const item of items) {
-        const name = item?.State__Province__County?.trim();
-        if (!name || seen.has(name)) continue;
-        seen.add(name);
-        out.push({ State__Province__County: name });
-      }
-    }
-    return out;
-  }
-
-  /**
-   * Paged + searchable `locations_get_province` (max per_page is 200).
-   * One small request per search/page; nothing is loaded up front.
+   * `locations_get_province` is paged ({ items, page, per_page, total, pages }),
+   * searchable, works with no countries, and caps per_page at 200.
    */
   async searchProvinces(args: {
     countries?: string[];
@@ -291,10 +200,14 @@ class LocationsService {
     queryParams.append("page", String(page));
     queryParams.append("per_page", String(perPage));
 
-    const response = await fetch(
-      `${BASE_URL}/locations_get_province?${queryParams.toString()}`,
-      { method: "GET", headers: { ...this.getAuthHeaders() } }
-    );
+    const url = `${BASE_URL}/locations_get_province?${queryParams.toString()}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
     if (!response.ok) {
       if (response.status === 401) {
         authService.logout();
@@ -304,6 +217,7 @@ class LocationsService {
         `Failed to fetch provinces: ${response.status} ${response.statusText}`
       );
     }
+
     const data = (await response.json()) as {
       items?: Province[];
       page?: number;
@@ -326,18 +240,24 @@ class LocationsService {
     page?: number;
     perPage?: number;
   }): Promise<CitySearchResult> {
-    const page = Math.max(1, args.page ?? 1);
-    const perPage = Math.max(1, args.perPage ?? CITY_FILTER_PAGE_SIZE);
+    const page = Math.max(1, args.page ?? CITY_SEARCH_DEFAULTS.page);
+    const perPage = Math.max(1, args.perPage ?? CITY_SEARCH_DEFAULTS.per_page);
     const queryParams = new URLSearchParams();
+    const countries = (args.countries ?? CITY_SEARCH_DEFAULTS.countries).filter(
+      (c) => c?.trim()
+    );
+    const provinces = (args.provinces ?? CITY_SEARCH_DEFAULTS.Provinces).filter(
+      (p) => p?.trim()
+    );
 
-    (args.countries ?? []).forEach((country) => {
+    countries.forEach((country) => {
       queryParams.append("countries", country);
     });
-    (args.provinces ?? []).forEach((province) => {
+    provinces.forEach((province) => {
       queryParams.append("Provinces", province);
     });
 
-    queryParams.append("query", (args.query ?? "").trim());
+    queryParams.append("query", (args.query ?? CITY_SEARCH_DEFAULTS.query).trim());
     queryParams.append("page", String(page));
     queryParams.append("per_page", String(perPage));
 
@@ -596,103 +516,6 @@ class LocationsService {
       .filter((value): value is string => value.length > 0);
 
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-  }
-
-  // Option lists for the Companies multi-value filters ({ id, label }).
-  async getCompanyProductTypeOptions(): Promise<CompanyFilterOption[]> {
-    return this.getCompanyFilterOptions("get_product_types");
-  }
-
-  async getDataCollectionMethods(): Promise<CompanyFilterOption[]> {
-    return this.getCompanyFilterOptions("get_data_collection_methods");
-  }
-
-  async getRevenueModels(): Promise<CompanyFilterOption[]> {
-    return this.getCompanyFilterOptions("get_revenue_models");
-  }
-
-  private async getCompanyFilterOptions(path: string): Promise<CompanyFilterOption[]> {
-    const response = await fetch(`${COMPANY_FILTER_OPTIONS_BASE_URL}/${path}`, {
-      method: "GET",
-      headers: { ...this.getAuthHeaders() },
-    });
-    if (!response.ok) {
-      if (response.status === 401) {
-        authService.logout();
-        throw new Error("Authentication required");
-      }
-      throw new Error(`Failed to fetch ${path}: ${response.status} ${response.statusText}`);
-    }
-    const data = (await response.json()) as { value?: unknown } | unknown[];
-    const raw = Array.isArray(data) ? data : Array.isArray(data?.value) ? data.value : [];
-    const seen = new Set<string>();
-    const out: CompanyFilterOption[] = [];
-    for (const item of raw) {
-      const obj = item as { id?: unknown; label?: unknown };
-      const label = typeof obj?.label === "string" ? obj.label.trim() : "";
-      if (!label || seen.has(label)) continue;
-      seen.add(label);
-      out.push({ id: Number(obj.id), label });
-    }
-    return out.sort((a, b) => a.label.localeCompare(b.label));
-  }
-
-  // Companies that are the target of at least one corporate event (Target filter).
-  async getCorporateEventTargetOptions(
-    limit = 1000
-  ): Promise<CorporateEventTargetOption[]> {
-    const response = await fetch(
-      `${CORPORATE_EVENT_TARGET_OPTIONS_BASE_URL}/get_corporate_event_target_options?q=&ids=&limit=${limit}`,
-      { method: "GET", headers: { ...this.getAuthHeaders() } }
-    );
-    if (!response.ok) {
-      if (response.status === 401) {
-        authService.logout();
-        throw new Error("Authentication required");
-      }
-      throw new Error(
-        `Failed to fetch target options: ${response.status} ${response.statusText}`
-      );
-    }
-    const data = (await response.json()) as unknown;
-    const raw = Array.isArray(data) ? data : [];
-    const out: CorporateEventTargetOption[] = [];
-    for (const item of raw) {
-      const obj = item as Partial<CorporateEventTargetOption>;
-      const name = typeof obj?.name === "string" ? obj.name.trim() : "";
-      if (!name || !Number.isFinite(Number(obj.id))) continue;
-      out.push({ id: Number(obj.id), name, events_count: obj.events_count });
-    }
-    return out.sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  // Companies where at least one individual currently works (Current Company filter).
-  async getIndividualCurrentCompanyOptions(
-    limit = 1000
-  ): Promise<IndividualCurrentCompanyOption[]> {
-    const response = await fetch(
-      `${INDIVIDUAL_OPTIONS_BASE_URL}/get_individual_current_company_options?q=&ids=&limit=${limit}`,
-      { method: "GET", headers: { ...this.getAuthHeaders() } }
-    );
-    if (!response.ok) {
-      if (response.status === 401) {
-        authService.logout();
-        throw new Error("Authentication required");
-      }
-      throw new Error(
-        `Failed to fetch current company options: ${response.status} ${response.statusText}`
-      );
-    }
-    const data = (await response.json()) as unknown;
-    const raw = Array.isArray(data) ? data : [];
-    const out: IndividualCurrentCompanyOption[] = [];
-    for (const item of raw) {
-      const obj = item as Partial<IndividualCurrentCompanyOption>;
-      const name = typeof obj?.name === "string" ? obj.name.trim() : "";
-      if (!name || !Number.isFinite(Number(obj.id))) continue;
-      out.push({ id: Number(obj.id), name, people_count: obj.people_count });
-    }
-    return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Investor type options used by Investors page filters.
@@ -1044,7 +867,7 @@ class LocationsService {
     const run = async () => {
       // We derive the list from the analytics "content_insights" view that aggregates by content type.
       const url = new URL(
-        "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0/content_insights"
+        "https://xdil-abvj-o7rq.e2.xano.io/api:T3Zh6ok0:develop/content_insights"
       );
       url.searchParams.set("view", "Content Type");
 

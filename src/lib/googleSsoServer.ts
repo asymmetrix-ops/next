@@ -8,7 +8,7 @@ export const GOOGLE_OAUTH_STATE_COOKIE = "google_oauth_state";
 export const GOOGLE_SCOPES = "openid email profile";
 
 export const DEFAULT_XANO_GOOGLE_SSO_CALLBACK_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/sso/callback";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop/auth/sso/callback";
 
 type GoogleTokenResponse = {
   access_token?: string;
