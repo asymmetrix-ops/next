@@ -6,6 +6,7 @@ import type {
   FiMetricSourceType,
   FiPeerAggregateMode,
 } from "./types";
+import weightsConfig from "@/config/financialIntelligenceWeights.json";
 import { isMetricSourceAllowed, isDefaultSourceTypes } from "./sourceTypes";
 
 /** Metric defs aligned with company profile (`buildFinancialMetricsSections`) order and labels. */
@@ -414,26 +415,49 @@ export function computeRank(
   return { rank, total: sorted.length };
 }
 
+export type FiCompositeWeightConfig = {
+  minCoverage: number;
+  requiredMetric: FiMetricKey;
+  metrics: Array<{ key: FiMetricKey; label: string; weight: number; pillar: string }>;
+};
+
+export const FI_COMPOSITE_WEIGHTS = weightsConfig as FiCompositeWeightConfig;
+
+/**
+ * Weighted composite percentile (weights live in config/financialIntelligenceWeights.json).
+ * Missing metrics redistribute their weight proportionally across available ones.
+ * Returns null ("Insufficient data") when available weight < minCoverage of the total
+ * or the required metric (Revenue Growth) is missing.
+ */
 export function computeCompositePercentile(
   target: FiCompanyRow,
   peers: FiCompanyRow[],
-  allowedSources?: FiMetricSourceType[] | null
+  allowedSources?: FiMetricSourceType[] | null,
+  config: FiCompositeWeightConfig = FI_COMPOSITE_WEIGHTS
 ): number | null {
-  const scores: number[] = [];
+  const totalWeight = config.metrics.reduce((sum, m) => sum + m.weight, 0);
+  let availableWeight = 0;
+  let weightedSum = 0;
+  let hasRequired = false;
 
-  for (const metric of FI_BENCHMARK_METRICS) {
-    if (!FI_BENCHMARK_SCORECARD_KEYS.includes(metric.key)) continue;
-    const targetValue = getMetricValueForDisplay(target, metric.key, allowedSources);
+  for (const { key, weight } of config.metrics) {
+    const def = FI_BENCHMARK_METRICS.find((m) => m.key === key);
+    if (!def) continue;
+    const targetValue = getMetricValueForDisplay(target, key, allowedSources);
     if (targetValue == null) continue;
 
-    const peerValues = collectPeerMetricValues(peers, metric.key, allowedSources);
+    const peerValues = collectPeerMetricValues(peers, key, allowedSources);
+    const percentile = computePercentile(targetValue, peerValues, def.higherIsBetter);
+    if (percentile == null) continue;
 
-    const percentile = computePercentile(targetValue, peerValues, metric.higherIsBetter);
-    if (percentile != null) scores.push(percentile);
+    availableWeight += weight;
+    weightedSum += weight * percentile;
+    if (key === config.requiredMetric) hasRequired = true;
   }
 
-  if (scores.length === 0) return null;
-  return Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length);
+  if (!hasRequired || totalWeight <= 0) return null;
+  if (availableWeight / totalWeight < config.minCoverage) return null;
+  return Math.round(weightedSum / availableWeight);
 }
 
 export function histogramBins(

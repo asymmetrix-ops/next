@@ -1,0 +1,16 @@
+{
+  "minCoverage": 0.6,
+  "requiredMetric": "rev_growth_pc",
+  "metrics": [
+    { "key": "rev_growth_pc", "label": "Revenue Growth", "weight": 25, "pillar": "Growth" },
+    { "key": "ebitda_margin", "label": "EBITDA Margin", "weight": 15, "pillar": "Profitability" },
+    { "key": "subscription_revenue_pc", "label": "Subscription Revenue %", "weight": 15, "pillar": "Business Model Quality" },
+    { "key": "revenue_m_usd", "label": "Revenue", "weight": 10, "pillar": "Scale" },
+    { "key": "nrr", "label": "NRR", "weight": 7.5, "pillar": "Retention & Expansion" },
+    { "key": "grr_pc", "label": "GRR", "weight": 7.5, "pillar": "Retention & Expansion" },
+    { "key": "revenue_per_employee", "label": "Revenue per Employee", "weight": 7.5, "pillar": "Efficiency" },
+    { "key": "revenue_per_client", "label": "Revenue per Client", "weight": 7.5, "pillar": "Efficiency" },
+    { "key": "no_employees", "label": "Number of Employees", "weight": 2.5, "pillar": "Scale" },
+    { "key": "no_of_clients", "label": "Number of Clients", "weight": 2.5, "pillar": "Scale" }
+  ]
+}

@@ -11,6 +11,7 @@
   } from "@/lib/financialIntelligence/types";
   import {
     FI_BENCHMARK_SECTIONS,
+    FI_COMPOSITE_WEIGHTS,
     formatMetricPercentDelta,
     getMetricValueForDisplay,
     peerAggregateLabels,
@@ -334,6 +335,21 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
     peerCount?: number;
   }
 
+  const pillarSummary = (() => {
+    const byPillar = new Map<string, { weight: number; metrics: string[] }>();
+    for (const m of FI_COMPOSITE_WEIGHTS.metrics) {
+      const entry = byPillar.get(m.pillar) ?? { weight: 0, metrics: [] };
+      entry.weight += m.weight;
+      entry.metrics.push(`${m.label} ${m.weight}`);
+      byPillar.set(m.pillar, entry);
+    }
+    return Array.from(byPillar, ([name, v]) => ({
+      name,
+      weight: v.weight,
+      metrics: v.metrics.join(", "),
+    })).sort((a, b) => b.weight - a.weight);
+  })();
+
   function CompositePercentileInfoTooltip() {
     const [open, setOpen] = useState(false);
     const anchorRef = useRef<HTMLButtonElement>(null);
@@ -464,18 +480,33 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
                 Composite percentile
               </div>
               <p style={{ margin: "0 0 8px" }}>
-                An overall score from 0–100 showing how the target ranks against its peer set
-                across financial metrics.
+                An overall score from 0–100 showing how the target ranks against its peer set.
+                Each metric is converted into a percentile rank vs peers (higher is better),
+                then combined using the weights below.
               </p>
-              <p style={{ margin: "0 0 8px" }}>
-                For each metric with data, we convert the target&apos;s rank vs peers into a
-                percentile, then average those percentiles. A score of 69 means the company
-                typically sits around the 69th percentile — higher is better.
-              </p>
+              <div style={{ margin: "0 0 8px" }}>
+                {pillarSummary.map((pillar) => (
+                  <div
+                    key={pillar.name}
+                    style={{ display: "flex", justifyContent: "space-between", gap: 8 }}
+                  >
+                    <span>
+                      <strong style={{ color: "var(--fg-1)" }}>{pillar.name}</strong>{" "}
+                      <span style={{ color: "var(--fg-3)" }}>({pillar.metrics})</span>
+                    </span>
+                    <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                      {pillar.weight}
+                    </span>
+                  </div>
+                ))}
+              </div>
               <p style={{ margin: 0, color: "var(--fg-3)", fontSize: 11.5 }}>
-                Example: 70th on revenue growth and 50th on EBITDA margin each count equally with
-                other ranked metrics. The Mean/Median toggle only changes peer aggregate columns,
-                not this score.
+                If a metric is missing, its weight is spread proportionally across the metrics
+                the company does have. A score is shown only when metrics worth at least{" "}
+                {Math.round(FI_COMPOSITE_WEIGHTS.minCoverage * 100)}% of the weight have data,
+                including Revenue Growth; otherwise it reads &quot;Insufficient data&quot;. Churn,
+                NRR components and Rule of 40 are shown as data but not scored, to avoid
+                counting overlaps twice.
               </p>
             </div>,
             document.body
@@ -542,7 +573,11 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {compositePercentile ?? "—"}
+            {compositePercentile ?? (
+              <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: 0 }}>
+                Insufficient data
+              </span>
+            )}
           </span>
           {compositePercentile != null && (
             <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
