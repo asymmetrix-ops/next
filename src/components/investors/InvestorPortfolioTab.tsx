@@ -438,7 +438,7 @@ export function InvestorPortfolioTab({
   );
 
   const columnsStorageKey = `investor-portfolio-column-keys-v2-${investorId}${
-    focusColumnKey ? `-focus-${focusColumnKey}` : ""
+    focusColumnKey ? `-focus2-${focusColumnKey}` : ""
   }`;
   const defaultColumnKeys = useMemo(() => {
     if (!focusColumnKey) return PORTFOLIO_DEFAULT_VISIBLE_COLUMN_KEYS;

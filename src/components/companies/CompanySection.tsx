@@ -1136,9 +1136,24 @@ export const CompanySection = ({
     [portfolioMode]
   );
   const validateColumnKeys = useCallback(
-    (keys: string[], filterPinnedKeys: string[] = []) =>
-      getValidColumnKeys(keys, filterPinnedKeys, allowedColumnKeys),
-    [allowedColumnKeys]
+    (keys: string[], filterPinnedKeys: string[] = []) => {
+      const valid = getValidColumnKeys(keys, filterPinnedKeys, allowedColumnKeys);
+      // Portfolio status/holding columns are forced right after Name; keep an
+      // explicitly requested lead column (keys[1]) ahead of them.
+      if (
+        portfolioMode &&
+        keys[0] === "name" &&
+        keys[1] &&
+        keys[1] !== INVESTMENT_STATUS_COLUMN_KEY &&
+        keys[1] !== HOLDING_PERIOD_COLUMN_KEY &&
+        valid.includes(keys[1])
+      ) {
+        const rest = valid.filter((k) => k !== "name" && k !== keys[1]);
+        return ["name", keys[1], ...rest];
+      }
+      return valid;
+    },
+    [allowedColumnKeys, portfolioMode]
   );
   const applyPortfolioDefaultColumnKeys = useCallback(
     (keys: string[]) => {
