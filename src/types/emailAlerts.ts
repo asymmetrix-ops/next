@@ -9,7 +9,27 @@ export interface EmailAlertFilters {
   deal_types?: string[];
   /** CE email alert: selected funding stages; absent or empty = no filter. */
   funding_stages?: string[];
+  /** Email preferences: display name of the email. */
+  name?: string;
+  /** Email preferences: content sections included (digest / multi-section emails). */
+  sections?: EmailSection[];
+  /** Email preferences: which companies the filters check. */
+  scope?: EmailScope;
+  /** Email preferences: saved list id when scope is "list". */
+  list_id?: number | null;
+  /** Email preferences: HQ country ISO2 codes; absent or empty = all. */
+  countries?: string[];
+  /** Email preferences: primary sector ids; absent or empty = all. */
+  primary_sectors?: number[];
 }
+
+export type EmailSection =
+  | "corporate_events"
+  | "insights_analysis"
+  | "deal_radar"
+  | "news";
+
+export type EmailScope = "all" | "follow" | "portfolio" | "list";
 
 /** Filters shape sent to / received from the Xano user_email_alerts API. */
 export interface EmailAlertFiltersWire {
@@ -22,6 +42,12 @@ export interface EmailAlertFiltersWire {
   deal_types: string[];
   /** Empty array = no filter (all included). */
   funding_stages: string[];
+  name?: string;
+  sections?: EmailSection[];
+  scope?: EmailScope;
+  list_id?: number | null;
+  countries?: string[];
+  primary_sectors?: number[];
 }
 
 export type EmailAlertContentType = "preview" | "full_body" | "digest";
