@@ -1,5 +1,6 @@
 import {
   alertsUpstream,
+  pickAlertWriteFields,
   proxyAlertsResponse,
   requireAuthUser,
 } from "@/lib/emailAlertsServer";
@@ -40,7 +41,7 @@ async function authorizeAlert(
   return { ok: true, alertId };
 }
 
-/** Toggle an alert's is_active flag on the Fly email service (Turso-backed). */
+/** Update an alert (toggle is_active, or edit schedule/filters) on the Fly email service. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -50,19 +51,24 @@ export async function PATCH(
     return authz.response;
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    is_active?: unknown;
-  } | null;
-  if (typeof body?.is_active !== "boolean") {
+  const body = (await request.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  const fields = pickAlertWriteFields(body);
+  if (Object.keys(fields).length === 0) {
+    return Response.json({ error: "Nothing to update." }, { status: 400 });
+  }
+  if ("is_active" in fields && typeof fields.is_active !== "boolean") {
     return Response.json(
-      { error: "is_active (boolean) is required." },
+      { error: "is_active must be a boolean." },
       { status: 400 }
     );
   }
 
   const upstreamResp = await alertsUpstream(`/${authz.alertId}`, {
     method: "PATCH",
-    body: JSON.stringify({ is_active: body.is_active }),
+    body: JSON.stringify(fields),
   });
   return proxyAlertsResponse(upstreamResp);
 }

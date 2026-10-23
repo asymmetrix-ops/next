@@ -1,5 +1,6 @@
 import {
   alertsUpstream,
+  pickAlertWriteFields,
   proxyAlertsResponse,
   requireAuthUser,
 } from "@/lib/emailAlertsServer";
@@ -45,5 +46,38 @@ export async function GET(request: Request) {
   }
 
   const upstreamResp = await alertsUpstream(`?${upstreamParams.toString()}`);
+  return proxyAlertsResponse(upstreamResp);
+}
+
+/** Create an alert for the signed-in user (user id and email come from their login). */
+export async function POST(request: Request) {
+  const auth = await requireAuthUser();
+  if (!auth.ok) {
+    return auth.response;
+  }
+  if (!auth.user.email) {
+    return Response.json(
+      { error: "Your account has no email address." },
+      { status: 400 }
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  const fields = pickAlertWriteFields(body);
+  if (typeof fields.item_type !== "string" || !fields.item_type) {
+    return Response.json({ error: "item_type is required." }, { status: 400 });
+  }
+
+  const upstreamResp = await alertsUpstream("", {
+    method: "POST",
+    body: JSON.stringify({
+      ...fields,
+      user_id: auth.user.id,
+      email: auth.user.email,
+    }),
+  });
   return proxyAlertsResponse(upstreamResp);
 }

@@ -194,3 +194,26 @@ export async function requireAuthUser(): Promise<
 
   return { ok: true, token, user: userResult.user };
 }
+
+/** Fields the email service accepts on create/update; everything else is dropped. */
+const ALERT_WRITE_FIELDS = [
+  "item_type",
+  "email_frequency",
+  "day_of_week",
+  "timezone",
+  "content_type",
+  "send_time_local",
+  "is_active",
+  "filters",
+] as const;
+
+export function pickAlertWriteFields(
+  body: Record<string, unknown> | null
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!body) return out;
+  for (const key of ALERT_WRITE_FIELDS) {
+    if (key in body) out[key] = body[key];
+  }
+  return out;
+}

@@ -6,7 +6,7 @@ import type { EmailAlert, EmailAlertsMeta } from "@/types/emailAlerts";
 import { fetchUserListsFromXano } from "@/lib/userLists";
 import { locationsService } from "@/lib/locationsService";
 import { fetchNewsFilterOptions, fetchNewsFollowing, setNewsFollowing } from "@/lib/news";
-import { getCountryFlagUrl } from "@/lib/dealRadar";
+import { buildCountryOptions } from "@/lib/countryOptions";
 import {
   alertToPref,
   describeSchedule,
@@ -248,18 +248,16 @@ export function EmailPreferencesSection({ userId }: { userId: number }) {
       .then((v) => !cancelled && setFollowing(v))
       .catch(() => !cancelled && setFollowing(null));
 
-    fetchNewsFilterOptions()
-      .then((o) => {
-        if (cancelled) return;
-        setCountries(
-          o.countries.map((c) => ({
-            value: c.iso2.toUpperCase(),
-            label: c.name,
-            flagUrl: getCountryFlagUrl(c.iso2),
-          }))
-        );
+    Promise.all([
+      fetchNewsFilterOptions().then((o) => o.countries).catch(() => []),
+      locationsService
+        .getCountries()
+        .then((rows) => rows.map((r) => r.locations_Country).filter(Boolean))
+        .catch(() => [] as string[]),
+    ])
+      .then(([news, hq]) => {
+        if (!cancelled) setCountries(buildCountryOptions(news, hq));
       })
-      .catch(() => !cancelled && setCountries([]))
       .finally(() => !cancelled && setCountriesLoading(false));
 
     locationsService
