@@ -44,6 +44,58 @@ export const WEEKDAY_OPTIONS = [
   "sunday",
 ] as const;
 
+// Common timezones with user-friendly labels, sorted by UTC offset (west to east)
+export const COMMON_TIMEZONES: ReadonlyArray<{ value: string; label: string }> = [
+  // UTC
+  { value: "UTC", label: "UTC" },
+  
+  // UTC-8 to UTC-5 (Americas - Pacific to Eastern)
+  { value: "America/Los_Angeles", label: "Los Angeles (PST/PDT)" },
+  { value: "America/Vancouver", label: "Vancouver (PST/PDT)" },
+  { value: "America/Denver", label: "Denver (MST/MDT)" },
+  { value: "America/Chicago", label: "Chicago (CST/CDT)" },
+  { value: "America/Mexico_City", label: "Mexico City (CST/CDT)" },
+  { value: "America/New_York", label: "New York (EST/EDT)" },
+  { value: "America/Toronto", label: "Toronto (EST/EDT)" },
+  
+  // UTC-3 (South America)
+  { value: "America/Sao_Paulo", label: "São Paulo (BRT/BRST)" },
+  
+  // UTC+0 (Europe/Africa)
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Dublin", label: "Dublin (GMT/IST)" },
+  
+  // UTC+1 (Europe)
+  { value: "Europe/Paris", label: "Paris (CET/CEST)" },
+  { value: "Europe/Berlin", label: "Berlin (CET/CEST)" },
+  { value: "Europe/Rome", label: "Rome (CET/CEST)" },
+  { value: "Europe/Madrid", label: "Madrid (CET/CEST)" },
+  { value: "Europe/Amsterdam", label: "Amsterdam (CET/CEST)" },
+  { value: "Europe/Zurich", label: "Zurich (CET/CEST)" },
+  { value: "Europe/Stockholm", label: "Stockholm (CET/CEST)" },
+  
+  // UTC+2 (Europe/Africa/Middle East)
+  { value: "Africa/Johannesburg", label: "Johannesburg (SAST)" },
+  { value: "Asia/Jerusalem", label: "Jerusalem (IST/IDT)" },
+  
+  // UTC+3 to UTC+5 (Asia)
+  { value: "Asia/Dubai", label: "Dubai (GST)" },
+  { value: "Asia/Mumbai", label: "Mumbai (IST)" },
+  
+  // UTC+6 to UTC+9 (Asia)
+  { value: "Asia/Bangkok", label: "Bangkok (ICT)" },
+  { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+  { value: "Asia/Singapore", label: "Singapore (SGT)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong (HKT)" },
+  { value: "Asia/Seoul", label: "Seoul (KST)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+  
+  // UTC+10 to UTC+13 (Australia/Pacific)
+  { value: "Australia/Sydney", label: "Sydney (AEDT/AEST)" },
+  { value: "Australia/Melbourne", label: "Melbourne (AEDT/AEST)" },
+  { value: "Pacific/Auckland", label: "Auckland (NZDT/NZST)" },
+];
+
 /** Sections a pre-existing combined "digest" alert covered (News came later). */
 const LEGACY_DIGEST_SECTIONS: EmailSection[] = [
   "corporate_events",

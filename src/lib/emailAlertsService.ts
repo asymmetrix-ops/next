@@ -14,7 +14,6 @@ import {
   isCorporateEventsEmailAlert,
   parseCeFilterValues,
 } from "@/lib/ceEmailAlertFilters";
-import { computeNextRunAtUtcIso } from "@/utils/emailAlertSchedule";
 
 function normalizeEntityFilters(
   raw: EmailAlertFilters | null | undefined
@@ -178,46 +177,22 @@ function resolveContentTypeForApi(
   return "digest";
 }
 
-function buildAlertRequestBody(
-  alert: EmailAlert,
-  options?: { includeId?: boolean }
-): Record<string, unknown> {
-  const timezone = alert.timezone || "Europe/London";
-  const nextRunAtUtcIso = computeNextRunAtUtcIso({
-    email_frequency: alert.email_frequency,
-    day_of_week: alert.day_of_week,
-    timezone,
-    send_time_local: alert.send_time_local,
-  });
-  const nextRunAtUtcMs =
-    nextRunAtUtcIso == null ? null : new Date(nextRunAtUtcIso).getTime();
-
-  const body: Record<string, unknown> = {
-    user_id: alert.user_id,
+/** Body for the email-alerts proxy; the email service computes next_run_at_utc itself. */
+function buildAlertRequestBody(alert: EmailAlert): Record<string, unknown> {
+  return {
     item_type: alert.item_type,
     email_frequency: alert.email_frequency,
     day_of_week: resolveDayOfWeekForApi(
       alert.email_frequency,
       alert.day_of_week
     ),
-    timezone,
+    timezone: alert.timezone || "Europe/London",
     content_type: resolveContentTypeForApi(alert),
     is_active: alert.is_active,
     send_time_local:
       alert.email_frequency === "as_added" ? null : alert.send_time_local ?? null,
-    next_run_at_utc:
-      alert.email_frequency === "as_added" ? null : nextRunAtUtcMs,
-    status: "scheduled",
     filters: buildFiltersWirePayload(alert.filters, alert.item_type),
   };
-
-  if (options?.includeId) {
-    body.user_email_alerts_id = alert.id;
-  } else {
-    body.last_sent_at_utc = null;
-  }
-
-  return body;
 }
 
 interface EmailAlertsResponse {
@@ -283,12 +258,6 @@ export interface EmailAlertsListQuery {
 }
 
 class EmailAlertsService {
-  private baseUrl: string;
-
-  constructor() {
-    this.baseUrl = "https://xdil-abvj-o7rq.e2.xano.io/api:1-YVocmu";
-  }
-
   private async requestAppRoute<T>(
     path: string,
     options: RequestInit = {}
@@ -324,42 +293,6 @@ class EmailAlertsService {
     }
 
     return response.json() as Promise<T>;
-  }
-
-  // Make authenticated API request
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const headers = {
-      "Content-Type": "application/json",
-      ...authService.getAuthHeaders(),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        const token = authService.getToken();
-        const user = authService.getUser();
-        const redirectTo = isMcpGuestSession(token, user)
-          ? MCP_GUEST_OTP_LOGIN_PATH
-          : "/login";
-        authService.logout();
-        window.location.href = redirectTo;
-        throw new Error("Authentication required");
-      }
-      const errorText = await response.text().catch(() => "");
-      throw new Error(
-        `API request failed: ${response.statusText}${errorText ? ` - ${errorText}` : ""}`
-      );
-    }
-
-    return response.json();
   }
 
   // Get user's email alerts (Fly email service via Next.js proxy)
@@ -431,19 +364,23 @@ class EmailAlertsService {
   }
 
   async createEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
-    const body = buildAlertRequestBody(alert);
-    return this.request<EmailAlert>("/user_email_alerts", {
+    const row = await this.requestAppRoute<
+      EmailAlert & { user_email_alerts_id?: number }
+    >("/api/email-alerts", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildAlertRequestBody(alert)),
     });
+    return normalizeAlertRow(row);
   }
 
   async updateEmailAlert(alert: EmailAlert): Promise<EmailAlert> {
-    const body = buildAlertRequestBody(alert, { includeId: true });
-    return this.request<EmailAlert>(`/user_email_alerts/${alert.id}`, {
+    const row = await this.requestAppRoute<
+      EmailAlert & { user_email_alerts_id?: number }
+    >(`/api/email-alerts/${alert.id}`, {
       method: "PATCH",
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildAlertRequestBody(alert)),
     });
+    return normalizeAlertRow(row);
   }
 
   async setEmailAlertActive(

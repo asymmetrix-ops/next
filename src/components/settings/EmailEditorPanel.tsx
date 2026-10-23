@@ -8,6 +8,7 @@ import {
 } from "@/lib/ceEmailAlertFilters";
 import {
   autoEmailName,
+  COMMON_TIMEZONES,
   EMAIL_FREQUENCY_OPTIONS,
   EMAIL_SCOPE_OPTIONS,
   EMAIL_SECTION_OPTIONS,
@@ -15,7 +16,6 @@ import {
   WEEKDAY_OPTIONS,
   type EmailPref,
 } from "@/lib/emailPreferences";
-import { COMMON_TIMEZONES } from "@/components/settings/EditAlertModal";
 import {
   EmailPrefsMultiSelect,
   type MultiSelectOption,
