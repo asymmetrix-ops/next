@@ -12,6 +12,7 @@ import "@/components/news/news.css";
 import { formatTransactionStatusLabel } from "@/lib/tagColors";
 import Link from "next/link";
 import { usePortfolioStore } from "@/store/portfolioStore";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   addNewsFilter,
   fetchNewsFeed,
@@ -95,6 +96,25 @@ function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
 
 export default function NewsPage() {
   const [filters, setFilters] = useState<NewsFilters>({});
+
+  // Section Insights: one event each time a filter (or a search text) newly appears on the page.
+  const trackedFiltersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const current = new Set<string>();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value == null || value === "" || (Array.isArray(value) && !value.length)) continue;
+      const id = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const tag = `${key}:${id}`;
+      current.add(tag);
+      if (trackedFiltersRef.current.has(tag)) continue;
+      if (key === "text") {
+        trackKeyAction({ section: "news", action: "search", actionDetail: "news_page", query: String(value) });
+      } else {
+        trackKeyAction({ section: "news", action: "filter_applied", actionDetail: key });
+      }
+    }
+    trackedFiltersRef.current = current;
+  }, [filters]);
   const [topStories, setTopStories] = useState<NewsArticle[]>([]);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [page, setPage] = useState(1);

@@ -126,6 +126,18 @@ export function setEntrySource(source: EntrySource): void {
   }
 }
 
+let currentPagePath = "";
+let previousPagePath = "";
+/** Record the route of a page view; the previous route is what the next page was reached from. */
+export function notePagePath(path: string): void {
+  if (path === currentPagePath) return;
+  previousPagePath = currentPagePath;
+  currentPagePath = path;
+}
+export function getPreviousPagePath(): string {
+  return previousPagePath;
+}
+
 let lastPageEntrySource: EntrySource = "direct_url";
 /** Entry source of the most recent page view, for key actions that report where the user came from. */
 export function setLastPageEntrySource(source: EntrySource): void {

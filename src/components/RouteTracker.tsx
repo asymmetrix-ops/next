@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
   consumeEntrySource,
+  notePagePath,
   setEntrySource,
   setLastPageEntrySource,
   trackPageView,
@@ -71,6 +72,7 @@ export default function RouteTracker() {
     const entrySource: EntrySource =
       searchParams?.get("src") === "daily_email" ? "daily_email" : stored;
     setLastPageEntrySource(entrySource);
+    notePagePath(pathname);
     trackPageView(safeUserId, entrySource);
   }, [pathname, searchParams, user]);
 

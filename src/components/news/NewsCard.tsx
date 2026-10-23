@@ -8,6 +8,7 @@ import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import { decodeHtmlEntities, formatArticleDate } from "@/lib/contentArticleDisplay";
 import { fetchIaContentType, type NewsArticle, type NewsRef } from "@/lib/news";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   dotPillStyleFromTone,
   formatTransactionStatusLabel,
@@ -209,7 +210,21 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {focus ? (
           <span className="nw-company">
-            <Link href={`/company/${focus.id}`} className="nw-company-link">
+            <Link
+              href={`/company/${focus.id}`}
+              className="nw-company-link"
+              onClick={() => {
+                if (window.location.pathname.startsWith("/news")) {
+                  trackKeyAction({
+                    section: "news",
+                    action: "company_of_focus_clicked",
+                    actionDetail: "news_page",
+                    targetType: "company",
+                    targetId: focus.id,
+                  });
+                }
+              }}
+            >
               {focus.name}
             </Link>
             {iso2 && <CountryFlagImg iso2={iso2} size={COUNTRY_FLAG_INLINE_SIZE_PX * 1.25} />}

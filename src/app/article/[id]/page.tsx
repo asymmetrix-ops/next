@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
-import { getLastPageEntrySource, trackKeyAction } from "@/lib/tracking";
+import { getLastPageEntrySource, getPreviousPagePath, trackKeyAction } from "@/lib/tracking";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import type { ArticleSeries, ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
@@ -590,7 +590,9 @@ const ArticleDetailPage = () => {
     openedTrackedRef.current = articleId;
     const entry = getLastPageEntrySource();
     const source =
-      fromHome || entry === "dashboard"
+      getPreviousPagePath().startsWith("/news")
+        ? "news_page"
+        : fromHome || entry === "dashboard"
         ? "dashboard"
         : entry === "daily_email"
           ? "email"
