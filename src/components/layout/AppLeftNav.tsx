@@ -59,20 +59,20 @@ type NavSection = {
 
 const SECTIONS: NavSection[] = [
   {
-    key: "dealRadar",
-    label: "Deal Radar",
-    href: "/deal-radar",
-    icon: SignalIcon,
-    badge: "New",
-    isActive: (p) => p.startsWith("/deal-radar"),
-  },
-  {
     key: "news",
     label: "News",
     href: "/news",
     icon: NewspaperIcon,
     isActive: (p) => p.startsWith("/news"),
     badge: "New",
+  },
+  {
+    key: "dealRadar",
+    label: "Deal Radar",
+    href: "/deal-radar",
+    icon: SignalIcon,
+    badge: "New",
+    isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
     key: "insightsAnalysis",
