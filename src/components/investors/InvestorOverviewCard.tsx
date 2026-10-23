@@ -91,7 +91,7 @@ export function InvestorOverviewCard({
   const hasEmployees = employees != null && employees > 0;
 
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
-    { k: "Sectors", show: focusSectors.length > 0, v: <FocusTags sectors={focusSectors} /> },
+    { k: "Type", show: focusSectors.length > 0, v: <FocusTags sectors={focusSectors} /> },
     { k: "Year Founded", show: !isEmptyDisplayValue(yearFounded ?? null), v: displayText(yearFounded) },
     { k: "HQ", show: !isEmptyDisplayValue(hq ?? null), v: displayText(hq) },
     {
