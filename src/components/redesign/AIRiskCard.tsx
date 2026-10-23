@@ -398,6 +398,20 @@ function RadarChart({
     );
   });
 
+  // Grow horizontal padding if a measured label + icon would overhang the viewBox.
+  let padH = RADAR_PAD_H;
+  axes.forEach((ax, i) => {
+    const ws = lineW[ax.key];
+    if (!ws?.length) return;
+    const cos = Math.cos(angleFor(i));
+    const lx = cx + cos * (R + 38);
+    const w = Math.max(...ws);
+    const reach = 11 + 7 + 6; // icon gap + icon radius + margin
+    const left = Math.abs(cos) < 0.2 ? lx - w / 2 : cos > 0 ? lx : lx - w;
+    const right = left + w;
+    padH = Math.max(padH, reach - left, right + reach - size);
+  });
+
   const icons = axes.map((ax, i) => {
     if (!resolveFactorDescription(ax)) return null;
     const a = angleFor(i);
@@ -466,7 +480,7 @@ function RadarChart({
 
   return (
     <svg
-      viewBox={`${-RADAR_PAD_H} ${-RADAR_PAD_V} ${size + 2 * RADAR_PAD_H} ${size + 2 * RADAR_PAD_V}`}
+      viewBox={`${-padH} ${-RADAR_PAD_V} ${size + 2 * padH} ${size + 2 * RADAR_PAD_V}`}
       width="100%"
       height={size}
       preserveAspectRatio="xMidYMid meet"
