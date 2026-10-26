@@ -33,7 +33,8 @@ const ALLOWED_ANALYTICS_EMAILS = new Set<string>([
   "a.boden@gmail.com",
   "h.crean@asymmetrixintelligence.com",
   "tucha.dev@gmail.com",
-  "p.azzano@asymmetrixintelligence.com"
+  "p.azzano@asymmetrixintelligence.com",
+  "analyst@asymmetrixintelligence.com"
 ]);
 
 export default function AdminAnalyticsPage() {
