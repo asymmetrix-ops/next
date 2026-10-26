@@ -493,7 +493,6 @@ export function mapCompanyAiRisksToAxes(
     const raw = meta.scoreKey
       ? record.defense?.[meta.scoreKey] ?? record.risk?.[meta.scoreKey]
       : undefined;
-    const rationaleText = record.rationale?.[meta.rationaleKey];
     const hasScore = typeof raw === "number" && Number.isFinite(raw);
     // No stored score → leave the factor out (don't invent a default), so the
     // radar and the average only use factors that were actually rated.
