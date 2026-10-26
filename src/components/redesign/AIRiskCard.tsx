@@ -503,6 +503,8 @@ type AIRiskCardProps = {
   defaultActiveKey?: string;
   /** Stretch to fill a tall grid cell (product row, col 3). */
   fillGridCell?: boolean;
+  /** Hide the green detail box under the radar (text is shown in the tooltip). */
+  hideDetail?: boolean;
 };
 
 export function AIRiskCard({
@@ -511,6 +513,7 @@ export function AIRiskCard({
   tier: tierProp,
   defaultActiveKey = "data_moat",
   fillGridCell = false,
+  hideDetail = false,
 }: AIRiskCardProps) {
   const axes = React.useMemo(
     () =>
@@ -673,7 +676,7 @@ export function AIRiskCard({
         </div>
       </div>
 
-      {activeAxis?.blurb ? (
+      {!hideDetail && activeAxis?.blurb ? (
         <div
           style={{
             margin: "0 14px 14px",
