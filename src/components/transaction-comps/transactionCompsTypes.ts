@@ -117,3 +117,12 @@ export interface CorporateEventTransactionComp {
   rule_of_40?: number | null;
   acquirers?: { id: number; name: string; logo?: string | null }[] | null;
 }
+
+// Display-only: the stored acquirer type "Acquired" reads as "Trade" in Transaction Comps.
+export function acquirerTypeLabel(v: string | null | undefined): string | null | undefined {
+  return v === "Acquired" ? "Trade" : v;
+}
+
+export function acquirerTypeStoredValue(label: string): string {
+  return label === "Trade" ? "Acquired" : label;
+}

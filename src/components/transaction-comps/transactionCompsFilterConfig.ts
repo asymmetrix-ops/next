@@ -4,6 +4,8 @@ import type {
   FilterDef,
 } from "@/components/companies/CompaniesFilterBar";
 import {
+  acquirerTypeLabel,
+  acquirerTypeStoredValue,
   DEFAULT_TRANSACTION_COMPS_QUERY,
   type RangeValue,
   type TransactionCompsOption,
@@ -97,7 +99,7 @@ export function buildTransactionCompsFilterDefs(
     idList("corporate_events", "Related Corporate Event", "default", opts.corporateEvents),
     list("sector", "Primary sector", "overview", opts.sectors.map((s) => s.sector_name)),
     list("secondary_sector", "Secondary sector", "overview", opts.secondarySectors.map((s) => s.sector_name)),
-    list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => o.ownership)),
+    list("ownership", "Acquirer type", "overview", opts.ownershipTypes.map((o) => acquirerTypeLabel(o.ownership) ?? o.ownership)),
     list("hq_country", "HQ country", "overview", opts.countries),
     list("ev_source", "EV source", "deal_details", TRANSACTION_COMPS_EV_SOURCES),
     range("revenue", "Revenue ($m)", "financial_metrics", "$", "$m", 10000),
@@ -161,7 +163,7 @@ export function filterStateToQuery(
         break;
       case "ownership":
         for (const name of asStrings(f.value)) {
-          const id = opts.ownershipTypes.find((o) => o.ownership === name)?.id;
+          const id = opts.ownershipTypes.find((o) => o.ownership === acquirerTypeStoredValue(name))?.id;
           if (id != null) q.ownershipIds.push(id);
         }
         break;

@@ -5,6 +5,7 @@ import { SearchEntityMultiValueCell } from "@/components/search/SearchEntityMult
 import { SEARCH_TABLE_ENTITY_LOGO_SIZE_PX } from "@/components/search/searchTableStyles";
 import { trackKeyAction } from "@/lib/tracking";
 import { MultipleBasisTag } from "./MultipleBasisTag";
+import { acquirerTypeLabel } from "./transactionCompsTypes";
 import type { MultipleBasis, TransactionCompRow } from "./transactionCompsTypes";
 
 export const NUMERIC_COLUMNS = new Set([
@@ -123,7 +124,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
           }))}
         />
       ) : dash;
-    case "ownership": return text(row.ownership);
+    case "ownership": return text(acquirerTypeLabel(row.ownership));
     case "hq_city": return text(row.hq_city);
     case "hq_country": return text(row.hq_country);
     case "deal_type": return text(row.deal_type);
@@ -147,7 +148,7 @@ export function transactionCompCsvValue(row: TransactionCompRow, key: string): s
       case "acquirer_investor": return row.acquirers?.map((a) => a.name).join("; ");
       case "corporate_events": return row.corporate_event?.name;
       case "sector": return row.primary_sectors?.map((s) => s.name).join("; ");
-      case "ownership": return row.ownership;
+      case "ownership": return acquirerTypeLabel(row.ownership);
       case "hq_city": return row.hq_city;
       case "hq_country": return row.hq_country;
       case "deal_type": return row.deal_type;
