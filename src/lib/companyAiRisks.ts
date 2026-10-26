@@ -219,6 +219,7 @@ function mapFactorToAxis(item: CompanyAiRiskV2Factor): AIRiskAxis {
     score,
     tier: scoreToTierName(score),
     blurb: decodeHtmlEntities(item.body ?? ""),
+    rationale: decodeHtmlEntities(item.body ?? "").trim() || undefined,
   };
 }
 
@@ -493,18 +494,23 @@ export function mapCompanyAiRisksToAxes(
     const raw = meta.scoreKey
       ? record.defense?.[meta.scoreKey] ?? record.risk?.[meta.scoreKey]
       : undefined;
+    const rationaleText = record.rationale?.[meta.rationaleKey];
     const hasScore = typeof raw === "number" && Number.isFinite(raw);
-    // No stored score → leave the factor out (don't invent a default), so the
-    // radar and the average only use factors that were actually rated.
-    if (!hasScore) continue;
+    const hasRationale =
+      typeof rationaleText === "string" && rationaleText.trim().length > 0;
+    const includeRationaleOnly = meta.key === "human" && hasRationale;
+    if (!hasScore && !includeRationaleOnly) continue;
 
-    const score = normalizeToThreeScore(raw);
+    const score = hasScore ? normalizeToThreeScore(raw) : normalizeToThreeScore(undefined);
     axes.push({
       key: meta.key,
       label: meta.label,
       score,
       tier: scoreTierLabel(score),
       blurb: resolveAxisBlurb(record, meta),
+      rationale: hasRationale
+        ? decodeHtmlEntities(rationaleText.trim())
+        : undefined,
     });
   }
 
