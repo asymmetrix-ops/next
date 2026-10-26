@@ -1197,7 +1197,7 @@ function HomeUserPageContent() {
                 </span>
                 <span className="dash-card-title">News</span>
               </div>
-              <a href="/insights-analysis?content_type=News" className="dash-view-all ml-auto px-3 py-1.5 text-xs whitespace-nowrap">
+              <a href="/news" className="dash-view-all ml-auto px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
               </a>
             </div>
