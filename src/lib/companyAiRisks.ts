@@ -495,12 +495,11 @@ export function mapCompanyAiRisksToAxes(
       : undefined;
     const rationaleText = record.rationale?.[meta.rationaleKey];
     const hasScore = typeof raw === "number" && Number.isFinite(raw);
-    const hasRationale =
-      typeof rationaleText === "string" && rationaleText.trim().length > 0;
-    const includeRationaleOnly = meta.key === "human" && hasRationale;
-    if (!hasScore && !includeRationaleOnly) continue;
+    // No stored score → leave the factor out (don't invent a default), so the
+    // radar and the average only use factors that were actually rated.
+    if (!hasScore) continue;
 
-    const score = hasScore ? normalizeToThreeScore(raw) : normalizeToThreeScore(undefined);
+    const score = normalizeToThreeScore(raw);
     axes.push({
       key: meta.key,
       label: meta.label,
