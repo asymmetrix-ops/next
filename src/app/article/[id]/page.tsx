@@ -10,7 +10,7 @@ import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import {
   ArticleThreadLinks,
-  buildArticleThreadLinks,
+  type ArticleThreadLink,
 } from "@/components/ArticleThreadLinks";
 import {
   ArticleFollowOnLine,
@@ -161,6 +161,8 @@ interface ArticleDetail {
   series?: ArticleSeries;
   follow_on?: ArticleFollowOn | null;
   story?: ArticleStory | null;
+  /** Tags that open the matching News thread (company, sector, geography, investor). */
+  thread_links?: ArticleThreadLink[] | null;
   /** Registry id (key of the investor thread), name and the company id of the profile. */
   investors_of_focus?: Array<{ id: number; name: string; profile_id?: number | null }> | null;
   byline?: string | string[] | null;
@@ -2505,16 +2507,7 @@ const ArticleDetailPage = () => {
               </div>
             )}
 
-            <ArticleThreadLinks
-              links={buildArticleThreadLinks({
-                company: companyOfFocus,
-                sectors: (article.sectors || [])
-                  .filter((sector) => sector.Sector_importance === "Primary")
-                  .map((sector) => ({ id: getSectorId(sector) ?? 0, name: sector.sector_name })),
-                countryIso2: hqCountryIso2,
-                investors: article.investors_of_focus,
-              })}
-            />
+            <ArticleThreadLinks links={article.thread_links ?? []} />
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (
