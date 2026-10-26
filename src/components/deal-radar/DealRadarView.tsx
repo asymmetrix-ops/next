@@ -80,6 +80,7 @@ interface ValSource {
   value: string | null;
   source: string | null;
   source_id?: number | null;
+  source_type?: RevenueSourceType;
   currency?: string | null;
 }
 
@@ -413,8 +414,8 @@ function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
 function formatValWithSourceTag(val: ValSource): React.ReactNode {
   const formatted = formatVal(val);
   if (formatted === EMPTY_DISPLAY) return formatted;
-  const sourceType = val.source;
-  if (sourceType !== "Proprietary" && sourceType !== "Public") {
+  const sourceType = (val.source_type ?? val.source) as RevenueSourceType;
+  if (sourceType !== "Proprietary" && sourceType !== "Public" && sourceType !== "Estimate") {
     return formatted;
   }
   return (
