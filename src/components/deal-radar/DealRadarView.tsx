@@ -74,7 +74,7 @@ interface AdvisorRef {
 }
 
 /** Source label from the API (x2_117): "Public" | "Proprietary" | "Estimate"; null for legacy/empty. */
-type RevenueSourceType = "Proprietary" | "Public" | null;
+type RevenueSourceType = "Proprietary" | "Public" | "Estimate" | null;
 
 interface ValSource {
   value: string | null;
@@ -389,14 +389,15 @@ function formatVal(val: ValSource): React.ReactNode {
 }
 
 /** Same tones already used for "Proprietary Intel" (transaction signal) and "Trade" (buyer type). */
-const REVENUE_SOURCE_TONES: Record<"Proprietary" | "Public", TagTone> = {
+const REVENUE_SOURCE_TONES: Record<"Proprietary" | "Public" | "Estimate", TagTone> = {
+  Estimate: { text: "#8A5A00", fill: "#FFF4DC", border: "#F3E0B0" },
   Proprietary: TRANSACTION_SIGNAL_TONES["proprietary intel"],
   Public: DEAL_TYPE_TONE,
 };
 
 /** Colored pill ("Proprietary" / "Public") marking where a Revenue/EV figure came from — identical markup/sizing to BuyerTypeCell's pills (e.g. "Trade"). */
 function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
-  if (type !== "Proprietary" && type !== "Public") return null;
+  if (type !== "Proprietary" && type !== "Public" && type !== "Estimate") return null;
   const tone = REVENUE_SOURCE_TONES[type];
   return (
     <span
