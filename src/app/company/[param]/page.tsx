@@ -4437,6 +4437,7 @@ const CompanyDetail = () => {
                 <div className="company-grid-ai-risk">
                   <AIRiskCard
                     fillGridCell
+                    hideDetail
                     axes={aiRiskData!.axes}
                     avgDefensibility={aiRiskData!.avgDefensibility}
                     tier={aiRiskData!.tier}
