@@ -22,7 +22,7 @@ type Props = {
   article: NewsArticle;
   variant?: "top" | "feed";
   /** Label linking the two Top Stories under Rule A. */
-  relation?: "follow-up" | "previously";
+  relation?: "follow-up" | "previously" | "latest" | "original";
   /** Other articles in this article's series. */
   seriesLinks?: NewsRef[];
 };
@@ -185,6 +185,8 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
         <div className="nw-card-meta">
           {relation === "follow-up" && <span className="nw-badge nw-badge-link">Follow-up</span>}
           {relation === "previously" && <span className="nw-badge nw-badge-prev">Previously</span>}
+          {relation === "latest" && <span className="nw-badge nw-badge-link">Latest</span>}
+          {relation === "original" && <span className="nw-badge nw-badge-prev">Original story</span>}
           {subTone ? (
             <span style={dotPillStyleFromTone(subTone)}>{subType}</span>
           ) : (

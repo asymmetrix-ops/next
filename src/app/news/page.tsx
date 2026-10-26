@@ -306,7 +306,17 @@ export default function NewsPage() {
                         key={a.id}
                         article={a}
                         variant="top"
-                        relation={a.label === "Follow-up" ? "follow-up" : a.label === "Previously" ? "previously" : undefined}
+                        relation={
+                          a.card_role === "latest"
+                            ? "latest"
+                            : a.card_role === "original"
+                              ? "original"
+                              : a.label === "Follow-up"
+                                ? "follow-up"
+                                : a.label === "Previously"
+                                  ? "previously"
+                                  : undefined
+                        }
                         seriesLinks={seriesFor(a)}
                       />
                     ))}
