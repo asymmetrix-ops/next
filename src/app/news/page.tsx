@@ -256,6 +256,9 @@ export default function NewsPage() {
               <button type="button" className="nw-btn nw-btn-outline" onClick={() => setFilters({})}>
                 Reset filters
               </button>
+              <Link href="/news/threads" className="nw-btn nw-btn-outline">
+                Threads
+              </Link>
               <FollowNewsButton />
               <DealTipButton />
             </div>
