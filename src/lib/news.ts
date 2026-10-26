@@ -22,6 +22,8 @@ export type NewsArticle = ContentArticle & {
   related_ia?: { id: number; headline?: string; contentType?: string } | null;
   /** From /news/top_stories: "Follow-up" | "Previously" | null. */
   label?: "Follow-up" | "Previously" | null;
+  /** From /news/top_stories: "latest" (follow-on) | "original" (its original story) | null. */
+  card_role?: "latest" | "original" | null;
   /** From /news/feed: other published articles in this article's series. */
   series_others?: NewsRef[];
   /** From /news/feed: Content Series (parts in series.parts). */
@@ -105,6 +107,7 @@ type ApiNewsItem = {
   Company_of_Focus?: unknown;
   follow_up_to?: number | null;
   label?: "Follow-up" | "Previously" | null;
+  card_role?: "latest" | "original" | null;
   in_series?: boolean;
   is_content_series?: boolean;
   series?: ArticleSeries | null;
@@ -165,6 +168,7 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
       : undefined,
     follow_up_to: item.follow_up_to ?? null,
     label: item.label ?? null,
+    card_role: item.card_role ?? null,
     related_ia: item.ia_id
       ? {
           id: item.ia_id,
@@ -190,12 +194,14 @@ async function getJson<T>(path: string, params?: URLSearchParams, signal?: Abort
   return (await res.json()) as T;
 }
 
-/** Top Stories (the backend applies Rule A / Rule B to pick them); shown newest first. */
+/**
+ * Top Stories in display order (slots 1, 2, 3), already arranged by the backend:
+ * a follow-on pair (`card_role` "latest" + "original") comes first, with no
+ * duplicates. `rn`, `grp` and `root_id` in the response are internal.
+ */
 export async function fetchTopStories(signal?: AbortSignal): Promise<NewsArticle[]> {
   const rows = await getJson<Array<ApiNewsItem & { slot: number }>>("top_stories", undefined, signal);
-  return [...rows]
-    .sort((a, b) => new Date(b.Publication_Date).getTime() - new Date(a.Publication_Date).getTime())
-    .map(fromApiItem);
+  return rows.map(fromApiItem);
 }
 
 export type NewsFeedPage = { items: NewsArticle[]; total: number | null };

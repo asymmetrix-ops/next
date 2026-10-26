@@ -8,6 +8,12 @@ import Footer from "@/components/Footer";
 import { getLastPageEntrySource, getPreviousPagePath, trackKeyAction } from "@/lib/tracking";
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
+import {
+  ArticleFollowOnLine,
+  ArticleStoryBox,
+  type ArticleFollowOn,
+  type ArticleStory,
+} from "@/components/ArticleStory";
 import type { ArticleSeries, ContentArticle, ContentCorrection } from "@/types/insightsAnalysis";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
@@ -150,6 +156,8 @@ interface ArticleDetail {
   }>;
   is_series?: boolean;
   series?: ArticleSeries;
+  follow_on?: ArticleFollowOn | null;
+  story?: ArticleStory | null;
   byline?: string | string[] | null;
   right_to_reply?: boolean;
   corrections?: ContentCorrection[] | null;
@@ -1625,6 +1633,9 @@ const ArticleDetailPage = () => {
                 placement="top"
               />
             )}
+
+            <ArticleFollowOnLine followOn={article.follow_on} />
+            <ArticleStoryBox story={article.story} />
 
             {/* Article Header */}
             <h1
