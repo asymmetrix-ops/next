@@ -23,6 +23,7 @@ import {
   isNewsArticle,
   isPdfRelatedDocument,
 } from "@/lib/contentArticleDisplay";
+import { getNewsSubtypeTone } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
 import { EntityChip } from "@/components/ui/EntityChip";
@@ -1662,7 +1663,16 @@ const ArticleDetailPage = () => {
                     <span style={styles.contentTypeBadge}>{ct}</span>
                   ) : null}
                   {newsSubType ? (
-                    <span style={styles.newsSubTypeBadge}>{newsSubType}</span>
+                    <span
+                      style={{
+                        ...styles.newsSubTypeBadge,
+                        color: getNewsSubtypeTone(newsSubType).text,
+                        backgroundColor: getNewsSubtypeTone(newsSubType).fill,
+                        border: `1px solid ${getNewsSubtypeTone(newsSubType).border}`,
+                      }}
+                    >
+                      {newsSubType}
+                    </span>
                   ) : null}
                 </div>
               );

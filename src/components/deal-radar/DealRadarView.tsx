@@ -9,6 +9,7 @@ import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProv
 import Footer from "@/components/Footer";
 import {
   CompaniesFilterBar,
+  createFilterInstanceKey,
   type FilterBarState,
   type FilterCategory,
   type FilterDef,
@@ -734,6 +735,27 @@ export default function DealRadarView({
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
   const [advisorOptions, setAdvisorOptions] = useState<AdvisorOption[]>([]);
   const [bankerOptions, setBankerOptions] = useState<AdvisorOption[]>([]);
+
+  // Opened from an advisor profile (?advisor_id=...): pre-apply the Advisor filter once options load.
+  const pendingAdvisorIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("advisor_id"));
+    if (Number.isFinite(id) && id > 0) pendingAdvisorIdRef.current = id;
+  }, []);
+  useEffect(() => {
+    const id = pendingAdvisorIdRef.current;
+    if (id == null || advisorOptions.length === 0) return;
+    pendingAdvisorIdRef.current = null;
+    const match = advisorOptions.find((a) => a.id === id);
+    if (!match) return;
+    setFilterBarState((prev) => ({
+      ...prev,
+      filters: [
+        ...prev.filters.filter((f) => f.id !== "advisor"),
+        { id: "advisor", key: createFilterInstanceKey(), value: [match.name] },
+      ],
+    }));
+  }, [advisorOptions]);
 
   // Debounce search input
   useEffect(() => {

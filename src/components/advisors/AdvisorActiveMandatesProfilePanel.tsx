@@ -18,6 +18,8 @@ import type { AdvisorActiveMandate } from "@/types/advisor";
 type Props = {
   mandates: AdvisorActiveMandate[];
   fillGridCell?: boolean;
+  /** Advisor whose mandates these are; enables the "View all" link to Deal Radar. */
+  advisorId?: number;
 };
 
 const ROW_GRID =
@@ -93,6 +95,7 @@ const STATUS_TONE: Record<number, "neutral" | "warn" | "azure" | "coral"> = {
 export function AdvisorActiveMandatesProfilePanel({
   mandates,
   fillGridCell,
+  advisorId,
 }: Props) {
   const count = mandates.length;
 
@@ -109,9 +112,27 @@ export function AdvisorActiveMandatesProfilePanel({
     >
       <LinkedH
         right={
-          count > 0 ? (
-            <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>
-              {count} active
+          count > 0 || advisorId != null ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+              {count > 0 && (
+                <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>
+                  {count} active
+                </span>
+              )}
+              {advisorId != null && (
+                <Link
+                  href={`/deal-radar?advisor_id=${advisorId}`}
+                  prefetch={false}
+                  style={{
+                    color: T.azure,
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    fontFamily: T.sans,
+                  }}
+                >
+                  View all
+                </Link>
+              )}
             </span>
           ) : undefined
         }

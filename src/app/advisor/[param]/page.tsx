@@ -803,6 +803,7 @@ export default function AdvisorProfilePage() {
                 <AdvisorActiveMandatesProfilePanel
                   fillGridCell
                   mandates={activeMandates}
+                  advisorId={advisorId}
                 />
               </LinkPanel>
             </div>
