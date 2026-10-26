@@ -72,13 +72,13 @@ interface AdvisorRef {
   bankers: NamedRef[];
 }
 
-/** "Proprietary" | "Public" from Financial Metrics (x2_116.proprietary); null for legacy/empty. */
+/** Source label from the API (x2_117): "Public" | "Proprietary" | "Estimate"; null for legacy/empty. */
 type RevenueSourceType = "Proprietary" | "Public" | null;
 
 interface ValSource {
   value: string | null;
   source: string | null;
-  source_type?: RevenueSourceType;
+  source_id?: number | null;
   currency?: string | null;
 }
 
@@ -411,13 +411,14 @@ function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
 function formatValWithSourceTag(val: ValSource): React.ReactNode {
   const formatted = formatVal(val);
   if (formatted === EMPTY_DISPLAY) return formatted;
-  if (val.source_type !== "Proprietary" && val.source_type !== "Public") {
+  const sourceType = val.source;
+  if (sourceType !== "Proprietary" && sourceType !== "Public") {
     return formatted;
   }
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span>{formatted}</span>
-      <SourceTypeTag type={val.source_type} />
+      <SourceTypeTag type={sourceType} />
     </div>
   );
 }
