@@ -9,7 +9,7 @@ import NewsCard from "@/components/news/NewsCard";
 import "@/components/news/news.css";
 import type { NewsArticle } from "@/lib/news";
 import {
-  THREAD_TYPE_LABEL,
+  THREAD_TYPE_SINGULAR,
   fetchThread,
   isThreadType,
   threadProfileHref,
@@ -48,7 +48,7 @@ export default function NewsThreadPage() {
     return () => controller.abort();
   }, [type, key]);
 
-  const profileHref = thread ? threadProfileHref(thread.type, thread.key) : null;
+  const profileHref = thread ? threadProfileHref(thread.type, thread.key, thread.profile_id) : null;
 
   return (
     <AppShell>
@@ -57,7 +57,7 @@ export default function NewsThreadPage() {
           <div className="nw-head">
             <div>
               <p className="nw-eyebrow">
-                Thread{thread ? ` · ${THREAD_TYPE_LABEL[thread.type]}` : ""}
+                Thread{thread ? ` · ${THREAD_TYPE_SINGULAR[thread.type]}` : ""}
               </p>
               <h1 className="nw-title">
                 {thread?.name ?? "Thread"}

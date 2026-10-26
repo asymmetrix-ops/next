@@ -6,6 +6,14 @@ export const THREAD_TYPES = ["company", "sector", "geography", "investor"] as co
 export type ThreadType = (typeof THREAD_TYPES)[number];
 
 export const THREAD_TYPE_LABEL: Record<ThreadType, string> = {
+  company: "Companies",
+  sector: "Sectors",
+  geography: "Geographies",
+  investor: "Investors",
+};
+
+/** Singular, for a single thread ("Thread · Company"). */
+export const THREAD_TYPE_SINGULAR: Record<ThreadType, string> = {
   company: "Company",
   sector: "Sector",
   geography: "Geography",
@@ -28,7 +36,11 @@ export type ThreadSummary = {
   latest_date: string;
 };
 
-export type ThreadInfo = { type: ThreadType; key: string; name: string };
+/**
+ * `profile_id`: id the profile page opens by. Only differs from `key` for investors
+ * (key is the Investors_with_D&A id, the profile page takes the company id).
+ */
+export type ThreadInfo = { type: ThreadType; key: string; name: string; profile_id?: number | string | null };
 
 function authHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem("asymmetrix_auth_token") : null;
@@ -94,9 +106,11 @@ export async function fetchThread(
 }
 
 /** Platform profile of the thread's subject; geography has none. */
-export function threadProfileHref(type: ThreadType, key: string): string | null {
-  if (type === "company") return `/company/${key}`;
-  if (type === "sector") return `/sector/${key}`;
-  if (type === "investor") return `/investors/${key}`;
+export function threadProfileHref(type: ThreadType, key: string, profileId?: number | string | null): string | null {
+  const id = profileId ?? key;
+  if (type === "company") return `/company/${id}`;
+  if (type === "sector") return `/sector/${id}`;
+  // Without profile_id an investor key may not open the right profile: hide the link.
+  if (type === "investor") return profileId != null ? `/investors/${profileId}` : null;
   return null;
 }
