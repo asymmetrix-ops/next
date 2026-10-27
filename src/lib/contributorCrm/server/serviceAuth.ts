@@ -38,33 +38,45 @@ export async function getContributorServiceToken(
     return cachedToken;
   }
 
-  const email =
-    process.env.DCP_EMAIL?.trim() || process.env.CRON_AUTH_EMAIL?.trim();
-  const password = process.env.DCP_PW || process.env.CRON_AUTH_PASSWORD;
-  if (!email || !password) {
+  const pairs: Array<{ email: string; password: string }> = [];
+  const dcpEmail = (
+    process.env.DCP_EMAIL ||
+    process.env.DCP_Email ||
+    process.env.DCP_email ||
+    ""
+  ).trim();
+  const dcpPw = process.env.DCP_PW || process.env.DCP_Pw || "";
+  if (dcpEmail && dcpPw) pairs.push({ email: dcpEmail, password: dcpPw });
+  const cronEmail = process.env.CRON_AUTH_EMAIL?.trim();
+  const cronPw = process.env.CRON_AUTH_PASSWORD;
+  if (cronEmail && cronPw) pairs.push({ email: cronEmail, password: cronPw });
+  if (!pairs.length) {
     throw new Error(
       "Contributor service credentials are not configured. Set DCP_EMAIL and DCP_PW (or CRON_AUTH_EMAIL and CRON_AUTH_PASSWORD)."
     );
   }
 
-  const res = await fetch(AUTH_LOGIN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Service login failed (${res.status})`);
+  let lastError = "";
+  for (const pair of pairs) {
+    const res = await fetch(AUTH_LOGIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pair),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      lastError = text || `Service login failed (${res.status})`;
+      continue;
+    }
+    const data = (await res.json()) as { authToken?: string };
+    if (!data?.authToken) {
+      lastError = "Invalid service login response: missing authToken";
+      continue;
+    }
+    cachedToken = data.authToken;
+    cachedTokenExpiryMs = getTokenExpiryMs(cachedToken) ?? Date.now() + 3_600_000;
+    return cachedToken;
   }
-
-  const data = (await res.json()) as { authToken?: string };
-  if (!data?.authToken) {
-    throw new Error("Invalid service login response: missing authToken");
-  }
-
-  cachedToken = data.authToken;
-  cachedTokenExpiryMs = getTokenExpiryMs(cachedToken) ?? Date.now() + 3_600_000;
-  return cachedToken;
+  throw new Error(lastError || "Service login failed");
 }
