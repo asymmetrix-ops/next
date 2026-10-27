@@ -1,3 +1,4 @@
+import { getExportFetchCap } from "./exportLimit";
 import {
   FINANCIAL_SCREENER_COLUMN_CATEGORIES,
   type FinancialScreenerColumnType,
@@ -24,7 +25,6 @@ import {
 } from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
-  EXPORT_ALL_ENTITIES_CAP,
   type ExportColumnDef,
   type ListExportRequest,
 } from "./types";
@@ -250,6 +250,7 @@ async function fetchAllFinancialScreenerForExport(
   filters: FinancialScreenerFilters,
   expectedTotalCount?: number
 ): Promise<Record<string, unknown>[]> {
+  const exportCap = await getExportFetchCap();
   const allItems: FinancialScreenerItem[] = [];
   let page = 1;
   let totalPages = 1;
@@ -270,14 +271,14 @@ async function fetchAllFinancialScreenerForExport(
 
     if (response.items.length === 0) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
-    if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
+    if (allItems.length >= exportCap) break;
     if (response.items.length < EXPORT_PER_PAGE) break;
 
     page += 1;
   }
 
   const filtered = applyClientFilters(
-    allItems.slice(0, EXPORT_ALL_ENTITIES_CAP),
+    allItems.slice(0, exportCap),
     filters
   );
   return filtered.map(financialScreenerItemToExportRow);

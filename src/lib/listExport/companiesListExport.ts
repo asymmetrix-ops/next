@@ -1,3 +1,4 @@
+import { getExportFetchCap } from "./exportLimit";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   type CompanyColumnType,
@@ -28,7 +29,7 @@ import {
   type ExportCellValue,
 } from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
-import { EXPORT_ALL_ENTITIES_CAP, type ExportColumnDef, type ListExportRequest } from "./types";
+import { type ExportColumnDef, type ListExportRequest } from "./types";
 
 const EXPORT_PER_PAGE = 100;
 const MAX_EXPORT_PAGES = 500;
@@ -402,7 +403,9 @@ export async function fetchAllCompaniesForExport(
   expectedTotalCount?: number,
   uncapped = false
 ): Promise<Record<string, unknown>[]> {
-  const exportCap = uncapped ? Number.MAX_SAFE_INTEGER : EXPORT_ALL_ENTITIES_CAP;
+  const exportCap = uncapped
+    ? Number.MAX_SAFE_INTEGER
+    : await getExportFetchCap();
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
@@ -478,6 +481,7 @@ export async function exportCompaniesList(
     getEntityName: (row) => String(row.name ?? "—"),
     getCellValue: getCompanyCellValue,
     getCellExportValue: getCompanyCellExportValue,
+    skipRowLimit: uncapped,
   });
 }
 
