@@ -76,6 +76,9 @@
 
 .nw-series { position: relative; z-index: 2; }
 .nw-series-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 999px; background: #f1ebfc; border: 1px solid #d9cdf3; color: #523793; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.nw-series-nav { display: inline-flex; align-items: center; gap: 4px; position: relative; z-index: 2; }
+.nw-series-arrow { width: 22px; height: 22px; border-radius: 999px; border: 1px solid #d9cdf3; background: #fff; color: #523793; font-size: 14px; line-height: 1; cursor: pointer; padding: 0; }
+.nw-series-arrow:disabled { opacity: 0.35; cursor: default; }
 .nw-series-btn:hover { background: #e8ddfa; }
 .nw-series-pop { position: absolute; left: 0; bottom: calc(100% + 6px); width: 280px; max-width: 80vw; background: #fff; border: 1px solid #e4e8f2; border-radius: 12px; padding: 8px; box-shadow: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.14); }
 .nw-series-pop-title { padding: 4px 8px 6px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: #8a93a8; }

@@ -1,4 +1,4 @@
-import type { ContentArticle } from "@/types/insightsAnalysis";
+import type { ArticleSeries, ContentArticle } from "@/types/insightsAnalysis";
 
 const NEWS_API = "https://xdil-abvj-o7rq.e2.xano.io/api:Z3F6JUiu:develop/news";
 
@@ -26,6 +26,9 @@ export type NewsArticle = ContentArticle & {
   card_role?: "latest" | "original" | null;
   /** From /news/feed: other published articles in this article's series. */
   series_others?: NewsRef[];
+  /** From /news/feed: Content Series (parts in series.parts). */
+  series?: ArticleSeries | null;
+  is_content_series?: boolean;
   /** Sector and transaction status of the first company of focus (card tags). */
   focus_tags?: { primarySectors: string[]; transactionStatus: string | null };
 };
@@ -106,6 +109,8 @@ type ApiNewsItem = {
   label?: "Follow-up" | "Previously" | null;
   card_role?: "latest" | "original" | null;
   in_series?: boolean;
+  is_content_series?: boolean;
+  series?: ArticleSeries | null;
   series_others?: unknown;
   ia_id?: number | null;
   ia_headline?: string | null;
@@ -171,7 +176,9 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
           contentType: item.ia_content_type || undefined,
         }
       : null,
-    series_others: item.in_series ? others : [],
+    series_others: item.in_series && !item.is_content_series ? others : [],
+    is_content_series: !!item.is_content_series,
+    series: item.series && item.series.parts?.length ? item.series : null,
   } as unknown as NewsArticle;
 }
 

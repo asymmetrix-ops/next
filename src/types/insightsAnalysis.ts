@@ -9,6 +9,8 @@ export interface ArticleSeriesPart {
 
 export interface ArticleSeries {
   series_id: number;
+  /** Present on /news/feed content series. */
+  title?: string;
   /** part_number of the tile shown (oldest/highest-priority part among items that passed filters). */
   current_part: number;
   total_parts: number;
