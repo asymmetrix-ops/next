@@ -49,6 +49,7 @@ function isAllowedXanoRequest(url: URL, method: string): boolean {
       const query = url.searchParams.get("query")?.trim() ?? "";
       return query.length >= 2;
     }
+    if (group === "Xpykjv0R") return rest === "/get_individual";
     return GET_API_GROUPS.has(group);
   }
 

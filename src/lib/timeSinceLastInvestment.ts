@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 export const TIME_SINCE_LAST_INVESTMENT_EMPTY = "—";
 
 export type TimeSinceLastInvestmentValue = {
@@ -163,7 +164,7 @@ export async function fetchTimeSinceLastInvestment(
     new_company_id: String(newCompanyId),
   });
 
-  const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
+  const res = await xanoFetch(`${ENDPOINT}?${params.toString()}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,

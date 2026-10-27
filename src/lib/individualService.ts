@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 import {
   IndividualResponse,
   IndividualEventsResponse,
@@ -179,7 +180,7 @@ class IndividualService {
   async getIndividual(individualId: number): Promise<IndividualResponse> {
     const url = `${BASE_URL}/get_individual?individual_id=${individualId}`;
 
-    const response = await fetch(url, {
+    const response = await xanoFetch(url, {
       method: "GET",
       headers: {
         ...this.getAuthHeaders(),

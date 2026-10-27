@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 export interface CompanyLinkedInProfile {
   logo?: string;
   snapshot_id?: number;
@@ -81,7 +82,7 @@ export async function fetchCompanyLinkedIn(
   newCompanyId: string | number,
   token?: string | null
 ): Promise<CompanyLinkedInResponse> {
-  const response = await fetch(
+  const response = await xanoFetch(
     `${getCompanyLinkedInApiBase()}/get_company_linkedin/${newCompanyId}`,
     {
       method: "GET",

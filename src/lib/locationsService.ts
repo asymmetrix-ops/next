@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 import { authService } from "./auth";
 
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob/";
@@ -331,7 +332,7 @@ class LocationsService {
     ];
     for (const url of urls) {
       try {
-        const response = await fetch(url, {
+        const response = await xanoFetch(url, {
           method: "GET",
           headers: { ...this.getAuthHeaders() },
         });
@@ -344,7 +345,7 @@ class LocationsService {
       }
     }
     const url = `${BASE_URL}/Get_Primary_Sectors`;
-    const response = await fetch(url, {
+    const response = await xanoFetch(url, {
       method: "GET",
       headers: {
         ...this.getAuthHeaders(),

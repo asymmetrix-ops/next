@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 import type { AIRiskAxis } from "@/components/redesign/AIRiskCard";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import { decodeHtmlEntities } from "@/lib/decodeHtmlEntities";
@@ -275,7 +276,7 @@ export async function fetchCompanyAiRisksV2(
   };
 
   const params = new URLSearchParams({ new_company_id: String(newCompanyId) });
-  const res = await fetch(`${COMPANY_AI_RISKS_V2_BASE}?${params.toString()}`, {
+  const res = await xanoFetch(`${COMPANY_AI_RISKS_V2_BASE}?${params.toString()}`, {
     method: "GET",
     headers,
     credentials: "include",
@@ -535,14 +536,14 @@ export async function fetchCompanyAiRisks(
   const params = new URLSearchParams();
   params.append("new_company_id", String(newCompanyId));
 
-  let res = await fetch(`${COMPANY_AI_RISKS_BASE}?${params.toString()}`, {
+  let res = await xanoFetch(`${COMPANY_AI_RISKS_BASE}?${params.toString()}`, {
     method: "GET",
     headers,
     credentials: "include",
   });
 
   if (!res.ok) {
-    res = await fetch(COMPANY_AI_RISKS_BASE, {
+    res = await xanoFetch(COMPANY_AI_RISKS_BASE, {
       method: "POST",
       headers,
       credentials: "include",

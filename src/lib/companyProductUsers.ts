@@ -1,3 +1,4 @@
+import { xanoFetch } from "@/lib/xanoFetch";
 import type { ProductUsersSection } from "@/components/redesign/ProductUsersListCard";
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 
@@ -112,7 +113,7 @@ async function fetchProductUsersEndpoint(
   };
 
   const params = new URLSearchParams({ new_company_id: String(newCompanyId) });
-  const res = await fetch(`${endpoint}?${params.toString()}`, {
+  const res = await xanoFetch(`${endpoint}?${params.toString()}`, {
     method: "GET",
     headers,
     credentials: "include",
