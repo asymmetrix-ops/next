@@ -1,3 +1,4 @@
+import { getExportFetchCap } from "./exportLimit";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
   CORPORATE_EVENTS_EXPORT_CATEGORIES,
@@ -31,7 +32,6 @@ import {
 } from "./exportCellValue";
 import { runGenericListExport } from "./runListExport";
 import {
-  EXPORT_ALL_ENTITIES_CAP,
   type ExportColumnDef,
   type ListExportRequest,
 } from "./types";
@@ -362,6 +362,7 @@ async function fetchAllCorporateEventsForExport(
   filters: CorporateEventsSearchFilters,
   expectedTotalCount?: number
 ): Promise<Record<string, unknown>[]> {
+  const exportCap = await getExportFetchCap();
   let page = 1;
   let pageTotal = 1;
   const allItems: Record<string, unknown>[] = [];
@@ -380,7 +381,7 @@ async function fetchAllCorporateEventsForExport(
         result.pageTotal,
         resolvedTotalCount > 0
           ? Math.ceil(
-              Math.min(resolvedTotalCount, EXPORT_ALL_ENTITIES_CAP) / EXPORT_PER_PAGE
+              Math.min(resolvedTotalCount, exportCap) / EXPORT_PER_PAGE
             )
           : result.pageTotal
       );
@@ -391,14 +392,14 @@ async function fetchAllCorporateEventsForExport(
     const added = appendUniqueItems(allItems, seenIds, result.items);
     if (added === 0) break;
 
-    if (allItems.length >= EXPORT_ALL_ENTITIES_CAP) break;
+    if (allItems.length >= exportCap) break;
     if (resolvedTotalCount > 0 && allItems.length >= resolvedTotalCount) break;
     if (result.items.length < EXPORT_PER_PAGE) break;
 
     page += 1;
   }
 
-  return allItems.slice(0, EXPORT_ALL_ENTITIES_CAP);
+  return allItems.slice(0, exportCap);
 }
 
 export async function exportCorporateEventsList(

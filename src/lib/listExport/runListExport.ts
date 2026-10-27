@@ -8,6 +8,10 @@ import {
   coerceExportCellValue,
   type ExportCellValue,
 } from "./exportCellValue";
+import {
+  exportLimitMessage,
+  getExportRowLimit,
+} from "./exportLimit";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import type { ExportColumnDef, ListExportMode, ListExportRequest } from "./types";
 
@@ -37,6 +41,8 @@ export interface GenericListExportInput {
     }>;
   };
   rows: Record<string, unknown>[];
+  /** Set for exports that are intentionally exempt from the per-user limit. */
+  skipRowLimit?: boolean;
   getEntityName: (row: Record<string, unknown>) => string;
   getCellValue: (
     row: Record<string, unknown>,
@@ -52,7 +58,15 @@ export interface GenericListExportInput {
 export async function runGenericListExport(
   input: GenericListExportInput
 ): Promise<void> {
-  const { request, config, rows, getCellValue, getCellExportValue } = input;
+  const { request, config, getCellValue, getCellExportValue } = input;
+  let rows = input.rows;
+  if (!input.skipRowLimit) {
+    const limit = await getExportRowLimit();
+    if (rows.length > limit) {
+      rows = rows.slice(0, limit);
+      if (typeof window !== "undefined") window.alert(exportLimitMessage(limit));
+    }
+  }
   const columnCategories =
     request.mode === "all_columns" && config.allColumnsCategories
       ? config.allColumnsCategories

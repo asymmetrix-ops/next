@@ -13,7 +13,8 @@ import { SearchExportMenu } from "@/components/search/SearchExportMenu";
 import { localizeCompsLabel } from "./currencyLabels";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
-import { EXPORT_ALL_ENTITIES_CAP, type ListExportMode } from "@/lib/listExport/types";
+import { getExportFetchCap } from "@/lib/listExport/exportLimit";
+import type { ListExportMode } from "@/lib/listExport/types";
 import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
 import { trackKeyAction } from "@/lib/tracking";
 import { locationsService } from "@/lib/locationsService";
@@ -334,7 +335,7 @@ export function TransactionCompsView({
         const source =
           selectedIds.size > 0
             ? rows.filter((r) => selectedIds.has(r.company_id))
-            : (await fetchTransactionCompsServer(buildQuery(1, EXPORT_ALL_ENTITIES_CAP)))?.items ?? [];
+            : (await fetchTransactionCompsServer(buildQuery(1, await getExportFetchCap())))?.items ?? [];
         await exportTransactionCompsList(
           { mode, scope: selectedIds.size > 0 ? "selected" : "full_list" },
           source,
