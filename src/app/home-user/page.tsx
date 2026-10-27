@@ -1195,7 +1195,9 @@ function HomeUserPageContent() {
                     <path d="M10 6h8v4h-8V6Z" />
                   </svg>
                 </span>
-                <span className="dash-card-title">News</span>
+                <a href="/news" className="dash-card-title">
+                  News
+                </a>
               </div>
               <a href="/news" className="dash-view-all ml-auto px-3 py-1.5 text-xs whitespace-nowrap">
                 View all
