@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LightBulbIcon } from "@heroicons/react/24/outline";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
@@ -9,6 +9,7 @@ import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import { decodeHtmlEntities, formatArticleDate } from "@/lib/contentArticleDisplay";
 import { fetchIaContentType, type NewsArticle, type NewsRef } from "@/lib/news";
 import { trackKeyAction } from "@/lib/tracking";
+import type { ArticleSeries } from "@/types/insightsAnalysis";
 import {
   dotPillStyleFromTone,
   formatTransactionStatusLabel,
@@ -28,6 +29,29 @@ type Props = {
 };
 
 const NEUTRAL_TONE = { text: "#566078", fill: "#EFF2F8", border: "#E4E8F2" };
+
+/** Content Series: "Part N of M" with prev/next, swapping the card's headline link and date. */
+function PartsNav({ series, activeIndex, onChange }: { series: ArticleSeries; activeIndex: number; onChange: (i: number) => void }) {
+  const parts = [...series.parts].sort((a, b) => a.part_number - b.part_number);
+  const active = parts[activeIndex] ?? parts[0];
+  return (
+    <div className="nw-series-nav">
+      {parts.length > 1 && (
+        <button type="button" className="nw-series-arrow" aria-label="Previous part in series" disabled={activeIndex <= 0} onClick={() => onChange(activeIndex - 1)}>
+          ‹
+        </button>
+      )}
+      <span className="nw-series-btn" style={{ cursor: "default" }}>
+        Part {active?.part_number ?? series.current_part} of {series.total_parts}
+      </span>
+      {parts.length > 1 && (
+        <button type="button" className="nw-series-arrow" aria-label="Next part in series" disabled={activeIndex >= parts.length - 1} onClick={() => onChange(activeIndex + 1)}>
+          ›
+        </button>
+      )}
+    </div>
+  );
+}
 
 function SeriesTag({ links }: { links: NewsRef[] }) {
   const [open, setOpen] = useState(false);
@@ -167,7 +191,22 @@ function SectorTags({ sectors }: { sectors: string[] }) {
 }
 
 export default function NewsCard({ article, variant = "feed", relation, seriesLinks }: Props) {
-  const headline = decodeHtmlEntities(article.Headline || "") || "-";
+  const series = article.is_content_series && article.series ? article.series : null;
+  const sortedParts = useMemo(
+    () => (series ? [...series.parts].sort((a, b) => a.part_number - b.part_number) : []),
+    [series]
+  );
+  const initialIndex = useMemo(() => {
+    const byId = sortedParts.findIndex((p) => p.id === article.id);
+    if (byId >= 0) return byId;
+    const byNum = sortedParts.findIndex((p) => p.part_number === series?.current_part);
+    return byNum >= 0 ? byNum : 0;
+  }, [sortedParts, article.id, series]);
+  const [partIndex, setPartIndex] = useState(initialIndex);
+  const activePart = series ? sortedParts[partIndex] ?? sortedParts[0] : undefined;
+  const linkedId = activePart?.id ?? article.id;
+
+  const headline = decodeHtmlEntities(activePart?.headline || article.Headline || "") || "-";
   const strap = decodeHtmlEntities(article.Strapline || "");
   const focus = article.companies_of_focus?.[0];
   const iso2 = getInsightHqCountryIso2(article);
@@ -190,11 +229,11 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           ) : (
             <span className="nw-badge">News</span>
           )}
-          <span>{formatArticleDate(article.Publication_Date)}</span>
+          <span>{formatArticleDate(activePart?.publication_date || article.Publication_Date)}</span>
         </div>
 
         <h3 className="nw-card-title">
-          <Link href={`/article/${article.id}`} title={headline}>
+          <Link href={`/article/${linkedId}`} title={headline}>
             {headline}
           </Link>
         </h3>
@@ -240,8 +279,9 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
 
-        {(ia || hasSeries) && (
+        {(ia || hasSeries || series) && (
           <div className="nw-card-foot">
+            {series && <PartsNav series={series} activeIndex={partIndex} onChange={setPartIndex} />}
             {hasSeries && <SeriesTag links={seriesLinks!} />}
             {ia && <IaLink ia={ia} />}
           </div>
