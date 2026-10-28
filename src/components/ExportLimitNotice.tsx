@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  EXPORT_LIMIT_CONTACT_EMAIL,
   EXPORT_LIMIT_NOTICE_EVENT,
   EXPORT_LIMIT_NOTICE_READY_FLAG,
   type ExportLimitNoticeDetail,
@@ -75,7 +76,20 @@ export const ExportLimitNotice: React.FC = () => {
             lineHeight: 1.5,
           }}
         >
-          {notice.message}
+          {notice.message.split(EXPORT_LIMIT_CONTACT_EMAIL).flatMap((part, i, parts) =>
+            i < parts.length - 1
+              ? [
+                  part,
+                  <a
+                    key={i}
+                    href={`mailto:${EXPORT_LIMIT_CONTACT_EMAIL}`}
+                    style={{ color: "#0075df" }}
+                  >
+                    {EXPORT_LIMIT_CONTACT_EMAIL}
+                  </a>,
+                ]
+              : [part]
+          )}
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
@@ -92,7 +106,7 @@ export const ExportLimitNotice: React.FC = () => {
               fontSize: "14px",
             }}
           >
-            Download
+            OK
           </button>
         </div>
       </div>
