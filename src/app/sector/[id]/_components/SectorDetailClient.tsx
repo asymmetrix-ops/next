@@ -43,9 +43,7 @@ import {
   InsightsAnalysisResponse,
   InsightsAnalysisFilters,
 } from "@/types/insightsAnalysis";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
 import { getInsightsTypeTone } from "@/lib/tagColors";
@@ -1667,8 +1665,6 @@ const SectorDetailPage = ({
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
   const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
-  const [mmShowExportLimitModal, setMmShowExportLimitModal] = useState(false);
-  const [mmExportsLeft, setMmExportsLeft] = useState(0);
 
   // Fetch all overview data via Next.js API route (cached for 5 min).
   // Single request aggregates all Xano calls server-side → faster for users far from Xano.
@@ -2017,12 +2013,6 @@ const SectorDetailPage = ({
       const sectorIdNum = Number(sectorId);
       if (!Number.isFinite(sectorIdNum) || sectorIdNum <= 0) return;
 
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setMmExportsLeft(limitCheck.exportsLeft);
-        setMmShowExportLimitModal(true);
-        return;
-      }
 
       setMmExportingBucket(bucketType);
       try {
@@ -2899,12 +2889,6 @@ const SectorDetailPage = ({
           </div>
         )}
       </main>
-      <ExportLimitModal
-        isOpen={mmShowExportLimitModal}
-        onClose={() => setMmShowExportLimitModal(false)}
-        exportsLeft={mmExportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
       <Footer />
     </div>
     </AppShell>

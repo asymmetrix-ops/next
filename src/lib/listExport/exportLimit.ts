@@ -76,3 +76,34 @@ export function takeServerTruncated(): boolean {
   serverTruncated = false;
   return value;
 }
+
+const NOTICE_EVENT = "asymmetrix:export-limit-notice";
+const NOTICE_READY_FLAG = "__asymExportNoticeReady";
+
+export interface ExportLimitNoticeDetail {
+  message: string;
+  done: () => void;
+}
+
+export { NOTICE_EVENT as EXPORT_LIMIT_NOTICE_EVENT, NOTICE_READY_FLAG as EXPORT_LIMIT_NOTICE_READY_FLAG };
+
+/**
+ * Tells the user the export was cut to their limit. Resolves when they dismiss
+ * the notice (the download starts after). Falls back to alert() if the notice
+ * component is not mounted.
+ */
+export function showExportLimitNotice(limit: number): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const message = exportLimitMessage(limit);
+  if (!(window as unknown as Record<string, unknown>)[NOTICE_READY_FLAG]) {
+    window.alert(message);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    window.dispatchEvent(
+      new CustomEvent<ExportLimitNoticeDetail>(NOTICE_EVENT, {
+        detail: { message, done: resolve },
+      })
+    );
+  });
+}

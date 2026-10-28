@@ -37,8 +37,6 @@ import {
 } from "./financialScreenerFormatters";
 import type { FinancialScreenerItem } from "@/app/financials/actions";
 import type { FinancialScreenerFilters } from "./financialScreenerFilterPayload";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { exportFinancialScreenerList } from "@/lib/listExport/financialScreenerListExport";
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
@@ -158,8 +156,6 @@ export const FinancialScreenerSection = ({
     dir: "asc" | "desc";
   }>({ key: "ev", dir: "desc" });
 
-  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-  const [exportsLeft, setExportsLeft] = useState(0);
   const [exporting, setExporting] = useState(false);
   const exportInFlightRef = useRef(false);
 
@@ -250,12 +246,6 @@ export const FinancialScreenerSection = ({
       setExporting(true);
 
       try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) {
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
 
         const filters = currentFilters ?? { page: 1, per_page: 25 };
         const exportTotalCount = pagination.total ?? 0;
@@ -648,12 +638,6 @@ export const FinancialScreenerSection = ({
         disabled={loading}
       />
 
-      <ExportLimitModal
-        isOpen={showExportLimitModal}
-        onClose={() => setShowExportLimitModal(false)}
-        exportsLeft={exportsLeft}
-        totalExports={EXPORT_LIMIT}
-      />
     </div>
   );
 };

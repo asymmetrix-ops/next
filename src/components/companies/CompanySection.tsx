@@ -16,8 +16,6 @@ import {
   exportCompaniesList,
 } from "@/lib/listExport/companiesListExport";
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import {
   loadStoredColumnKeys,
   saveStoredColumnKeys,
@@ -1179,8 +1177,6 @@ export const CompanySection = ({
   const sectionClassName = embedded
     ? "company-section company-section-embedded"
     : "company-section";
-  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-  const [exportsLeft, setExportsLeft] = useState(0);
   const [exporting, setExporting] = useState(false);
   const exportInFlightRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
@@ -1591,12 +1587,6 @@ export const CompanySection = ({
       setExporting(true);
 
       try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) {
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
 
         const { mode, scope } = request;
         const exportTotalCount =
@@ -2435,12 +2425,6 @@ export const CompanySection = ({
       nextPage: pagination.nextPage,
       onPageChange: handlePageChange,
       disabled: loading,
-    }),
-    React.createElement(ExportLimitModal, {
-      isOpen: showExportLimitModal,
-      onClose: () => setShowExportLimitModal(false),
-      exportsLeft: exportsLeft,
-      totalExports: EXPORT_LIMIT,
     }),
     readOnlyGuestMode &&
       React.createElement(McpGuestSalesConversionModal, {

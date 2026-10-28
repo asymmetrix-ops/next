@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { authService } from "@/lib/auth";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
 import {
   CompaniesCSVExporter,
   CompanyCSVRow,
@@ -235,8 +233,6 @@ export default function CompaniesModal({
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState(false);
-  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-  const [exportsLeft, setExportsLeft] = useState(0);
 
   // Fetch companies when modal opens
   const fetchCompanies = useCallback(async () => {
@@ -441,13 +437,6 @@ export default function CompaniesModal({
   // Export CSV function - similar to companies page
   const handleExportCSV = useCallback(async () => {
     try {
-      // Check export limit first
-      const limitCheck = await checkExportLimit();
-      if (!limitCheck.canExport) {
-        setExportsLeft(limitCheck.exportsLeft);
-        setShowExportLimitModal(true);
-        return;
-      }
 
       setExporting(true);
       const params = new URLSearchParams();
@@ -496,13 +485,6 @@ export default function CompaniesModal({
       });
       
       if (!firstResp.ok) {
-        // Check if it's an export limit error
-        if (firstResp.status === 403 || firstResp.status === 429) {
-          const limitCheck = await checkExportLimit();
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
         const errText = await firstResp.text();
         throw new Error(
           `Export failed: ${firstResp.status} ${firstResp.statusText} - ${errText}`
@@ -942,12 +924,6 @@ export default function CompaniesModal({
           </button>
         </div>
         
-        <ExportLimitModal
-          isOpen={showExportLimitModal}
-          onClose={() => setShowExportLimitModal(false)}
-          exportsLeft={exportsLeft}
-          totalExports={EXPORT_LIMIT}
-        />
       </div>
     </div>
   );
