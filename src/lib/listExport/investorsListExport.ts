@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   INVESTORS_COLUMN_CATEGORIES,
   INVESTORS_EXPORT_CATEGORIES,
@@ -257,6 +257,7 @@ async function fetchInvestorsPage(
     page,
     per_page: perPage,
   });
+  params.set("export", "true");
   const response = await fetch(`/api/investors/list?${params.toString()}`, {
     method: "GET",
     headers: {
@@ -270,6 +271,7 @@ async function fetchInvestorsPage(
   }
 
   const raw = await response.json();
+  noteServerExport(raw);
   const investors = raw?.investors ?? raw;
   const rawItems: unknown[] = Array.isArray(investors?.items)
     ? investors.items

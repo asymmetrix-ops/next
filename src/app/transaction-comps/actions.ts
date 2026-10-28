@@ -15,6 +15,7 @@ const TRANSACTION_COMPS_API_BASE =
 
 function buildParams(q: TransactionCompsQuery): URLSearchParams {
   const params = new URLSearchParams();
+  if (q.exportMode) params.set("export", "true");
   params.set("page", String(Math.max(1, q.page)));
   params.set("per_page", String(q.perPage));
   params.set("sort_by", q.sortBy);
@@ -76,6 +77,7 @@ export async function fetchTransactionCompsServer(
       page: Number(raw.page) || query.page,
       per_page: Number(raw.per_page) || query.perPage,
       items,
+      export: raw.export,
     };
   } catch (error) {
     console.error("fetchTransactionCompsServer error:", error);

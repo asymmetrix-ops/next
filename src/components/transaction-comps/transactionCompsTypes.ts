@@ -43,11 +43,15 @@ export interface TransactionCompsResponse {
   page: number;
   per_page: number;
   items: TransactionCompRow[];
+  /** Present on export requests: {limit, truncated, row_count}. */
+  export?: { limit?: number; truncated?: boolean; row_count?: number };
 }
 
 export type RangeValue = { min?: number; max?: number };
 
 export interface TransactionCompsQuery {
+  /** Fetching rows for a download: the server caps them at the user's export limit. */
+  exportMode?: boolean;
   page: number;
   perPage: number;
   searchText: string;

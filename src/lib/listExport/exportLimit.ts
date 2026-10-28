@@ -52,3 +52,27 @@ export async function getExportFetchCap(): Promise<number> {
 export function exportLimitMessage(limit: number): string {
   return `Your export is limited to ${limit} rows. Contact us if you need more.`;
 }
+
+let serverTruncated = false;
+
+/**
+ * Export requests send `export=true` and the server answers with
+ * `export: {limit, truncated, row_count}` (sometimes nested under result1 /
+ * investors). Remember when the server had to cut the list.
+ */
+export function noteServerExport(raw: unknown): void {
+  const data = (raw || {}) as Record<string, unknown>;
+  const nested = [data, data.result1, data.investors];
+  for (const candidate of nested) {
+    const meta = (candidate as { export?: { truncated?: boolean } } | undefined)
+      ?.export;
+    if (meta?.truncated) serverTruncated = true;
+  }
+}
+
+/** True once per export if the server reported a truncated list. */
+export function takeServerTruncated(): boolean {
+  const value = serverTruncated;
+  serverTruncated = false;
+  return value;
+}

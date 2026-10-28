@@ -12,6 +12,8 @@ import {
 } from "./financialScreenerFilterConfig";
 
 export interface FinancialScreenerFilters {
+  /** Fetching rows for a download: the server caps them at the user's export limit. */
+  exportMode?: boolean;
   page?: number;
   per_page?: number;
   query?: string | null;
