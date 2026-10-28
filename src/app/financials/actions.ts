@@ -73,6 +73,7 @@ export interface FinancialScreenerResponse {
   pagination: FinancialScreenerPagination;
   counts: FinancialScreenerCounts;
   preferred_currency_id?: number;
+  export?: { limit?: number; truncated?: boolean; row_count?: number };
 }
 
 const FINANCIAL_SCREENER_API_BASE =
@@ -90,6 +91,7 @@ export async function fetchFinancialScreenerServer(
     }
 
     const params = financialScreenerFiltersToSearchParams(filters);
+    if (filters.exportMode) params.set("export", "true");
     const preferredCurrencyId = await readPlatformCurrencyIdServer();
     appendPreferredCurrencyIdToSearchParams(params, preferredCurrencyId);
     const url = `${FINANCIAL_SCREENER_API_BASE}/get_financial_screener?${params.toString()}`;
@@ -111,6 +113,7 @@ export async function fetchFinancialScreenerServer(
     }
 
     const raw = (await response.json()) as {
+      export?: FinancialScreenerResponse["export"];
       items?: FinancialScreenerItem[];
       pagination?: Partial<FinancialScreenerPagination>;
       counts?: Partial<FinancialScreenerCounts>;
@@ -123,6 +126,7 @@ export async function fetchFinancialScreenerServer(
     return {
       items: raw.items ?? [],
       preferred_currency_id: raw.preferred_currency_id ?? preferredCurrencyId,
+      export: raw.export,
       pagination: {
         page: pagination.page ?? filters.page ?? 1,
         per_page: pagination.per_page ?? filters.per_page ?? 25,

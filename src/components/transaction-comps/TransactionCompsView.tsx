@@ -13,7 +13,7 @@ import { SearchExportMenu } from "@/components/search/SearchExportMenu";
 import { localizeCompsLabel } from "./currencyLabels";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { getCurrencySymbol } from "@/lib/filterCurrencyFormat";
-import { getExportFetchCap } from "@/lib/listExport/exportLimit";
+import { getExportFetchCap, noteServerExport } from "@/lib/listExport/exportLimit";
 import type { ListExportMode } from "@/lib/listExport/types";
 import { exportTransactionCompsList } from "@/lib/listExport/transactionCompsListExport";
 import { trackKeyAction } from "@/lib/tracking";
@@ -332,10 +332,17 @@ export function TransactionCompsView({
         actionDetail: "xlsx",
       });
       try {
-        const source =
-          selectedIds.size > 0
-            ? rows.filter((r) => selectedIds.has(r.company_id))
-            : (await fetchTransactionCompsServer(buildQuery(1, await getExportFetchCap())))?.items ?? [];
+        let source: typeof rows;
+        if (selectedIds.size > 0) {
+          source = rows.filter((r) => selectedIds.has(r.company_id));
+        } else {
+          const result = await fetchTransactionCompsServer({
+            ...buildQuery(1, await getExportFetchCap()),
+            exportMode: true,
+          });
+          noteServerExport(result);
+          source = result?.items ?? [];
+        }
         await exportTransactionCompsList(
           { mode, scope: selectedIds.size > 0 ? "selected" : "full_list" },
           source,

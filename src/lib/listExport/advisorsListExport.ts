@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import { ADVISORS_COLUMN_CATEGORIES } from "@/components/advisors/advisorsColumnCategories";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
 import type { AdvisorListItem, AdvisorSectorItem } from "@/app/advisors/actions";
@@ -231,6 +231,7 @@ async function fetchAdvisorsPage(
     page,
     per_page: perPage,
   });
+  params.set("export", "true");
   const url = `${ADVISORS_API_BASE}/get_all_advisors_list?${params.toString()}`;
   const response = await fetch(url, {
     method: "GET",
@@ -259,6 +260,7 @@ async function fetchAdvisorsPage(
     pageTotal?: number;
     itemsTotal?: number;
   };
+  noteServerExport(raw);
 
   const payload = raw.result1 ?? raw.Advisors_companies ?? raw;
   const items = (payload.items ?? raw.items ?? []).filter(

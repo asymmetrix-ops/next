@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   CORPORATE_EVENTS_COLUMN_CATEGORIES,
   CORPORATE_EVENTS_EXPORT_CATEGORIES,
@@ -323,6 +323,7 @@ async function fetchCorporateEventsPage(
     Page: page,
     Per_page: perPage,
   });
+  params.set("export", "true");
   const url = `${CORPORATE_EVENTS_API_BASE}/get_all_corporate_events?${params.toString()}`;
   const response = await fetch(url, {
     method: "GET",
@@ -343,6 +344,7 @@ async function fetchCorporateEventsPage(
     itemTotal?: number;
     itemsReceived?: number;
   };
+  noteServerExport(raw);
   const rawItems = Array.isArray(raw.items) ? raw.items : [];
   const items = rawItems.filter(
     (item): item is Record<string, unknown> => !!item && typeof item === "object"

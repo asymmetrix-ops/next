@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   FINANCIAL_SCREENER_COLUMN_CATEGORIES,
   type FinancialScreenerColumnType,
@@ -259,6 +259,7 @@ async function fetchAllFinancialScreenerForExport(
   while (page <= totalPages && page <= MAX_EXPORT_PAGES) {
     const response = await fetchFinancialScreenerServer({
       ...filters,
+      exportMode: true,
       page,
       per_page: EXPORT_PER_PAGE,
     });
@@ -266,6 +267,7 @@ async function fetchAllFinancialScreenerForExport(
       throw new Error("Failed to fetch financial screener for export");
     }
 
+    noteServerExport(response);
     allItems.push(...response.items);
     totalPages = response.pagination.total_pages;
 

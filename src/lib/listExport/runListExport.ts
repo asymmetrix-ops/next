@@ -11,6 +11,7 @@ import {
 import {
   exportLimitMessage,
   getExportRowLimit,
+  takeServerTruncated,
 } from "./exportLimit";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
 import type { ExportColumnDef, ListExportMode, ListExportRequest } from "./types";
@@ -62,7 +63,8 @@ export async function runGenericListExport(
   let rows = input.rows;
   if (!input.skipRowLimit) {
     const limit = await getExportRowLimit();
-    if (rows.length > limit) {
+    const cutByServer = takeServerTruncated();
+    if (rows.length > limit || cutByServer) {
       rows = rows.slice(0, limit);
       if (typeof window !== "undefined") window.alert(exportLimitMessage(limit));
     }

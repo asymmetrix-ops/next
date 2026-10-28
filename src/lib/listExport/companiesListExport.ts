@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   COMPANIES_COLUMN_CATEGORIES,
   type CompanyColumnType,
@@ -340,6 +340,7 @@ async function fetchCompaniesPage(
     },
     { page, perPage }
   );
+  params.set("export", "true");
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
   const response = await fetch(url, {
     method: "GET",
@@ -355,6 +356,7 @@ async function fetchCompaniesPage(
   }
 
   const raw = await response.json();
+  noteServerExport(raw);
   const normalized = normalizeCompaniesResponse(raw);
   const {
     items,

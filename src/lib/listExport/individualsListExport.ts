@@ -1,4 +1,4 @@
-import { getExportFetchCap } from "./exportLimit";
+import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import { INDIVIDUALS_COLUMN_CATEGORIES } from "@/components/individuals/individualsColumnCategories";
 import {
   formatIndividualLocation,
@@ -191,7 +191,7 @@ async function fetchIndividualsPage(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, export: true }),
   });
 
   if (!response.ok) {
@@ -205,6 +205,7 @@ async function fetchIndividualsPage(
     totalItems?: number;
     totalIndividuals?: number;
   };
+  noteServerExport(data);
 
   const rawItems = data.items ?? data.individuals ?? [];
   const items = rawItems
