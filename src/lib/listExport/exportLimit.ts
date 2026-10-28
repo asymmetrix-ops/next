@@ -49,8 +49,10 @@ export async function getExportFetchCap(): Promise<number> {
   return (await getExportRowLimit()) + 1;
 }
 
+export const EXPORT_LIMIT_CONTACT_EMAIL = "asymmetrix@asymmetrixintelligence.com";
+
 export function exportLimitMessage(limit: number): string {
-  return `Your export is limited to ${limit} rows. Contact us if you need more.`;
+  return `Your export is limited to ${limit} rows. If you need more, contact ${EXPORT_LIMIT_CONTACT_EMAIL}.`;
 }
 
 let serverTruncated = false;
