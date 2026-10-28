@@ -68,8 +68,6 @@ import {
   getStickyColumnStyle,
   SearchTablePinIndicator,
 } from "@/components/search/searchTableUtils";
-import { ExportLimitModal } from "@/components/ExportLimitModal";
-import { checkExportLimit, EXPORT_LIMIT } from "@/utils/exportLimitCheck";
 import { exportCorporateEventsList } from "@/lib/listExport/corporateEventsListExport";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
@@ -165,8 +163,6 @@ export const CorporateEventsSearchSection = ({
     : "company-section";
   const headerDidDragRef = useRef(false);
   const [internalShowColumnsModal, setInternalShowColumnsModal] = useState(false);
-  const [showExportLimitModal, setShowExportLimitModal] = useState(false);
-  const [exportsLeft, setExportsLeft] = useState(0);
   const [exporting, setExporting] = useState(false);
   const exportInFlightRef = useRef(false);
   const [secondaryToPrimaryMap, setSecondaryToPrimaryMap] = useState<
@@ -397,12 +393,6 @@ export const CorporateEventsSearchSection = ({
       setExporting(true);
 
       try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) {
-          setExportsLeft(limitCheck.exportsLeft);
-          setShowExportLimitModal(true);
-          return;
-        }
 
         const exportTotalCount = pagination.itemsTotal || events.length;
         if (exportTotalCount <= 0) return;
@@ -834,12 +824,6 @@ export const CorporateEventsSearchSection = ({
         nextPage={pagination.nextPage}
         onPageChange={handlePageChange}
         disabled={loading}
-      />
-      <ExportLimitModal
-        isOpen={showExportLimitModal}
-        onClose={() => setShowExportLimitModal(false)}
-        exportsLeft={exportsLeft}
-        totalExports={EXPORT_LIMIT}
       />
       {columnsModalLayer}
       <style dangerouslySetInnerHTML={{ __html: SEARCH_TABLE_STYLES }} />

@@ -41,7 +41,6 @@ import { SearchEntityIdentityCell } from "@/components/search/SearchEntityIdenti
 import { BulkPortfolioActionToolbar } from "@/components/search/BulkPortfolioActionToolbar";
 import { exportInvestorsList } from "@/lib/listExport/investorsListExport";
 import type { ListExportMode, ListExportRequest } from "@/lib/listExport/types";
-import { checkExportLimit } from "@/utils/exportLimitCheck";
 import { SEARCH_TABLE_STYLES } from "@/components/search/searchTableStyles";
 import { SearchTablePagination } from "@/components/search/SearchTablePagination";
 import {
@@ -548,8 +547,6 @@ export const InvestorSection = ({
       setExporting(true);
 
       try {
-        const limitCheck = await checkExportLimit();
-        if (!limitCheck.canExport) return;
 
         const { mode, scope } = request;
         const exportTotalCount = pagination.itemsTotal || 0;

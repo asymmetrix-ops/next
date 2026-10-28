@@ -16,6 +16,7 @@ import ChunkErrorRecovery from "@/components/ChunkErrorRecovery";
 import TrialRouteGuard from "@/components/TrialRouteGuard";
 import RouteTracker from "@/components/RouteTracker";
 import ErrorTracker from "@/components/ErrorTracker";
+import { ExportLimitNotice } from "@/components/ExportLimitNotice";
 import SessionExpiredModal from "@/components/SessionExpiredModal";
 import NpsGate from "@/components/nps/NpsGate";
 
@@ -149,6 +150,7 @@ export default function RootLayout({
                 <RouteTracker />
               </Suspense>
               <ErrorTracker />
+              <ExportLimitNotice />
               <NpsGate />
               <GlobalSearchProvider>
                 {children}

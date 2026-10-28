@@ -9,8 +9,8 @@ import {
   type ExportCellValue,
 } from "./exportCellValue";
 import {
-  exportLimitMessage,
   getExportRowLimit,
+  showExportLimitNotice,
   takeServerTruncated,
 } from "./exportLimit";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
@@ -66,7 +66,7 @@ export async function runGenericListExport(
     const cutByServer = takeServerTruncated();
     if (rows.length > limit || cutByServer) {
       rows = rows.slice(0, limit);
-      if (typeof window !== "undefined") window.alert(exportLimitMessage(limit));
+      await showExportLimitNotice(limit);
     }
   }
   const columnCategories =
