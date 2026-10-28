@@ -1118,6 +1118,8 @@ type SectorChip = {
   label: string;
   optionValue: string;
   status: "existing" | "added" | "removed";
+  /** Id of the removed chip this one replaces: a sector is only ever swapped, never dropped. */
+  replaces?: string;
 };
 
 type InvestorChip = {
@@ -2732,6 +2734,15 @@ function buildCompanyChangeDiff({
     const addedPrimary = primarySectorChips.filter((c) => c.status === "added");
     const removedPrimary = primarySectorChips.filter((c) => c.status === "removed");
     newData.primary_sectors_diff = {
+      // sector swaps, reviewed as one "Replace A with B" change
+      replaced: primarySectorChips
+        .filter((c) => c.status === "added" && c.replaces)
+        .flatMap((c) => {
+          const from = primarySectorChips.find((o) => o.id === c.replaces);
+          return from
+            ? [{ from: from.optionValue, from_label: from.label, to: c.optionValue, to_label: c.label, change_action: "replace" }]
+            : [];
+        }),
       added: addedPrimary.map((c) => ({
         value: c.optionValue,
         label: c.label,
@@ -2754,6 +2765,15 @@ function buildCompanyChangeDiff({
     const addedSecondary = secondarySectorChips.filter((c) => c.status === "added");
     const removedSecondary = secondarySectorChips.filter((c) => c.status === "removed");
     newData.secondary_sectors_diff = {
+      // sector swaps, reviewed as one "Replace A with B" change
+      replaced: secondarySectorChips
+        .filter((c) => c.status === "added" && c.replaces)
+        .flatMap((c) => {
+          const from = secondarySectorChips.find((o) => o.id === c.replaces);
+          return from
+            ? [{ from: from.optionValue, from_label: from.label, to: c.optionValue, to_label: c.label, change_action: "replace" }]
+            : [];
+        }),
       added: addedSecondary.map((c) => ({
         value: c.optionValue,
         label: c.label,
@@ -4989,6 +5009,10 @@ function SectorChipEditor({
 }) {
   const [addSearch, setAddSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  // A sector can't just be deleted: this holds the chip being replaced while the
+  // contributor picks the sector that takes its place.
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [replaceSearch, setReplaceSearch] = useState("");
   const addRef = useRef<HTMLDivElement | null>(null);
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const [addMenuStyle, setAddMenuStyle] = useState<React.CSSProperties>({});
@@ -5081,16 +5105,47 @@ function SectorChipEditor({
   };
 
   const handleToggle = (id: string) => {
+    const chip = chips.find((c) => c.id === id);
+    if (!chip || chip.status === "added") return;
+    if (chip.status === "existing") {
+      // Removing needs a replacement: ask for it instead of flagging the chip.
+      setReplacingId(id);
+      setReplaceSearch("");
+      return;
+    }
+    // Undo: bring the sector back and drop the one that was chosen to replace it.
     onChange(
-      chips.map((chip) => {
-        if (chip.id !== id || chip.status === "added") return chip;
-        return { ...chip, status: chip.status === "existing" ? "removed" : "existing" };
-      })
+      chips
+        .filter((c) => c.replaces !== id)
+        .map((c) => (c.id === id ? { ...c, status: "existing" as const } : c))
     );
   };
 
+  const handleReplace = (optValue: string, optLabel: string) => {
+    if (!replacingId) return;
+    const oldId = replacingId;
+    onChange([
+      ...chips.map((c) => (c.id === oldId ? { ...c, status: "removed" as const } : c)),
+      {
+        id: `added-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        label: optLabel,
+        optionValue: optValue,
+        status: "added" as const,
+        replaces: oldId,
+      },
+    ]);
+    setReplacingId(null);
+    setReplaceSearch("");
+  };
+
   const handleRemoveAdded = (id: string) => {
-    onChange(chips.filter((c) => c.id !== id));
+    const chip = chips.find((c) => c.id === id);
+    // Dropping a replacement puts the sector it replaced back.
+    onChange(
+      chips
+        .filter((c) => c.id !== id)
+        .map((c) => (chip?.replaces && c.id === chip.replaces ? { ...c, status: "existing" as const } : c))
+    );
   };
 
   const addedCount = chips.filter((c) => c.status === "added").length;
@@ -5151,7 +5206,7 @@ function SectorChipEditor({
                   ? "Undo removal"
                   : chip.status === "added"
                     ? "Remove"
-                    : "Flag for removal"
+                    : "Replace with another sector"
               }
               style={{
                 width: "18px",
@@ -5183,6 +5238,67 @@ function SectorChipEditor({
             </button>
           </div>
         ))}
+
+        {replacingId && (() => {
+          const old = chips.find((c) => c.id === replacingId);
+          const options = sectorOptions.filter(
+            (opt) =>
+              !activeValues.has(opt.value) &&
+              (replaceSearch === "" || opt.label.toLowerCase().includes(replaceSearch.toLowerCase()))
+          );
+          return (
+            <div
+              style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+              onMouseDown={() => setReplacingId(null)}
+            >
+              <div
+                style={{ background: "white", borderRadius: 14, width: "min(420px, 100%)", boxShadow: "0 20px 50px rgba(15,23,42,0.25)", overflow: "hidden" }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div style={{ padding: "16px 16px 8px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                    Replace &ldquo;{old?.label}&rdquo; with…
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    A sector can&apos;t be removed on its own. Pick the sector that should take its place; the change can&apos;t be saved until you do.
+                  </div>
+                  <input
+                    autoFocus
+                    value={replaceSearch}
+                    onChange={(e) => setReplaceSearch(e.target.value)}
+                    placeholder="Search sector…"
+                    style={{ width: "100%", marginTop: 10, padding: "7px 10px", border: "1.5px solid #cbd5e1", borderRadius: 8, fontSize: 12, outline: "none", boxSizing: "border-box" }}
+                  />
+                </div>
+                <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                  {options.length > 0 ? (
+                    options.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleReplace(opt.value, opt.label)}
+                        style={{ width: "100%", padding: "9px 16px", border: "none", borderTop: "1px solid #f1f5f9", background: "white", color: "#0f172a", textAlign: "left", cursor: "pointer", fontSize: 13 }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))
+                  ) : (
+                    <div style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>No matching sector.</div>
+                  )}
+                </div>
+                <div style={{ padding: 10, borderTop: "1px solid #f1f5f9", textAlign: "right" }}>
+                  <button
+                    type="button"
+                    onClick={() => setReplacingId(null)}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #cbd5e1", background: "white", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div ref={addRef} style={{ position: "relative" }}>
           <button
@@ -7001,6 +7117,16 @@ function SuggestBasicCompanyChangeForm({
       const normalizedContributorEmail = contributorEmail.trim().toLowerCase();
       if (isPublicContributor && !/^\S+@\S+\.\S+$/.test(normalizedContributorEmail)) {
         throw new Error("Please enter your email address.");
+      }
+
+      // A sector is only ever swapped: every removed one needs its replacement.
+      for (const chips of [primarySectorChips, secondarySectorChips]) {
+        const dangling = chips.find(
+          (c) => c.status === "removed" && !chips.some((r) => r.status === "added" && r.replaces === c.id)
+        );
+        if (dangling) {
+          throw new Error(`Pick a replacement for ${dangling.label} before saving, or undo its removal.`);
+        }
       }
 
       const companyDiff = buildCompanyChangeDiff({
