@@ -756,7 +756,7 @@ const ArticleDetailPage = () => {
               secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
             }>
           >(raw.Related_Corporate_Event) || [],
-        Related_Documents:
+        Related_Documents: (
           tryParse<
             Array<{
               access: string;
@@ -768,7 +768,10 @@ const ArticleDetailPage = () => {
               meta: { validated: boolean };
               url: string;
             }>
-          >(raw.Related_Documents) || [],
+          >(raw.Related_Documents) || []
+        )
+          .filter(Boolean)
+          .map((d) => ({ ...d, url: getRelatedDocumentUrl(d) })),
         byline:
           tryParse<string | string[] | Array<string | string[]>>(raw.byline) ??
           raw.byline,
