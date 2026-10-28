@@ -9809,6 +9809,7 @@ const SECTOR_FIN_METRICS = [
 ];
 
 const SECTOR_SUB_METRICS = [
+  { key: "subscription_revenue_m", label: "Subscription revenue (M)", format: "money_m" as const },
   { key: "arr_m", label: "ARR (M)", format: "money_m" as const },
   { key: "arr_percent", label: "ARR (%)", format: "percent" as const },
   { key: "churn", label: "Churn (%)", format: "percent" as const },
@@ -9817,7 +9818,11 @@ const SECTOR_SUB_METRICS = [
   { key: "new_client_growth", label: "New Client Growth (%)", format: "percent" as const },
 ];
 
-const SECTOR_ALL_METRICS = [...SECTOR_FIN_METRICS, ...SECTOR_SUB_METRICS];
+const SECTOR_VALUATION_EXTRA = [
+  { key: "ev_ebitda_multiple", label: "EV / EBITDA (x)", format: "multiple" as const },
+];
+
+const SECTOR_ALL_METRICS = [...SECTOR_FIN_METRICS, ...SECTOR_SUB_METRICS, ...SECTOR_VALUATION_EXTRA];
 
 // Column groups of the benchmark table: financials, subscription metrics and the
 // transaction-comp style valuation columns.
@@ -9826,12 +9831,22 @@ const SECTOR_GROUPS = (() => {
     keys.map((k) => SECTOR_ALL_METRICS.find((m) => m.key === k)!).filter(Boolean);
   return [
     { title: "Financial metrics", metrics: by(["revenue_m", "ebitda_m", "ebit_m", "revenue_growth", "ebitda_margin", "rule_of_40"]) },
-    { title: "Subscription metrics", metrics: SECTOR_SUB_METRICS },
-    { title: "Valuation", metrics: by(["ev_m", "ev_rev_multiple"]) },
+    { title: "Subscription metrics", metrics: by(["subscription_revenue_m", "arr_m", "arr_percent", "churn", "grr", "nrr", "new_client_growth"]) },
+    { title: "Valuation", metrics: by(["ev_m", "ev_rev_multiple", "ev_ebitda_multiple"]) },
   ];
 })();
 
+// Shown on first open; the rest is switched on in the column control room.
+const SECTOR_DEFAULT_COLUMNS = [
+  "revenue_m", "ebitda_m", "ebit_m", "revenue_growth", "ebitda_margin",
+  "arr_m", "arr_percent",
+  "ev_m", "ev_rev_multiple",
+];
+const SECTOR_COLUMNS_STORAGE_KEY = "bm-benchmark-columns-v1";
+
 const SECTOR_METRIC_ALIASES: Record<string, string[]> = {
+  subscription_revenue_m: ["subscription_revenue_m", "subscription_revenue"],
+  ev_ebitda_multiple: ["ev_ebitda_multiple", "ev_ebitda"],
   ev_m: ["ev_m", "ev", "enterprise_value_m"],
   ebit_m: ["ebit_m", "ebit"],
   churn: ["churn", "churn_pc"],
@@ -9898,6 +9913,38 @@ function SectorIntelligenceTab({
 
   // ── Benchmark table state ──
   const [view, setView] = useState<SectorMetricView>("mean");
+  // Column control room: which optional columns are shown (remembered per browser).
+  const [visibleCols, setVisibleCols] = useState<string[]>(SECTOR_DEFAULT_COLUMNS);
+  const [colsOpen, setColsOpen] = useState(false);
+  const colsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SECTOR_COLUMNS_STORAGE_KEY);
+      const saved = raw ? (JSON.parse(raw) as unknown) : null;
+      if (Array.isArray(saved)) {
+        const known = new Set(SECTOR_ALL_METRICS.map((m) => m.key));
+        setVisibleCols(saved.filter((k): k is string => typeof k === "string" && known.has(k)));
+      }
+    } catch {}
+  }, []);
+  const saveCols = (next: string[]) => {
+    setVisibleCols(next);
+    try {
+      window.localStorage.setItem(SECTOR_COLUMNS_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  };
+  useEffect(() => {
+    if (!colsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (colsRef.current && !colsRef.current.contains(e.target as Node)) setColsOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [colsOpen]);
+  const shownGroups = SECTOR_GROUPS.map((g) => ({
+    ...g,
+    metrics: g.metrics.filter((m) => visibleCols.includes(m.key)),
+  })).filter((g) => g.metrics.length > 0);
   const [benchScrolled, setBenchScrolled] = useState(false);
   // Same preference (cookie) as the rest of the platform; the endpoint converts server-side.
   const [currency, setCurrencyState] = useState<SectorCurrency>("USD");
@@ -10097,8 +10144,16 @@ function SectorIntelligenceTab({
         .bm-stg button:disabled{cursor:default}
         .bm-stg button.on{background:#fff;color:#2438B8;font-weight:600;box-shadow:0 1px 2px rgba(27,42,65,.12)}
         .bm-scroll{overflow:auto;scrollbar-width:thin;scrollbar-color:#CBD3DF transparent}
-        .bm-t{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
-        .bm-t th,.bm-t td{padding:8px 16px;text-align:center;white-space:nowrap;border-bottom:1px solid #F1F3F7}
+        .bm-t{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
+        .bm-t th,.bm-t td{padding:8px 10px;text-align:center;white-space:nowrap;border-bottom:1px solid #F1F3F7}
+        .bm-t thead th{white-space:normal;line-height:1.25}
+        .bm-cc{position:relative}
+        .bm-cc>button{border:1px solid #DDE3EC;background:#fff;border-radius:999px;padding:4px 12px;font:600 12px Inter,sans-serif;color:#4A5D7A;cursor:pointer}
+        .bm-cp{position:absolute;right:0;top:calc(100% + 6px);z-index:20;width:300px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #E3E8F0;border-radius:12px;box-shadow:0 8px 24px rgba(27,42,65,.14);padding:12px 14px;text-align:left}
+        .bm-cp h4{margin:10px 0 4px;font:700 10.5px Inter,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#1F4FE0}
+        .bm-cp label{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12.5px;color:#1B2A41;cursor:pointer}
+        .bm-cp label.lock{color:#6A7A90;cursor:default}
+        .bm-cp .rs{margin-top:10px;border:0;background:none;color:#2438B8;font:600 12px Inter,sans-serif;cursor:pointer;padding:0}
         .bm-t thead th{background:#EEF3FC;color:#4A5D7A;font:600 10.5px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid #DCE5F5;height:34px}
         .bm-t thead th.g{height:30px;color:#1F4FE0;font-weight:700;letter-spacing:.07em}
         .bm-t th.l,.bm-t td.l{text-align:left}
@@ -10197,12 +10252,12 @@ function SectorIntelligenceTab({
                 <tr>
                   <th className="st l" rowSpan={2} style={{ verticalAlign: "bottom", paddingBottom: 10 }}>Revenue range</th>
                   <th rowSpan={2} style={{ verticalAlign: "bottom", paddingBottom: 10 }}>Companies</th>
-                  {SECTOR_GROUPS.map((g) => (
+                  {shownGroups.map((g) => (
                     <th key={g.title} className="g bl" colSpan={g.metrics.length}>{g.title}</th>
                   ))}
                 </tr>
                 <tr>
-                  {SECTOR_GROUPS.flatMap((g) =>
+                  {shownGroups.flatMap((g) =>
                     g.metrics.map((m, i) => (
                       <th key={m.key} className={i === 0 ? "bl" : ""}>
                         {m.format === "money_m" ? m.label.replace(/\(M\)/, `(${currencyInfo.symbol}M)`) : m.label}
@@ -10216,7 +10271,7 @@ function SectorIntelligenceTab({
                   <tr key={`${row.revenue_range}-${idx}`}>
                     <td className="st l">{row.revenue_range}</td>
                     <td className="n">{Number.isFinite(row.num_companies) ? row.num_companies.toLocaleString() : "—"}</td>
-                    {SECTOR_GROUPS.flatMap((g) =>
+                    {shownGroups.flatMap((g) =>
                       g.metrics.map((m, i) => {
                         const val = getVal(row, m.key);
                         const formatted = sectorFormatValue(val, m.format, currencyInfo.symbol, null, "USD");
