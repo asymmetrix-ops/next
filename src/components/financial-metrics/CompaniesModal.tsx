@@ -1,5 +1,6 @@
 "use client";
 
+import { getExportRowLimit, showExportLimitNotice } from "@/lib/listExport/exportLimit";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { authService } from "@/lib/auth";
 import {
@@ -621,6 +622,14 @@ export default function CompaniesModal({
       
       if (allItems.length === 0) {
         throw new Error("Export returned empty data");
+      }
+
+      // The CSV endpoint already trims to the user's export limit; tell them if it did.
+      const csvMeta = (isJson ? firstPageParsed : null) as
+        | { truncated?: boolean; limit?: number }
+        | null;
+      if (csvMeta?.truncated) {
+        await showExportLimitNotice(csvMeta.limit ?? (await getExportRowLimit()));
       }
       
       if (isJson) {

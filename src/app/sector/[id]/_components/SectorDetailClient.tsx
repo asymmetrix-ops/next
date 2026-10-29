@@ -2763,7 +2763,6 @@ const SectorDetailPage = ({
                 }
                 hideOwnershipTabs={Boolean(ownershipFilter)}
                 embedded
-                uncappedExport
                 columnsStorageScope="session"
                 columnsStorageKey={`sector-all-companies-${sectorId}`}
               />
@@ -2776,7 +2775,6 @@ const SectorDetailPage = ({
               fixedOwnershipTypeIds={[7]}
               hideOwnershipTabs
               embedded
-              uncappedExport
               lockSectorScope
               columnsStorageScope="session"
               columnsStorageKey={`sector-public-companies-${sectorId}`}
