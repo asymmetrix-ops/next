@@ -11048,6 +11048,35 @@ const CompanyDetail = () => {
   /** Label from get_company_transaction_status (authoritative when set). */
   const [transactionStatusApiLabel, setTransactionStatusApiLabel] =
     useState("");
+  // The contributor page is read-and-submit only: no hyperlink on it takes them anywhere.
+  // (Buttons, tabs and form controls keep working; only <a href> navigation is blocked.)
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-contributor-no-links", "");
+    style.textContent =
+      "a[href]{pointer-events:none !important;cursor:default !important;text-decoration:none !important}";
+    document.head.appendChild(style);
+    const block = (e: Event) => {
+      const a = (e.target as Element | null)?.closest?.("a[href]");
+      if (a) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", block, true);
+    document.addEventListener("auxclick", block, true);
+    const blockEnter = (e: KeyboardEvent) => {
+      if (e.key === "Enter") block(e);
+    };
+    document.addEventListener("keydown", blockEnter, true);
+    return () => {
+      style.remove();
+      document.removeEventListener("click", block, true);
+      document.removeEventListener("auxclick", block, true);
+      document.removeEventListener("keydown", blockEnter, true);
+    };
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
