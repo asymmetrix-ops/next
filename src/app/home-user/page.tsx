@@ -16,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
+import { fetchNewsFeed } from "@/lib/news";
 import AppLeftNav from "@/components/layout/AppLeftNav";
 import { NavOpenProvider, useNavOpen } from "@/components/layout/NavOpenContext";
 import RequestDataResearchButton from "@/components/RequestDataResearchButton";
@@ -944,21 +945,11 @@ function HomeUserPageContent() {
 
       const [insightsResponse, newsResponse] = await Promise.all([
         dashboardApiService.getAllContentArticlesHome(),
-        dashboardApiService.getHomeNewsArticles(16),
+        fetchNewsFeed({ page: 1, perPage: 4 }),
       ]);
 
-      const newsSorted = (newsResponse.items as unknown as InsightArticle[]).sort(
-        (a, b) =>
-          Date.parse(b.Publication_Date || "0") -
-          Date.parse(a.Publication_Date || "0")
-      );
-      const weekMs = 7 * 24 * 60 * 60 * 1000;
-      const newsThisWeek = newsSorted.filter((article) => {
-        const t = Date.parse(article.Publication_Date || "");
-        return !Number.isNaN(t) && t >= Date.now() - weekMs;
-      });
       setHomeNewsArticles(
-        (newsThisWeek.length >= 4 ? newsThisWeek : newsSorted).slice(0, 4)
+        (newsResponse.items as unknown as InsightArticle[]).slice(0, 4)
       );
 
       let insightsData: InsightArticle[] = [];
