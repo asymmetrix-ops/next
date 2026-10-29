@@ -87,9 +87,10 @@ export default function IndividualProfilePage() {
   const descriptionRef = useRef<HTMLDivElement>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const overviewGridRef = useRef<HTMLDivElement>(null);
+  const rolesGridRef = useRef<HTMLDivElement>(null);
   const bioGridRef = useRef<HTMLDivElement>(null);
   const descriptionCollapsedHeightStyle = useDescriptionRowHeight(
-    [overviewGridRef],
+    [overviewGridRef, rolesGridRef],
     bioGridRef,
     !isDescriptionExpanded,
     [individualId]
@@ -208,10 +209,6 @@ export default function IndividualProfilePage() {
   const relatedIndividuals = eventsData?.all_related_individuals || [];
   const linkedinUrl = getIndividualLinkedInUrl(Individual);
 
-  const rolesGridRow = 2;
-  const eventsGridRow = 2;
-  const relatedGridRow = 3;
-
   const styles = {
     container: {
       backgroundColor: T.paper,
@@ -231,7 +228,7 @@ export default function IndividualProfilePage() {
     },
     responsiveGrid: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
       gap: "12px",
       flex: 1,
       maxWidth: "100%",
@@ -244,17 +241,18 @@ export default function IndividualProfilePage() {
     .individual-detail-page { overflow-x: hidden; }
     .responsiveGrid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 12px;
       max-width: 100%;
       align-items: stretch;
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; }
-    .individual-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .individual-grid-bio { grid-column: 2 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .individual-grid-roles { grid-column: 1; grid-row: ${rolesGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .individual-grid-events { grid-column: 2 / span 2; grid-row: ${eventsGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .individual-grid-related { grid-column: 1 / -1; grid-row: ${relatedGridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .responsiveGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .individual-grid-overview { grid-column: 1 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .individual-grid-bio { grid-column: 3 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .individual-grid-roles { grid-column: 5 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .individual-grid-events { grid-column: 1 / span 4; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .individual-grid-related { grid-column: 5 / span 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
     .individual-grid-roles > *,
     .individual-grid-events > *,
     .individual-grid-related > * {
@@ -262,7 +260,7 @@ export default function IndividualProfilePage() {
       max-width: 100%;
       width: 100%;
     }
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
       .responsiveGrid { grid-template-columns: 1fr !important; gap: 12px !important; max-width: 100% !important; }
       .individual-grid-overview,
       .individual-grid-bio,
@@ -345,7 +343,7 @@ export default function IndividualProfilePage() {
               />
             </div>
 
-            <div className="individual-grid-roles">
+            <div className="individual-grid-roles" ref={rolesGridRef}>
               <LinkPanel fillGridCell className="individual-roles-v3-card">
                 <IndividualRolesProfilePanel roles={Roles || []} maxInitial={8} />
               </LinkPanel>

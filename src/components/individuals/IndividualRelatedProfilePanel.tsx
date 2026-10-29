@@ -11,9 +11,7 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
   T,
-  Pill,
 } from "@/components/redesign/primitives";
-import { LinkedInProfileButton } from "@/components/redesign/LinkedInProfileButton";
 import type { RelatedIndividual } from "@/types/individual";
 
 type Props = {
@@ -22,7 +20,7 @@ type Props = {
 };
 
 const RELATED_ROW_GRID =
-  "minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(72px, auto) 40px";
+  "minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr)";
 
 export function IndividualRelatedProfilePanel({
   individuals,
@@ -57,8 +55,8 @@ export function IndividualRelatedProfilePanel({
         ) : null}
       </div>
 
-      <div style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
-        <div style={{ width: "100%", minWidth: 640, ...profileTableCellStyle }}>
+      <div style={{ maxWidth: "100%", minWidth: 0 }}>
+        <div style={{ width: "100%", ...profileTableCellStyle }}>
           <div
             style={{
               ...tableColHeaderBarStyle,
@@ -67,12 +65,12 @@ export function IndividualRelatedProfilePanel({
               padding: PROFILE_EVENTS_ROW_PAD.header,
             }}
           >
-            {(["Name", "Company", "Role", "Status", "LinkedIn"] as const).map((h, colIndex) => (
+            {(["Name", "Company", "Role"] as const).map((h, colIndex) => (
               <div
                 key={h}
                 style={{
                   ...tableColHeaderStyle,
-                  textAlign: h === "LinkedIn" ? "center" : colAlign(colIndex),
+                  textAlign: colAlign(colIndex),
                 }}
               >
                 {h}
@@ -88,15 +86,11 @@ export function IndividualRelatedProfilePanel({
                 related._new_company?._linkedin_data_of_new_company?.linkedin_logo ||
                 related._new_company?.linkedin_data?.linkedin_logo ||
                 "";
-              const isCurrent = related.Status === "Current";
               const companyHref = related._new_company?._is_that_investor
                 ? `/investors/${related._new_company.id}`
                 : related._new_company?.id
                   ? `/company/${related._new_company.id}`
                   : undefined;
-              const linkedinUrl =
-                (related._individuals as { linkedin_URL?: string }).linkedin_URL ||
-                (related._individuals as { linkedin_url?: string }).linkedin_url;
 
               return (
                 <div
@@ -105,7 +99,7 @@ export function IndividualRelatedProfilePanel({
                     display: "grid",
                     gridTemplateColumns: RELATED_ROW_GRID,
                     gap: PROFILE_EVENTS_ROW_GAP,
-                    alignItems: "center",
+                    alignItems: "start",
                     padding: PROFILE_EVENTS_ROW_PAD.body,
                     borderBottom: last ? "none" : `1px solid ${T.hair}`,
                   }}
@@ -118,9 +112,7 @@ export function IndividualRelatedProfilePanel({
                         color: T.azure,
                         textDecoration: "underline",
                         fontWeight: 500,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        overflowWrap: "anywhere" as const,
                         display: "block",
                       }}
                     >
@@ -145,7 +137,7 @@ export function IndividualRelatedProfilePanel({
                           color: T.azure,
                           textDecoration: "underline",
                           fontWeight: 500,
-                          wordBreak: "break-word" as const,
+                          overflowWrap: "anywhere" as const,
                           minWidth: 0,
                         }}
                       >
@@ -161,15 +153,10 @@ export function IndividualRelatedProfilePanel({
                       color: T.body,
                       minWidth: 0,
                       lineHeight: 1.55,
+                      overflowWrap: "anywhere" as const,
                     }}
                   >
                     {(related.job_titles_id || []).map((jt) => jt.job_title).join(", ") || "-"}
-                  </div>
-                  <div style={{ textAlign: colAlign(3) }}>
-                    <Pill tone={isCurrent ? "emerald" : "neutral"}>{related.Status}</Pill>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <LinkedInProfileButton href={linkedinUrl} />
                   </div>
                 </div>
               );
