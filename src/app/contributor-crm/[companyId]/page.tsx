@@ -9793,7 +9793,8 @@ function ContributeFinancialMetricsTab({
 
 const CE_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events";
-const CE_PER_PAGE = 25;
+// The contributor benchmark shows only the 5 most recent corporate events (no paging).
+const CE_PER_PAGE = 5;
 
 type CEItem = {
   id?: number;
@@ -10444,7 +10445,7 @@ function SectorIntelligenceTab({
         truncateDescriptionLength={180}
         titleStyle={{ fontSize: "20px", fontFamily: "Georgia, serif", fontWeight: 700, color: "#0f172a" }}
       />
-      {!ceLoading && !ceError && cePag.pageTotal > 1 && (
+      {false && !ceLoading && !ceError && cePag.pageTotal > 1 && (
         <div
           style={{
             marginTop: "8px",
