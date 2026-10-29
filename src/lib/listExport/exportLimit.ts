@@ -109,3 +109,15 @@ export function showExportLimitNotice(limit: number): Promise<void> {
     );
   });
 }
+
+/**
+ * Trims rows to the user's export limit and, if anything was cut (here or by
+ * the server), shows the limit notice. Await it before starting the download.
+ */
+export async function applyExportRowLimit<T>(rows: T[]): Promise<T[]> {
+  const limit = await getExportRowLimit();
+  const cutByServer = takeServerTruncated();
+  if (rows.length <= limit && !cutByServer) return rows;
+  await showExportLimitNotice(limit);
+  return rows.slice(0, limit);
+}

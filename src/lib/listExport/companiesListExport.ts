@@ -402,12 +402,9 @@ async function fetchSelectedCompaniesForExport(
 
 export async function fetchAllCompaniesForExport(
   filters: CompanySearchPayload,
-  expectedTotalCount?: number,
-  uncapped = false
+  expectedTotalCount?: number
 ): Promise<Record<string, unknown>[]> {
-  const exportCap = uncapped
-    ? Number.MAX_SAFE_INTEGER
-    : await getExportFetchCap();
+  const exportCap = await getExportFetchCap();
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
@@ -455,8 +452,7 @@ export async function exportCompaniesList(
   request: ListExportRequest,
   filters: CompanySearchPayload,
   visibleColumnKeys: string[],
-  expectedTotalCount?: number,
-  uncapped = false
+  expectedTotalCount?: number
 ): Promise<void> {
   let rows: Record<string, unknown>[];
 
@@ -465,7 +461,7 @@ export async function exportCompaniesList(
     if (selectedIds.length === 0) return;
     rows = await fetchSelectedCompaniesForExport(filters, selectedIds);
   } else {
-    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount, uncapped);
+    rows = await fetchAllCompaniesForExport(filters, expectedTotalCount);
   }
 
   await runGenericListExport({
@@ -483,7 +479,6 @@ export async function exportCompaniesList(
     getEntityName: (row) => String(row.name ?? "—"),
     getCellValue: getCompanyCellValue,
     getCellExportValue: getCompanyCellExportValue,
-    skipRowLimit: uncapped,
   });
 }
 

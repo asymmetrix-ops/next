@@ -36,7 +36,6 @@ export type ScopedCompaniesPanelProps = {
   enableFilterControl?: boolean;
   enableExport?: boolean;
   enableRowSelection?: boolean;
-  uncappedExport?: boolean;
   columnsStorageKey?: string;
   columnsStorageScope?: ColumnStorageScope;
   defaultColumnKeys?: readonly string[];
@@ -194,7 +193,6 @@ export function ScopedCompaniesPanel({
   enableFilterControl = true,
   enableExport = true,
   enableRowSelection = true,
-  uncappedExport = false,
   columnsStorageKey,
   columnsStorageScope = "session",
   defaultColumnKeys = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
@@ -432,7 +430,6 @@ export function ScopedCompaniesPanel({
         columnsStorageKey={resolvedColumnsStorageKey}
         columnsStorageScope={columnsStorageScope}
         defaultColumnKeys={defaultColumnKeys}
-        uncappedExport={uncappedExport}
         enableColumnControl={enableColumnControl}
       />
     </div>

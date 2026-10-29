@@ -8,6 +8,7 @@ import {
 } from "./companiesListExport";
 import { readFieldValue } from "./readFieldValue";
 import type { ExportColumnDef } from "./types";
+import { applyExportRowLimit } from "./exportLimit";
 import { buildVisibleColumnsWorkbook, downloadXlsxBuffer } from "./xlsx";
 import type { ExportCellValue } from "./exportCellValue";
 
@@ -118,10 +119,8 @@ export async function exportMarketMapBucket(options: {
     perPage: 100,
   });
 
-  const rawRows = await fetchAllCompaniesForExport(
-    filters,
-    options.expectedCount,
-    true
+  const rawRows = await applyExportRowLimit(
+    await fetchAllCompaniesForExport(filters, options.expectedCount)
   );
   const rows = rawRows.map((row) => mapCompanyTableApiRow(row));
 

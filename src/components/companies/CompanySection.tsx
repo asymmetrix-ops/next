@@ -1074,7 +1074,6 @@ export const CompanySection = ({
   columnsStorageKey,
   columnsStorageScope = "local",
   defaultColumnKeys,
-  uncappedExport = false,
   enableColumnControl = true,
   portfolioMode = false,
   columnCategories,
@@ -1117,7 +1116,6 @@ export const CompanySection = ({
   columnsStorageKey?: string;
   columnsStorageScope?: ColumnStorageScope;
   defaultColumnKeys?: readonly string[];
-  uncappedExport?: boolean;
   enableColumnControl?: boolean;
   portfolioMode?: boolean;
   columnCategories?: CompanyColumnCategory[];
@@ -1611,8 +1609,7 @@ export const CompanySection = ({
           },
           exportFilters ?? currentFilters ?? createDefaultFilters(),
           selectedColumnKeys,
-          scope === "full_list" ? exportTotalCount : undefined,
-          uncappedExport
+          scope === "full_list" ? exportTotalCount : undefined
         );
       } catch (exportError) {
         console.error("Companies export failed:", exportError);
@@ -1629,7 +1626,6 @@ export const CompanySection = ({
       selectedCompanyIds,
       pagination.totalCount,
       ownershipCounts.totalCount,
-      uncappedExport,
     ]
   );
 
