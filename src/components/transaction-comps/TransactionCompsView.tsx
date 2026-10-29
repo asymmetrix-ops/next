@@ -342,12 +342,21 @@ export function TransactionCompsView({
         if (selectedIds.size > 0) {
           source = rows.filter((r) => selectedIds.has(r.company_id));
         } else {
-          const result = await fetchTransactionCompsServer({
-            ...buildQuery(1, await getExportFetchCap()),
-            exportMode: true,
-          });
-          noteServerExport(result);
-          source = result?.items ?? [];
+          // The endpoint serves at most 100 rows a page, so page until the export cap.
+          const exportCap = await getExportFetchCap();
+          const exportPerPage = 100;
+          const collected: typeof rows = [];
+          for (let page = 1; collected.length < exportCap; page++) {
+            const result = await fetchTransactionCompsServer({
+              ...buildQuery(page, exportPerPage),
+              exportMode: true,
+            });
+            noteServerExport(result);
+            const pageItems = result?.items ?? [];
+            collected.push(...pageItems);
+            if (pageItems.length < exportPerPage) break;
+          }
+          source = collected;
         }
         await exportTransactionCompsList(
           { mode, scope: selectedIds.size > 0 ? "selected" : "full_list" },
