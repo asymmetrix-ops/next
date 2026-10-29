@@ -10430,6 +10430,17 @@ function SectorIntelligenceTab({
 
     {/* ── Corporate Events ── */}
     <div style={{ marginTop: "20px" }}>
+      {/* Read-only on the contributor page: nothing in the event list opens another page. */}
+      <div
+        ref={(el) => {
+          if (el) (el as HTMLElement & { inert?: boolean }).inert = true;
+        }}
+        onClickCapture={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        style={{ pointerEvents: "none", cursor: "default" }}
+      >
       <CorporateEventsSection
         title="Corporate Events"
         events={ceItems as CorporateEvent[]}
@@ -10445,6 +10456,7 @@ function SectorIntelligenceTab({
         truncateDescriptionLength={180}
         titleStyle={{ fontSize: "20px", fontFamily: "Georgia, serif", fontWeight: 700, color: "#0f172a" }}
       />
+      </div>
       {false && !ceLoading && !ceError && cePag.pageTotal > 1 && (
         <div
           style={{
