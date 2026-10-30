@@ -47,18 +47,27 @@ export function hasActiveFilters(
   return false;
 }
 
+/** Payload keys holding raw SQL, id lists or column lists: never useful in a name. */
+const NON_LABEL_KEY = /sql|_str$|ids?$|columns|currency/i;
+
 function collectLabels(value: unknown, out: string[]): void {
   if (out.length >= 6 || isEmptyValue(value)) return;
   if (typeof value === "string") {
     const text = value.trim();
-    if (text && text.length <= 40) out.push(text);
+    if (text && text.length <= 40 && /[A-Za-z]{3}/.test(text) && !/[=()<>]/.test(text)) {
+      out.push(text);
+    }
   } else if (Array.isArray(value)) {
     value.forEach((item) => collectLabels(item, out));
   } else if (typeof value === "object" && value) {
     const record = value as Record<string, unknown>;
     const named = record.name ?? record.label ?? record.value;
     if (typeof named === "string") collectLabels(named, out);
-    else Object.values(record).forEach((item) => collectLabels(item, out));
+    else {
+      for (const [key, item] of Object.entries(record)) {
+        if (!NON_LABEL_KEY.test(key)) collectLabels(item, out);
+      }
+    }
   }
 }
 
