@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import NewsCard from "@/components/news/NewsCard";
@@ -9,7 +9,8 @@ import NewsFilterBar from "@/components/news/NewsFilterBar";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
-import { formatTransactionStatusLabel } from "@/lib/tagColors";
+import { formatTransactionStatusLabel, getNewsSubtypeTone } from "@/lib/tagColors";
+import { getFilterChipColor } from "@/lib/filterChipColors";
 import Link from "next/link";
 import { usePortfolioStore } from "@/store/portfolioStore";
 import { trackKeyAction } from "@/lib/tracking";
@@ -87,6 +88,30 @@ function chipsOf(f: NewsFilters): NewsChip[] {
     chips.push({ kind, label });
   }
   return chips;
+}
+
+const CHIP_FILTER_ID = {
+  company: "company",
+  investor: "investor",
+  sector: "sector",
+  subType: "subtype",
+  transactionStatus: "status",
+  countries: "country",
+  dateRange: "date",
+  followedOnly: "followed",
+  text: "search",
+} as const;
+
+/** Chip colours: news types keep their own colour, other filters use the shared palette. */
+function chipColors(chip: NewsChip): React.CSSProperties {
+  let bg: string, border: string, fg: string;
+  if (chip.kind === "subType") {
+    const t = getNewsSubtypeTone(chip.label);
+    ({ fill: bg, border, text: fg } = t);
+  } else {
+    ({ bg, border, fg } = getFilterChipColor(CHIP_FILTER_ID[chip.kind]));
+  }
+  return { "--chip-bg": bg, "--chip-border": border, "--chip-fg": fg } as React.CSSProperties;
 }
 
 function mergeById(prev: NewsArticle[], next: NewsArticle[]): NewsArticle[] {
@@ -278,7 +303,7 @@ export default function NewsPage() {
           {filtered && (
             <div className="nw-chips">
               {chipsOf(filters).map((chip) => (
-                <span className="nw-chip" key={chip.kind}>
+                <span className="nw-chip" key={chip.kind} style={chipColors(chip)}>
                   <span className="nw-chip-kind">{CHIP_LABEL[chip.kind]}</span>
                   {chip.label}
                   <button
