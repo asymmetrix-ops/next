@@ -194,6 +194,19 @@ const formatNumber = (num: number | undefined): string => {
 };
 
 // Data mapping helpers for dashboard JSON
+// Shared date formatter so Insights, Recent corporate events and Transaction comps
+// all render dates the same way (e.g. "October 20, 2026").
+function formatDisplayDate(dateString?: string | null): string {
+  if (!dateString) return "";
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return dateString;
+  return parsed.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 interface TransactionRecord {
   date: string;
   buyer: string;
@@ -1099,7 +1112,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                             {r.company_name}
                           </a>
                           <div style={{ fontSize: 12, color: MUTED_SOFT, marginTop: 2 }}>
-                            {[r.deal_date, acquirer && `to ${acquirer}`].filter(Boolean).join(" · ")}
+                            {[formatDisplayDate(r.deal_date), acquirer && `to ${acquirer}`].filter(Boolean).join(" · ")}
                           </div>
                         </div>
                       </div>
@@ -1250,7 +1263,7 @@ function RecentTransactionsCard({
                             {t.target || <span style={{ color: EMPTY }}>—</span>}
                           </div>
                           <div style={{ fontSize: 11.5, color: MUTED, marginTop: 1 }}>
-                            {t.date || <span style={{ color: EMPTY }}>—</span>}
+                            {t.date ? formatDisplayDate(t.date) : <span style={{ color: EMPTY }}>—</span>}
                           </div>
                         </div>
                       </div>
