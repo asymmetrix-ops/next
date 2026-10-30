@@ -89,29 +89,36 @@ export default function NewsThreadsPage() {
             </div>
           </div>
 
-          <div className="nw-controls" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-            <div role="tablist" aria-label="Thread type" style={{ display: "flex", gap: 8 }}>
+          <div className="nw-controls">
+            <div className="nw-controls-search">
+              <div className="nw-search-pill">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${THREAD_TYPE_LABEL[type].toLowerCase()} threads…`}
+                  aria-label="Search threads"
+                />
+              </div>
+            </div>
+            <div className="nw-pills" role="tablist" aria-label="Thread type">
               {THREAD_TYPES.map((t) => (
                 <button
                   key={t}
                   type="button"
                   role="tab"
                   aria-selected={type === t}
-                  className={`nw-btn ${type === t ? "" : "nw-btn-outline"}`}
+                  className={`nw-pill ${type === t ? "nw-pill-active" : ""}`}
                   onClick={() => setType(t)}
                 >
                   {THREAD_TYPE_LABEL[t]}
                 </button>
               ))}
             </div>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${THREAD_TYPE_LABEL[type].toLowerCase()} threads`}
-              aria-label="Search threads"
-              style={{ flex: "1 1 240px", maxWidth: 360, padding: "8px 12px", border: "1px solid #e4e8f2", borderRadius: 8, fontSize: 14, background: "#fff" }}
-            />
           </div>
 
           {error && <div className="nw-error" role="alert">{error}</div>}
@@ -136,16 +143,17 @@ export default function NewsThreadsPage() {
                   <Link
                     key={thread.key}
                     href={`/news/threads/${type}/${encodeURIComponent(thread.key)}`}
-                    className="nw-card"
-                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, textDecoration: "none", color: "inherit" }}
+                    className="nw-card nw-thread-card"
                   >
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>{thread.name}</span>
-                    <span style={{ fontSize: 12, color: "#566078" }}>
-                      {thread.article_count} {thread.article_count === 1 ? "article" : "articles"}
-                      {thread.latest_date ? ` · latest ${formatDate(thread.latest_date)}` : ""}
+                    <span className="nw-thread-name">{thread.name}</span>
+                    <span className="nw-thread-meta">
+                      <span className="nw-thread-count">
+                        {thread.article_count} {thread.article_count === 1 ? "article" : "articles"}
+                      </span>
+                      {thread.latest_date ? <span>Latest {formatDate(thread.latest_date)}</span> : null}
                     </span>
                     {thread.latest_headline ? (
-                      <span style={{ fontSize: 13, color: "#0a0e1a" }}>{thread.latest_headline}</span>
+                      <span className="nw-thread-headline">{thread.latest_headline}</span>
                     ) : null}
                   </Link>
                 ))}
