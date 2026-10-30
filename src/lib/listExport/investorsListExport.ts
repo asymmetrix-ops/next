@@ -1,3 +1,4 @@
+import { collectAllEntityIds } from "./collectEntityIds";
 import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   INVESTORS_COLUMN_CATEGORIES,
@@ -243,7 +244,8 @@ function appendUniqueItems(
 async function fetchInvestorsPage(
   filters: InvestorsSearchFilters,
   page: number,
-  perPage: number = EXPORT_PER_PAGE
+  perPage: number = EXPORT_PER_PAGE,
+  exportMode: boolean = true
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
@@ -257,7 +259,7 @@ async function fetchInvestorsPage(
     page,
     per_page: perPage,
   });
-  params.set("export", "true");
+  if (exportMode) params.set("export", "true");
   const response = await fetch(`/api/investors/list?${params.toString()}`, {
     method: "GET",
     headers: {
@@ -271,7 +273,7 @@ async function fetchInvestorsPage(
   }
 
   const raw = await response.json();
-  noteServerExport(raw);
+  if (exportMode) noteServerExport(raw);
   const investors = raw?.investors ?? raw;
   const rawItems: unknown[] = Array.isArray(investors?.items)
     ? investors.items
@@ -284,6 +286,17 @@ async function fetchInvestorsPage(
   const pageTotal = investors?.pageTotal || 1;
 
   return { items, pageTotal, totalCount };
+}
+
+/** Every investor id (New_Company id) matching the filters, across all pages. */
+export async function collectAllInvestorIds(
+  filters: InvestorsSearchFilters
+): Promise<number[]> {
+  return collectAllEntityIds(
+    (page) => fetchInvestorsPage(filters, page, EXPORT_PER_PAGE, false),
+    getInvestorId,
+    EXPORT_PER_PAGE
+  );
 }
 
 async function fetchSelectedInvestorsForExport(

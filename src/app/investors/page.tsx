@@ -33,6 +33,9 @@ import {
 } from "@/components/investors/investorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import { ListViewPortfolioBar } from "@/components/portfolio/ListViewPortfolioBar";
+import { collectAllInvestorIds } from "@/lib/listExport/investorsListExport";
+import { hasActiveFilters } from "@/lib/savedFilterUtils";
 
 const useInvestorsAPI = () => {
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -297,6 +300,20 @@ function InvestorsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <ListViewPortfolioBar
+        entityType="investor"
+        entityPlural="Investors"
+        filters={currentFilters as Record<string, unknown> | undefined}
+        hasFilters={hasActiveFilters(
+          currentFilters as Record<string, unknown> | undefined,
+          createDefaultInvestorFilters() as unknown as Record<string, unknown>
+        )}
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={() => collectAllInvestorIds((currentFilters ?? createDefaultInvestorFilters()) as never)}
+        onApplySaved={(f) => {
+          void fetchInvestors(1, { ...createDefaultInvestorFilters(), ...f, page: 1 });
+        }}
       />
       <InvestorSection
         investors={investors}

@@ -1,11 +1,9 @@
-import { addEntityToPortfolioApi } from "@/lib/portfolioEntity";
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import {
-  followPortfolioEntities,
-  invalidateUserPortfolioRecordCache,
-  ENTITY_TYPE_TO_FOLLOW_KEY,
-} from "@/lib/portfolioFollow";
-import { createUserListInXano } from "@/lib/userLists";
+  bulkAddEntitiesToList,
+  bulkCreateListWithEntities,
+  bulkFollowEntities,
+} from "@/lib/bulkPortfolioApi";
 
 export type BulkPortfolioAction =
   | { mode: "follow" }
@@ -19,157 +17,94 @@ export type BulkProgress = {
   failed: number;
 };
 
-// Must be 1: Xano's list-entity endpoint does read-modify-write on the
-// followed_companies array. Concurrent requests race and only the last
-// write survives, so we serialize all additions to the same list.
-const CONCURRENCY = 1;
-
-async function runWithConcurrency<T>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<boolean>,
-  onProgress?: (progress: BulkProgress) => void
-): Promise<BulkProgress> {
-  const progress: BulkProgress = {
-    total: items.length,
-    done: 0,
-    success: 0,
-    failed: 0,
-  };
-
-  const report = () => onProgress?.({ ...progress });
-
-  let index = 0;
-  const runNext = async (): Promise<void> => {
-    while (index < items.length) {
-      const current = index++;
-      const ok = await worker(items[current]).catch(() => false);
-      progress.done += 1;
-      if (ok) progress.success += 1;
-      else progress.failed += 1;
-      report();
-    }
-  };
-
-  report();
-  const workers = Array.from(
-    { length: Math.min(concurrency, Math.max(items.length, 1)) },
-    () => runNext()
-  );
-  await Promise.all(workers);
-  return progress;
-}
-
-function parseCreatedListId(raw: unknown): number | null {
-  if (!raw || typeof raw !== "object") return null;
-  const id = (raw as { id?: unknown }).id;
-  if (typeof id === "number" && Number.isFinite(id)) return id;
-  if (typeof id === "string") {
-    const parsed = Number.parseInt(id, 10);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
+export type BulkAddOutcome = {
+  success: number;
+  failed: number;
+  listIds: number[];
+  /** Newly added (to the list, or newly followed for a plain follow). */
+  added: number;
+  /** Already followed / already in the list. */
+  skipped: number;
+  listName: string | null;
+};
 
 export async function bulkAddEntitiesToPortfolio(
   entityType: PortfolioEntityType,
   entityIds: number[],
   action: BulkPortfolioAction,
-  onProgress?: (progress: BulkProgress) => void
-): Promise<{ success: number; failed: number; listIds: number[] }> {
-  const ids = entityIds.filter((id) => Number.isFinite(id) && id > 0);
-  if (ids.length === 0) {
-    return { success: 0, failed: 0, listIds: [] };
-  }
-
-  const followKey = ENTITY_TYPE_TO_FOLLOW_KEY[entityType];
-
-  let listIds: number[] = [];
-  if (action.mode === "new_list") {
-    const created = await createUserListInXano(action.name);
-    const newId = parseCreatedListId(created);
-    if (newId == null) {
-      throw new Error("Failed to create list");
-    }
-    listIds = [newId];
-  } else if (action.mode === "lists") {
-    listIds = action.listIds.filter((id) => Number.isFinite(id) && id > 0);
-    if (listIds.length === 0) {
-      throw new Error("Select at least one list");
-    }
-  }
-
-  if (action.mode === "follow") {
-    onProgress?.({ total: ids.length, done: 0, success: 0, failed: 0 });
-    try {
-      await followPortfolioEntities({
-        followKey,
-        entityIds: ids,
-      });
-      invalidateUserPortfolioRecordCache();
-      onProgress?.({
-        total: ids.length,
-        done: ids.length,
-        success: ids.length,
-        failed: 0,
-      });
-      return { success: ids.length, failed: 0, listIds: [] };
-    } catch {
-      onProgress?.({
-        total: ids.length,
-        done: ids.length,
-        success: 0,
-        failed: ids.length,
-      });
-      return { success: 0, failed: ids.length, listIds: [] };
-    }
-  }
-
-  type Task = { entityId: number; listId: number };
-  const tasks: Task[] = listIds.flatMap((listId) =>
-    ids.map((entityId) => ({ entityId, listId }))
+  onProgress?: (progress: BulkProgress) => void,
+  options?: { savedFilterId?: number | null; keepSynced?: boolean }
+): Promise<BulkAddOutcome> {
+  const ids = Array.from(
+    new Set(entityIds.filter((id) => Number.isFinite(id) && id > 0))
   );
+  const none: BulkAddOutcome = {
+    success: 0,
+    failed: 0,
+    listIds: [],
+    added: 0,
+    skipped: 0,
+    listName: null,
+  };
+  if (ids.length === 0) return none;
 
-  onProgress?.({ total: tasks.length, done: 0, success: 0, failed: 0 });
+  const report = (done: number) =>
+    onProgress?.({ total: ids.length, done, success: done, failed: 0 });
+  report(0);
 
   try {
-    await followPortfolioEntities({
-      followKey,
-      entityIds: ids,
-    });
-    invalidateUserPortfolioRecordCache();
-  } catch {
-    onProgress?.({
-      total: tasks.length,
-      done: tasks.length,
-      success: 0,
-      failed: tasks.length,
-    });
-    return { success: 0, failed: tasks.length, listIds };
+    if (action.mode === "follow") {
+      const res = await bulkFollowEntities(entityType, ids, (done) =>
+        report(done)
+      );
+      return { ...none, success: ids.length, added: res.added, skipped: res.skipped };
+    }
+
+    if (action.mode === "new_list") {
+      const res = await bulkCreateListWithEntities(
+        {
+          label: action.name,
+          entityType,
+          entityIds: ids,
+          savedFilterId: options?.savedFilterId,
+          keepSynced: options?.keepSynced,
+        },
+        (done) => report(done)
+      );
+      return {
+        ...none,
+        success: ids.length,
+        listIds: res.listId != null ? [res.listId] : [],
+        added: res.added,
+        skipped: res.skipped,
+        listName: res.listName,
+      };
+    }
+
+    const listIds = action.listIds.filter((id) => Number.isFinite(id) && id > 0);
+    if (listIds.length === 0) throw new Error("Select at least one list");
+    const outcome = { ...none, listIds };
+    for (const listId of listIds) {
+      const res = await bulkAddEntitiesToList(listId, entityType, ids, (done) =>
+        report(done)
+      );
+      outcome.added += res.added;
+      outcome.skipped += res.skipped;
+      outcome.listName = res.listName ?? outcome.listName;
+    }
+    outcome.success = ids.length * listIds.length;
+    return outcome;
+  } catch (error) {
+    onProgress?.({ total: ids.length, done: ids.length, success: 0, failed: ids.length });
+    if (action.mode === "lists" && action.listIds.length === 0) throw error;
+    return { ...none, failed: ids.length };
   }
-
-  const result = await runWithConcurrency(
-    tasks,
-    CONCURRENCY,
-    async (task) => {
-      await addEntityToPortfolioApi({
-        portfolioId: task.listId,
-        entityType,
-        entityId: task.entityId,
-        skipGlobalFollow: true,
-      });
-      return true;
-    },
-    onProgress
-  );
-
-  return { success: result.success, failed: result.failed, listIds };
 }
 
 export async function bulkAddCompaniesToPortfolio(
   companyIds: number[],
   action: BulkPortfolioAction,
   onProgress?: (progress: BulkProgress) => void
-): Promise<{ success: number; failed: number; listIds: number[] }> {
+): Promise<BulkAddOutcome> {
   return bulkAddEntitiesToPortfolio("company", companyIds, action, onProgress);
 }
