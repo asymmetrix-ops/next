@@ -259,6 +259,19 @@ export function ListViewPortfolioBar({
         entityType={entityType}
         resolveEntityIds={collectIds}
         resultCount={resultCount}
+        onSaveFiltersForSync={
+          entityType === "company"
+            ? async (listName) => {
+                const created = await createSavedFilter({
+                  entityType,
+                  name: listName,
+                  filters: stripNonFilterKeys(filters ?? {}),
+                });
+                void refresh();
+                return created.id ?? null;
+              }
+            : undefined
+        }
       />
     </div>
   );

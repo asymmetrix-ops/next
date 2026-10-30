@@ -28,6 +28,11 @@ type BulkAddToPortfolioModalProps = {
   resultCount?: number;
   /** Saved filters this action came from; the new list is linked to them. */
   savedFilterId?: number | null;
+  /**
+   * When given (company lists only), "Create new list" offers "Keep this list
+   * updated". It must save the current filters and return the saved filter id.
+   */
+  onSaveFiltersForSync?: (name: string) => Promise<number | null>;
   onComplete?: () => void;
 };
 
@@ -50,6 +55,7 @@ export function BulkAddToPortfolioModal({
   resolveEntityIds,
   resultCount,
   savedFilterId,
+  onSaveFiltersForSync,
   onComplete,
 }: BulkAddToPortfolioModalProps) {
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
@@ -62,6 +68,7 @@ export function BulkAddToPortfolioModal({
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<BulkProgress | null>(null);
 
+  const [keepSynced, setKeepSynced] = useState(false);
   const [confirmLarge, setConfirmLarge] = useState(false);
   const [pendingIds, setPendingIds] = useState<number[]>([]);
   const count = resolveEntityIds ? resultCount ?? 0 : companyIds.length;
@@ -75,6 +82,7 @@ export function BulkAddToPortfolioModal({
     setProgress(null);
     setSubmitting(false);
     setConfirmLarge(false);
+    setKeepSynced(false);
 
     setListsLoading(true);
     fetchUserListsFromXano()
@@ -165,12 +173,18 @@ export function BulkAddToPortfolioModal({
   const runAdd = async (ids: number[], action: BulkPortfolioAction) => {
     setSubmitting(true);
     try {
+      let linkedFilterId = savedFilterId ?? null;
+      const wantsSync =
+        keepSynced && action.mode === "new_list" && Boolean(onSaveFiltersForSync);
+      if (wantsSync && onSaveFiltersForSync && action.mode === "new_list") {
+        linkedFilterId = await onSaveFiltersForSync(action.name);
+      }
       const result = await bulkAddEntitiesToPortfolio(
         entityType,
         ids,
         action,
         setProgress,
-        { savedFilterId }
+        { savedFilterId: linkedFilterId, keepSynced: wantsSync && linkedFilterId != null }
       );
 
       await fetchPortfolio();
@@ -324,6 +338,21 @@ export function BulkAddToPortfolioModal({
               <p className="text-xs text-gray-500 mt-0.5">
                 Create a list and add all of them to it.
               </p>
+              {mode === "new_list" && onSaveFiltersForSync && (
+                <label className="mt-3 flex items-center gap-2 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={keepSynced}
+                    onChange={(e) => setKeepSynced(e.target.checked)}
+                    disabled={submitting}
+                    className="rounded"
+                  />
+                  Keep this list updated
+                  <span className="text-xs text-gray-500">
+                    (new matching {plural} are added automatically)
+                  </span>
+                </label>
+              )}
               {mode === "new_list" && (
                 <input
                   type="text"
