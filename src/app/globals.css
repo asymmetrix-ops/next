@@ -6,6 +6,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Filter chip palette — keep in sync with src/lib/filterChipColors.ts (WCAG AA) ── */
+:root {
+  --fchip-blue-bg: #EAF1FE;
+  --fchip-blue-border: #C5D6FA;
+  --fchip-blue-fg: #1D4ED8;
+  --fchip-indigo-bg: #EEEFFD;
+  --fchip-indigo-border: #CFD2F7;
+  --fchip-indigo-fg: #4338CA;
+  --fchip-violet-bg: #F3EDFE;
+  --fchip-violet-border: #DACBF8;
+  --fchip-violet-fg: #6D28D9;
+  --fchip-magenta-bg: #FCEBF6;
+  --fchip-magenta-border: #F4C7E6;
+  --fchip-magenta-fg: #A21CAF;
+  --fchip-sky-bg: #E6F4FB;
+  --fchip-sky-border: #BFE0F1;
+  --fchip-sky-fg: #0B6A8F;
+  --fchip-teal-bg: #E3F5F7;
+  --fchip-teal-border: #B9E2E8;
+  --fchip-teal-fg: #0E6F7E;
+  --fchip-amber-bg: #FDF3DC;
+  --fchip-amber-border: #F1DBA6;
+  --fchip-amber-fg: #8A5200;
+  --fchip-slate-bg: #EDF0F5;
+  --fchip-slate-border: #D3D9E3;
+  --fchip-slate-fg: #394559;
+}
+
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
