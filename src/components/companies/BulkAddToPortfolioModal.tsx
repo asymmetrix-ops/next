@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
-  bulkAddCompaniesToPortfolio,
+  bulkAddEntitiesToPortfolio,
   type BulkPortfolioAction,
   type BulkProgress,
 } from "@/lib/bulkPortfolioAdd";
+import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import { fetchUserListsFromXano } from "@/lib/userLists";
 import { usePortfolioStore } from "@/store/portfolioStore";
 
@@ -17,14 +18,38 @@ type ActionMode = "follow" | "existing_lists" | "new_list";
 type BulkAddToPortfolioModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  companyIds: number[];
+  /** Hand-picked ids. Ignored when `resolveEntityIds` is given. */
+  companyIds?: number[];
+  /** Entity kind being added; defaults to companies. */
+  entityType?: PortfolioEntityType;
+  /** Resolve ids lazily, e.g. every result of the active filters (all pages). */
+  resolveEntityIds?: () => Promise<number[]>;
+  /** Number shown in the header when ids are resolved lazily. */
+  resultCount?: number;
+  /** Saved filters this action came from; the new list is linked to them. */
+  savedFilterId?: number | null;
   onComplete?: () => void;
+};
+
+/** Ask for confirmation above this many entities. Limit to be confirmed by Piero. */
+const LARGE_RESULT_THRESHOLD = 1000;
+
+const ENTITY_LABELS: Record<PortfolioEntityType, [string, string]> = {
+  company: ["company", "companies"],
+  investor: ["investor", "investors"],
+  advisor: ["advisor", "advisors"],
+  individual: ["individual", "individuals"],
+  sector: ["sector", "sectors"],
 };
 
 export function BulkAddToPortfolioModal({
   isOpen,
   onClose,
-  companyIds,
+  companyIds = [],
+  entityType = "company",
+  resolveEntityIds,
+  resultCount,
+  savedFilterId,
   onComplete,
 }: BulkAddToPortfolioModalProps) {
   const fetchPortfolio = usePortfolioStore((s) => s.fetchPortfolio);
@@ -37,7 +62,10 @@ export function BulkAddToPortfolioModal({
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<BulkProgress | null>(null);
 
-  const count = companyIds.length;
+  const [confirmLarge, setConfirmLarge] = useState(false);
+  const [pendingIds, setPendingIds] = useState<number[]>([]);
+  const count = resolveEntityIds ? resultCount ?? 0 : companyIds.length;
+  const [singular, plural] = ENTITY_LABELS[entityType];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,6 +74,7 @@ export function BulkAddToPortfolioModal({
     setNewListName("");
     setProgress(null);
     setSubmitting(false);
+    setConfirmLarge(false);
 
     setListsLoading(true);
     fetchUserListsFromXano()
@@ -85,7 +114,7 @@ export function BulkAddToPortfolioModal({
 
   const canSubmit =
     !submitting &&
-    count > 0 &&
+    (count > 0 || Boolean(resolveEntityIds)) &&
     (mode === "follow" ||
       (mode === "existing_lists" && selectedListIds.length > 0) ||
       (mode === "new_list" && newListName.trim().length > 0));
@@ -115,40 +144,80 @@ export function BulkAddToPortfolioModal({
     setProgress({ total: 0, done: 0, success: 0, failed: 0 });
 
     try {
-      const result = await bulkAddCompaniesToPortfolio(
-        companyIds,
+      const ids = resolveEntityIds ? await resolveEntityIds() : companyIds;
+      const total = ids.length;
+
+      if (!confirmLarge && total > LARGE_RESULT_THRESHOLD) {
+        setPendingIds(ids);
+        setConfirmLarge(true);
+        setSubmitting(false);
+        return;
+      }
+
+      await runAdd(ids, action);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Failed to add ${plural}.`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const runAdd = async (ids: number[], action: BulkPortfolioAction) => {
+    setSubmitting(true);
+    try {
+      const result = await bulkAddEntitiesToPortfolio(
+        entityType,
+        ids,
         action,
-        setProgress
+        setProgress,
+        { savedFilterId }
       );
 
       await fetchPortfolio();
 
-      const companyLabel = `${count} ${count === 1 ? "company" : "companies"}`;
-      let destination = "My Portfolio";
-
-      if (mode === "existing_lists") {
-        destination = selectedListLabels.join(", ");
-      } else if (mode === "new_list") {
-        destination = `"${newListName.trim()}"`;
-      } else if (mode === "follow") {
-        destination = "My Portfolio";
-      }
-
-      if (result.failed === 0) {
-        toast.success(`Added ${companyLabel} to ${destination}.`);
-      } else if (result.success > 0) {
-        toast.success(
-          `Added ${result.success} of ${count} companies to ${destination}. ${result.failed} failed.`
-        );
-      } else {
-        toast.error("Failed to add companies. Please try again.");
+      if (result.failed > 0 && result.success === 0) {
+        toast.error(`Failed to add ${plural}. Please try again.`);
         return;
       }
+
+      const word = result.added === 1 ? singular : plural;
+      const destination =
+        mode === "follow"
+          ? "My Portfolio"
+          : result.listName ||
+            (mode === "new_list"
+              ? `"${newListName.trim()}"`
+              : selectedListLabels.join(", "));
+      const verb = mode === "follow" ? "followed" : "added to";
+      const dupes =
+        result.skipped > 0
+          ? `, ${result.skipped.toLocaleString()} ${
+              result.skipped === 1 ? "was" : "were"
+            } already there`
+          : "";
+      const message =
+        mode === "follow"
+          ? `${result.added.toLocaleString()} ${word} followed${dupes}`
+          : `${result.added.toLocaleString()} ${word} ${verb} ${destination}${dupes}`;
+
+      toast.success(
+        <span>
+          {message}.{" "}
+          <a
+            href="/my-portfolio"
+            className="underline font-medium"
+            onClick={() => toast.dismiss()}
+          >
+            View in My Portfolio
+          </a>
+        </span>,
+        { duration: 8000 }
+      );
 
       onComplete?.();
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add companies.");
+      toast.error(e instanceof Error ? e.message : `Failed to add ${plural}.`);
     } finally {
       setSubmitting(false);
     }
@@ -171,8 +240,9 @@ export function BulkAddToPortfolioModal({
           Add to portfolio
         </h2>
         <p className="text-sm text-gray-600 mb-5">
-          {count.toLocaleString()} {count === 1 ? "company" : "companies"}{" "}
-          selected
+          {resolveEntityIds
+            ? `${count.toLocaleString()} ${count === 1 ? singular : plural} in the current results`
+            : `${count.toLocaleString()} ${count === 1 ? singular : plural} selected`}
         </p>
 
         <div className="space-y-3 mb-6">
@@ -186,9 +256,9 @@ export function BulkAddToPortfolioModal({
               className="mt-0.5"
             />
             <div>
-              <p className="text-sm font-medium text-gray-900">Follow only</p>
+              <p className="text-sm font-medium text-gray-900">Follow all</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Add to My Portfolio. No list assignment.
+                Follow every {singular} here. Already followed ones are skipped.
               </p>
             </div>
           </label>
@@ -204,7 +274,7 @@ export function BulkAddToPortfolioModal({
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900">
-                Add to existing list(s)
+                Add to existing list
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 Choose one or more lists.
@@ -252,7 +322,7 @@ export function BulkAddToPortfolioModal({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900">Create new list</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Create a list and add all selected companies to it.
+                Create a list and add all of them to it.
               </p>
               {mode === "new_list" && (
                 <input
@@ -270,6 +340,12 @@ export function BulkAddToPortfolioModal({
             </div>
           </label>
         </div>
+
+        {confirmLarge && (
+          <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900">
+            This will add {pendingIds.length.toLocaleString()} {plural}. Continue?
+          </div>
+        )}
 
         {submitting && progress && progress.total > 0 && (
           <div className="mb-4">
@@ -301,8 +377,21 @@ export function BulkAddToPortfolioModal({
           </button>
           <button
             type="button"
-            onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
+            onClick={() => {
+              if (confirmLarge) {
+                void runAdd(
+                  pendingIds,
+                  mode === "follow"
+                    ? { mode: "follow" }
+                    : mode === "existing_lists"
+                    ? { mode: "lists", listIds: selectedListIds }
+                    : { mode: "new_list", name: newListName.trim() }
+                );
+              } else {
+                void handleSubmit();
+              }
+            }}
+            disabled={submitting || (!canSubmit && !confirmLarge)}
             className="px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Adding…" : "Confirm"}

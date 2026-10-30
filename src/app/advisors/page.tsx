@@ -29,6 +29,9 @@ import {
 import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import { ListViewPortfolioBar } from "@/components/portfolio/ListViewPortfolioBar";
+import { collectAllAdvisorIds } from "@/lib/listExport/advisorsListExport";
+import { hasActiveFilters } from "@/lib/savedFilterUtils";
 
 const useAdvisorsAPI = () => {
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
@@ -306,6 +309,20 @@ function AdvisorsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <ListViewPortfolioBar
+        entityType="advisor"
+        entityPlural="Advisors"
+        filters={currentFilters as Record<string, unknown> | undefined}
+        hasFilters={hasActiveFilters(
+          currentFilters as Record<string, unknown> | undefined,
+          createDefaultAdvisorFilters() as unknown as Record<string, unknown>
+        )}
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={() => collectAllAdvisorIds((currentFilters ?? createDefaultAdvisorFilters()) as never)}
+        onApplySaved={(f) => {
+          void fetchAdvisors(1, { ...createDefaultAdvisorFilters(), ...f, page: 1 });
+        }}
       />
       <AdvisorSection
         advisors={advisors}

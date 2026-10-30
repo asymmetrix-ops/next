@@ -1,3 +1,4 @@
+import { collectAllEntityIds } from "./collectEntityIds";
 import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import { ADVISORS_COLUMN_CATEGORIES } from "@/components/advisors/advisorsColumnCategories";
 import { getAdvisorFieldAliasesForColumn } from "@/components/advisors/advisorsColumnFields";
@@ -217,7 +218,8 @@ function appendUniqueItems(
 async function fetchAdvisorsPage(
   filters: AdvisorsSearchFilters,
   page: number,
-  perPage: number = EXPORT_PER_PAGE
+  perPage: number = EXPORT_PER_PAGE,
+  exportMode: boolean = true
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
@@ -231,7 +233,7 @@ async function fetchAdvisorsPage(
     page,
     per_page: perPage,
   });
-  params.set("export", "true");
+  if (exportMode) params.set("export", "true");
   const url = `${ADVISORS_API_BASE}/get_all_advisors_list?${params.toString()}`;
   const response = await fetch(url, {
     method: "GET",
@@ -260,7 +262,7 @@ async function fetchAdvisorsPage(
     pageTotal?: number;
     itemsTotal?: number;
   };
-  noteServerExport(raw);
+  if (exportMode) noteServerExport(raw);
 
   const payload = raw.result1 ?? raw.Advisors_companies ?? raw;
   const items = (payload.items ?? raw.items ?? []).filter(
@@ -270,6 +272,17 @@ async function fetchAdvisorsPage(
   const pageTotal = payload.pageTotal ?? raw.pageTotal ?? 1;
 
   return { items, pageTotal, totalCount };
+}
+
+/** Every advisor id matching the filters, across all pages. */
+export async function collectAllAdvisorIds(
+  filters: AdvisorsSearchFilters
+): Promise<number[]> {
+  return collectAllEntityIds(
+    (page) => fetchAdvisorsPage(filters, page, EXPORT_PER_PAGE, false),
+    getAdvisorId,
+    EXPORT_PER_PAGE
+  );
 }
 
 async function fetchSelectedAdvisorsForExport(

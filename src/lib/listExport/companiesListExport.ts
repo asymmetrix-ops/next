@@ -1,3 +1,4 @@
+import { collectAllEntityIds } from "./collectEntityIds";
 import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import {
   COMPANIES_COLUMN_CATEGORIES,
@@ -321,7 +322,8 @@ async function fetchCompaniesPage(
   filters: CompanySearchPayload,
   page: number,
   apiColumns: string[],
-  perPage: number = EXPORT_PER_PAGE
+  perPage: number = EXPORT_PER_PAGE,
+  exportMode: boolean = true
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
@@ -340,7 +342,7 @@ async function fetchCompaniesPage(
     },
     { page, perPage }
   );
-  params.set("export", "true");
+  if (exportMode) params.set("export", "true");
   const url = `${COMPANIES_API_BASE}/Get_new_companies?${params.toString()}`;
   const response = await fetch(url, {
     method: "GET",
@@ -356,7 +358,7 @@ async function fetchCompaniesPage(
   }
 
   const raw = await response.json();
-  noteServerExport(raw);
+  if (exportMode) noteServerExport(raw);
   const normalized = normalizeCompaniesResponse(raw);
   const {
     items,
@@ -375,6 +377,21 @@ async function fetchCompaniesPage(
     totalCount,
     perPage: responsePerPage || perPage,
   };
+}
+
+/** Every company id matching the filters, across all pages. */
+export async function collectAllCompanyIds(
+  filters: CompanySearchPayload
+): Promise<number[]> {
+  return collectAllEntityIds(
+    (page) =>
+      fetchCompaniesPage(filters, page, ["id", "name"], EXPORT_PER_PAGE, false),
+    (row) => {
+      const id = Number(row.id);
+      return Number.isFinite(id) ? id : 0;
+    },
+    EXPORT_PER_PAGE
+  );
 }
 
 async function fetchSelectedCompaniesForExport(

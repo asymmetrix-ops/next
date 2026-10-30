@@ -1,3 +1,4 @@
+import { collectAllEntityIds } from "./collectEntityIds";
 import { getExportFetchCap, noteServerExport } from "./exportLimit";
 import { INDIVIDUALS_COLUMN_CATEGORIES } from "@/components/individuals/individualsColumnCategories";
 import {
@@ -171,7 +172,8 @@ function appendUniqueItems(
 async function fetchIndividualsPage(
   filters: IndividualsSearchFilters,
   page: number,
-  perPage: number = EXPORT_PER_PAGE
+  perPage: number = EXPORT_PER_PAGE,
+  exportMode: boolean = true
 ): Promise<{
   items: Record<string, unknown>[];
   pageTotal: number;
@@ -191,7 +193,7 @@ async function fetchIndividualsPage(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ...body, export: true }),
+    body: JSON.stringify(exportMode ? { ...body, export: true } : body),
   });
 
   if (!response.ok) {
@@ -205,7 +207,7 @@ async function fetchIndividualsPage(
     totalItems?: number;
     totalIndividuals?: number;
   };
-  noteServerExport(data);
+  if (exportMode) noteServerExport(data);
 
   const rawItems = data.items ?? data.individuals ?? [];
   const items = rawItems
@@ -216,6 +218,17 @@ async function fetchIndividualsPage(
   const pageTotal = data.totalPages || 1;
 
   return { items, pageTotal, totalCount };
+}
+
+/** Every individual id matching the filters, across all pages. */
+export async function collectAllIndividualIds(
+  filters: IndividualsSearchFilters
+): Promise<number[]> {
+  return collectAllEntityIds(
+    (page) => fetchIndividualsPage(filters, page, EXPORT_PER_PAGE, false),
+    getIndividualId,
+    EXPORT_PER_PAGE
+  );
 }
 
 async function fetchSelectedIndividualsForExport(

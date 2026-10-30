@@ -72,7 +72,7 @@ function getToken(): string | null {
     : null;
 }
 
-async function xanoRequest(
+export async function xanoRequest(
   path: string,
   method: string,
   body?: Record<string, unknown>

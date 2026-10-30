@@ -46,6 +46,9 @@ import {
 import { CompaniesEditContext } from "./CompaniesEditContext";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import { ListViewPortfolioBar } from "@/components/portfolio/ListViewPortfolioBar";
+import { collectAllCompanyIds } from "@/lib/listExport/companiesListExport";
+import { hasActiveFilters } from "@/lib/savedFilterUtils";
 
 const useCompaniesAPI = (
   isMcpGuest: boolean,
@@ -358,6 +361,20 @@ function CompaniesPageInner() {
             ? pagination.totalCount || ownershipCounts.totalCount
             : undefined
         }
+      />
+      <ListViewPortfolioBar
+        entityType="company"
+        entityPlural="Companies"
+        filters={currentFilters as Record<string, unknown> | undefined}
+        hasFilters={hasActiveFilters(
+          currentFilters as Record<string, unknown> | undefined,
+          createDefaultFilters() as unknown as Record<string, unknown>
+        )}
+        resultCount={pagination.totalCount || 0}
+        collectIds={() => collectAllCompanyIds((currentFilters ?? createDefaultFilters()) as never)}
+        onApplySaved={(f) => {
+          void fetchCompanies(1, { ...createDefaultFilters(), ...f } as Filters);
+        }}
       />
       <CompanySection
         companies={companies}

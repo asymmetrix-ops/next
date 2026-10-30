@@ -31,6 +31,9 @@ import {
 import { authService } from "@/lib/auth";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
 import type { ListExportRequest } from "@/lib/listExport/types";
+import { ListViewPortfolioBar } from "@/components/portfolio/ListViewPortfolioBar";
+import { collectAllIndividualIds } from "@/lib/listExport/individualsListExport";
+import { hasActiveFilters } from "@/lib/savedFilterUtils";
 
 const useIndividualsAPI = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
@@ -258,6 +261,20 @@ function IndividualsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <ListViewPortfolioBar
+        entityType="individual"
+        entityPlural="Individuals"
+        filters={currentFilters as Record<string, unknown> | undefined}
+        hasFilters={hasActiveFilters(
+          currentFilters as Record<string, unknown> | undefined,
+          createDefaultIndividualFilters() as unknown as Record<string, unknown>
+        )}
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={() => collectAllIndividualIds((currentFilters ?? createDefaultIndividualFilters()) as never)}
+        onApplySaved={(f) => {
+          void fetchIndividuals(1, { ...createDefaultIndividualFilters(), ...f, page: 1 }, { ...createDefaultIndividualFilters(), ...f, page: 1 });
+        }}
       />
       <IndividualSection
         individuals={individuals}
