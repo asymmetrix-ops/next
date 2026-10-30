@@ -186,22 +186,17 @@ function InsightsAnalysisPageContent() {
       return raw.trim();
     }
   }, [searchParams]);
-  // `?news` / `?news=true` pre-filters to the "News" content type. An explicit
-  // `content_type` param takes precedence.
   const contentTypeFromUrl = useMemo(() => {
     const raw = searchParams.get("content_type");
-    if (raw) {
-      try {
-        return decodeURIComponent(raw).trim();
-      } catch {
-        return raw.trim();
-      }
+    if (!raw) return "";
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(raw).trim();
+    } catch {
+      decoded = raw.trim();
     }
-    if (searchParams.has("news")) {
-      const news = (searchParams.get("news") || "").trim().toLowerCase();
-      if (news !== "false" && news !== "0") return "News";
-    }
-    return "";
+    if (decoded.toLowerCase() === "news") return "";
+    return decoded;
   }, [searchParams]);
 
   // State for filters
@@ -442,6 +437,7 @@ function InsightsAnalysisPageContent() {
             (Array.isArray(data) ? data : [])
               .map((d) => (d?.Content_Content_Type1 || "").trim())
               .filter(Boolean)
+              .filter((ct) => ct.toLowerCase() !== "news")
           )
         );
         setContentTypes(values);
