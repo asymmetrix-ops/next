@@ -1,5 +1,4 @@
 import React, { type CSSProperties, type ReactNode } from "react";
-import { FILTER_CHIP_COLORS } from "@/lib/filterChipColors";
 
 export const SEARCH_DASHBOARD_HORIZONTAL_PAD = "28px";
 export const SEARCH_DASHBOARD_TOP_PAD = "20px";
@@ -86,19 +85,68 @@ export const SEARCH_DASHBOARD_FILTER_INNER: CSSProperties = {
   padding: `8px ${SEARCH_DASHBOARD_HORIZONTAL_PAD} 8px`,
 };
 
-export function getSearchTabButtonStyle(active: boolean): CSSProperties {
+type TabTone = { bg: string; border: string; fg: string };
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mix(a: [number, number, number], b: [number, number, number], t: number) {
+  return a.map((v, i) => Math.round(v + (b[i] - v) * t)) as [number, number, number];
+}
+
+function toHex(c: [number, number, number]) {
+  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function luminance([r, g, b]: [number, number, number]) {
+  const f = (v: number) => {
+    const x = v / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+function contrast(a: [number, number, number], b: [number, number, number]) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Active tab colours taken from the tab's own tag colour (its dot), like the
+ * News type chips: light tint as the background, a darker shade of the same
+ * hue for the text, darkened until it meets WCAG AA (4.5:1) on the tint.
+ */
+export function getSearchTabTone(dot: string): TabTone {
+  const base = hexToRgb(dot) ?? [61, 91, 243];
+  const white: [number, number, number] = [255, 255, 255];
+  const black: [number, number, number] = [0, 0, 0];
+  const bg = mix(base, white, 0.88);
+  let fg = mix(base, black, 0.25);
+  for (let t = 0.25; t < 0.9 && contrast(fg, bg) < 4.5; t += 0.05) {
+    fg = mix(base, black, t);
+  }
+  return { bg: toHex(bg), border: toHex(mix(base, white, 0.68)), fg: toHex(fg) };
+}
+
+export function getSearchTabButtonStyle(
+  active: boolean,
+  dot?: string
+): CSSProperties {
+  const tone = active && dot ? getSearchTabTone(dot) : null;
   return {
     display: "flex",
     alignItems: "center",
     gap: 8,
     height: 34,
     padding: "0 14px",
-    // Active tab: light fill + stronger text of one palette hue (same look as
-    // the coloured filter chips / News chips), not solid black.
-    background: active ? FILTER_CHIP_COLORS.indigo.bg : "#fff",
-    color: active ? FILTER_CHIP_COLORS.indigo.fg : "#3D4657",
+    background: tone ? tone.bg : "#fff",
+    color: tone ? tone.fg : "#3D4657",
     border: "1px solid",
-    borderColor: active ? FILTER_CHIP_COLORS.indigo.border : "#E4E8F2",
+    borderColor: tone ? tone.border : "#E4E8F2",
     borderRadius: 999,
     fontSize: 13,
     fontWeight: 600,
@@ -138,7 +186,7 @@ export function SearchListTabs({
           <button
             type="button"
             onClick={() => onTabClick(tab.id)}
-            style={getSearchTabButtonStyle(active)}
+            style={getSearchTabButtonStyle(active, tab.dot)}
           >
             <span
               style={{
