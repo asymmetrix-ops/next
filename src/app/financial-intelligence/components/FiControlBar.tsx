@@ -23,7 +23,6 @@ import { SourceTypeDot } from "./SourceTypeValue";
 import { FiFilterPicker } from "./FiFilterPicker";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import { resolveSectorFilterChipLabel } from "@/lib/financialIntelligence/sectorFilters";
-import { getFilterChipColor } from "@/lib/filterChipColors";
 import type { FiPeerAggregateMode, FiSecondarySectorLookup, FiSectorLookup } from "@/lib/financialIntelligence/types";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import {
@@ -132,7 +131,6 @@ function FilterChip({
   const { currency } = usePlatformCurrency();
   const currencySymbol = getCurrencySymbol(currency);
   const summary = summarize(def, value, countryOptions, regionOptions, currencySymbol);
-  const tone = getFilterChipColor(def.id);
   const chipLabel =
     def.id === "primary_sector" || def.id === "secondary_sector"
       ? resolveSectorFilterChipLabel({ id: def.id, value: value as FilterState["value"] }, {
@@ -150,15 +148,15 @@ function FilterChip({
         display: "inline-flex",
         alignItems: "center",
         gap: 7,
-        background: tone.bg,
-        border: `1px solid ${tone.border}`,
+        background: "var(--ax-cyan-50)",
+        border: "1px solid var(--ax-cyan-200)",
         borderRadius: 999,
-        fontSize: 12.5,
+        fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
         cursor: "pointer",
         userSelect: "none",
-        height: 30,
-        padding: "0 6px 0 12px",
+        height: 34,
+        padding: "0 8px 0 14px",
         transition: "box-shadow 120ms",
         boxShadow: hover ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
       }}
@@ -168,12 +166,12 @@ function FilterChip({
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          color: tone.fg,
-          fontWeight: 600,
+          color: "var(--ax-cyan-700)",
+          fontWeight: 500,
         }}
       >
         <span>{chipLabel}</span>
-        <span style={{ color: tone.fg, fontWeight: 800 }}>{summary}</span>
+        <span style={{ color: "var(--fg-1)", fontWeight: 700 }}>{summary}</span>
       </span>
       <button
         type="button"
@@ -186,15 +184,15 @@ function FilterChip({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 18,
-          height: 18,
+          width: 20,
+          height: 20,
           flexShrink: 0,
           padding: 0,
           border: "none",
           borderRadius: "50%",
-          background: hover ? tone.fg : "#fff",
+          background: hover ? "var(--ax-cyan-700)" : "rgba(42, 70, 234, 0.12)",
           cursor: "pointer",
-          color: hover ? "#fff" : tone.fg,
+          color: hover ? "#fff" : "var(--ax-cyan-700)",
           transition: "background 120ms, color 120ms",
         }}
       >

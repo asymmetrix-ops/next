@@ -24,7 +24,6 @@ import {
   localizeCurrencyPresetLabel,
 } from "@/lib/filterCurrencyFormat";
 import { ListViewCityEnumEditor } from "@/components/filters/ListViewFilterEditors";
-import { getFilterChipColor } from "@/lib/filterChipColors";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -464,12 +463,26 @@ function Chip({
   const currencySymbol = getCurrencySymbol(currency);
   const summary = summarize(def, value, portfolioOnlyChipLabel, currencySymbol);
 
-  // Colour comes from the filter type (same type = same colour on every page).
-  const tone = getFilterChipColor(def.id);
-  const bg = chipStyle === "outlined" ? "#fff" : tone.bg;
-  const fg = tone.fg;
-  const border = tone.border;
-  const valueFg = tone.fg;
+  let bg: string,
+    fg: string,
+    border: string,
+    valueFg: string;
+  if (chipStyle === "cyan") {
+    bg = "var(--ax-cyan-50)";
+    fg = "var(--ax-cyan-700)";
+    border = "var(--ax-cyan-200)";
+    valueFg = "var(--fg-1)";
+  } else if (chipStyle === "outlined") {
+    bg = "white";
+    fg = "var(--fg-2)";
+    border = "var(--ax-cyan-300)";
+    valueFg = "var(--fg-1)";
+  } else {
+    bg = "var(--ax-gray-50)";
+    fg = "var(--fg-3)";
+    border = "var(--border-1)";
+    valueFg = "var(--fg-1)";
+  }
 
   return (
     <span
@@ -483,14 +496,14 @@ function Chip({
         background: bg,
         border: `1px solid ${border}`,
         borderRadius: 999,
+        fontSize: "var(--fs-13)",
         fontFamily: "var(--font-sans)",
         cursor: locked ? "default" : "pointer",
         userSelect: "none",
         transition: "box-shadow 120ms",
         boxShadow: hover && !locked ? "0 1px 2px rgba(17,22,29,0.08)" : "none",
-        height: 30,
-        padding: "0 6px 0 12px",
-        fontSize: 12.5,
+        height: 34,
+        padding: "0 8px 0 14px",
       }}
     >
       <span
@@ -499,11 +512,11 @@ function Chip({
           alignItems: "center",
           gap: 6,
           color: fg,
-          fontWeight: 600,
+          fontWeight: 500,
         }}
       >
         <span>{def.label}</span>
-        <span style={{ color: valueFg, fontWeight: 800 }}>{summary}</span>
+        <span style={{ color: valueFg, fontWeight: 700 }}>{summary}</span>
       </span>
       {!locked && onRemove && (
       <button
@@ -517,17 +530,17 @@ function Chip({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: 18,
-          height: 18,
+          width: 20,
+          height: 20,
           flexShrink: 0,
           padding: 0,
           border: "none",
           borderRadius: "50%",
-          background: "#fff",
+          background: "rgba(42, 70, 234, 0.12)",
           cursor: "pointer",
-          color: tone.fg,
+          color: "var(--ax-cyan-700)",
           transition: "background 120ms, color 120ms",
-          ...(hover ? { background: tone.fg, color: "#fff" } : {}),
+          ...(hover ? { background: "var(--ax-cyan-700)", color: "#fff" } : {}),
         }}
       >
         <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -1276,7 +1289,6 @@ function EnumEditor({
   onDismiss,
   onClose,
 }: EnumEditorProps) {
-  const tone = getFilterChipColor(def.id);
   const initial = Array.isArray(value)
     ? (value as string[])
     : value
@@ -1424,9 +1436,9 @@ function EnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? tone.fg : "transparent",
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
                   border: on
-                    ? `1px solid ${tone.fg}`
+                    ? "1px solid var(--ax-cyan-700)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1481,7 +1493,6 @@ function RangeEditor({
   onDismiss,
   onClose,
 }: RangeEditorProps) {
-  const tone = getFilterChipColor(def.id);
   const { currency } = usePlatformCurrency();
   const currencySymbol = getCurrencySymbol(currency);
   const v = (value as RangeValue) || {};
@@ -1641,9 +1652,11 @@ function RangeEditor({
                   fontFamily: "inherit",
                   fontWeight: 600,
                   lineHeight: 1.4,
-                  background: active ? tone.bg : "var(--ax-gray-50)",
-                  color: active ? tone.fg : "var(--fg-2)",
-                  border: `1px solid ${active ? tone.border : "var(--border-1)"}`,
+                  background: active
+                    ? "var(--ax-cyan-50)"
+                    : "var(--ax-gray-50)",
+                  color: active ? "var(--ax-cyan-700)" : "var(--fg-2)",
+                  border: `1px solid ${active ? "var(--ax-cyan-200)" : "var(--border-1)"}`,
                   borderRadius: 999,
                   cursor: "pointer",
                   whiteSpace: "nowrap",

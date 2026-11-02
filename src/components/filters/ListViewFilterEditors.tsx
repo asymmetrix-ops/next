@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FilterDef } from "@/app/financials-tsx/types";
-import { getFilterChipColor } from "@/lib/filterChipColors";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
 import { FILTER_POPOVER_SCROLL_STYLE } from "@/components/filters/AnchoredPopover";
 import {
@@ -308,7 +307,6 @@ export function ListViewRangeEditor({
   onRemove,
   onDismiss,
 }: ListViewRangeEditorProps) {
-  const tone = getFilterChipColor(def.id);
   const { currency } = usePlatformCurrency();
   const currencySymbol = getCurrencySymbol(currency);
   const v = value || {};
@@ -377,9 +375,9 @@ export function ListViewRangeEditor({
                   fontFamily: "inherit",
                   fontWeight: 600,
                   lineHeight: 1.4,
-                  background: active ? tone.bg : "var(--ax-gray-50)",
-                  color: active ? tone.fg : "var(--fg-2)",
-                  border: `1px solid ${active ? tone.border : "var(--border-1)"}`,
+                  background: active ? "var(--ax-cyan-50)" : "var(--ax-gray-50)",
+                  color: active ? "var(--ax-cyan-700)" : "var(--fg-2)",
+                  border: `1px solid ${active ? "var(--ax-cyan-200)" : "var(--border-1)"}`,
                   borderRadius: 999,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
@@ -457,7 +455,6 @@ export function ListViewEnumEditor({
   onRemove,
   onDismiss,
 }: ListViewEnumEditorProps) {
-  const tone = getFilterChipColor(def.id);
   const [picked, setPicked] = useState<string[]>(value);
   const [q, setQ] = useState("");
 
@@ -571,9 +568,9 @@ export function ListViewEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? tone.fg : "transparent",
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
                   border: on
-                    ? `1px solid ${tone.fg}`
+                    ? "1px solid var(--ax-cyan-700)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -621,7 +618,6 @@ export function ListViewIdEnumEditor({
   onRemove,
   onDismiss,
 }: ListViewIdEnumEditorProps) {
-  const tone = getFilterChipColor(def.id);
   const [picked, setPicked] = useState<number[]>(value);
   const [q, setQ] = useState("");
 
@@ -724,9 +720,9 @@ export function ListViewIdEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? tone.fg : "transparent",
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
                   border: on
-                    ? `1px solid ${tone.fg}`
+                    ? "1px solid var(--ax-cyan-700)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -781,7 +777,6 @@ export function ListViewCityEnumEditor({
   onRemove,
   onDismiss,
 }: ListViewCityEnumEditorProps) {
-  const tone = getFilterChipColor("city");
   const [picked, setPicked] = useState<string[]>(value);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -1007,9 +1002,9 @@ export function ListViewCityEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? tone.fg : "transparent",
+                  background: on ? "var(--ax-cyan-700)" : "transparent",
                   border: on
-                    ? `1px solid ${tone.fg}`
+                    ? "1px solid var(--ax-cyan-700)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
