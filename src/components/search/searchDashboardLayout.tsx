@@ -1,4 +1,5 @@
 import React, { type CSSProperties, type ReactNode } from "react";
+import { FILTER_CHIP_COLORS } from "@/lib/filterChipColors";
 
 export const SEARCH_DASHBOARD_HORIZONTAL_PAD = "28px";
 export const SEARCH_DASHBOARD_TOP_PAD = "20px";
@@ -92,10 +93,12 @@ export function getSearchTabButtonStyle(active: boolean): CSSProperties {
     gap: 8,
     height: 34,
     padding: "0 14px",
-    background: active ? "#0A0E1A" : "#fff",
-    color: active ? "#fff" : "#3D4657",
+    // Active tab: light fill + stronger text of one palette hue (same look as
+    // the coloured filter chips / News chips), not solid black.
+    background: active ? FILTER_CHIP_COLORS.indigo.bg : "#fff",
+    color: active ? FILTER_CHIP_COLORS.indigo.fg : "#3D4657",
     border: "1px solid",
-    borderColor: active ? "#0A0E1A" : "#E4E8F2",
+    borderColor: active ? FILTER_CHIP_COLORS.indigo.border : "#E4E8F2",
     borderRadius: 999,
     fontSize: 13,
     fontWeight: 600,
@@ -142,7 +145,7 @@ export function SearchListTabs({
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: active ? "rgba(255,255,255,0.7)" : tab.dot,
+                background: tab.dot,
                 flexShrink: 0,
               }}
             />

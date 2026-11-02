@@ -1276,6 +1276,7 @@ function EnumEditor({
   onDismiss,
   onClose,
 }: EnumEditorProps) {
+  const tone = getFilterChipColor(def.id);
   const initial = Array.isArray(value)
     ? (value as string[])
     : value
@@ -1423,9 +1424,9 @@ function EnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  background: on ? tone.fg : "transparent",
                   border: on
-                    ? "1px solid var(--ax-cyan-700)"
+                    ? `1px solid ${tone.fg}`
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1480,6 +1481,7 @@ function RangeEditor({
   onDismiss,
   onClose,
 }: RangeEditorProps) {
+  const tone = getFilterChipColor(def.id);
   const { currency } = usePlatformCurrency();
   const currencySymbol = getCurrencySymbol(currency);
   const v = (value as RangeValue) || {};
@@ -1639,11 +1641,9 @@ function RangeEditor({
                   fontFamily: "inherit",
                   fontWeight: 600,
                   lineHeight: 1.4,
-                  background: active
-                    ? "var(--ax-cyan-50)"
-                    : "var(--ax-gray-50)",
-                  color: active ? "var(--ax-cyan-700)" : "var(--fg-2)",
-                  border: `1px solid ${active ? "var(--ax-cyan-200)" : "var(--border-1)"}`,
+                  background: active ? tone.bg : "var(--ax-gray-50)",
+                  color: active ? tone.fg : "var(--fg-2)",
+                  border: `1px solid ${active ? tone.border : "var(--border-1)"}`,
                   borderRadius: 999,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
