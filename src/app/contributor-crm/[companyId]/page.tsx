@@ -1112,6 +1112,8 @@ type LookupOption = {
 type SearchCompanyOption = {
   id: string;
   label: string;
+  /** "Investor", "Company"…: shown next to the name in investor search results */
+  entityType?: string;
   websiteUrl?: string;
   linkedinUrl?: string;
 };
@@ -2575,6 +2577,8 @@ function applyInvestorStyleCompanyListDiff(
       company_name: c.companyName,
       company_record_status: c.isNewCompany ? "new" : "existing",
     };
+    // an investor typed in by name (not in our database): flagged for the team to review
+    if (c.isNewCompany && listKey === "investors") base.is_new_investor = true;
     if (c.isNewCompany && c.newCompanyProfile) {
       base.is_new_company = true;
       base.new_company_profile = {
@@ -3607,6 +3611,7 @@ function SuggestCompanySearchInput({
   onSearch,
   onAddNew,
   hideSelectedId,
+  addNewNoun = "company",
 }: {
   value: string;
   selectedCompanyId: string;
@@ -3616,6 +3621,7 @@ function SuggestCompanySearchInput({
   onSearch: (query: string) => Promise<SearchCompanyOption[]>;
   onAddNew?: (name: string) => void;
   hideSelectedId?: boolean;
+  addNewNoun?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -3788,7 +3794,23 @@ function SuggestCompanySearchInput({
                     cursor: "pointer",
                   }}
                 >
-                  <div style={{ fontSize: "13px", fontWeight: 600 }}>{option.label}</div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>{option.label}</span>
+                    {option.entityType && (
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: option.entityType === "Investor" ? "#6d28d9" : "#475569",
+                          background: option.entityType === "Investor" ? "#f5f3ff" : "#f1f5f9",
+                          borderRadius: "999px",
+                          padding: "1px 7px",
+                        }}
+                      >
+                        {option.entityType}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
               {onAddNew && (
@@ -3815,7 +3837,7 @@ function SuggestCompanySearchInput({
                     gap: "6px",
                   }}
                 >
-                  + Add &quot;{value.trim()}&quot; as new company
+                  + Add &quot;{value.trim()}&quot; as new {addNewNoun}
                 </button>
               )}
             </>
@@ -3848,7 +3870,7 @@ function SuggestCompanySearchInput({
                     gap: "6px",
                   }}
                 >
-                  + Add &quot;{value.trim()}&quot; as new company
+                  + Add &quot;{value.trim()}&quot; as new {addNewNoun}
                 </button>
               )}
             </div>
@@ -5282,6 +5304,7 @@ function InvestorChipEditor({
   onOpenNewCompanyModal,
   searchPlaceholder = "Search company…",
   allowAddNew = true,
+  addNewNoun = "company",
 }: {
   chips: InvestorChip[];
   onChange: (chips: InvestorChip[]) => void;
@@ -5289,6 +5312,7 @@ function InvestorChipEditor({
   onOpenNewCompanyModal: (localId: string) => void;
   searchPlaceholder?: string;
   allowAddNew?: boolean;
+  addNewNoun?: string;
 }) {
   const [searchValue, setSearchValue] = useState("");
 
@@ -5482,6 +5506,7 @@ function InvestorChipEditor({
           onSearch={onSearch}
           onAddNew={allowAddNew ? handleAddNew : undefined}
           hideSelectedId={true}
+          addNewNoun={addNewNoun}
         />
       </div>
 
@@ -6794,6 +6819,46 @@ function SuggestBasicCompanyChangeForm({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Investors are looked up across investor entities (PE / VC firms…) and companies that
+  // invest (corporate investors); each result shows what kind of entity it is.
+  const searchInvestors = async (query: string): Promise<SearchCompanyOption[]> => {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const base = "https://xdil-abvj-o7rq.e2.xano.io/api:emt0MLoc";
+    const read = async (path: string, entityType: string): Promise<SearchCompanyOption[]> => {
+      try {
+        const payload = await fetchJson<unknown>(`${base}/${path}`, {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q }),
+        });
+        const list = Array.isArray(payload)
+          ? payload
+          : ((payload as { items?: unknown })?.items as unknown[]) ?? [];
+        return (Array.isArray(list) ? list : []).flatMap((item) => {
+          const r = item as Record<string, unknown>;
+          const id = Number(r?.id);
+          const label = String(r?.title ?? r?.name ?? "").trim();
+          return Number.isFinite(id) && id > 0 && label
+            ? [{ id: String(id), label, entityType } as SearchCompanyOption]
+            : [];
+        });
+      } catch {
+        return [];
+      }
+    };
+    const [investors, companies] = await Promise.all([
+      read("search_investors", "Investor"),
+      read("search_companies", "Company"),
+    ]);
+    const seen = new Set<string>();
+    return [...investors, ...companies].filter((o) => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      return true;
+    });
+  };
+
   const searchCompanies = async (query: string): Promise<SearchCompanyOption[]> => {
     const trimmedQuery = query.trim();
     if (trimmedQuery.length < 2) return [];
@@ -7594,7 +7659,8 @@ function SuggestBasicCompanyChangeForm({
           <InvestorChipEditor
             chips={investorChips}
             onChange={setInvestorChips}
-            onSearch={searchCompanies}
+            onSearch={searchInvestors}
+            addNewNoun="investor"
             onOpenNewCompanyModal={(localId) => setNewCompanyModalTargetId(localId)}
             searchPlaceholder="Search investor…"
           />

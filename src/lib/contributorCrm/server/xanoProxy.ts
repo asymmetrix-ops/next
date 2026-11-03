@@ -20,6 +20,8 @@ const POST_PATH_ALLOW = [
   /^\/api:GYQcK4au\/get_company_transaction_status$/,
   /^\/api:GYQcK4au\/company_financial_metrics$/,
   /^\/api:GYQcK4au\/Get_new_company\/\d+$/,
+  // investor / company name search (investor entities as well as companies); read-only POSTs
+  /^\/api:emt0MLoc\/search_(investors|companies)$/,
 ];
 
 const BLOCKED_PATH =
