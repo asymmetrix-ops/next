@@ -1,5 +1,6 @@
 "use client";
 
+import { registerFilterBarSlot } from "@/components/portfolio/filterBarSlot";
 import React, {
   useState,
   useMemo,
@@ -2849,6 +2850,9 @@ export function CompaniesFilterBar({
             onApply={commitFilter}
             boundaryRef={filterBarRef}
           />
+
+          {/* Saved filters menu portals in here, next to Add filter */}
+          <span ref={registerFilterBarSlot} style={{ display: "contents" }} />
 
           {/* Status: pushed to the far right, wraps below only on narrow/heavily-filtered rows */}
           <span style={{ flex: "1 0 auto", minWidth: 12 }} />

@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-hot-toast";
+import { AnchoredPopover } from "@/components/filters/AnchoredPopover";
+import { useFilterBarSlot } from "@/components/portfolio/filterBarSlot";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import {
@@ -53,7 +56,9 @@ export function ListViewPortfolioBar({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery] = useState("");
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const slot = useFilterBarSlot();
 
   const refresh = useCallback(async () => {
     try {
@@ -67,14 +72,15 @@ export function ListViewPortfolioBar({
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
+  const visible = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    return q ? saved.filter((f) => f.name.toLowerCase().includes(q)) : saved;
+  }, [saved, query]);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    setQuery("");
+  }, []);
 
   const openSave = () => {
     setName(suggestSavedFilterName(entityPlural, filters ?? {}));
@@ -124,92 +130,271 @@ export function ListViewPortfolioBar({
     }
   };
 
-  return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-2">
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          className={BUTTON}
-          onClick={() => setMenuOpen((open) => !open)}
+  const menu = (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "5px 14px 5px 11px",
+          fontFamily: "var(--font-sans)",
+          fontSize: "var(--fs-13)",
+          fontWeight: 600,
+          color: menuOpen ? "var(--ax-cyan-700)" : "var(--fg-2)",
+          background: menuOpen ? "var(--ax-cyan-50)" : "white",
+          border: `1px dashed ${menuOpen ? "var(--ax-cyan-300)" : "var(--ax-gray-300, #94a3b8)"}`,
+          borderRadius: 999,
+          cursor: "pointer",
+          transition: "all 120ms",
+          height: 34,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+          <path
+            d="M1.5 1.5h8v10l-4-2.6-4 2.6v-10z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Saved filters{saved.length > 0 ? ` (${saved.length})` : ""}
+      </button>
+      {menuOpen && (
+        <AnchoredPopover
+          anchorRef={anchorRef}
+          onDismiss={closeMenu}
+          bare
+          width={380}
         >
-          Saved filters{saved.length > 0 ? ` (${saved.length})` : ""} ▾
-        </button>
-        {menuOpen && (
-          <div className="absolute left-0 z-50 mt-1 w-80 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-            {saved.length === 0 ? (
-              <p className="p-3 text-sm text-gray-500">No saved filters yet.</p>
-            ) : (
-              <ul>
-                {saved.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-50"
+          <div
+            style={{
+              width: 380,
+              maxHeight: 460,
+              display: "flex",
+              flexDirection: "column",
+              background: "white",
+              border: "1px solid var(--border-1)",
+              borderRadius: "var(--r-lg)",
+              boxShadow:
+                "0 16px 40px rgba(17,22,29,0.16), 0 2px 6px rgba(17,22,29,0.06)",
+              overflow: "hidden",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 14px 10px",
+                borderBottom: "1px solid var(--ax-gray-100)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: saved.length > 0 ? 8 : 0,
+                  gap: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "var(--fs-14)",
+                    fontWeight: 700,
+                    color: "var(--fg-1)",
+                  }}
+                >
+                  Saved filters
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{ fontSize: 11, color: "var(--fg-4)" }}
+                    className="ax-numeric"
                   >
-                    <button
-                      type="button"
-                      className="flex-1 min-w-0 truncate text-left text-sm text-gray-900"
-                      onClick={() => {
-                        setMenuOpen(false);
+                    {saved.length} saved
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    onClick={closeMenu}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 24,
+                      height: 24,
+                      padding: 0,
+                      border: "none",
+                      borderRadius: "var(--r-sm)",
+                      background: "transparent",
+                      color: "var(--fg-4)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M3 3l6 6M9 3l-6 6"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {saved.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    background: "var(--ax-gray-25)",
+                    border: "1px solid var(--border-1)",
+                    borderRadius: "var(--r-md)",
+                  }}
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    style={{ color: "var(--fg-4)", flexShrink: 0 }}
+                  >
+                    <circle cx="7" cy="7" r="4.75" stroke="currentColor" strokeWidth="1.4" />
+                    <path
+                      d="M10.5 10.5L13.5 13.5"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search saved filters…"
+                    style={{
+                      flex: 1,
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      fontFamily: "inherit",
+                      fontSize: "var(--fs-13)",
+                      color: "var(--fg-1)",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 8px" }}>
+              {visible.length === 0 ? (
+                <div
+                  style={{
+                    padding: 28,
+                    textAlign: "center",
+                    color: "var(--fg-4)",
+                    fontSize: "var(--fs-13)",
+                  }}
+                >
+                  {saved.length === 0
+                    ? "No saved filters yet."
+                    : "No saved filters match."}
+                </div>
+              ) : (
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                  {visible.map((item) => (
+                    <SavedFilterRow
+                      key={item.id}
+                      item={item}
+                      canUpdate={hasFilters}
+                      onApply={() => {
+                        closeMenu();
                         onApplySaved(
                           (item.filters ?? {}) as Record<string, unknown>
                         );
                       }}
-                    >
-                      {item.name}
-                    </button>
-                    <button
-                      type="button"
-                      title="Rename"
-                      className="text-xs text-gray-500 hover:text-gray-900 px-1"
-                      onClick={() => {
-                        setMenuOpen(false);
+                      onRename={() => {
+                        closeMenu();
                         setName(item.name);
                         setNameDialog({ mode: "rename", filter: item });
                       }}
-                    >
-                      Rename
-                    </button>
-                    {hasFilters && (
-                      <button
-                        type="button"
-                        title="Save the current filters over this set"
-                        className="text-xs text-gray-500 hover:text-gray-900 px-1"
-                        onClick={() => void overwrite(item)}
-                      >
-                        Update
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      title="Delete"
-                      className="text-xs text-red-600 hover:text-red-800 px-1"
-                      onClick={() => void remove(item)}
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
+                      onUpdate={() => void overwrite(item)}
+                      onDelete={() => void remove(item)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
 
-      {hasFilters && (
-        <>
-          <button type="button" className={BUTTON} onClick={openSave}>
-            Save filters
-          </button>
-          <button
-            type="button"
-            className={BUTTON}
-            disabled={resultCount <= 0}
-            onClick={() => setAddOpen(true)}
-          >
-            Add {resultCount.toLocaleString()}{" "}
-            {resultCount === 1 ? "result" : "results"} to My Portfolio
-          </button>
-        </>
+            <div
+              style={{
+                padding: "8px 14px",
+                borderTop: "1px solid var(--ax-gray-100)",
+                background: "var(--ax-gray-25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                fontSize: 11,
+                color: "var(--fg-3)",
+              }}
+            >
+              <span>
+                {hasFilters
+                  ? "Save what's applied right now"
+                  : "Add filters to save them"}
+              </span>
+              <button
+                type="button"
+                disabled={!hasFilters}
+                onClick={() => {
+                  closeMenu();
+                  openSave();
+                }}
+                style={{
+                  padding: "4px 12px",
+                  fontFamily: "inherit",
+                  fontSize: "var(--fs-13)",
+                  fontWeight: 600,
+                  color: hasFilters ? "var(--fg-link)" : "var(--fg-4)",
+                  background: "white",
+                  border: "1px solid var(--border-1)",
+                  borderRadius: 999,
+                  cursor: hasFilters ? "pointer" : "not-allowed",
+                }}
+              >
+                Save current filters
+              </button>
+            </div>
+          </div>
+        </AnchoredPopover>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {slot ? createPortal(menu, slot) : null}
+      {(!slot || hasFilters) && (
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2">
+          {!slot && menu}
+          {hasFilters && (
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={resultCount <= 0}
+              onClick={() => setAddOpen(true)}
+            >
+              Add {resultCount.toLocaleString()}{" "}
+              {resultCount === 1 ? "result" : "results"} to My Portfolio
+            </button>
+          )}
+        </div>
       )}
 
       {nameDialog && (
@@ -273,6 +458,97 @@ export function ListViewPortfolioBar({
             : undefined
         }
       />
-    </div>
+    </>
+  );
+}
+
+function SavedFilterRow({
+  item,
+  canUpdate,
+  onApply,
+  onRename,
+  onUpdate,
+  onDelete,
+}: {
+  item: SavedFilter;
+  canUpdate: boolean;
+  onApply: () => void;
+  onRename: () => void;
+  onUpdate: () => void;
+  onDelete: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const action = (color: string): React.CSSProperties => ({
+    background: "none",
+    border: "none",
+    padding: "2px 4px",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    fontSize: 11.5,
+    fontWeight: 600,
+    color,
+  });
+  return (
+    <li
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "2px 8px",
+        borderRadius: 6,
+        background: hover ? "var(--ax-gray-25)" : "transparent",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onApply}
+        title={item.name}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: "6px 0",
+          textAlign: "left",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          fontSize: "var(--fs-13)",
+          fontWeight: 500,
+          color: "var(--fg-1)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item.name}
+      </button>
+      <span
+        style={{
+          display: "inline-flex",
+          gap: 2,
+          opacity: hover ? 1 : 0,
+          transition: "opacity 120ms",
+        }}
+      >
+        <button type="button" onClick={onRename} style={action("var(--fg-3)")}>
+          Rename
+        </button>
+        {canUpdate && (
+          <button
+            type="button"
+            title="Save the current filters over this set"
+            onClick={onUpdate}
+            style={action("var(--fg-3)")}
+          >
+            Update
+          </button>
+        )}
+        <button type="button" onClick={onDelete} style={action("#dc2626")}>
+          Delete
+        </button>
+      </span>
+    </li>
   );
 }
