@@ -4,7 +4,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { CorporateEventsSection } from "@/components/contributor-crm/corporate-events/CorporateEventsSection";
+import {
+  CorporateEventsSearchSection,
+  type CorporateEventItem as PlatformCorporateEventItem,
+} from "@/components/corporate-events/CorporateEventsSearchSection";
+import { PlatformCurrencyOverride } from "@/components/providers/PlatformCurrencyProvider";
 import { type CorporateEvent } from "@/components/contributor-crm/corporate-events/CorporateEventsTable";
 import IndividualCards from "@/components/contributor-crm/shared/IndividualCards";
 import {
@@ -49,9 +53,7 @@ import {
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
 import {
   PLATFORM_CURRENCY_BY_CODE,
-  readPlatformCurrencyClient,
   readPlatformCurrencyIdClient,
-  writePlatformCurrencyClient,
 } from "@/lib/platformCurrency";
 import { ContentArticle } from "@/types/insightsAnalysis";
 // Investor classification rule constants (module scope; stable across renders)
@@ -5002,17 +5004,17 @@ function SectorChipEditor({
   chips,
   onChange,
   sectorOptions,
+  requireOne = false,
 }: {
   chips: SectorChip[];
   onChange: (chips: SectorChip[]) => void;
   sectorOptions: LookupOption[];
+  /** The last remaining sector can't be removed. */
+  requireOne?: boolean;
 }) {
   const [addSearch, setAddSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  // A sector can't just be deleted: this holds the chip being replaced while the
-  // contributor picks the sector that takes its place.
-  const [replacingId, setReplacingId] = useState<string | null>(null);
-  const [replaceSearch, setReplaceSearch] = useState("");
+  const [limitNote, setLimitNote] = useState("");
   const addRef = useRef<HTMLDivElement | null>(null);
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const [addMenuStyle, setAddMenuStyle] = useState<React.CSSProperties>({});
@@ -5108,44 +5110,23 @@ function SectorChipEditor({
     const chip = chips.find((c) => c.id === id);
     if (!chip || chip.status === "added") return;
     if (chip.status === "existing") {
-      // Removing needs a replacement: ask for it instead of flagging the chip.
-      setReplacingId(id);
-      setReplaceSearch("");
+      // At least one sector has to stay: the last one can't be removed.
+      const stillActive = chips.filter((c) => c.status !== "removed").length;
+      if (requireOne && stillActive <= 1) {
+        setLimitNote("At least one sector is needed");
+        return;
+      }
+      setLimitNote("");
+      onChange(chips.map((c) => (c.id === id ? { ...c, status: "removed" as const } : c)));
       return;
     }
-    // Undo: bring the sector back and drop the one that was chosen to replace it.
-    onChange(
-      chips
-        .filter((c) => c.replaces !== id)
-        .map((c) => (c.id === id ? { ...c, status: "existing" as const } : c))
-    );
-  };
-
-  const handleReplace = (optValue: string, optLabel: string) => {
-    if (!replacingId) return;
-    const oldId = replacingId;
-    onChange([
-      ...chips.map((c) => (c.id === oldId ? { ...c, status: "removed" as const } : c)),
-      {
-        id: `added-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        label: optLabel,
-        optionValue: optValue,
-        status: "added" as const,
-        replaces: oldId,
-      },
-    ]);
-    setReplacingId(null);
-    setReplaceSearch("");
+    setLimitNote("");
+    onChange(chips.map((c) => (c.id === id ? { ...c, status: "existing" as const } : c)));
   };
 
   const handleRemoveAdded = (id: string) => {
-    const chip = chips.find((c) => c.id === id);
-    // Dropping a replacement puts the sector it replaced back.
-    onChange(
-      chips
-        .filter((c) => c.id !== id)
-        .map((c) => (chip?.replaces && c.id === chip.replaces ? { ...c, status: "existing" as const } : c))
-    );
+    setLimitNote("");
+    onChange(chips.filter((c) => c.id !== id));
   };
 
   const addedCount = chips.filter((c) => c.status === "added").length;
@@ -5206,7 +5187,7 @@ function SectorChipEditor({
                   ? "Undo removal"
                   : chip.status === "added"
                     ? "Remove"
-                    : "Replace with another sector"
+                    : "Remove"
               }
               style={{
                 width: "18px",
@@ -5238,67 +5219,6 @@ function SectorChipEditor({
             </button>
           </div>
         ))}
-
-        {replacingId && (() => {
-          const old = chips.find((c) => c.id === replacingId);
-          const options = sectorOptions.filter(
-            (opt) =>
-              !activeValues.has(opt.value) &&
-              (replaceSearch === "" || opt.label.toLowerCase().includes(replaceSearch.toLowerCase()))
-          );
-          return (
-            <div
-              style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
-              onMouseDown={() => setReplacingId(null)}
-            >
-              <div
-                style={{ background: "white", borderRadius: 14, width: "min(420px, 100%)", boxShadow: "0 20px 50px rgba(15,23,42,0.25)", overflow: "hidden" }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <div style={{ padding: "16px 16px 8px" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
-                    Replace &ldquo;{old?.label}&rdquo; with…
-                  </div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                    A sector can&apos;t be removed on its own. Pick the sector that should take its place; the change can&apos;t be saved until you do.
-                  </div>
-                  <input
-                    autoFocus
-                    value={replaceSearch}
-                    onChange={(e) => setReplaceSearch(e.target.value)}
-                    placeholder="Search sector…"
-                    style={{ width: "100%", marginTop: 10, padding: "7px 10px", border: "1.5px solid #cbd5e1", borderRadius: 8, fontSize: 12, outline: "none", boxSizing: "border-box" }}
-                  />
-                </div>
-                <div style={{ maxHeight: 260, overflowY: "auto" }}>
-                  {options.length > 0 ? (
-                    options.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => handleReplace(opt.value, opt.label)}
-                        style={{ width: "100%", padding: "9px 16px", border: "none", borderTop: "1px solid #f1f5f9", background: "white", color: "#0f172a", textAlign: "left", cursor: "pointer", fontSize: 13 }}
-                      >
-                        {opt.label}
-                      </button>
-                    ))
-                  ) : (
-                    <div style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>No matching sector.</div>
-                  )}
-                </div>
-                <div style={{ padding: 10, borderTop: "1px solid #f1f5f9", textAlign: "right" }}>
-                  <button
-                    type="button"
-                    onClick={() => setReplacingId(null)}
-                    style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #cbd5e1", background: "white", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         <div ref={addRef} style={{ position: "relative" }}>
           <button
@@ -5385,6 +5305,11 @@ function SectorChipEditor({
         </div>
       </div>
 
+      {limitNote && (
+        <div role="alert" style={{ marginTop: "8px", fontSize: "12px", fontWeight: 600, color: "#b91c1c" }}>
+          {limitNote}
+        </div>
+      )}
       {(addedCount > 0 || removedCount > 0) && (
         <div style={{ marginTop: "8px", display: "flex", gap: "14px", flexWrap: "wrap" }}>
           {addedCount > 0 && (
@@ -7119,16 +7044,6 @@ function SuggestBasicCompanyChangeForm({
         throw new Error("Please enter your email address.");
       }
 
-      // A sector is only ever swapped: every removed one needs its replacement.
-      for (const chips of [primarySectorChips, secondarySectorChips]) {
-        const dangling = chips.find(
-          (c) => c.status === "removed" && !chips.some((r) => r.status === "added" && r.replaces === c.id)
-        );
-        if (dangling) {
-          throw new Error(`Pick a replacement for ${dangling.label} before saving, or undo its removal.`);
-        }
-      }
-
       const companyDiff = buildCompanyChangeDiff({
         companyId,
         companyName,
@@ -7613,6 +7528,7 @@ function SuggestBasicCompanyChangeForm({
         >
           <SectorChipEditor
             chips={primarySectorChips}
+            requireOne
             onChange={setPrimarySectorChips}
             sectorOptions={sectorOptions}
           />
@@ -10018,14 +9934,22 @@ function sectorFormatValue(
 }
 
 
+// Benchmark currencies on offer; the company's own one is the default when it is among them.
+function benchmarkCurrencyFor(code?: string | null): SectorCurrency {
+  const c = String(code || "").trim().toUpperCase();
+  return c === "EUR" || c === "GBP" ? c : "USD";
+}
+
 function SectorIntelligenceTab({
   primarySectorIds,
   secondarySectorIds,
   primarySectorNames,
+  companyCurrency,
 }: {
   primarySectorIds: number[];
   secondarySectorIds: number[];
   primarySectorNames?: string[];
+  companyCurrency?: string;
 }) {
   // Stable serialised keys so useCallback doesn't re-fire on every parent render
   const primaryKey = primarySectorIds.slice().sort((a, b) => a - b).join(",");
@@ -10073,14 +9997,18 @@ function SectorIntelligenceTab({
     metrics: g.metrics.filter((m) => visibleCols.includes(m.key)),
   })).filter((g) => g.metrics.length > 0);
   const [benchScrolled, setBenchScrolled] = useState(false);
-  // Same preference (cookie) as the rest of the platform; the endpoint converts server-side.
-  const [currency, setCurrencyState] = useState<SectorCurrency>("USD");
+  // Starts in the company's own currency (USD, EUR or GBP; anything else falls back to USD).
+  // The switch is for this view only; the endpoint converts server-side.
+  const [currency, setCurrencyState] = useState<SectorCurrency>(() =>
+    benchmarkCurrencyFor(companyCurrency)
+  );
+  const [currencyTouched, setCurrencyTouched] = useState(false);
   useEffect(() => {
-    setCurrencyState(readPlatformCurrencyClient());
-  }, []);
+    if (!currencyTouched) setCurrencyState(benchmarkCurrencyFor(companyCurrency));
+  }, [companyCurrency, currencyTouched]);
   const setCurrency = (next: SectorCurrency) => {
+    setCurrencyTouched(true);
     setCurrencyState(next);
-    writePlatformCurrencyClient(next);
   };
   const [rows, setRows] = useState<SectorMetricRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -10441,21 +10369,28 @@ function SectorIntelligenceTab({
         }}
         style={{ pointerEvents: "none", cursor: "default" }}
       >
-      <CorporateEventsSection
-        title="Corporate Events"
-        events={ceItems as CorporateEvent[]}
-        loading={ceLoading}
-        showSectors={true}
-        primarySectors={primarySectorIds.map((id, i) => ({
-          sector_id: id,
-          sector_name: primarySectorNames?.[i] ?? "",
-          Sector_importance: "Primary",
-        }))}
-        secondarySectors={[]}
-        maxInitialEvents={CE_PER_PAGE}
-        truncateDescriptionLength={180}
-        titleStyle={{ fontSize: "20px", fontFamily: "Georgia, serif", fontWeight: 700, color: "#0f172a" }}
-      />
+      <PlatformCurrencyOverride currency={currency}>
+        {/* The platform's own corporate events list (same columns, flags, deal tags), embedded. */}
+        <CorporateEventsSearchSection
+          events={ceItems as unknown as PlatformCorporateEventItem[]}
+          loading={ceLoading}
+          error={ceError}
+          pagination={{
+            itemsReceived: ceItems.length,
+            curPage: 1,
+            nextPage: null,
+            prevPage: null,
+            offset: 0,
+            perPage: CE_PER_PAGE,
+            pageTotal: 1,
+            itemsTotal: ceItems.length,
+          }}
+          fetchCorporateEvents={async () => {}}
+          currentFilters={undefined}
+          enableColumnControl={false}
+          embedded
+        />
+      </PlatformCurrencyOverride>
       </div>
       {false && !ceLoading && !ceError && cePag.pageTotal > 1 && (
         <div
@@ -13302,6 +13237,7 @@ const CompanyDetail = () => {
 
           {activeTab === "sector-intelligence" && (
             <SectorIntelligenceTab
+              companyCurrency={metricsCurrencyCode || displayCurrency}
               primarySectorIds={primarySectors
                 .map((s) => s.sector_id)
                 .filter((id): id is number => typeof id === "number" && id > 0)}

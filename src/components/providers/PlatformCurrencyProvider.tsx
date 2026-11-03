@@ -70,3 +70,27 @@ export function usePlatformCurrency(): PlatformCurrencyContextType {
   }
   return context;
 }
+
+/**
+ * Shows everything below in a fixed currency without touching the visitor's saved
+ * platform preference (e.g. the contributor benchmark, which follows the company's own currency).
+ */
+export function PlatformCurrencyOverride({
+  currency,
+  children,
+}: {
+  currency: Currency;
+  children: React.ReactNode;
+}) {
+  return (
+    <PlatformCurrencyContext.Provider
+      value={{
+        currency,
+        currencyId: platformCurrencyCodeToId(currency),
+        setCurrency: () => {},
+      }}
+    >
+      {children}
+    </PlatformCurrencyContext.Provider>
+  );
+}
