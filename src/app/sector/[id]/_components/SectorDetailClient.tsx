@@ -54,6 +54,13 @@ import {
 } from "@/lib/sectorInsightsArticles";
 import { getInsightsListItemsTotal } from "@/lib/fetchInsightsLogicalPage";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
+import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import {
+  getDealRadarContentCtaLabel,
+  mapDealRadarItem,
+  type DealRadarItem,
+} from "@/lib/dealRadar";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
@@ -1110,6 +1117,203 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SECTOR_OVERVIEW_DEAL_RADAR_LIMIT = 25;
+const DEAL_RADAR_API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
+
+/**
+ * Overview slot: the sector's Deal Radar feed (same rows as the home Dashboard,
+ * filtered to this sector). When no Deal Radar company is tagged to the sector
+ * it renders `fallback` (the Corporate Events card) instead.
+ */
+function SectorDealRadarOrEventsCard({
+  sectorId,
+  fallback,
+}: {
+  sectorId: number;
+  fallback: React.ReactNode;
+}) {
+  const [items, setItems] = useState<DealRadarItem[] | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setItems(null);
+    (async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("asymmetrix_auth_token")
+            : null;
+        const url = new URL(`${DEAL_RADAR_API_BASE}/get_deal_radar_dashboard`);
+        url.searchParams.append("sector_ids[]", String(sectorId));
+        url.searchParams.set("limit", String(SECTOR_OVERVIEW_DEAL_RADAR_LIMIT));
+        url.searchParams.set("offset", "0");
+        const res = await fetch(url.toString(), {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = (await res.json()) as { items?: unknown[] };
+        const rows = Array.isArray(data?.items) ? data.items : [];
+        setItems(
+          rows.map((r) => mapDealRadarItem(r as Record<string, unknown>))
+        );
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.error("Error fetching sector Deal Radar:", err);
+        setItems([]);
+      }
+    })();
+    return () => controller.abort();
+  }, [sectorId]);
+
+  if (items !== null && items.length === 0) return <>{fallback}</>;
+
+  const cardStyle: React.CSSProperties = {
+    background: "#fff",
+    border: `1px solid ${LINE}`,
+    borderRadius: R_LG,
+    boxShadow: SH_SM,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    height: 535,
+  };
+
+  return (
+    <div style={cardStyle}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 16px",
+          borderBottom: `1px solid ${LINE_2}`,
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: INK }}>
+          Deal Radar
+        </h2>
+        <a
+          href="?tab=deal_radar"
+          style={{
+            marginLeft: "auto",
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: BLUE_600,
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          View all →
+        </a>
+      </div>
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {items === null ? (
+          <div style={{ padding: "24px 14px", textAlign: "center", color: MUTED, fontSize: 13 }}>
+            Loading…
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Company", "Sector", "Stage"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      background: TINT,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.09em",
+                      textTransform: "uppercase",
+                      color: MUTED,
+                      textAlign: h === "Company" ? "left" : "center",
+                      padding: "9px 14px",
+                      borderBottom: `1px solid ${LINE}`,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.companyId} style={{ verticalAlign: "top" }}>
+                  <td style={{ padding: "11px 14px", borderBottom: `1px solid ${LINE_2}` }}>
+                    <a
+                      href={`/company/${item.companyId}`}
+                      style={{ color: BLUE_600, fontWeight: 700, textDecoration: "none" }}
+                    >
+                      {item.companyName}
+                      <CountryFlagImg iso2={item.hqCountryIso2} />
+                    </a>
+                    {item.contentCta && (
+                      <div style={{ marginTop: 4 }}>
+                        <a
+                          href={`/article/${item.contentCta.id}`}
+                          style={{ fontSize: 12, color: BLUE_700, textDecoration: "none" }}
+                        >
+                          {getDealRadarContentCtaLabel(item.contentCta)}
+                        </a>
+                      </div>
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: "11px 14px",
+                      borderBottom: `1px solid ${LINE_2}`,
+                      textAlign: "center",
+                      fontSize: 12,
+                      color: INK_3,
+                    }}
+                  >
+                    {item.primarySectors.length > 0
+                      ? item.primarySectors.map((sec, idx) => (
+                          <div key={`${sec.id}-${idx}`}>
+                            {sec.id > 0 ? (
+                              <a
+                                href={`/sector/${sec.id}`}
+                                style={{ color: BLUE_600, textDecoration: "none" }}
+                              >
+                                {sec.name}
+                              </a>
+                            ) : (
+                              sec.name
+                            )}
+                          </div>
+                        ))
+                      : "—"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "11px 14px",
+                      borderBottom: `1px solid ${LINE_2}`,
+                      textAlign: "center",
+                    }}
+                  >
+                    <TransactionStatusPill
+                      status={item.transactionStatus}
+                      className="inline-block max-w-[11rem]"
+                      allowWrap
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
@@ -2563,7 +2767,10 @@ const SectorDetailPage = ({
                   )
                 }
               />
-              {recentTransactions.length > 0 ? (
+              <SectorDealRadarOrEventsCard
+                sectorId={Number(sectorId)}
+                fallback={
+              recentTransactions.length > 0 ? (
                 <RecentTransactionsCard transactions={recentTransactions} />
               ) : (
                 <div
@@ -2597,7 +2804,9 @@ const SectorDetailPage = ({
                       : "Loading…"}
                   </div>
                 </div>
-              )}
+              )
+                }
+              />
               {hasTransactionComps && <RecentTransactionCompsCard sectorId={Number(sectorId)} />}
             </div>
 
