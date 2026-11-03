@@ -1975,6 +1975,9 @@ const SUGGEST_SECTION_LABELS: Record<string, Set<string>> = {
     "Transaction status",
     "Investors",
     "Parent Company",
+    "Product Type",
+    "Revenue Model",
+    "Data Collection Method",
   ]),
   description: new Set(["Description"]),
   peers: new Set(["Peers & Competitors", "Potential Acquirers", "Acquisition Targets"]),
@@ -2073,6 +2076,57 @@ function SuggestChangeFieldRow({
       </div>
       <div>{children}</div>
     </div>
+  );
+}
+
+// Pick one of the options we already have, or suggest a new one when none fits. A suggestion
+// is not added to our list: the team reviews it ("New option suggested") before anything changes.
+const NEW_OPTION_SENTINEL = "__suggest_new_option__";
+const CLASSIFICATION_MAX_ITEMS = 3;
+
+function ClassificationOptionSelect({
+  value,
+  isNew,
+  options,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  isNew: boolean;
+  options: LookupOption[];
+  placeholder: string;
+  onChange: (value: string, isNew: boolean) => void;
+}) {
+  if (isNew) {
+    return (
+      <div>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value, true)}
+          placeholder="Name of the new option"
+          style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #c4b5fd", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box", background: "#faf5ff" }}
+        />
+        <button
+          type="button"
+          onClick={() => onChange("", false)}
+          style={{ marginTop: "4px", border: "none", background: "none", color: "#2563eb", fontSize: "11px", cursor: "pointer", padding: 0 }}
+        >
+          ← Back to the list
+        </button>
+        <div style={{ marginTop: "2px", fontSize: "11px", color: "#6d28d9" }}>
+          New option suggested: our team will review it before it is added.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <SuggestChangeSelect
+      value={value}
+      onChange={(val) => (val === NEW_OPTION_SENTINEL ? onChange("", true) : onChange(val, false))}
+      placeholder={placeholder}
+      options={[...options, { value: NEW_OPTION_SENTINEL, label: "+ Suggest a new option…" } as LookupOption]}
+    />
   );
 }
 
@@ -2445,9 +2499,9 @@ const COMPANY_CHANGE_REQUEST_FIELDS: Array<{
   { formKey: "description", payloadKey: "description" },
 ];
 
-type DraftProductTypeItem = { _id: string; Product_Type: string; pc_of_revenues: string };
-type DraftDataCollectionItem = { _id: string; Data_Collection_Method: string; Predominance: string };
-type DraftRevenueModelItem = { _id: string; Revenue_Model_: string; Predominance: string };
+type DraftProductTypeItem = { _id: string; Product_Type: string; pc_of_revenues: string; isNewOption?: boolean };
+type DraftDataCollectionItem = { _id: string; Data_Collection_Method: string; Predominance: string; isNewOption?: boolean };
+type DraftRevenueModelItem = { _id: string; Revenue_Model_: string; Predominance: string; isNewOption?: boolean };
 
 const PRODUCT_TYPE_OPTIONS: LookupOption[] = [
   "Data", "Research", "Software", "News / Other Media", "Events",
@@ -2784,17 +2838,15 @@ function buildCompanyChangeDiff({
   }
 
   if (productTypeItems) {
+    // Product Type carries no % of revenue
     const initialPt = currentValues.productType
       .filter((item) => String(item?.Product_Type || "").trim())
-      .map((item) => ({
-        Product_Type: String(item.Product_Type || "").trim(),
-        pc_of_revenues: String(item.pc_of_revenues || "").trim(),
-      }));
+      .map((item) => ({ Product_Type: String(item.Product_Type || "").trim() }));
     const newPt = productTypeItems
       .filter((item) => String(item?.Product_Type || "").trim())
       .map((item) => ({
         Product_Type: String(item.Product_Type || "").trim(),
-        pc_of_revenues: String(item.pc_of_revenues || "").trim(),
+        ...(item.isNewOption ? { is_new_option: true } : {}),
       }));
     if (JSON.stringify(initialPt) !== JSON.stringify(newPt)) {
       oldData.product_type = initialPt;
@@ -2814,6 +2866,7 @@ function buildCompanyChangeDiff({
       .map((item) => ({
         Data_Collection_Method: String(item.Data_Collection_Method || "").trim(),
         Predominance: String(item.Predominance || "").trim(),
+        ...(item.isNewOption ? { is_new_option: true } : {}),
       }));
     if (JSON.stringify(initialDc) !== JSON.stringify(newDc)) {
       oldData.data_collection_method = initialDc;
@@ -2833,6 +2886,7 @@ function buildCompanyChangeDiff({
       .map((item) => ({
         Revenue_Model_: String(item.Revenue_Model_ || "").trim(),
         Predominance: String(item.Predominance || "").trim(),
+        ...(item.isNewOption ? { is_new_option: true } : {}),
       }));
     if (JSON.stringify(initialRm) !== JSON.stringify(newRm)) {
       oldData.revenue_model = initialRm;
@@ -7859,6 +7913,338 @@ function SuggestBasicCompanyChangeForm({
               lineHeight: 1.5,
             }}
           />
+        </SuggestChangeFieldRow>
+
+        {/* Product Type */}
+        <SuggestChangeFieldRow
+          label="Product Type"
+          currentValue={
+            currentValues.productType.length > 0
+              ? currentValues.productType
+                  .filter((item) => String(item?.Product_Type || "").trim())
+                  .map((item) => String(item.Product_Type || ""))
+                  .join("\n") || "Not available"
+              : "Not available"
+          }
+          helpText="Product categories this company sells."
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                alignItems: "center",
+                padding: "0 2px",
+                marginBottom: "2px",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              <div style={{ flex: 1 }}>Type</div>
+              <div style={{ width: "34px", minWidth: "34px" }} />
+            </div>
+            {productTypeItems.map((row) => (
+              <div key={row._id} style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <ClassificationOptionSelect
+                    value={row.Product_Type}
+                    isNew={row.isNewOption === true}
+                    onChange={(val, isNew) =>
+                      setProductTypeItems((prev) =>
+                        prev.map((r) => (r._id === row._id ? { ...r, Product_Type: val, isNewOption: isNew } : r))
+                      )
+                    }
+                    placeholder="Select type"
+                    options={PRODUCT_TYPE_OPTIONS}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductTypeItems((prev) => prev.filter((r) => r._id !== row._id))
+                  }
+                  style={{
+                    width: "34px",
+                    minWidth: "34px",
+                    height: "42px",
+                    borderRadius: "8px",
+                    border: "1px solid #fecaca",
+                    background: "#fff1f2",
+                    color: "#9f1239",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: "15px",
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {productTypeItems.length < CLASSIFICATION_MAX_ITEMS && (
+            <button
+              type="button"
+              onClick={() =>
+                setProductTypeItems((prev) => [
+                  ...prev,
+                  { _id: `pt-new-${Date.now()}`, Product_Type: "", pc_of_revenues: "" },
+                ])
+              }
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 14px",
+                borderRadius: "9px",
+                border: "1px solid #bfdbfe",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}
+            >
+              + Add Row
+            </button>
+            )}
+          </div>
+        </SuggestChangeFieldRow>
+
+        {/* Data Collection Method */}
+        <SuggestChangeFieldRow
+          label="Data Collection Method"
+          currentValue={
+            currentValues.dataCollectionMethod.length > 0
+              ? currentValues.dataCollectionMethod
+                  .filter((item) => String(item?.Data_Collection_Method || "").trim())
+                  .map((item) => {
+                    const pred = String(item.Predominance || "").trim();
+                    return pred
+                      ? `${item.Data_Collection_Method} (${pred})`
+                      : String(item.Data_Collection_Method || "");
+                  })
+                  .join("\n") || "Not available"
+              : "Not available"
+          }
+          helpText="How the company primarily collects its data."
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                alignItems: "center",
+                padding: "0 2px",
+                marginBottom: "2px",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              <div style={{ flex: 1 }}>Method</div>
+              <div style={{ flex: 1 }}>Predominance</div>
+              <div style={{ width: "34px", minWidth: "34px" }} />
+            </div>
+            {dataCollectionItems.map((row) => (
+              <div key={row._id} style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <ClassificationOptionSelect
+                    value={row.Data_Collection_Method}
+                    isNew={row.isNewOption === true}
+                    onChange={(val, isNew) =>
+                      setDataCollectionItems((prev) =>
+                        prev.map((r) =>
+                          r._id === row._id ? { ...r, Data_Collection_Method: val, isNewOption: isNew } : r
+                        )
+                      )
+                    }
+                    placeholder="Select method"
+                    options={DATA_COLLECTION_OPTIONS}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <SuggestChangeSelect
+                    value={row.Predominance}
+                    onChange={(val) =>
+                      setDataCollectionItems((prev) =>
+                        prev.map((r) => (r._id === row._id ? { ...r, Predominance: val } : r))
+                      )
+                    }
+                    placeholder="Select"
+                    options={PREDOMINANCE_OPTIONS}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDataCollectionItems((prev) => prev.filter((r) => r._id !== row._id))
+                  }
+                  style={{
+                    width: "34px",
+                    minWidth: "34px",
+                    height: "42px",
+                    borderRadius: "8px",
+                    border: "1px solid #fecaca",
+                    background: "#fff1f2",
+                    color: "#9f1239",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: "15px",
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {dataCollectionItems.length < CLASSIFICATION_MAX_ITEMS && (
+            <button
+              type="button"
+              onClick={() =>
+                setDataCollectionItems((prev) => [
+                  ...prev,
+                  {
+                    _id: `dc-new-${Date.now()}`,
+                    Data_Collection_Method: "",
+                    Predominance: "",
+                  },
+                ])
+              }
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 14px",
+                borderRadius: "9px",
+                border: "1px solid #bfdbfe",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}
+            >
+              + Add Row
+            </button>
+            )}
+          </div>
+        </SuggestChangeFieldRow>
+
+        {/* Revenue Model */}
+        <SuggestChangeFieldRow
+          label="Revenue Model"
+          currentValue={
+            currentValues.revenueModel.length > 0
+              ? currentValues.revenueModel
+                  .filter((item) => String(item?.Revenue_Model_ || "").trim())
+                  .map((item) => {
+                    const pred = String(item.Predominance || "").trim();
+                    return pred
+                      ? `${item.Revenue_Model_} (${pred})`
+                      : String(item.Revenue_Model_ || "");
+                  })
+                  .join("\n") || "Not available"
+              : "Not available"
+          }
+          helpText="How the company generates revenue — its primary and secondary models."
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                alignItems: "center",
+                padding: "0 2px",
+                marginBottom: "2px",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              <div style={{ flex: 1 }}>Model</div>
+              <div style={{ flex: 1 }}>Predominance</div>
+              <div style={{ width: "34px", minWidth: "34px" }} />
+            </div>
+            {revenueModelItems.map((row) => (
+              <div key={row._id} style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <ClassificationOptionSelect
+                    value={row.Revenue_Model_}
+                    isNew={row.isNewOption === true}
+                    onChange={(val, isNew) =>
+                      setRevenueModelItems((prev) =>
+                        prev.map((r) =>
+                          r._id === row._id ? { ...r, Revenue_Model_: val, isNewOption: isNew } : r
+                        )
+                      )
+                    }
+                    placeholder="Select model"
+                    options={REVENUE_MODEL_OPTIONS}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <SuggestChangeSelect
+                    value={row.Predominance}
+                    onChange={(val) =>
+                      setRevenueModelItems((prev) =>
+                        prev.map((r) => (r._id === row._id ? { ...r, Predominance: val } : r))
+                      )
+                    }
+                    placeholder="Select"
+                    options={PREDOMINANCE_OPTIONS}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRevenueModelItems((prev) => prev.filter((r) => r._id !== row._id))
+                  }
+                  style={{
+                    width: "34px",
+                    minWidth: "34px",
+                    height: "42px",
+                    borderRadius: "8px",
+                    border: "1px solid #fecaca",
+                    background: "#fff1f2",
+                    color: "#9f1239",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: "15px",
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {revenueModelItems.length < CLASSIFICATION_MAX_ITEMS && (
+            <button
+              type="button"
+              onClick={() =>
+                setRevenueModelItems((prev) => [
+                  ...prev,
+                  { _id: `rm-new-${Date.now()}`, Revenue_Model_: "", Predominance: "" },
+                ])
+              }
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 14px",
+                borderRadius: "9px",
+                border: "1px solid #bfdbfe",
+                background: "#eff6ff",
+                color: "#1d4ed8",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}
+            >
+              + Add Row
+            </button>
+            )}
+          </div>
         </SuggestChangeFieldRow>
 
         {focusAllowsBlock("management") && (

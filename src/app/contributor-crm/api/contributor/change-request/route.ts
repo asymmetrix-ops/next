@@ -6,8 +6,9 @@ import { fetchServiceCompany, postServiceChangeRequest } from "@/lib/contributor
 
 export const dynamic = "force-dynamic";
 
-// Read-only on the contributor page: never accepted from a submission.
-const READ_ONLY_COMPANY_FIELDS = ["product_type", "revenue_model", "data_collection_method"];
+// Read-only on the contributor page: never accepted from a submission (LinkedIn only; the
+// classification cards are editable again, with options picked from our list).
+const READ_ONLY_COMPANY_FIELDS: string[] = [];
 
 function stripReadOnly(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripReadOnly);
