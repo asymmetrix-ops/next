@@ -1,3 +1,4 @@
+import { cardMetricLabel } from "@/lib/financialMetricCards";
 import { extractCurrencyField, resolveDisplay } from "@/lib/currencyField";
 import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
@@ -260,32 +261,32 @@ export function buildFinancialMetricsSections({
 
   const mainRows: FinancialMetricRow[] = [
     row(
-      "Revenue (m):",
+      `${cardMetricLabel("revenue_m")}:`,
       revenueCell.value,
       src(fm?.Revenue_source_label, fm?.Rev_source)
     ),
     row(
-      "EBITDA (m):",
+      `${cardMetricLabel("ebitda_m")}:`,
       ebitdaCell.value,
       src(fm?.EBITDA_source_label, fm?.EBITDA_source)
     ),
     row(
-      "Enterprise Value (m):",
+      `${cardMetricLabel("enterprise_value_m")}:`,
       evCell.value,
       src(fm?.EV_source_label, fm?.EV_source)
     ),
     row(
-      "Revenue multiple:",
+      `${cardMetricLabel("revenue_multiple")}:`,
       formatMultiple(fm?.Revenue_multiple),
       src(fm?.Revenue_multiple_source_label, fm?.Rev_x_source)
     ),
     row(
-      "Revenue Growth:",
+      `${cardMetricLabel("revenue_growth")}:`,
       formatPercent(fm?.Rev_Growth_PC),
       src(fm?.Rev_growth_source_label, fm?.Rev_Growth_source)
     ),
     row(
-      "EBITDA margin:",
+      `${cardMetricLabel("ebitda_margin")}:`,
       (() => {
         const margin = getNumeric(fm?.EBITDA_margin);
         if (margin != null) return formatPercent(margin);
@@ -299,7 +300,7 @@ export function buildFinancialMetricsSections({
       src(fm?.EBITDA_margin_source_label, fm?.EBITDA_margin_source)
     ),
     row(
-      "Rule of 40:",
+      `${cardMetricLabel("rule_of_40")}:`,
       (() => {
         const n = getNumeric(fm?.Rule_of_40);
         return n !== undefined
@@ -312,7 +313,7 @@ export function buildFinancialMetricsSections({
 
   const subscriptionRows: FinancialMetricRow[] = [
     row(
-      "Subscription revenue %:",
+      `${cardMetricLabel("subscription_revenue_pc")}:`,
       formatPercent(fm?.Subscription_revenue_pc),
       src(
         fm?.Subscription_revenue_source_label,
@@ -320,7 +321,7 @@ export function buildFinancialMetricsSections({
       )
     ),
     row(
-      "Subscription revenue (m):",
+      `${cardMetricLabel("subscription_revenue_m")}:`,
       subscriptionRevenueCell.value,
       src(
         fm?.Subscription_revenue_source_label,
@@ -328,47 +329,47 @@ export function buildFinancialMetricsSections({
       )
     ),
     row(
-      "ARR (m):",
+      `${cardMetricLabel("arr_m")}:`,
       arrCell.value,
       src(fm?.ARR_source_label, fm?.ARR_source)
     ),
     row(
-      "Churn:",
+      `${cardMetricLabel("churn")}:`,
       formatPercent(fm?.Churn_pc),
       src(fm?.Churn_source_label, fm?.Churn_Source)
     ),
     row(
-      "GRR:",
+      `${cardMetricLabel("grr")}:`,
       formatPercent(fm?.GRR_pc),
       src(fm?.GRR_source_label, fm?.GRR_source)
     ),
     row(
-      "Upsell:",
+      `${cardMetricLabel("upsell")}:`,
       formatPercent(fm?.Upsell_pc),
       src(fm?.Upsell_source_label, fm?.Upsell_source)
     ),
     row(
-      "Cross-sell:",
+      `${cardMetricLabel("cross_sell")}:`,
       formatPercent(fm?.Cross_sell_pc),
       src(fm?.Cross_sell_source_label, fm?.Cross_sell_source)
     ),
     row(
-      "Price increase:",
+      `${cardMetricLabel("price_increase")}:`,
       formatPercent(fm?.Price_increase_pc),
       src(fm?.Price_increase_source_label, fm?.Price_increase_source)
     ),
     row(
-      "Revenue expansion:",
+      `${cardMetricLabel("revenue_expansion")}:`,
       formatPercent(fm?.Rev_expansion_pc),
       src(fm?.Rev_expansion_source_label, fm?.Rev_expansion_source)
     ),
     row(
-      "NRR:",
+      `${cardMetricLabel("nrr")}:`,
       formatPercent(fm?.NRR),
       src(fm?.NRR_source_label, fm?.NRR_source)
     ),
     row(
-      "New clients revenue growth:",
+      `${cardMetricLabel("new_clients_revenue_growth")}:`,
       formatPercent(fm?.New_client_growth_pc),
       src(fm?.New_client_growth_source_label, fm?.New_Client_Growth_Source)
     ),
@@ -376,29 +377,29 @@ export function buildFinancialMetricsSections({
 
   const otherRows: FinancialMetricRow[] = [
     row(
-      "EBIT (m):",
+      `${cardMetricLabel("ebit_m")}:`,
       ebitCell.value,
       src(fm?.EBIT_source_label, fm?.EBIT_source)
     ),
     row(
-      "Number of clients:",
+      `${cardMetricLabel("number_of_clients")}:`,
       typeof fm?.No_of_Clients === "number"
         ? fm.No_of_Clients.toLocaleString()
         : "-",
       src(fm?.No_of_Clients_source_label, fm?.No_Clients_source)
     ),
     row(
-      "Revenue per client:",
+      `${cardMetricLabel("revenue_per_client")}:`,
       revPerClientCell.value,
       src(fm?.Rev_per_client_source_label, fm?.Rev_per_client_source)
     ),
     row(
-      "Number of employees:",
+      `${cardMetricLabel("number_of_employees")}:`,
       formatWholeNumber(fm?.No_Employees),
       src(fm?.No_Employees_source_label, fm?.No_Employees_source)
     ),
     row(
-      "Revenue per employee:",
+      `${cardMetricLabel("revenue_per_employee")}:`,
       revPerEmployeeCell.value,
       src(fm?.Revenue_per_employee_source_label, fm?.Rev_per_employee_source)
     ),

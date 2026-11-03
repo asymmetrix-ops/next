@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- leftovers from the old contributor markup / stripped company-page parts; prune later */
 "use client";
 
+import { FINANCIAL_METRIC_CARD_GROUPS } from "@/lib/financialMetricCards";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -1189,91 +1190,37 @@ const CONTRIBUTOR_TABS: Array<{
   },
 ];
 
+// The contributor can enter exactly the metrics on the company profile cards, in the same
+// order and with the same names: the list comes from the cards' own configuration.
 const CONTRIBUTION_METRIC_GROUPS: Array<{
   label: string;
   color: string;
   fields: ContributionMetricField[];
-}> = [
-  {
-    label: "Core Metrics",
-    color: "#1d4ed8",
-    fields: [
-      { key: "revenue_m", label: "Revenue", suffix: "m", placeholder: "e.g. 125", valueType: "$" },
-      { key: "ebitda_m", label: "EBITDA", suffix: "m", placeholder: "e.g. 24", valueType: "$" },
-      { key: "enterprise_value_m", label: "Enterprise Value", suffix: "m", placeholder: "e.g. 420", valueType: "$" },
-      { key: "revenue_multiple", label: "Revenue Multiple", suffix: "x", placeholder: "e.g. 3.8", valueType: "x" },
-      { key: "revenue_growth", label: "Revenue Growth", suffix: "%", placeholder: "e.g. 18", valueType: "%" },
-      { key: "ebitda_margin", label: "EBITDA Margin", suffix: "%", placeholder: "e.g. 22", valueType: "%" },
-      { key: "rule_of_40", label: "Rule of 40", placeholder: "e.g. 40" },
-    ],
-  },
-  {
-    label: "Subscription Metrics",
-    color: "#0f766e",
-    fields: [
-      { key: "recurring_revenue", label: "Recurring Revenue", suffix: "%", placeholder: "e.g. 85", valueType: "%" },
-      { key: "arr_m", label: "ARR", suffix: "m", placeholder: "e.g. 90", valueType: "$" },
-      { key: "churn", label: "Churn", suffix: "%", placeholder: "e.g. 4", valueType: "%" },
-      { key: "grr", label: "GRR", suffix: "%", placeholder: "e.g. 92", valueType: "%" },
-      { key: "nrr", label: "NRR", suffix: "%", placeholder: "e.g. 111", valueType: "%" },
-      { key: "new_clients_revenue_growth", label: "New Clients Revenue Growth", suffix: "%", placeholder: "e.g. 12", valueType: "%" },
-    ],
-  },
-  {
-    label: "Other Metrics",
-    color: "#7c3aed",
-    fields: [
-      { key: "ebit_m", label: "EBIT", suffix: "m", placeholder: "e.g. 19", valueType: "$" },
-      { key: "number_of_clients", label: "Number of Clients", placeholder: "e.g. 140", valueType: "#" },
-      { key: "revenue_per_client", label: "Revenue per Client", placeholder: "e.g. 540000", valueType: "$" },
-      { key: "number_of_employees", label: "Number of Employees", placeholder: "e.g. 680", valueType: "#" },
-      { key: "revenue_per_employee", label: "Revenue per Employee", placeholder: "e.g. 245000", valueType: "$" },
-    ],
-  },
-];
+}> = FINANCIAL_METRIC_CARD_GROUPS.map((g) => ({
+  label: g.title,
+  color: g.color,
+  fields: g.metrics.map((m) => ({
+    key: m.key,
+    label: m.label,
+    placeholder: m.placeholder,
+    suffix: m.unit === "$m" ? "m" : m.unit === "%" ? "%" : m.unit === "x" ? "x" : undefined,
+    valueType:
+      m.key === "rule_of_40"
+        ? undefined
+        : m.unit === "$m" || m.unit === "$"
+          ? ("$" as const)
+          : m.unit,
+  })),
+}));
 
-const CONTRIBUTION_FIELD_TO_PAYLOAD_KEY: Record<string, string> = {
-  revenue_m: "Revenue_m",
-  ebitda_m: "EBITDA_m",
-  enterprise_value_m: "EV",
-  revenue_multiple: "Revenue_multiple",
-  revenue_growth: "Rev_Growth_PC",
-  ebitda_margin: "EBITDA_margin",
-  rule_of_40: "Rule_of_40",
-  recurring_revenue: "ARR_pc",
-  arr_m: "ARR_m",
-  churn: "Churn_pc",
-  grr: "GRR_pc",
-  nrr: "NRR",
-  new_clients_revenue_growth: "New_client_growth_pc",
-  ebit_m: "EBIT_m",
-  number_of_clients: "No_of_Clients",
-  revenue_per_client: "Rev_per_client",
-  number_of_employees: "No_Employees",
-  revenue_per_employee: "Revenue_per_employee",
-};
+const CONTRIBUTION_FIELD_TO_PAYLOAD_KEY: Record<string, string> = Object.fromEntries(
+  FINANCIAL_METRIC_CARD_GROUPS.flatMap((g) => g.metrics.map((m) => [m.key, m.payloadKey]))
+);
 
 /** Optional contributor range per metric (included on change-request `new` payload). */
-const CONTRIBUTION_FIELD_TO_RANGE_PAYLOAD_KEY: Record<string, string> = {
-  revenue_m: "Revenue_m_range",
-  ebitda_m: "EBITDA_m_range",
-  enterprise_value_m: "EV_range",
-  revenue_multiple: "Revenue_multiple_range",
-  revenue_growth: "Rev_Growth_PC_range",
-  ebitda_margin: "EBITDA_margin_range",
-  rule_of_40: "Rule_of_40_range",
-  recurring_revenue: "ARR_pc_range",
-  arr_m: "ARR_m_range",
-  churn: "Churn_pc_range",
-  grr: "GRR_pc_range",
-  nrr: "NRR_range",
-  new_clients_revenue_growth: "New_client_growth_pc_range",
-  ebit_m: "EBIT_m_range",
-  number_of_clients: "No_of_Clients_range",
-  revenue_per_client: "Rev_per_client_range",
-  number_of_employees: "No_Employees_range",
-  revenue_per_employee: "Revenue_per_employee_range",
-};
+const CONTRIBUTION_FIELD_TO_RANGE_PAYLOAD_KEY: Record<string, string> = Object.fromEntries(
+  FINANCIAL_METRIC_CARD_GROUPS.flatMap((g) => g.metrics.map((m) => [m.key, `${m.payloadKey}_range`]))
+);
 
 /** Maximum allowed gap between low and high in "Add ranges" (inclusive endpoints). */
 const CONTRIBUTION_RANGE_MAX_SPAN = 10;
@@ -8818,33 +8765,17 @@ function mapContributorMetricsToFormValues(
     return numeric === undefined ? "" : String(Math.round(numeric));
   };
 
-  return {
-    revenue_m: plain("Revenue_m", "revenue_m"),
-    ebitda_m: plain("EBITDA_m", "ebitda_m"),
-    enterprise_value_m: plain("EV", "ev", "Enterprise_Value_m", "enterprise_value_m"),
-    revenue_multiple: multiple("Revenue_multiple", "revenue_multiple"),
-    revenue_growth: percent("Rev_Growth_PC", "revenue_growth", "rev_growth_pc"),
-    ebitda_margin: percent("EBITDA_margin", "ebitda_margin"),
-    rule_of_40: integerish("Rule_of_40", "rule_of_40"),
-    recurring_revenue: percent("ARR_pc", "recurring_revenue", "arr_pc"),
-    arr_m: plain("ARR_m", "arr_m"),
-    churn: percent("Churn_pc", "churn", "churn_pc"),
-    grr: percent("GRR_pc", "grr", "grr_pc"),
-    nrr: percent("NRR", "nrr"),
-    new_clients_revenue_growth: percent(
-      "New_client_growth_pc",
-      "new_clients_revenue_growth",
-      "new_client_growth_pc"
-    ),
-    ebit_m: plain("EBIT_m", "ebit_m"),
-    number_of_clients: whole("No_of_Clients", "number_of_clients", "no_of_clients"),
-    revenue_per_client: whole("Rev_per_client", "revenue_per_client"),
-    number_of_employees: whole("No_Employees", "number_of_employees", "no_employees"),
-    revenue_per_employee: whole(
-      "Revenue_per_employee",
-      "revenue_per_employee"
-    ),
-  };
+  const out: Record<string, string> = {};
+  for (const g of FINANCIAL_METRIC_CARD_GROUPS) {
+    for (const m of g.metrics) {
+      if (m.unit === "$m") out[m.key] = plain(...m.readKeys);
+      else if (m.unit === "%") out[m.key] = percent(...m.readKeys);
+      else if (m.unit === "x") out[m.key] = multiple(...m.readKeys);
+      else if (m.key === "rule_of_40") out[m.key] = integerish(...m.readKeys);
+      else out[m.key] = whole(...m.readKeys);
+    }
+  }
+  return out;
 }
 
 /** Same rule as fetch: POST if there are no displayable metric values yet (first submission). */
