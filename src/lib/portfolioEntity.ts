@@ -1,5 +1,6 @@
 import type { XanoPortfolio } from "@/store/portfolioStore";
 import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   ENTITY_TYPE_TO_FOLLOW_KEY,
   followPortfolioEntity,
@@ -381,6 +382,13 @@ export async function addEntityToPortfolioApi(args: {
       entity_id: args.entityId,
     }
   );
+  trackKeyAction({
+    section: "lists",
+    action: "save_to_list",
+    actionDetail: args.entityType,
+    targetType: args.entityType === "company" ? "company" : undefined,
+    targetId: args.entityId,
+  });
 }
 
 export async function removeEntityFromPortfolioApi(args: {

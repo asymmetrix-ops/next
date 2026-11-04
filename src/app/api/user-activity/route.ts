@@ -19,7 +19,22 @@ const ENTRY_SOURCES = [
   "daily_email",
   "direct_url",
 ] as const;
-const SECTIONS = ["transaction_comps", "deal_radar", "news"] as const;
+const SECTIONS = [
+  "transaction_comps",
+  "deal_radar",
+  "news",
+  "dashboard",
+  "companies",
+  "investors",
+  "advisors",
+  "individuals",
+  "corporate_events",
+  "financial_intelligence",
+  "sectors",
+  "content",
+  "lists",
+  "threads",
+] as const;
 const TARGET_TYPES = ["company", "corporate_event", "article"] as const;
 
 interface UserActivityPayload {
@@ -36,6 +51,7 @@ interface UserActivityPayload {
   target_type?: (typeof TARGET_TYPES)[number];
   target_id?: number;
   results_count?: number;
+  export_rows?: number;
 }
 
 const XANO_ENDPOINT =
@@ -109,6 +125,10 @@ export async function POST(req: NextRequest) {
     if (Number.isInteger(body.target_id)) payload.target_id = body.target_id;
     if (Number.isInteger(body.results_count) && (body.results_count as number) >= 0) {
       payload.results_count = body.results_count;
+    }
+
+    if (Number.isInteger(body.export_rows) && (body.export_rows as number) >= 0) {
+      payload.export_rows = body.export_rows;
     }
 
     const upstream = await fetch(XANO_ENDPOINT, {

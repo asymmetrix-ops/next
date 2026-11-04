@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { trackKeyAction, type TrackingSection } from "@/lib/tracking";
 import {
   DATA_REQUEST_TYPES,
   RESEARCH_REQUEST_TYPES,
@@ -12,6 +13,20 @@ import {
   getContextDefaults,
   isDataRequestUrlRequired,
 } from "@/lib/requestDataResearch";
+
+/** Section Insights: the platform section a request was made from. */
+const REQUEST_SECTION: Record<string, TrackingSection> = {
+  dashboard: "dashboard",
+  company: "companies",
+  sector: "sectors",
+  investor: "investors",
+  advisor: "advisors",
+  individual: "individuals",
+  "corporate-event": "corporate_events",
+  "transaction-comps": "transaction_comps",
+  "insights-analysis": "content",
+  "insights-analysis-item": "content",
+};
 
 interface RequestDataResearchButtonProps {
   label: string;
@@ -196,6 +211,11 @@ export default function RequestDataResearchButton({
         );
       }
 
+      trackKeyAction({
+        section: REQUEST_SECTION[context] ?? "dashboard",
+        action: "request_submitted",
+        actionDetail: activeTab,
+      });
       setSubmitted(true);
     } catch (err) {
       setError(

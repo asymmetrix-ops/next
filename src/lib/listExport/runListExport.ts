@@ -10,6 +10,7 @@ import {
 } from "./exportCellValue";
 import { applyExportRowLimit } from "./exportLimit";
 import { EMPTY_DISPLAY } from "@/lib/emptyDisplay";
+import { trackKeyAction, type TrackingSection } from "@/lib/tracking";
 import type { ExportColumnDef, ListExportMode, ListExportRequest } from "./types";
 
 export interface GenericListExportInput {
@@ -48,6 +49,24 @@ export interface GenericListExportInput {
     row: Record<string, unknown>,
     column: ExportColumnDef
   ) => ExportCellValue;
+}
+
+/** Section Insights: which platform section an export belongs to (by file prefix). */
+const EXPORT_SECTION: Record<string, TrackingSection> = {
+  Companies: "companies",
+  TransactionComps: "transaction_comps",
+  CorporateEvents: "corporate_events",
+  Individuals: "individuals",
+  Advisors: "advisors",
+  Investors: "investors",
+  FinancialBenchmark: "financial_intelligence",
+  FinancialScreener: "financial_intelligence",
+};
+
+function trackListExport(filePrefix: string, mode: string, rowCount: number) {
+  const section = EXPORT_SECTION[filePrefix];
+  if (!section) return;
+  trackKeyAction({ section, action: "export", actionDetail: mode, exportRows: rowCount });
 }
 
 export async function runGenericListExport(
@@ -89,6 +108,7 @@ export async function runGenericListExport(
       rows: dataRows,
     });
     await downloadXlsxBuffer(buffer, `${config.filePrefix}_Export_AllColumns`);
+    trackListExport(config.filePrefix, request.mode, rows.length);
     return;
   }
 
@@ -99,6 +119,7 @@ export async function runGenericListExport(
     rows: dataRows,
   });
   await downloadXlsxBuffer(buffer, `${config.filePrefix}_Export_VisibleColumns`);
+  trackListExport(config.filePrefix, request.mode, rows.length);
 }
 
 export type { ListExportMode, ListExportRequest };
