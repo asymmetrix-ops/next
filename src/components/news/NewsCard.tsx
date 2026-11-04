@@ -26,6 +26,14 @@ type Props = {
   relation?: "follow-up" | "previously" | "latest" | "original";
   /** Other articles in this article's series. */
   seriesLinks?: NewsRef[];
+  /** Company profile News tab: why the article is listed ("Mentioned", "Same sector"). */
+  reasonLabel?: string;
+  /** Article about a whole sector: "Sector round-up" replaces the company name. */
+  sectorRoundup?: boolean;
+  /** Story / series chip when the article belongs to a series. */
+  seriesChip?: { title: string | null; part: number; total: number } | null;
+  /** Called when the article headline is opened. */
+  onOpen?: () => void;
 };
 
 const NEUTRAL_TONE = { text: "#566078", fill: "#EFF2F8", border: "#E4E8F2" };
@@ -190,7 +198,7 @@ function SectorTags({ sectors }: { sectors: string[] }) {
   );
 }
 
-export default function NewsCard({ article, variant = "feed", relation, seriesLinks }: Props) {
+export default function NewsCard({ article, variant = "feed", relation, seriesLinks, reasonLabel, sectorRoundup, seriesChip, onOpen }: Props) {
   const series = article.is_content_series && article.series ? article.series : null;
   const sortedParts = useMemo(
     () => (series ? [...series.parts].sort((a, b) => a.part_number - b.part_number) : []),
@@ -222,6 +230,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
     >
       <div className="nw-card-body">
         <div className="nw-card-meta">
+          {reasonLabel && <span className="nw-badge nw-badge-prev">{reasonLabel}</span>}
           {relation === "follow-up" && <span className="nw-badge nw-badge-link">Follow-up</span>}
           {relation === "previously" && <span className="nw-badge nw-badge-prev">Previously</span>}
           {relation === "latest" && <span className="nw-badge nw-badge-link">Latest</span>}
@@ -235,7 +244,7 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
         </div>
 
         <h3 className="nw-card-title">
-          <Link href={`/article/${linkedId}`} title={headline}>
+          <Link href={`/article/${linkedId}`} title={headline} onClick={onOpen}>
             {headline}
           </Link>
         </h3>
@@ -249,7 +258,9 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           </p>
         )}
 
-        {focus ? (
+        {sectorRoundup ? (
+          <span className="nw-company">Sector round-up</span>
+        ) : focus ? (
           <span className="nw-company">
             <Link
               href={`/company/${focus.id}`}
@@ -281,10 +292,15 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
 
         {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
 
-        {(ia || hasSeries || series) && (
+        {(ia || hasSeries || series || seriesChip) && (
           <div className="nw-card-foot">
             {series && <PartsNav series={series} activeIndex={partIndex} onChange={setPartIndex} />}
             {hasSeries && <SeriesTag links={seriesLinks!} />}
+            {seriesChip && !series && !hasSeries && (
+              <span className="nw-series-btn" style={{ cursor: "default" }} title={seriesChip.title || undefined}>
+                Series · Part {seriesChip.part} of {seriesChip.total}
+              </span>
+            )}
             {ia && <IaLink ia={ia} />}
           </div>
         )}
