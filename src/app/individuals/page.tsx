@@ -1,5 +1,6 @@
 "use client";
 
+import { trackListQuery } from "@/lib/listTracking";
 import React, {
   useState,
   useEffect,
@@ -108,6 +109,15 @@ const useIndividualsAPI = () => {
           { ...filtersToUse, page },
           authService.getToken()
         );
+
+        if (page === 1 && filters !== undefined && data) {
+          trackListQuery({
+            section: "individuals",
+            filters: filtersToUse as unknown as Record<string, unknown>,
+            defaults: createDefaultIndividualFilters() as unknown as Record<string, unknown>,
+            resultsCount: data?.itemsTotal,
+          });
+        }
 
         if (!data) {
           throw new Error(

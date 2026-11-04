@@ -1,5 +1,6 @@
 "use client";
 
+import { trackListQuery } from "@/lib/listTracking";
 import React, {
   useState,
   useEffect,
@@ -104,6 +105,15 @@ const useAdvisorsAPI = () => {
         }
 
         const data = await fetchAdvisorsServer({ ...filtersToUse, page });
+
+        if (page === 1 && filters !== undefined && data) {
+          trackListQuery({
+            section: "advisors",
+            filters: filtersToUse as unknown as Record<string, unknown>,
+            defaults: createDefaultAdvisorFilters() as unknown as Record<string, unknown>,
+            resultsCount: data?.itemsTotal,
+          });
+        }
 
         if (!data) {
           throw new Error("Failed to fetch advisors. Please try again or adjust your filters.");
