@@ -1,15 +1,38 @@
-import { hasActiveFilters, stripNonFilterKeys } from "@/lib/savedFilterUtils";
 import { trackKeyAction, type TrackingSection } from "@/lib/tracking";
+
+function isEmptyValue(value: unknown): boolean {
+  if (value == null || value === "" || value === false) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).every(isEmptyValue);
+  }
+  return false;
+}
+
+/** True when `current` differs from `defaults` in anything that is not empty on both sides. */
+function hasActiveFilters(
+  current: Record<string, unknown>,
+  defaults: Record<string, unknown>
+): boolean {
+  const keys = Array.from(new Set(Object.keys(current).concat(Object.keys(defaults))));
+  for (const key of keys) {
+    if (JSON.stringify(current[key] ?? null) === JSON.stringify(defaults[key] ?? null)) continue;
+    if (isEmptyValue(current[key]) && isEmptyValue(defaults[key])) continue;
+    return true;
+  }
+  return false;
+}
 
 /** Payload keys that hold free text typed by the user. */
 const SEARCH_TEXT_KEY =
   /^(search|search_term|searchterm|query|q|keyword|keywords|name|company_name|text)$/i;
 const PAGING_KEY = /^(page|offset|per_page|perpage|user_id)$/i;
+const SORT_KEY = /^(sort_column|sort_direction)$/i;
 
 function clean(filters: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(stripNonFilterKeys(filters))) {
-    if (!PAGING_KEY.test(k)) out[k] = v;
+  for (const [k, v] of Object.entries(filters)) {
+    if (!PAGING_KEY.test(k) && !SORT_KEY.test(k) && k !== "export") out[k] = v;
   }
   return out;
 }
