@@ -1,5 +1,6 @@
 "use client";
 
+import { trackListQuery } from "@/lib/listTracking";
 import React, {
   useState,
   useEffect,
@@ -144,6 +145,15 @@ const useCorporateEventsAPI = (
         }
 
         const data = await fetchCorporateEventsServer(page, resolvedFilters);
+
+        if (page === 1 && filters !== undefined && data) {
+          trackListQuery({
+            section: "corporate_events",
+            filters: filtersToUse as unknown as Record<string, unknown>,
+            defaults: withCompanyScope(createDefaultCorporateEventFilters()) as unknown as Record<string, unknown>,
+            resultsCount: data?.itemsTotal,
+          });
+        }
 
         if (!data) {
           throw new Error(

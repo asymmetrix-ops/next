@@ -1,5 +1,6 @@
 "use client";
 
+import { trackListQuery } from "@/lib/listTracking";
 import React, {
   useState,
   useEffect,
@@ -153,6 +154,15 @@ const useCompaniesAPI = (
         }
 
         const data = await fetchCompaniesServer(page, serverFilters);
+
+        if (page === 1 && filters !== undefined && !isMcpGuest && data) {
+          trackListQuery({
+            section: "companies",
+            filters: filtersToUse as unknown as Record<string, unknown>,
+            defaults: createDefaultFilters() as unknown as Record<string, unknown>,
+            resultsCount: data?.result1?.totalCount,
+          });
+        }
 
         if (!data) {
           throw new Error("Failed to fetch companies. Please try again or adjust your filters.");
