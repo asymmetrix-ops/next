@@ -18,7 +18,21 @@ export type EntrySource =
   | "daily_email"
   | "direct_url";
 
-export type TrackingSection = "transaction_comps" | "deal_radar" | "news";
+export type TrackingSection =
+  | "transaction_comps"
+  | "deal_radar"
+  | "news"
+  | "dashboard"
+  | "companies"
+  | "investors"
+  | "advisors"
+  | "individuals"
+  | "corporate_events"
+  | "financial_intelligence"
+  | "sectors"
+  | "content"
+  | "lists"
+  | "threads";
 
 export type TrackingTargetType = "company" | "corporate_event" | "article";
 
@@ -42,7 +56,15 @@ export type KeyActionName =
   | "article_opened"
   | "view_summary_opened"
   | "read_full_article_clicked"
-  | "company_of_focus_clicked";
+  | "company_of_focus_clicked"
+  // shared across every section (same names everywhere)
+  | "profile_opened"
+  | "save_to_list"
+  | "follow"
+  | "unfollow"
+  | "contribute_data"
+  | "request_submitted"
+  | "email_click";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 import { getDeviceType } from "@/lib/device";
@@ -62,6 +84,8 @@ export interface TrackingEventInput {
   targetType?: TrackingTargetType;
   targetId?: number;
   resultsCount?: number;
+  /** export: rows in the downloaded file */
+  exportRows?: number;
 }
 
 const SESSION_KEY = "asym_session_id";
@@ -515,6 +539,9 @@ export async function trackEvent(input: TrackingEventInput): Promise<void> {
     ...(typeof input.resultsCount === "number" && Number.isFinite(input.resultsCount)
       ? { results_count: input.resultsCount }
       : {}),
+    ...(typeof input.exportRows === "number" && Number.isFinite(input.exportRows)
+      ? { export_rows: Math.max(0, Math.round(input.exportRows)) }
+      : {}),
   };
 
   try {
@@ -544,6 +571,7 @@ export interface KeyActionInput {
   targetId?: number | string | null;
   query?: string;
   resultsCount?: number;
+  exportRows?: number;
 }
 
 /** Fire-and-forget: one event per user action, never blocks the UI. */
@@ -559,6 +587,7 @@ export function trackKeyAction(input: KeyActionInput): void {
     targetId: Number.isFinite(id) ? id : undefined,
     query: input.query,
     resultsCount: input.resultsCount,
+    exportRows: input.exportRows,
   }).catch(() => {});
 }
 

@@ -3,6 +3,7 @@ import {
   portfolioDataToUserPortfolioRecord,
 } from "@/lib/portfolioData";
 import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+import { trackKeyAction, type TrackingSection } from "@/lib/tracking";
 
 export { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
 
@@ -150,6 +151,33 @@ export async function fetchUserPortfolioRecord(options?: {
   return record;
 }
 
+/** Section Insights: the platform section a followed entity type belongs to. */
+export const ENTITY_TYPE_TO_TRACKING_SECTION: Record<string, TrackingSection> = {
+  company: "companies",
+  advisor: "advisors",
+  investor: "investors",
+  sector: "sectors",
+  individual: "individuals",
+};
+
+function trackFollowChange(
+  action: "follow" | "unfollow",
+  entityType: string,
+  ids: number[]
+) {
+  const section = ENTITY_TYPE_TO_TRACKING_SECTION[entityType];
+  if (!section) return;
+  trackKeyAction({
+    section,
+    action,
+    actionDetail: entityType,
+    // one id when a single entity changed; bulk follows are one event with the number of entities
+    targetId: ids.length === 1 ? ids[0] : undefined,
+    targetType: ids.length === 1 && entityType === "company" ? "company" : undefined,
+    resultsCount: ids.length > 1 ? ids.length : undefined,
+  });
+}
+
 export async function followPortfolioEntities({
   followKey,
   entityIds,
@@ -169,6 +197,7 @@ export async function followPortfolioEntities({
       entity_id: entityId,
     });
   }
+  trackFollowChange("follow", entityType, ids);
 }
 
 export async function unfollowPortfolioEntities({
@@ -190,6 +219,7 @@ export async function unfollowPortfolioEntities({
       entity_id: entityId,
     });
   }
+  trackFollowChange("unfollow", entityType, ids);
 }
 
 export async function followPortfolioEntity({
