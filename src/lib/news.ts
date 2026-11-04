@@ -62,6 +62,10 @@ export type NewsFilters = {
    * such parameter yet, so the page applies this one itself.
    */
   followedOnly?: boolean;
+  /** Company News tab only: "7d" | "30d" | "90d" | "12m". */
+  timeRange?: string;
+  /** Company News tab only: HQ country name (single), as the company news API takes it. */
+  countryName?: string;
 };
 
 export function addNewsFilter(filters: NewsFilters, f: NewsFilter): NewsFilters {
@@ -81,6 +85,7 @@ export function hasNewsFilters(f: NewsFilters): boolean {
       (f.countries && f.countries.length > 0) ||
       f.dateFrom ||
       f.dateTo ||
+      f.timeRange ||
       f.followedOnly
   );
 }

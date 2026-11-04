@@ -46,6 +46,10 @@ import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
 import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
+import CompanyNewsTab from "@/components/company/CompanyNewsTab";
+import CompanyNewsSummaryCard from "@/components/company/CompanyNewsSummaryCard";
+import { fetchCompanyNewsSummary, type CompanyNewsSummary } from "@/lib/companyNews";
+import { trackKeyAction } from "@/lib/tracking";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import {
   ProductUsersListCard,
@@ -1276,8 +1280,32 @@ const CompanyDetail = () => {
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<
-    "Summary" | "Financials" | "Financial Intelligence"
+    "Summary" | "News" | "Financials" | "Financial Intelligence"
   >("Financials");
+  const [newsSummary, setNewsSummary] = useState<CompanyNewsSummary | null>(null);
+  const [newsSummaryLoading, setNewsSummaryLoading] = useState(true);
+  const showNews = Boolean(newsSummary?.show);
+  useEffect(() => {
+    if (!company?.id || company.id <= 0) return;
+    const ac = new AbortController();
+    setNewsSummary(null);
+    setNewsSummaryLoading(true);
+    fetchCompanyNewsSummary(company.id, ac.signal)
+      .then((s) => !ac.signal.aborted && setNewsSummary(s))
+      .catch(() => undefined)
+      .finally(() => !ac.signal.aborted && setNewsSummaryLoading(false));
+    return () => ac.abort();
+  }, [company?.id]);
+  useEffect(() => {
+    if (activeProfileTab === "News") {
+      trackKeyAction({ section: "news", action: "tab_opened" });
+    }
+  }, [activeProfileTab]);
+  useEffect(() => {
+    if (activeProfileTab === "News" && !newsSummaryLoading && !showNews) {
+      setActiveProfileTab("Summary");
+    }
+  }, [activeProfileTab, newsSummaryLoading, showNews]);
   const [financialMetricsCardRows, setFinancialMetricsCardRows] = useState<
     CompanyFinancialMetricsCardRow[]
   >([]);
@@ -2118,15 +2146,20 @@ const CompanyDetail = () => {
   }, [showFinancialsTab, activeProfileTab]);
 
   const companyProfileSubnavTabs = useMemo(() => {
-    const tabs: Array<"Summary" | "Financials" | "Financial Intelligence"> = [
+    const tabs: Array<"Summary" | "News" | "Financials" | "Financial Intelligence"> = [
       "Summary",
     ];
+    if (showNews) tabs.push("News");
     if (showFinancialsTab) tabs.push("Financials");
     if (hasFinancialMetricsCardData(financialMetricsCardRows)) {
       tabs.push("Financial Intelligence");
     }
-    return tabs.map((tab) => ({ id: tab, label: tab }));
-  }, [showFinancialsTab, financialMetricsCardRows]);
+    return tabs.map((tab) => ({
+      id: tab,
+      label: tab,
+      ...(tab === "News" && newsSummary ? { count: newsSummary.total } : {}),
+    }));
+  }, [showFinancialsTab, financialMetricsCardRows, showNews, newsSummary]);
 
   useEffect(() => {
     if (
@@ -3575,6 +3608,7 @@ const CompanyDetail = () => {
     .management-profile-row:hover {
       background-color: ${T.inset};
     }
+    @media (max-width: 900px) { .company-insights-news-row { grid-template-columns: 1fr !important; } }
     /* Insights & Analysis responsive grid */
     .insights-grid {
       display: grid;
@@ -3728,7 +3762,9 @@ const CompanyDetail = () => {
 
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="company-detail-content" style={styles.maxWidth}>
-          {activeProfileTab === "Financials" ? (
+          {activeProfileTab === "News" && company?.id ? (
+            <CompanyNewsTab companyId={company.id} />
+          ) : activeProfileTab === "Financials" ? (
             <CompanyFinancialsSection
               rows={financialMetricsCardRows}
               loading={financialMetricsCardLoading}
@@ -4264,7 +4300,18 @@ const CompanyDetail = () => {
               // leave a blank hole under the main column move over to balance heights.
               type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
+                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights || showNews), node: () => (
+                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNews && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "stretch", minWidth: 0 }}>
+                {showNews && newsSummary && (
+                  <CompanyNewsSummaryCard
+                    summary={newsSummary}
+                    onViewAll={() => {
+                      setActiveProfileTab("News");
+                      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  />
+                )}
+                {showInsights && (
                 <div
                   className="insights-summary-card company-grid-insights"
                   style={{
@@ -4295,6 +4342,8 @@ const CompanyDetail = () => {
                     companyId={company.id}
                     companyName={company.name}
                   />
+                </div>
+                )}
                 </div>
                 ) },
                 { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (

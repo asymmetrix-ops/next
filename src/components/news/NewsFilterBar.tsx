@@ -26,10 +26,13 @@ function GeographyFilter({
   countries,
   selected,
   onChange,
+  single = false,
 }: {
   countries: NewsCountryOption[];
   selected: string[];
   onChange: (iso2Codes: string[]) => void;
+  /** One country at a time (company News tab). */
+  single?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -46,6 +49,10 @@ function GeographyFilter({
   const selectedSet = new Set(selected.map((c) => c.toUpperCase()));
   const toggle = (iso2: string) => {
     const code = iso2.toUpperCase();
+    if (single) {
+      onChange(selectedSet.has(code) ? [] : [code]);
+      return;
+    }
     onChange(
       selectedSet.has(code) ? selected.filter((c) => c.toUpperCase() !== code) : [...selected, code]
     );
@@ -161,14 +168,24 @@ type Props = {
   totalAll: number | null;
   /** The search box, placed first on the toolbar row (as on the Companies search page). */
   searchSlot?: React.ReactNode;
+  /** "company": company profile News tab (no status filter, one country, relative time ranges). */
+  variant?: "page" | "company";
 };
+
+const COMPANY_TIME_RANGES = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "12m", label: "Last 12 months" },
+];
 
 /**
  * Controls card, laid out like the Companies search page: News sub-type chips
  * (their colour dots, no article counts) on top, then one row with the search box
  * on the left and the sector, transaction-status and "Followed only" filters beside it.
  */
-export default function NewsFilterBar({ filters, onChange, searchSlot }: Props) {
+export default function NewsFilterBar({ filters, onChange, searchSlot, variant = "page" }: Props) {
+  const company = variant === "company";
   const [sectors, setSectors] = useState<Array<{ id: number; sector_name: string }>>([]);
   const [subTypes, setSubTypes] = useState<NewsFilterOption[]>([]);
   const [statuses, setStatuses] = useState<NewsFilterOption[]>([]);
@@ -248,7 +265,7 @@ export default function NewsFilterBar({ filters, onChange, searchSlot }: Props) 
           ))}
         </select>
 
-        {statuses.length > 0 && (
+        {!company && statuses.length > 0 && (
           <select
             id="nw-status"
             className="nw-select"
@@ -268,14 +285,38 @@ export default function NewsFilterBar({ filters, onChange, searchSlot }: Props) 
         <GeographyFilter
           countries={countries}
           selected={filters.countries ?? []}
-          onChange={(codes) => onChange({ countries: codes.length > 0 ? codes : undefined })}
+          single={company}
+          onChange={(codes) =>
+            onChange({
+              countries: codes.length > 0 ? codes : undefined,
+              ...(company
+                ? { countryName: countries.find((c) => c.iso2.toUpperCase() === codes[0]?.toUpperCase())?.name }
+                : {}),
+            })
+          }
         />
 
-        <DateRangeFilter
-          dateFrom={filters.dateFrom}
-          dateTo={filters.dateTo}
-          onChange={(patch) => onChange(patch)}
-        />
+        {company ? (
+          <select
+            className="nw-select"
+            aria-label="Filter by publication date"
+            value={filters.timeRange ?? ""}
+            onChange={(e) => onChange({ timeRange: e.target.value || undefined })}
+          >
+            <option value="">Any time</option>
+            {COMPANY_TIME_RANGES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <DateRangeFilter
+            dateFrom={filters.dateFrom}
+            dateTo={filters.dateTo}
+            onChange={(patch) => onChange(patch)}
+          />
+        )}
 
         <label className="nw-followed">
           <input
