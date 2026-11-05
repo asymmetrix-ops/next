@@ -219,6 +219,9 @@ const useCompaniesAPI = (
 
   useEffect(() => {
     if (authLoading) return;
+    // Sector/ownership names in the URL need the dashboard's lookup lists to become ids;
+    // CompanyDashboard fires the first search itself once they have loaded.
+    if (!isMcpGuest && urlBootstrap?.needsLookups) return;
     const initialFilters = isMcpGuest
       ? buildMcpGuestCompaniesFilters()
       : urlBootstrap?.filterBarState
@@ -229,7 +232,16 @@ const useCompaniesAPI = (
             ownershipTypes: [],
           })
         : createDefaultFilters();
-    fetchCompanies(1, initialFilters);
+    fetchCompanies(
+      1,
+      urlBootstrap?.sort && !isMcpGuest
+        ? {
+            ...initialFilters,
+            sort_column: urlBootstrap.sort.key,
+            sort_direction: urlBootstrap.sort.dir,
+          }
+        : initialFilters
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMcpGuest, authLoading]);
 
@@ -265,12 +277,27 @@ function CompaniesPageInner() {
   } = useCompaniesAPI(isMcpGuest, authLoading, preferredCurrencyId, urlBootstrap);
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
+  // URL-requested server sort (AsymmIQ links); kept until the user sorts by another column.
+  const urlSortRef = useRef<CompaniesUrlBootstrap["sort"]>(
+    isMcpGuest ? undefined : urlBootstrap?.sort
+  );
 
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       if (isMcpGuest) return;
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      fetchCompanies(1, listFilters, countsFilters);
+      const urlSort = urlSortRef.current;
+      fetchCompanies(
+        1,
+        urlSort && !listFilters.sort_column
+          ? {
+              ...listFilters,
+              sort_column: urlSort.key,
+              sort_direction: urlSort.dir,
+            }
+          : listFilters,
+        countsFilters
+      );
     },
     [fetchCompanies, isMcpGuest]
   );
@@ -353,6 +380,9 @@ function CompaniesPageInner() {
         initialFilterBarState={
           isMcpGuest ? undefined : urlBootstrap?.filterBarState
         }
+        fireInitialSearchWhenLookupsLoaded={
+          !isMcpGuest && Boolean(urlBootstrap?.needsLookups)
+        }
         ownershipCounts={ownershipCounts}
         onColumnsClick={
           isMcpGuest ? undefined : () => setShowColumnsModal((v) => !v)
@@ -387,6 +417,10 @@ function CompaniesPageInner() {
         }}
       />
       <CompanySection
+        initialSort={isMcpGuest ? undefined : urlBootstrap?.sort}
+        onUserSort={() => {
+          urlSortRef.current = undefined;
+        }}
         companies={companies}
         loading={loading}
         error={error}

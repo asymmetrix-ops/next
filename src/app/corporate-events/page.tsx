@@ -23,6 +23,10 @@ import {
   createDefaultCorporateEventFilters,
   parseScopedNewCompanyIdFromQuery,
 } from "@/lib/corporateEventsFilterPayload";
+import {
+  parseCorporateEventsUrlBootstrap,
+  type CorporateEventsUrlBootstrap,
+} from "@/lib/corporateEventsSearchUrl";
 import { DEFAULT_VISIBLE_CORPORATE_EVENT_COLUMN_KEYS } from "@/components/corporate-events/corporateEventsColumnCategories";
 import { getColumnKeysForActiveFilters } from "@/components/corporate-events/corporateEventsColumnFilterMap";
 import {
@@ -35,7 +39,8 @@ import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCorporateEventsAPI = (
   userId: number | null,
-  scopedNewCompanyId: number | null
+  scopedNewCompanyId: number | null,
+  skipDefaultInitialFetch: boolean = false
 ) => {
   const [events, setEvents] = useState<CorporateEventListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +205,9 @@ const useCorporateEventsAPI = (
   );
 
   useEffect(() => {
+    // Deep link with f.* filters: CorporateEventsDashboard fires the first search itself
+    // once sector lookups have loaded, so skip the unfiltered default fetch.
+    if (skipDefaultInitialFetch) return;
     const defaults = withCompanyScope(createDefaultCorporateEventFilters());
     fetchCorporateEvents(1, defaults, defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,6 +236,13 @@ function CorporateEventsPageInner() {
       ? Number.parseInt(String(user.id), 10)
       : null;
 
+  const [urlBootstrap] = useState<CorporateEventsUrlBootstrap | null>(() => {
+    if (typeof window === "undefined") return null;
+    return parseCorporateEventsUrlBootstrap(
+      new URLSearchParams(window.location.search)
+    );
+  });
+
   const {
     events,
     loading,
@@ -236,7 +251,11 @@ function CorporateEventsPageInner() {
     summaryStats,
     fetchCorporateEvents,
     currentFilters,
-  } = useCorporateEventsAPI(userId, scopedNewCompanyId);
+  } = useCorporateEventsAPI(
+    userId,
+    scopedNewCompanyId,
+    urlBootstrap !== null && scopedNewCompanyId == null
+  );
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -306,6 +325,9 @@ function CorporateEventsPageInner() {
         onSearch={handleSearch}
         onFilterColumnsChange={handleFilterColumnsChange}
         initialSearch={initialSearch}
+        initialFilterBarState={
+          scopedNewCompanyId == null ? urlBootstrap?.filterBarState : undefined
+        }
         summaryStats={summaryStats}
         userId={userId}
         matchCountOverride={

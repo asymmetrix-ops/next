@@ -1056,6 +1056,8 @@ export const CompanySection = ({
   fetchCompanies,
   setRequestColumns,
   currentFilters,
+  initialSort,
+  onUserSort,
   exportFilters,
   filterPinnedColumnKeys = [],
   onEditCompany,
@@ -1097,6 +1099,10 @@ export const CompanySection = ({
   fetchCompanies: (page?: number, filters?: Filters, countsFilters?: Filters) => Promise<void>;
   setRequestColumns: (columns: string[]) => void;
   currentFilters: Filters | undefined;
+  /** Server sort from the URL (`sort=revenue_m:desc`); shown as the active sorted column. */
+  initialSort?: { key: string; dir: "asc" | "desc" };
+  /** Called when the user sorts by a column themselves (drops any URL-requested sort). */
+  onUserSort?: () => void;
   /** Portfolio export needs enriched filters (portfolio_mode, scoped filters_sql). */
   exportFilters?: Filters | undefined;
   filterPinnedColumnKeys?: string[];
@@ -1183,7 +1189,16 @@ export const CompanySection = ({
   const [sortState, setSortState] = useState<{
     key: string;
     dir: "asc" | "desc";
-  } | null>(null);
+  } | null>(
+    initialSort
+      ? {
+          key:
+            getCompanyUiColumnForServerSortColumn(initialSort.key) ??
+            initialSort.key,
+          dir: initialSort.dir,
+        }
+      : null
+  );
   const [columnPrefsLoaded, setColumnPrefsLoaded] = useState(false);
   const resolvedDefaultColumnKeys = useMemo(
     () =>
@@ -1474,11 +1489,12 @@ export const CompanySection = ({
     }
 
     if (!getColumnSortKind(columnKey)) return;
+    onUserSort?.();
     setSortState((current) => {
       if (current?.key !== columnKey) return { key: columnKey, dir: "asc" };
       return { key: columnKey, dir: current.dir === "asc" ? "desc" : "asc" };
     });
-  }, [portfolioMode, sortState, currentFilters, fetchCompanies]);
+  }, [portfolioMode, sortState, currentFilters, fetchCompanies, onUserSort]);
 
   const sortedCompanies = useMemo(() => {
     if (portfolioMode) return companies;

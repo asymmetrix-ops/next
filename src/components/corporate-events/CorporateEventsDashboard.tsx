@@ -64,6 +64,8 @@ export type CorporateEventsDashboardProps = {
     dealTabActive: boolean;
   }) => void;
   initialSearch?: string;
+  /** Deep-link filters (`f.*` URL params). The dashboard fires the first search once lookups load. */
+  initialFilterBarState?: FilterBarState;
   summaryStats?: CorporateEventsSummaryStats;
   userId?: number | null;
   onColumnsClick?: () => void;
@@ -88,6 +90,7 @@ export const CorporateEventsDashboard = ({
   onSearch,
   onFilterColumnsChange,
   initialSearch,
+  initialFilterBarState,
   summaryStats = EMPTY_CORPORATE_EVENTS_SUMMARY_STATS,
   userId = null,
   onColumnsClick,
@@ -106,10 +109,10 @@ export const CorporateEventsDashboard = ({
   matchCountOverride,
 }: CorporateEventsDashboardProps) => {
   const [filterBarState, setFilterBarState] = useState<FilterBarState>({
-    filters: [],
+    filters: initialFilterBarState?.filters ?? [],
     viewId: null,
-    searchText: initialSearch || "",
-    filterLogic: "and",
+    searchText: initialSearch || initialFilterBarState?.searchText || "",
+    filterLogic: initialFilterBarState?.filterLogic ?? "and",
   });
 
   const [countries, setCountries] = useState<Country[]>([]);
@@ -336,6 +339,25 @@ export const CorporateEventsDashboard = ({
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [filterSearchKey]);
+
+  // Deep link bootstrap: the page skipped its default fetch. Fire the first search here once the
+  // sector lookups (names -> ids) have loaded, or after a short timeout if a lookup fails.
+  const initialLookupSearchDoneRef = useRef(!initialFilterBarState);
+  const lookupsReady = primarySectors.length > 0 && secondarySectors.length > 0;
+  useEffect(() => {
+    if (initialLookupSearchDoneRef.current) return;
+    const run = () => {
+      if (initialLookupSearchDoneRef.current) return;
+      initialLookupSearchDoneRef.current = true;
+      onSearchRef.current?.(
+        buildSearchFiltersRef.current(),
+        buildCountsSearchFiltersRef.current(),
+        isPortfolioFilterActiveRef.current
+      );
+    };
+    const t = setTimeout(run, lookupsReady ? 0 : 5000);
+    return () => clearTimeout(t);
+  }, [lookupsReady]);
 
   const skipInitialDealTabRef = useRef(true);
   useEffect(() => {

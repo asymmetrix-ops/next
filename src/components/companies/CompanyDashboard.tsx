@@ -64,6 +64,8 @@ export type CompanyDashboardProps = {
   initialSearch?: string;
   /** Pre-applied filter bar state from URL (e.g. Deal Radar → companies preset). */
   initialFilterBarState?: FilterBarState;
+  /** Deep links with sector/ownership names: run the first search once the lookup lists have loaded. */
+  fireInitialSearchWhenLookupsLoaded?: boolean;
   ownershipCounts?: CompaniesOwnershipCounts;
   onColumnsClick?: () => void;
   columnsActive?: boolean;
@@ -106,6 +108,7 @@ export const CompanyDashboard = ({
   onFilterColumnsChange,
   initialSearch,
   initialFilterBarState,
+  fireInitialSearchWhenLookupsLoaded = false,
   ownershipCounts = EMPTY_OWNERSHIP_COUNTS,
   onColumnsClick,
   onExport,
@@ -434,6 +437,34 @@ export const CompanyDashboard = ({
       isPortfolioFilterActiveRef.current
     );
   }, [filterCombineKey, filterBarState.filters.length]);
+
+  // Deep link bootstrap: the page skipped its own first fetch because sector/ownership names
+  // need the lookup lists to become ids. Fire the first search here once they are available
+  // (or after a short timeout so a failed lookup never leaves the list empty).
+  const initialLookupSearchDoneRef = useRef(!fireInitialSearchWhenLookupsLoaded);
+  const lookupsReady =
+    primarySectors.length > 0 &&
+    secondarySectors.length > 0 &&
+    ownershipTypes.length > 0;
+  useEffect(() => {
+    if (initialLookupSearchDoneRef.current) return;
+    const run = () => {
+      if (initialLookupSearchDoneRef.current) return;
+      initialLookupSearchDoneRef.current = true;
+      onSearchRef.current?.(
+        buildSearchFiltersRef.current(),
+        buildGlobalSearchFiltersRef.current(),
+        isPortfolioFilterActiveRef.current
+      );
+    };
+    if (lookupsReady) {
+      // wait a tick so the refs above hold payload builders that see the loaded lookups
+      const t = setTimeout(run, 0);
+      return () => clearTimeout(t);
+    }
+    const fallback = setTimeout(run, 5000);
+    return () => clearTimeout(fallback);
+  }, [lookupsReady]);
 
   const skipInitialOwnershipTabRef = useRef(true);
   useEffect(() => {
