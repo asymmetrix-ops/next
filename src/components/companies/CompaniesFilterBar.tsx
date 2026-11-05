@@ -288,22 +288,49 @@ function Pop({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
-    function place() {
+    // Place from the anchor ONCE on open. Re-reading the anchor on scroll made
+    // the popover jump sideways whenever the filter bar had reflowed (new chips)
+    // since it opened. Afterwards only follow the page's own scroll distance.
+    let base: { top: number; left: number; sx: number; sy: number } | null = null;
+
+    function clampLeft(left: number, width: number) {
+      const vw = window.innerWidth;
+      if (left + width > vw - 8) left = vw - width - 8;
+      if (left < 8) left = 8;
+      return left;
+    }
+    function placeOnce() {
       if (!anchorRef.current || !ref.current) return;
       const a = anchorRef.current.getBoundingClientRect();
       const p = ref.current.getBoundingClientRect();
-      let left = align === "end" ? a.right - p.width : a.left;
-      const vw = window.innerWidth;
-      if (left + p.width > vw - 8) left = vw - p.width - 8;
-      if (left < 8) left = 8;
-      setPos({ top: a.bottom + offset, left });
+      const left = clampLeft(align === "end" ? a.right - p.width : a.left, p.width);
+      base = { top: a.bottom + offset, left, sx: window.scrollX, sy: window.scrollY };
+      setPos({ top: base.top, left });
     }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    function follow() {
+      if (!base) return;
+      const p = ref.current?.getBoundingClientRect();
+      setPos({
+        top: base.top - (window.scrollY - base.sy),
+        left: clampLeft(base.left - (window.scrollX - base.sx), p?.width ?? 0),
+      });
+    }
+    function onScroll(e: Event) {
+      // Only the page itself; inner lists scrolling must not move the popover.
+      if (e.target !== document && e.target !== window) return;
+      follow();
+    }
+    function onResize() {
+      if (!base || !ref.current) return;
+      base = { ...base, left: clampLeft(base.left, ref.current.getBoundingClientRect().width) };
+      follow();
+    }
+    placeOnce();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [anchorRef, align, offset]);
 
