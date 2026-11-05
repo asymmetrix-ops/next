@@ -1,6 +1,7 @@
 import type { OutreachImportRow } from "@/lib/contributorCrm/outreachImport";
 import { authService } from "@/lib/contributorCrm/auth";
 import { readIdentity } from "@/lib/contributorCrm/identity";
+import { trackKeyAction } from "@/lib/tracking";
 
 const API_BASE =
   "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
@@ -821,6 +822,16 @@ export async function createChangeRequest(
       await readContributorApiError(res, `Failed to submit change request (${res.status})`)
     );
   }
+
+  // Section Insights: one contribute_data event per submitted change request, from any of the contributor forms.
+  const companyId = Number((payload as { new_company_id?: unknown }).new_company_id);
+  trackKeyAction({
+    section: "companies",
+    action: "contribute_data",
+    actionDetail: authService.getAuthToken() ? "logged_in" : "link_visitor",
+    targetType: payload.entity_type === "company" && Number.isFinite(companyId) ? "company" : undefined,
+    targetId: Number.isFinite(companyId) ? companyId : undefined,
+  });
 }
 
 export type DataContributionNotificationPayload = {
