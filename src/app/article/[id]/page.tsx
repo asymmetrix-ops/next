@@ -9,10 +9,6 @@ import { getLastPageEntrySource, getPreviousPagePath, trackKeyAction } from "@/l
 import { openArticlePdfWindow } from "@/utils/exportArticlePdf";
 import ArticleSeriesNav from "@/components/ArticleSeriesNav";
 import {
-  ArticleThreadLinks,
-  buildArticleThreadLinks,
-} from "@/components/ArticleThreadLinks";
-import {
   ArticleFollowOnLine,
   ArticleStoryBox,
   type ArticleFollowOn,
@@ -2518,16 +2514,7 @@ const ArticleDetailPage = () => {
               </div>
             )}
 
-            <ArticleThreadLinks
-              links={buildArticleThreadLinks({
-                company: companyOfFocus,
-                sectors: (article.sectors || [])
-                  .filter((sector) => sector.Sector_importance === "Primary")
-                  .map((sector) => ({ id: getSectorId(sector) ?? 0, name: sector.sector_name })),
-                countryIso2: hqCountryIso2,
-                investors: article.investors_of_focus,
-              })}
-            />
+            {/* Thread links hidden for now (ArticleThreadLinks) */}
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (

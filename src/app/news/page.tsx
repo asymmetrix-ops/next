@@ -281,13 +281,7 @@ export default function NewsPage() {
               <button type="button" className="nw-btn nw-btn-outline" onClick={() => setFilters({})}>
                 Reset filters
               </button>
-              <Link
-                href="/news/threads"
-                className="nw-btn nw-btn-outline"
-                onClick={() => trackKeyAction({ section: "threads", action: "tab_opened", actionDetail: "from_news_page" })}
-              >
-                Threads
-              </Link>
+              {/* Threads button hidden for now: <Link href="/news/threads">Threads</Link> */}
               <FollowNewsButton />
               <DealTipButton />
             </div>
