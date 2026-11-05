@@ -64,7 +64,10 @@ export type KeyActionName =
   | "unfollow"
   | "contribute_data"
   | "request_submitted"
-  | "email_click";
+  | "email_click"
+  | "list_created"
+  | "list_deleted"
+  | "removed_from_list";
 import { authService } from "@/lib/auth";
 import { isActivityTrackingBlockedEmail } from "@/lib/activityTracking";
 import { getDeviceType } from "@/lib/device";

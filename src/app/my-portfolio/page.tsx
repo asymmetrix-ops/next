@@ -1,5 +1,6 @@
 "use client";
 
+import { trackKeyAction } from "@/lib/tracking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
@@ -604,6 +605,7 @@ export default function MyPortfolioPage() {
       usePortfolioStore.setState({ lastFetched: Date.now() });
 
       if (newId != null && Number.isFinite(newId)) {
+        trackKeyAction({ section: "lists", action: "list_created", actionDetail: "empty_list" });
         setActiveTabId(String(newId));
       }
 
@@ -726,6 +728,7 @@ export default function MyPortfolioPage() {
           return;
         }
 
+        trackKeyAction({ section: "lists", action: "list_deleted" });
         setDeletingPortfolio(null);
         if (activeTabId === String(p.id)) setActiveTabId(ALL_FOLLOWED_TAB);
         invalidatePortfolioDataCache();
@@ -879,7 +882,10 @@ export default function MyPortfolioPage() {
             count={allFollowedCount}
             active={activeTabId === ALL_FOLLOWED_TAB}
             loading={storeLoading && xanoPortfolios.length === 0}
-            onClick={() => setActiveTabId(ALL_FOLLOWED_TAB)}
+            onClick={() => {
+              trackKeyAction({ section: "lists", action: "tab_opened", actionDetail: "all_followed" });
+              setActiveTabId(ALL_FOLLOWED_TAB);
+            }}
           />
 
           {/* Named portfolio tabs from Xano */}
@@ -915,7 +921,10 @@ export default function MyPortfolioPage() {
                   label={getDisplayLabel(p)}
                   count={getTabCount(p)}
                   active={activeTabId === String(p.id)}
-                  onSelect={() => setActiveTabId(String(p.id))}
+                  onSelect={() => {
+                    trackKeyAction({ section: "lists", action: "tab_opened", actionDetail: "named_list" });
+                    setActiveTabId(String(p.id));
+                  }}
                   onRename={() => handleStartRename(p)}
                   onDelete={() => setDeletingPortfolio(p)}
                 />

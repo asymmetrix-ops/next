@@ -1,4 +1,5 @@
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
+import { trackKeyAction } from "@/lib/tracking";
 import {
   invalidateUserPortfolioRecordCache,
   xanoRequest,
@@ -142,5 +143,11 @@ export async function bulkCreateListWithEntities(
     }
   }
   invalidateUserPortfolioRecordCache();
+  trackKeyAction({
+    section: "lists",
+    action: "list_created",
+    actionDetail: `from_${input.entityType}`,
+    resultsCount: ids.length,
+  });
   return result;
 }

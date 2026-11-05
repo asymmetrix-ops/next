@@ -1,5 +1,6 @@
 "use client";
 
+import { trackKeyAction } from "@/lib/tracking";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
@@ -45,6 +46,9 @@ export default function NewsThreadsPage() {
       .then((res) => {
         setItems(res.items);
         setTotal(res.total);
+        if (query) {
+          trackKeyAction({ section: "threads", action: "search", actionDetail: type, query, resultsCount: res.total });
+        }
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -98,7 +102,10 @@ export default function NewsThreadsPage() {
                   role="tab"
                   aria-selected={type === t}
                   className={`nw-btn ${type === t ? "" : "nw-btn-outline"}`}
-                  onClick={() => setType(t)}
+                  onClick={() => {
+                    trackKeyAction({ section: "threads", action: "filter_applied", actionDetail: t });
+                    setType(t);
+                  }}
                 >
                   {THREAD_TYPE_LABEL[t]}
                 </button>
@@ -135,6 +142,7 @@ export default function NewsThreadsPage() {
                 {items.map((thread) => (
                   <Link
                     key={thread.key}
+                    onClick={() => trackKeyAction({ section: "threads", action: "profile_opened", actionDetail: `list_${type}` })}
                     href={`/news/threads/${type}/${encodeURIComponent(thread.key)}`}
                     className="nw-card"
                     style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, textDecoration: "none", color: "inherit" }}
