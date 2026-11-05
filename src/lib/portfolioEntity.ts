@@ -405,4 +405,11 @@ export async function removeEntityFromPortfolioApi(args: {
       entity_id: args.entityId,
     }
   );
+  trackKeyAction({
+    section: "lists",
+    action: "removed_from_list",
+    actionDetail: args.entityType,
+    targetType: args.entityType === "company" ? "company" : undefined,
+    targetId: args.entityId,
+  });
 }

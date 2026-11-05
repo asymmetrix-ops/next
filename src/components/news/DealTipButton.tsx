@@ -1,5 +1,6 @@
 "use client";
 
+import { trackKeyAction } from "@/lib/tracking";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { fetchGlobalSearchBySource } from "@/lib/globalSearch";
@@ -123,6 +124,13 @@ export default function DealTipButton() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Unable to submit your tip. Please try again.");
+      trackKeyAction({
+        section: "news",
+        action: "contribute_data",
+        actionDetail: "deal_tip",
+        targetType: company?.id ? "company" : undefined,
+        targetId: company?.id,
+      });
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit your tip. Please try again.");

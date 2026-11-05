@@ -1,4 +1,5 @@
 import { authService } from "@/lib/auth";
+import { trackKeyAction } from "@/lib/tracking";
 import { extractPortfolioList, parseUserId } from "@/lib/portfolioListUtils";
 import {
   buildCreateUserListPayload,
@@ -115,6 +116,7 @@ export async function createUserListInXano(listName: string): Promise<unknown> {
     throw err;
   }
 
+  trackKeyAction({ section: "lists", action: "list_created", actionDetail: "empty_list" });
   return data;
 }
 

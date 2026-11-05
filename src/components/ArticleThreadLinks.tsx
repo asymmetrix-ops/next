@@ -3,6 +3,7 @@
 import { EntityChip } from "@/components/ui/EntityChip";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import type { ThreadType } from "@/lib/newsThreads";
+import { trackKeyAction } from "@/lib/tracking";
 
 export interface ArticleThreadLink {
   type: ThreadType;
@@ -72,8 +73,14 @@ export function ArticleThreadLinks({ links }: { links: ArticleThreadLink[] }) {
       </header>
       <div className="chipset">
         {links.map((link) => (
-          <EntityChip
+          <span
             key={`${link.type}:${link.key}`}
+            style={{ display: "contents" }}
+            onClickCapture={() =>
+              trackKeyAction({ section: "threads", action: "profile_opened", actionDetail: `article_${link.type}` })
+            }
+          >
+          <EntityChip
             kind={KIND_BY_THREAD[link.type]}
             href={threadHref(link.type, link.key)}
             title="Open thread"
@@ -81,6 +88,7 @@ export function ArticleThreadLinks({ links }: { links: ArticleThreadLink[] }) {
           >
             {link.iso2 ? <CountryFlagImg iso2={link.iso2} size={14} /> : null}
           </EntityChip>
+          </span>
         ))}
       </div>
     </div>
