@@ -178,27 +178,29 @@ export default function AsymIQMessageBody({
         </div>
       ) : null}
 
-      {(payload.listLinks ?? []).map((l, i) => (
-        <div
-          key={`${l.url}-${i}`}
-          className="mt-3 overflow-hidden rounded-lg border border-[var(--border-1)] bg-white"
-        >
-          <div className="border-b border-[var(--border-1)] bg-[var(--bg-2)] px-3 py-1.5">
-            <div className="ax-eyebrow" style={{ fontSize: 10.5 }}>
-              Filters to be applied
+      {(payload.listLinks ?? []).map((l, i) => {
+        const sortLine = l.summary
+          .split(" | ")
+          .find((part) => part.startsWith("Sorted by "))
+          ?.replace("Sorted by ", "");
+        return (
+          <div
+            key={`${l.url}-${i}`}
+            className="mt-3 overflow-hidden rounded-lg border border-[var(--border-1)] bg-white"
+          >
+            <div className="border-b border-[var(--border-1)] bg-[var(--bg-2)] px-3 py-1.5">
+              <div className="ax-eyebrow" style={{ fontSize: 10.5 }}>
+                Filters to be applied
+              </div>
             </div>
-          </div>
-          <div className="px-3 py-2">
-            {l.applied.length > 0 ? (
-              <dl className="m-0 space-y-1">
+            <div className="px-3 py-2.5">
+              <dl className="m-0 space-y-1.5">
                 {l.applied.map((line) => {
                   const [k, v] = splitApplied(line);
                   return (
                     <div key={line} className="flex gap-2 text-[12.5px]">
                       {k ? (
-                        <dt className="w-[40%] shrink-0 text-[var(--fg-3)]">
-                          {k}
-                        </dt>
+                        <dt className="w-[38%] shrink-0 text-[var(--fg-3)]">{k}</dt>
                       ) : null}
                       <dd className="m-0 min-w-0 flex-1 font-semibold text-[var(--fg-1)]">
                         {v}
@@ -206,48 +208,51 @@ export default function AsymIQMessageBody({
                     </div>
                   );
                 })}
+                {sortLine ? (
+                  <div className="flex gap-2 text-[12.5px]">
+                    <dt className="w-[38%] shrink-0 text-[var(--fg-3)]">Sort</dt>
+                    <dd className="m-0 min-w-0 flex-1 font-semibold text-[var(--fg-1)]">
+                      {sortLine}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
-            ) : (
-              <p className="m-0 text-[12.5px] text-[var(--fg-2)]">
-                {l.summary}
-              </p>
-            )}
-            {l.summary.includes("Sorted by") ? (
-              <div className="mt-1 flex gap-2 text-[12.5px]">
-                <dt className="w-[40%] shrink-0 text-[var(--fg-3)]">Sort</dt>
-                <dd className="m-0 min-w-0 flex-1 font-semibold text-[var(--fg-1)]">
-                  {l.summary.split(" | ").pop()?.replace("Sorted by ", "")}
-                </dd>
-              </div>
-            ) : null}
-            {l.rejected.length > 0 ? (
-              <div
-                className="mt-2 rounded-md px-2.5 py-1.5 text-[11.5px]"
-                style={{ background: "#FBF1DE", color: "#8A5A06" }}
+              {l.applied.length === 0 && !sortLine ? (
+                <p className="m-0 text-[12.5px] text-[var(--fg-3)]">
+                  No filters — the full list will open.
+                </p>
+              ) : null}
+              {l.rejected.length > 0 ? (
+                <div
+                  className="mt-2 rounded-md px-2.5 py-1.5 text-[11.5px] leading-snug"
+                  style={{ background: "#FBF1DE", color: "#8A5A06" }}
+                >
+                  Could not apply:{" "}
+                  {l.rejected
+                    .map(
+                      (r) =>
+                        `${r.filter ?? "filter"}${r.value ? ` “${r.value}”` : ""} (${r.reason})`
+                    )
+                    .join("; ")}
+                </div>
+              ) : null}
+            </div>
+            <div className="border-t border-[var(--border-1)] bg-[var(--bg-2)] px-3 py-2.5">
+              {l.note ? (
+                <p className="m-0 mb-2 text-[11px] leading-snug text-[var(--fg-3)]">
+                  {l.note}
+                </p>
+              ) : null}
+              <Link
+                href={l.url}
+                className="flex h-9 w-full items-center justify-center rounded-lg bg-[var(--ax-cyan-600)] px-3 text-center text-[13px] font-semibold text-white no-underline shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)]"
               >
-                Could not apply:{" "}
-                {l.rejected
-                  .map(
-                    (r) =>
-                      `${r.filter ?? "filter"}${r.value ? ` “${r.value}”` : ""} (${r.reason})`
-                  )
-                  .join("; ")}
-              </div>
-            ) : null}
+                {l.label}
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--border-1)] px-3 py-2">
-            <span className="text-[11px] leading-snug text-[var(--fg-3)]">
-              {l.note ?? ""}
-            </span>
-            <Link
-              href={l.url}
-              className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[var(--ax-cyan-600)] px-3 text-[12.5px] font-semibold text-white no-underline shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)]"
-            >
-              {l.label}
-            </Link>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       {payload.cards && payload.cards.length > 0 ? (
         <div className="mt-3">
