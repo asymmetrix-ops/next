@@ -343,6 +343,8 @@ type Props = {
   emptyMessage?: string;
   /** Number of article rows rendered (API page size). */
   previewCount?: number;
+  /** When set, "Browse all" runs this (e.g. opens a profile tab) instead of linking away. */
+  onBrowseAll?: () => void;
 };
 
 export function InsightsCard({
@@ -362,6 +364,7 @@ export function InsightsCard({
   browseAllHref,
   emptyMessage = "No insights available for this company.",
   previewCount = 2,
+  onBrowseAll,
 }: Props) {
   const isEmpty = !loading && totalCount === 0;
   const rangeLabel =
@@ -488,6 +491,15 @@ export function InsightsCard({
             {loading ? "-" : `Showing ${rangeLabel}`}
           </span>
         </div>
+        {onBrowseAll ? (
+          <button
+            type="button"
+            onClick={onBrowseAll}
+            style={{ color: T.azure, fontWeight: 500, background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: T.sans, fontSize: 13 }}
+          >
+            Browse all{loading || totalCount === 0 ? "" : ` ${totalCount}`} →
+          </button>
+        ) : (
         <Link
           href={resolvedBrowseAllHref}
           prefetch={false}
@@ -495,6 +507,7 @@ export function InsightsCard({
         >
           Browse all{loading || totalCount === 0 ? "" : ` ${totalCount}`} →
         </Link>
+        )}
       </div>
     </LinkPanel>
     </>

@@ -50,6 +50,15 @@ import CompanyNewsTab from "@/components/company/CompanyNewsTab";
 import CompanyNewsSummaryCard from "@/components/company/CompanyNewsSummaryCard";
 import { fetchCompanyNewsSummary, type CompanyNewsSummary } from "@/lib/companyNews";
 import { trackKeyAction } from "@/lib/tracking";
+import CompanyInsightsTab from "@/components/company/CompanyInsightsTab";
+import {
+  EMPTY_COMPANY_INSIGHTS,
+  companyInsightsOrdered,
+  companyInsightsTotal,
+  extractPrimarySectorIds,
+  fetchCompanyInsights,
+  type CompanyInsights,
+} from "@/lib/companyInsights";
 import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import {
   ProductUsersListCard,
@@ -1280,8 +1289,40 @@ const CompanyDetail = () => {
   const [transactionStatusLabel, setTransactionStatusLabel] = useState<string>("");
   const [exportingPdf, setExportingPdf] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState<
-    "Summary" | "News" | "Financials" | "Financial Intelligence"
+    "Summary" | "News" | "Insights & Analysis" | "Financials" | "Financial Intelligence"
   >("Financials");
+  const [companyInsights, setCompanyInsights] = useState<CompanyInsights>(EMPTY_COMPANY_INSIGHTS);
+  const [companyInsightsLoading, setCompanyInsightsLoading] = useState(true);
+  const [summaryInsightsPage, setSummaryInsightsPage] = useState(1);
+  const insightsTabTotal = companyInsightsTotal(companyInsights);
+  const showInsightsTab = insightsTabTotal > 0;
+  const primarySectorIdsKey = extractPrimarySectorIds(company).join(",");
+  useEffect(() => {
+    if (!company?.id || company.id <= 0) return;
+    const ac = new AbortController();
+    setCompanyInsights(EMPTY_COMPANY_INSIGHTS);
+    setCompanyInsightsLoading(true);
+    setSummaryInsightsPage(1);
+    fetchCompanyInsights(
+      company.id,
+      primarySectorIdsKey ? primarySectorIdsKey.split(",").map(Number) : [],
+      ac.signal
+    )
+      .then((r) => !ac.signal.aborted && setCompanyInsights(r))
+      .catch(() => undefined)
+      .finally(() => !ac.signal.aborted && setCompanyInsightsLoading(false));
+    return () => ac.abort();
+  }, [company?.id, primarySectorIdsKey]);
+  useEffect(() => {
+    if (activeProfileTab === "Insights & Analysis") {
+      trackKeyAction({ section: "content", action: "tab_opened" });
+    }
+  }, [activeProfileTab]);
+  useEffect(() => {
+    if (activeProfileTab === "Insights & Analysis" && !companyInsightsLoading && !showInsightsTab) {
+      setActiveProfileTab("Summary");
+    }
+  }, [activeProfileTab, companyInsightsLoading, showInsightsTab]);
   const [newsSummary, setNewsSummary] = useState<CompanyNewsSummary | null>(null);
   const [newsSummaryLoading, setNewsSummaryLoading] = useState(true);
   const showNews = Boolean(newsSummary?.show);
@@ -1594,7 +1635,10 @@ const CompanyDetail = () => {
   }, [company?.id]);
 
   /** Only render I&A when the company has linked articles. */
-  const showInsights = insightsTotal > 0;
+  const insightsOrdered = companyInsightsOrdered(companyInsights);
+  // Summary card order: Company of Focus, then mentions, then sector (falls back to the old list if that fetch found nothing).
+  const useOrderedInsights = !companyInsightsLoading && insightsOrdered.length > 0;
+  const showInsights = useOrderedInsights || insightsTotal > 0;
 
   const fetchCompanyCorporateEventsPage = useCallback(
     async (companyIdForEvents: string | number, page = 1) => {
@@ -2146,10 +2190,11 @@ const CompanyDetail = () => {
   }, [showFinancialsTab, activeProfileTab]);
 
   const companyProfileSubnavTabs = useMemo(() => {
-    const tabs: Array<"Summary" | "News" | "Financials" | "Financial Intelligence"> = [
+    const tabs: Array<"Summary" | "News" | "Insights & Analysis" | "Financials" | "Financial Intelligence"> = [
       "Summary",
     ];
     if (showNews) tabs.push("News");
+    if (showInsightsTab) tabs.push("Insights & Analysis");
     if (showFinancialsTab) tabs.push("Financials");
     if (hasFinancialMetricsCardData(financialMetricsCardRows)) {
       tabs.push("Financial Intelligence");
@@ -2158,8 +2203,9 @@ const CompanyDetail = () => {
       id: tab,
       label: tab,
       ...(tab === "News" && newsSummary ? { count: newsSummary.total } : {}),
+      ...(tab === "Insights & Analysis" ? { count: insightsTabTotal } : {}),
     }));
-  }, [showFinancialsTab, financialMetricsCardRows, showNews, newsSummary]);
+  }, [showFinancialsTab, financialMetricsCardRows, showNews, newsSummary, showInsightsTab, insightsTabTotal]);
 
   useEffect(() => {
     if (
@@ -3764,6 +3810,11 @@ const CompanyDetail = () => {
         <div className="company-detail-content" style={styles.maxWidth}>
           {activeProfileTab === "News" && company?.id ? (
             <CompanyNewsTab companyId={company.id} />
+          ) : activeProfileTab === "Insights & Analysis" ? (
+            <CompanyInsightsTab
+              insights={companyInsights}
+              companyName={company.name?.trim() || "Company"}
+            />
           ) : activeProfileTab === "Financials" ? (
             <CompanyFinancialsSection
               rows={financialMetricsCardRows}
@@ -4322,20 +4373,36 @@ const CompanyDetail = () => {
                 >
                   <InsightsCard
                     fillGridCell
-                    articles={companyArticles}
-                    loading={articlesLoading}
-                    totalCount={insightsTotal}
-                    rangeStart={insightsShowingFrom}
-                    rangeEnd={insightsShowingTo}
-                    canPrev={canInsightPrev}
-                    canNext={canInsightNext}
+                    articles={
+                      useOrderedInsights
+                        ? insightsOrdered.slice((summaryInsightsPage - 1) * INSIGHTS_PREVIEW_COUNT, summaryInsightsPage * INSIGHTS_PREVIEW_COUNT)
+                        : companyArticles
+                    }
+                    loading={useOrderedInsights ? false : articlesLoading}
+                    totalCount={useOrderedInsights ? insightsOrdered.length : insightsTotal}
+                    rangeStart={useOrderedInsights ? (summaryInsightsPage - 1) * INSIGHTS_PREVIEW_COUNT + 1 : insightsShowingFrom}
+                    rangeEnd={useOrderedInsights ? Math.min(summaryInsightsPage * INSIGHTS_PREVIEW_COUNT, insightsOrdered.length) : insightsShowingTo}
+                    canPrev={useOrderedInsights ? summaryInsightsPage > 1 : canInsightPrev}
+                    canNext={useOrderedInsights ? summaryInsightsPage * INSIGHTS_PREVIEW_COUNT < insightsOrdered.length : canInsightNext}
+                    onBrowseAll={
+                      showInsightsTab
+                        ? () => {
+                            setActiveProfileTab("Insights & Analysis");
+                            if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                          }
+                        : undefined
+                    }
                     onPrev={() => {
-                      if (company?.id && insightsPage > 1) {
+                      if (useOrderedInsights) {
+                        setSummaryInsightsPage((p) => Math.max(1, p - 1));
+                      } else if (company?.id && insightsPage > 1) {
                         fetchCompanyArticles(company.id, insightsPage - 1);
                       }
                     }}
                     onNext={() => {
-                      if (company?.id && canInsightNext) {
+                      if (useOrderedInsights) {
+                        setSummaryInsightsPage((p) => p + 1);
+                      } else if (company?.id && canInsightNext) {
                         fetchCompanyArticles(company.id, insightsPage + 1);
                       }
                     }}
