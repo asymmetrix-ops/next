@@ -8,6 +8,8 @@ export type MasonryItem = {
   span: 1 | 2;
   /** Wide cards only: allowed to move down the order to leave the fewest blank gaps. */
   flexible?: boolean;
+  /** Preferred column (0-based) for narrow cards; moved elsewhere only to remove a gap. */
+  home?: number;
   node: React.ReactNode;
 };
 
@@ -109,7 +111,7 @@ function layoutOnce(
  * Tries every position of each wide card in the placement order (cards before index 3 keep
  * their priority) and keeps the arrangement with the least blank area.
  */
-export function computeMasonryLayout(
+function computeGreedyLayout(
   items: MasonryItem[],
   heights: Record<string, number>,
   cols: number,
@@ -233,4 +235,109 @@ export default function ProfileMasonry({ items }: { items: MasonryItem[] }) {
       })}
     </div>
   );
+}
+
+/** Cost (px of blank area) of moving a narrow card out of its home column. */
+const OFF_HOME_PENALTY = 220;
+/** Cost per step a flexible wide card is pushed down from its priority position. */
+const WIDE_SHIFT_PENALTY = 60;
+const MAX_CANDIDATES = 400_000;
+
+function placeFixed(
+  seq: MasonryItem[],
+  colOf: Map<string, number>,
+  pairOf: Map<string, number>,
+  heights: Record<string, number>,
+  cols: number,
+  containerWidth: number
+): { placed: Record<string, Placed>; height: number; waste: number } {
+  const colW = (containerWidth - GAP * (cols - 1)) / cols;
+  const colTop = new Array(cols).fill(0) as number[];
+  const placed: Record<string, Placed> = {};
+  let waste = 0;
+  for (const item of seq) {
+    const span = Math.min(item.span, cols);
+    const first = span === 1 ? colOf.get(item.id)! : pairOf.get(item.id)!;
+    let top = 0;
+    for (let c = first; c < first + span; c++) top = Math.max(top, colTop[c]);
+    const h = heights[item.id] ?? 0;
+    placed[item.id] = { left: first * (colW + GAP), top, width: colW * span + GAP * (span - 1) };
+    if (h > 0) {
+      for (let c = first; c < first + span; c++) waste += top - colTop[c];
+      for (let c = first; c < first + span; c++) colTop[c] = top + h + GAP;
+    }
+  }
+  const maxTop = Math.max(...colTop);
+  for (const t of colTop) waste += maxTop - t;
+  return { placed, height: Math.max(0, maxTop - GAP), waste };
+}
+
+/**
+ * Keeps every narrow card in its home column unless moving it removes a gap worth more than
+ * the penalty; searches column assignments and wide-card positions for the least blank area.
+ */
+export function computeMasonryLayout(
+  items: MasonryItem[],
+  heights: Record<string, number>,
+  cols: number,
+  containerWidth: number
+): { placed: Record<string, Placed>; height: number } {
+  const narrow = items.filter((i) => Math.min(i.span, cols) === 1);
+  const wide = items.filter((i) => Math.min(i.span, cols) > 1);
+  const pairChoices = (i: MasonryItem) => cols - Math.min(i.span, cols) + 1;
+  const wideCombos = wide.reduce((n, w) => n * pairChoices(w) * (w.flexible ? narrow.length + 1 : 1), 1);
+  if (cols < 3 || narrow.length === 0 || Math.pow(cols, narrow.length) * wideCombos > MAX_CANDIDATES) {
+    return computeGreedyLayout(items, heights, cols, containerWidth);
+  }
+
+  const baseIndexOf = (w: MasonryItem) => items.slice(0, items.indexOf(w)).filter((i) => Math.min(i.span, cols) === 1).length;
+  let best: { score: number; res: ReturnType<typeof placeFixed> } | null = null;
+
+  // Wide-card configurations: [pair start, position among narrow cards] per wide card.
+  const wideConfigs: Array<Array<[number, number]>> = [[]];
+  for (const w of wide) {
+    const next: Array<Array<[number, number]>> = [];
+    const positions = w.flexible ? Array.from({ length: narrow.length + 1 }, (_, k) => k) : [baseIndexOf(w)];
+    for (const cfg of wideConfigs)
+      for (let a = 0; a < pairChoices(w); a++) for (const pos of positions) next.push([...cfg, [a, pos]]);
+    wideConfigs.length = 0;
+    wideConfigs.push(...next);
+  }
+
+  const assign = new Array(narrow.length).fill(0) as number[];
+  const evaluate = () => {
+    let off = 0;
+    const colOf = new Map<string, number>();
+    narrow.forEach((n, i) => {
+      colOf.set(n.id, assign[i]);
+      if (assign[i] !== Math.min(n.home ?? i % cols, cols - 1)) off++;
+    });
+    for (const cfg of wideConfigs) {
+      const seq: MasonryItem[] = [...narrow];
+      const pairOf = new Map<string, number>();
+      // Insert wides from the back so earlier insert positions stay valid.
+      const order = wide.map((w, wi) => ({ w, a: cfg[wi][0], pos: cfg[wi][1], wi })).sort((x, y) => y.pos - x.pos || y.wi - x.wi);
+      for (const { w, a, pos } of order) {
+        seq.splice(pos, 0, w);
+        pairOf.set(w.id, a);
+      }
+      const res = placeFixed(seq, colOf, pairOf, heights, cols, containerWidth);
+      let shift = 0;
+      wide.forEach((w, wi) => {
+        if (w.flexible) shift += Math.abs(cfg[wi][1] - baseIndexOf(w));
+      });
+      const score = res.waste + off * OFF_HOME_PENALTY + shift * WIDE_SHIFT_PENALTY + res.height * 0.001;
+      if (!best || score < best.score) best = { score, res };
+    }
+  };
+  const rec = (i: number) => {
+    if (i === narrow.length) return evaluate();
+    for (let c = 0; c < cols; c++) {
+      assign[i] = c;
+      rec(i + 1);
+    }
+  };
+  rec(0);
+  const r = best!.res;
+  return { placed: r.placed, height: r.height };
 }

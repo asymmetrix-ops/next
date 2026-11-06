@@ -4570,26 +4570,28 @@ const CompanyDetail = () => {
               ].filter((c) => c.show);
               // Real-height masonry: order = placement priority; spans = share of the page width.
               const byId = (id: string) => cards.find((c) => c.id === id);
-              const order: Array<[string, 1 | 2]> = [
-                ["news", 1],
-                ["insights", showNews && newsSummary ? 1 : 2],
-                ["fin2", 1],
-                ["productmix", 1],
-                ["coreproducts", 1],
-                ["airisk", 1],
-                ["events", 2],
-                ["datacollection", 1],
-                ["management", 1],
-                ["subsidiaries", 1],
-                ["headcount", 1],
+              // [id, span, home column]
+              const order: Array<[string, 1 | 2, number]> = [
+                ["news", 1, 0],
+                ["insights", showNews && newsSummary ? 1 : 2, 1],
+                ["fin2", 1, 2],
+                ["productmix", 1, 0],
+                ["coreproducts", 1, 1],
+                ["airisk", 1, 2],
+                ["events", 2, 0],
+                ["datacollection", 1, 0],
+                ["management", 1, 2],
+                ["subsidiaries", 1, 1],
+                ["headcount", 1, 1],
               ];
               const masonryItems: MasonryItem[] = [];
-              for (const [id, span] of order) {
+              for (const [id, span, home] of order) {
                 if (id === "productmix") {
                   if (showProductType || showRevenueModel)
                     masonryItems.push({
                       id,
                       span,
+                      home,
                       node: (
                         <ProductTypeRevenueCard
                           productRows={productTypeBarRows}
@@ -4604,12 +4606,13 @@ const CompanyDetail = () => {
                     masonryItems.push({
                       id,
                       span,
+                      home,
                       node: <DataCollectionCard productRows={productTypeBarRows} dataRows={productDataToggleDataRows} />,
                     });
                   continue;
                 }
                 const c = byId(id);
-                if (c) masonryItems.push({ id, span, flexible: id === "events", node: c.node() });
+                if (c) masonryItems.push({ id, span, home, flexible: id === "events", node: c.node() });
               }
               return <ProfileMasonry items={masonryItems} />;
             })()}
