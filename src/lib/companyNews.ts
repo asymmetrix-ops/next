@@ -1,6 +1,6 @@
 import type { NewsArticle, NewsFilters } from "@/lib/news";
 
-const COMPANY_API = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au:develop";
+const COMPANY_API = "https://xdil-abvj-o7rq.e2.xano.io/api:GYQcK4au";
 
 /** Top stories shown before "Show more". */
 export const COMPANY_TOP_PAGE = 4;
