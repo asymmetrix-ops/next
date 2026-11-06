@@ -137,6 +137,17 @@ interface InsightsAnalysisCardProps {
   article: ContentArticle;
 }
 
+/** Shared by every page that lists I&A cards so the windows are one size. */
+export const INSIGHTS_CARD_MIN_HEIGHT = 400;
+export const INSIGHTS_CARD_GRID_STYLE: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 16,
+  width: "100%",
+  boxSizing: "border-box",
+  alignItems: "stretch",
+};
+
 export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   article,
 }) => {
@@ -232,6 +243,8 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
         flexDirection: "column",
         width: "100%",
         maxWidth: "100%",
+        minHeight: INSIGHTS_CARD_MIN_HEIGHT,
+        height: "100%",
         boxSizing: "border-box",
         background: T.panel,
         borderRadius: T.rLg,

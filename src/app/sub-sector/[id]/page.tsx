@@ -12,7 +12,7 @@ import { T } from "@/components/redesign/primitives";
 import { ContentArticle, InsightsAnalysisResponse } from "@/types/insightsAnalysis";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
 import { ScopedCorporateEventsPanel } from "@/components/corporate-events/ScopedCorporateEventsPanel";
-import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import InsightsAnalysisCard, { INSIGHTS_CARD_GRID_STYLE } from "@/components/InsightsAnalysisCard";
 import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
 
@@ -25,14 +25,7 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-const INSIGHTS_GRID_STYLE: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-  gap: 16,
-  width: "100%",
-  boxSizing: "border-box",
-  alignItems: "stretch",
-};
+const INSIGHTS_GRID_STYLE = INSIGHTS_CARD_GRID_STYLE;
 
 const SubSectorPage = () => {
   const params = useParams();

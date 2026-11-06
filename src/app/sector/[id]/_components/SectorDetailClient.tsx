@@ -53,7 +53,7 @@ import {
   fetchSectorRecentContentArticles,
 } from "@/lib/sectorInsightsArticles";
 import { getInsightsListItemsTotal } from "@/lib/fetchInsightsLogicalPage";
-import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
+import InsightsAnalysisCard, { INSIGHTS_CARD_GRID_STYLE } from "@/components/InsightsAnalysisCard";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import {
@@ -136,14 +136,7 @@ interface SectorStatistics {
   market_map?: unknown;
 }
 
-const SECTOR_INSIGHTS_GRID_STYLE: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-  gap: 16,
-  width: "100%",
-  boxSizing: "border-box",
-  alignItems: "stretch",
-};
+const SECTOR_INSIGHTS_GRID_STYLE = INSIGHTS_CARD_GRID_STYLE;
 
 interface SectorCompany {
   id: number;
