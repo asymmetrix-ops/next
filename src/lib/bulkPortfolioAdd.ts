@@ -1,3 +1,4 @@
+import type { ListFilterSource } from "@/lib/listSources";
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import {
   bulkAddEntitiesToList,
@@ -33,7 +34,12 @@ export async function bulkAddEntitiesToPortfolio(
   entityIds: number[],
   action: BulkPortfolioAction,
   onProgress?: (progress: BulkProgress) => void,
-  options?: { savedFilterId?: number | null; keepSynced?: boolean }
+  options?: {
+    savedFilterId?: number | null;
+    keepSynced?: boolean;
+    /** Filters the ids came from; omitted for hand-picked rows. */
+    source?: ListFilterSource;
+  }
 ): Promise<BulkAddOutcome> {
   const ids = Array.from(
     new Set(entityIds.filter((id) => Number.isFinite(id) && id > 0))
@@ -68,6 +74,7 @@ export async function bulkAddEntitiesToPortfolio(
           entityIds: ids,
           savedFilterId: options?.savedFilterId,
           keepSynced: options?.keepSynced,
+          source: options?.source,
         },
         (done) => report(done)
       );
@@ -85,8 +92,12 @@ export async function bulkAddEntitiesToPortfolio(
     if (listIds.length === 0) throw new Error("Select at least one list");
     const outcome = { ...none, listIds };
     for (const listId of listIds) {
-      const res = await bulkAddEntitiesToList(listId, entityType, ids, (done) =>
-        report(done)
+      const res = await bulkAddEntitiesToList(
+        listId,
+        entityType,
+        ids,
+        (done) => report(done),
+        options?.source
       );
       outcome.added += res.added;
       outcome.skipped += res.skipped;

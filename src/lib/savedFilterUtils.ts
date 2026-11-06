@@ -51,7 +51,7 @@ export function hasActiveFilters(
 const NON_LABEL_KEY = /sql|_str$|ids?$|columns|currency/i;
 
 function collectLabels(value: unknown, out: string[]): void {
-  if (out.length >= 6 || isEmptyValue(value)) return;
+  if (out.length >= 12 || isEmptyValue(value)) return;
   if (typeof value === "string") {
     const text = value.trim();
     if (text && text.length <= 40 && /[A-Za-z]{3}/.test(text) && !/[=()<>]/.test(text)) {
@@ -82,4 +82,14 @@ export function suggestSavedFilterName(
   return unique.length > 0
     ? `${entityPlural} - ${unique.join(", ")}`
     : entityPlural;
+}
+
+/** Short readable chips for a stored filter set, e.g. ["UK", "Data Providers"]. */
+export function describeFilterChips(
+  filters: Record<string, unknown> | null | undefined,
+  max = 8
+): string[] {
+  const labels: string[] = [];
+  collectLabels(stripNonFilterKeys(filters ?? {}), labels);
+  return Array.from(new Set(labels)).slice(0, max);
 }

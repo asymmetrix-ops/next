@@ -1,6 +1,11 @@
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import { trackKeyAction } from "@/lib/tracking";
 import {
+  toSourcePayload,
+  type ListFilterSource,
+  newSourceBatchId,
+} from "@/lib/listSources";
+import {
   invalidateUserPortfolioRecordCache,
   xanoRequest,
 } from "@/lib/portfolioFollow";
@@ -73,9 +78,11 @@ export async function bulkAddEntitiesToList(
   listId: number,
   entityType: PortfolioEntityType,
   entityIds: number[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  source?: ListFilterSource
 ): Promise<BulkAddResult> {
   const ids = cleanIds(entityIds);
+  const batchSource = source && { ...source, batchId: source.batchId ?? newSourceBatchId() };
   const result = { ...emptyResult(), listId };
   invalidateUserPortfolioRecordCache();
   let done = 0;
@@ -84,6 +91,7 @@ export async function bulkAddEntitiesToList(
       id: listId,
       entity_type: entityType,
       entity_ids: part,
+      ...toSourcePayload(batchSource),
     })) as Record<string, unknown> | null;
     result.added += num(res?.added_to_list);
     result.skipped += num(res?.skipped_in_list);
@@ -104,12 +112,14 @@ export async function bulkCreateListWithEntities(
     entityIds: number[];
     savedFilterId?: number | null;
     keepSynced?: boolean;
+    source?: ListFilterSource;
   },
   onProgress?: (done: number, total: number) => void
 ): Promise<BulkAddResult> {
   const ids = cleanIds(input.entityIds);
   const parts = chunk(ids, BULK_CHUNK_SIZE);
   const first = parts.shift() ?? [];
+  const source = input.source && { ...input.source, batchId: input.source.batchId ?? newSourceBatchId() };
   invalidateUserPortfolioRecordCache();
 
   const created = (await xanoRequest("/lists/from_entities", "POST", {
@@ -118,6 +128,7 @@ export async function bulkCreateListWithEntities(
     entity_ids: first,
     ...(input.savedFilterId ? { saved_filter_id: input.savedFilterId } : {}),
     ...(input.keepSynced ? { keep_synced: true } : {}),
+    ...toSourcePayload(source),
   })) as Record<string, unknown> | null;
 
   const listId = num(created?.list_id) || null;
@@ -134,7 +145,13 @@ export async function bulkCreateListWithEntities(
 
   if (listId != null) {
     for (const part of parts) {
-      const res = await bulkAddEntitiesToList(listId, input.entityType, part);
+      const res = await bulkAddEntitiesToList(
+        listId,
+        input.entityType,
+        part,
+        undefined,
+        source
+      );
       result.added += res.added;
       result.skipped += res.skipped;
       result.newlyFollowed += res.newlyFollowed;

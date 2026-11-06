@@ -1,5 +1,6 @@
 "use client";
 
+import { ListEntityTabs } from "@/components/portfolio/ListEntityTabs";
 import { trackKeyAction } from "@/lib/tracking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -1069,6 +1070,15 @@ export default function MyPortfolioPage() {
           )}
         </div>
 
+        {activeTabId !== ALL_FOLLOWED_TAB && activePortfolio ? (
+          <ListEntityTabs
+            listId={activePortfolio.id}
+            rows={rows}
+            loading={loading}
+            onChanged={reloadAfterFollowChange}
+          />
+        ) : (
+          <>
         {/* Search Portfolio Section */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -1205,6 +1215,8 @@ export default function MyPortfolioPage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
       </div>
     </AppShell>

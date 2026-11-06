@@ -28,6 +28,8 @@ type BulkAddToPortfolioModalProps = {
   resultCount?: number;
   /** Saved filters this action came from; the new list is linked to them. */
   savedFilterId?: number | null;
+  /** Filters the resolved ids came from; stored on the list as its source. */
+  filtersSource?: { name?: string | null; filters: Record<string, unknown> };
   /**
    * When given (company lists only), "Create new list" offers "Keep this list
    * updated". It must save the current filters and return the saved filter id.
@@ -55,6 +57,7 @@ export function BulkAddToPortfolioModal({
   resolveEntityIds,
   resultCount,
   savedFilterId,
+  filtersSource,
   onSaveFiltersForSync,
   onComplete,
 }: BulkAddToPortfolioModalProps) {
@@ -184,7 +187,17 @@ export function BulkAddToPortfolioModal({
         ids,
         action,
         setProgress,
-        { savedFilterId: linkedFilterId, keepSynced: wantsSync && linkedFilterId != null }
+        {
+          savedFilterId: linkedFilterId,
+          keepSynced: wantsSync && linkedFilterId != null,
+          source:
+            resolveEntityIds && filtersSource
+              ? {
+                  ...filtersSource,
+                  savedFilterId: linkedFilterId ?? savedFilterId ?? null,
+                }
+              : undefined,
+        }
       );
 
       await fetchPortfolio();

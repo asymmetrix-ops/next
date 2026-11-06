@@ -22,7 +22,10 @@ import {
   EMPTY_OWNERSHIP_COUNTS,
   type CompaniesOwnershipCounts,
 } from "@/components/companies/companiesFilterConfig";
-import { buildCompaniesSearchPayload } from "@/lib/companiesFilterPayload";
+import {
+  andFiltersSql,
+  buildCompaniesSearchPayload,
+} from "@/lib/companiesFilterPayload";
 import type { FilterBarState } from "@/components/companies/CompaniesFilterBar";
 
 export type ScopedCompaniesPanelProps = {
@@ -41,6 +44,13 @@ export type ScopedCompaniesPanelProps = {
   defaultColumnKeys?: readonly string[];
   /** Lock primary sector filter chip and primary_sectors column (sector-scoped public lists). */
   lockSectorScope?: boolean;
+  /** Only show companies that are in this My Portfolio list (every filter is applied on top). */
+  restrictToListId?: number;
+  /** Rendered between the filter bar and the table, e.g. bulk actions for the selected rows. */
+  renderSelectionBar?: (selection: {
+    selectedIds: Set<number>;
+    clear: () => void;
+  }) => React.ReactNode;
 };
 
 function useScopedCompaniesSearch() {
@@ -197,6 +207,8 @@ export function ScopedCompaniesPanel({
   columnsStorageScope = "session",
   defaultColumnKeys = DEFAULT_VISIBLE_COMPANY_COLUMN_KEYS,
   lockSectorScope = false,
+  restrictToListId,
+  renderSelectionBar,
 }: ScopedCompaniesPanelProps) {
   const {
     companies,
@@ -235,12 +247,40 @@ export function ScopedCompaniesPanel({
 
   const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
 
+  const listRestrictionSql = useMemo(
+    () =>
+      restrictToListId != null
+        ? `nc.id = ANY (ARRAY(SELECT unnest(followed_companies) FROM x2_124 WHERE id = ${Math.trunc(
+            Number(restrictToListId)
+          )}))`
+        : null,
+    [restrictToListId]
+  );
+
+  const restrictToList = useCallback(
+    (filters: Filters | undefined): Filters | undefined => {
+      if (!filters || !listRestrictionSql) return filters;
+      if ((filters.filters_sql ?? "").includes(listRestrictionSql)) return filters;
+      return {
+        ...filters,
+        filters_sql: andFiltersSql(filters.filters_sql, listRestrictionSql),
+      };
+    },
+    [listRestrictionSql]
+  );
+
+  const fetchRestricted = useCallback(
+    (page?: number, filters?: Filters, countsFilters?: Filters) =>
+      fetchCompanies(page, restrictToList(filters), restrictToList(countsFilters)),
+    [fetchCompanies, restrictToList]
+  );
+
   const handleSearch = useCallback(
     (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
       setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
-      fetchCompanies(1, listFilters, countsFilters);
+      fetchRestricted(1, listFilters, countsFilters);
     },
-    [fetchCompanies]
+    [fetchRestricted]
   );
 
   const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
@@ -330,15 +370,29 @@ export function ScopedCompaniesPanel({
         primarySectorId,
         secondarySectorId,
         fixedOwnershipTypeIds,
+        restrictToListId,
       }),
-    [primarySectorId, secondarySectorId, fixedOwnershipTypeIds]
+    [primarySectorId, secondarySectorId, fixedOwnershipTypeIds, restrictToListId]
   );
 
   useEffect(() => {
-    if (primarySectorId == null && secondarySectorId == null) return;
+    if (
+      primarySectorId == null &&
+      secondarySectorId == null &&
+      restrictToListId == null
+    ) {
+      return;
+    }
     const filters = buildScopedFilters();
-    fetchCompanies(1, filters, filters);
-  }, [scopeKey, buildScopedFilters, fetchCompanies, primarySectorId, secondarySectorId]);
+    fetchRestricted(1, filters, filters);
+  }, [
+    scopeKey,
+    buildScopedFilters,
+    fetchRestricted,
+    primarySectorId,
+    secondarySectorId,
+    restrictToListId,
+  ]);
 
   const resolvedColumnsStorageKey =
     columnsStorageKey ??
@@ -392,13 +446,17 @@ export function ScopedCompaniesPanel({
           selectedCount={enableRowSelection ? selectedCompanyIds.size : 0}
         />
       )}
+      {renderSelectionBar?.({
+        selectedIds: enableRowSelection ? selectedCompanyIds : emptySelectionSet,
+        clear: clearSelection,
+      })}
       <CompanySection
         companies={companies}
         loading={loading}
         error={error}
         pagination={pagination}
         ownershipCounts={ownershipCounts}
-        fetchCompanies={fetchCompanies}
+        fetchCompanies={fetchRestricted}
         setRequestColumns={setRequestColumns}
         currentFilters={currentFilters}
         filterPinnedColumnKeys={enableColumnControl ? filterPinnedColumnKeys : []}

@@ -15,6 +15,7 @@ import {
   updateSavedFilter,
   type SavedFilter,
 } from "@/lib/savedFilters";
+import { takeStashedFilters } from "@/lib/openListFilters";
 import {
   stripNonFilterKeys,
   suggestSavedFilterName,
@@ -71,6 +72,23 @@ export function ListViewPortfolioBar({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // "Open with these filters" from a My Portfolio list: apply them once on arrival.
+  const onApplySavedRef = useRef(onApplySaved);
+  onApplySavedRef.current = onApplySaved;
+  const stashedRef = useRef<Record<string, unknown> | null | undefined>(undefined);
+  useEffect(() => {
+    if (stashedRef.current === undefined) {
+      stashedRef.current = takeStashedFilters(entityType);
+    }
+    const stashed = stashedRef.current;
+    if (!stashed) return;
+    const timer = window.setTimeout(() => {
+      stashedRef.current = null;
+      onApplySavedRef.current(stashed);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [entityType]);
 
   const visible = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -444,6 +462,10 @@ export function ListViewPortfolioBar({
         entityType={entityType}
         resolveEntityIds={collectIds}
         resultCount={resultCount}
+        filtersSource={{
+          name: suggestSavedFilterName(entityPlural, filters ?? {}),
+          filters: stripNonFilterKeys(filters ?? {}),
+        }}
         onSaveFiltersForSync={
           entityType === "company"
             ? async (listName) => {
