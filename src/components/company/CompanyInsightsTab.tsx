@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { InsightsAnalysisCard } from "@/components/InsightsAnalysisCard";
+import { InsightsAnalysisCard, INSIGHTS_CARD_GRID_STYLE } from "@/components/InsightsAnalysisCard";
 import { getEffectiveContentType } from "@/lib/contentArticleDisplay";
 import {
   COMPANY_INSIGHTS_PAGE,
@@ -43,7 +43,7 @@ function Section({
         <span style={{ fontSize: 13, fontWeight: 600, color: T.muted }}>{items.length}</span>
       </h2>
       <div
-        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, alignItems: "stretch" }}
+        style={INSIGHTS_CARD_GRID_STYLE}
       >
         {items.slice(0, shown).map((a) => (
           <div

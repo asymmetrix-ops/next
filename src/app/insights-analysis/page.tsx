@@ -772,16 +772,6 @@ function InsightsAnalysisPageContent() {
       .ia-title-row { flex-direction: column !important; }
       .ia-shell { padding: 16px 12px 40px !important; }
     }
-    @media (min-width: 769px) and (max-width: 1024px) {
-      .ia-grid { grid-template-columns: repeat(3, 1fr) !important; }
-    }
-    /* Above tablet width, column count follows the left nav's open/collapsed
-       state (see useNavOpen) rather than the viewport alone — collapsing the
-       nav reclaims enough width for a 5th column. */
-    @media (min-width: 1025px) {
-      .ia-grid.ia-grid-nav-open { grid-template-columns: repeat(4, 1fr) !important; }
-      .ia-grid.ia-grid-nav-collapsed { grid-template-columns: repeat(5, 1fr) !important; }
-    }
   `;
 
   return (
