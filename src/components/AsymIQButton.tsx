@@ -90,7 +90,7 @@ function newConversationMessages(): ChatMessage[] {
 }
 
 const iconBtn =
-  "inline-flex h-7 items-center justify-center rounded-md border border-[var(--border-1)] bg-white px-2 text-[12px] font-semibold text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-3)] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-7 items-center justify-center rounded-md border border-white/30 bg-white/10 px-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function AsymIQButton({
   disabled = false,
@@ -167,6 +167,7 @@ export default function AsymIQButton({
     const loadingId = `loading-${Date.now()}`;
 
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setIsLoading(true);
     setMessages((prev) => [
       ...prev,
@@ -240,11 +241,15 @@ export default function AsymIQButton({
         aria-label="Open AsymIQ research assistant"
         className={
           className ||
-          "inline-flex h-11 items-center gap-2 rounded-full bg-[var(--ax-cyan-600)] pl-3.5 pr-4 text-[13px] font-semibold text-white shadow-[var(--shadow-brand-glow)] transition-colors hover:bg-[var(--ax-cyan-700)] focus:outline-none focus:ring-2 focus:ring-[var(--ax-cyan-400)] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          "group relative inline-flex h-12 items-center gap-2.5 rounded-full bg-[var(--ax-cyan-600)] pl-4 pr-5 text-[14px] font-bold text-white shadow-[var(--shadow-brand-glow)] ring-4 ring-white transition-all hover:-translate-y-0.5 hover:bg-[var(--ax-cyan-700)] focus:outline-none focus:ring-[var(--ax-cyan-300)] disabled:cursor-not-allowed disabled:opacity-50"
         }
       >
-        <SparklesIcon size={16} />
-        AsymIQ
+        <span
+          aria-hidden
+          className="absolute inset-0 -z-10 animate-ping rounded-full bg-[var(--ax-cyan-400)] opacity-30"
+        />
+        <SparklesIcon size={18} />
+        Ask AsymIQ
       </button>
 
       {isOpen &&
@@ -257,21 +262,21 @@ export default function AsymIQButton({
               role="dialog"
               aria-modal="false"
               aria-labelledby="asymiq-title"
-              className="pointer-events-auto flex h-[min(680px,100dvh)] w-full flex-col overflow-hidden rounded-t-xl border border-[var(--border-1)] bg-white shadow-[var(--shadow-md)] sm:h-[min(680px,calc(100dvh-2rem))] sm:w-[min(440px,calc(100vw-2rem))] sm:rounded-xl"
+              className="pointer-events-auto flex h-[min(760px,100dvh)] w-full flex-col overflow-hidden rounded-t-xl border border-[var(--ax-cyan-300)] bg-white shadow-[0_24px_64px_rgba(16,28,70,0.28),0_4px_12px_rgba(16,28,70,0.12)] sm:h-[min(760px,calc(100dvh-2rem))] sm:w-[min(480px,calc(100vw-2rem))] sm:rounded-xl"
               style={{ fontFamily: "var(--font-sans)" }}
             >
-              <div className="flex items-center gap-2.5 border-b border-[var(--border-1)] bg-white px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ax-cyan-600)] text-white">
-                  <SparklesIcon size={16} />
+              <div className="flex items-center gap-2.5 bg-[var(--ax-cyan-600)] px-4 py-3.5 text-white">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+                  <SparklesIcon size={18} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2
                     id="asymiq-title"
-                    className="m-0 text-[14px] font-bold leading-tight text-[var(--fg-1)]"
+                    className="m-0 text-[15px] font-bold leading-tight text-white"
                   >
                     AsymIQ
                   </h2>
-                  <p className="m-0 text-[11.5px] leading-tight text-[var(--fg-3)]">
+                  <p className="m-0 text-[11.5px] leading-tight text-white/75">
                     Research assistant · Asymmetrix database
                   </p>
                 </div>
@@ -339,18 +344,23 @@ export default function AsymIQButton({
                   <textarea
                     ref={inputRef}
                     value={input}
-                    onChange={(event) => setInput(event.target.value)}
+                    onChange={(event) => {
+                      setInput(event.target.value);
+                      const el = event.target;
+                      el.style.height = "auto";
+                      el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+                    }}
                     onKeyDown={handleKeyDown}
-                    rows={2}
+                    rows={1}
                     disabled={isLoading}
                     placeholder="Ask about a company, or for a list…"
-                    className="min-h-[44px] flex-1 resize-none rounded-lg border border-[var(--border-1)] bg-[var(--bg-2)] px-3 py-2 text-[13px] text-[var(--fg-1)] placeholder:text-[var(--fg-4)] focus:border-[var(--border-brand)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ax-cyan-100)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="block h-11 max-h-[140px] min-h-[44px] flex-1 resize-none rounded-lg border border-[var(--border-1)] bg-[var(--bg-2)] px-3 py-[11px] text-[13px] leading-[20px] text-[var(--fg-1)] placeholder:text-[var(--fg-4)] focus:border-[var(--border-brand)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ax-cyan-100)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <button
                     type="submit"
                     disabled={!input.trim() || isLoading}
                     aria-label="Send"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--ax-cyan-600)] text-white shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-lg bg-[var(--ax-cyan-600)] text-white shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

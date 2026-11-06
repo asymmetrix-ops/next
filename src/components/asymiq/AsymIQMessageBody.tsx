@@ -305,7 +305,7 @@ export default function AsymIQMessageBody({
                 type="button"
                 disabled={disabled}
                 onClick={() => onSuggest(s)}
-                className="rounded-full border border-[var(--border-1)] bg-white px-2.5 py-1 text-left text-[12px] font-medium text-[var(--fg-2)] transition-colors hover:border-[var(--border-brand)] hover:bg-[var(--bg-brand-soft)] hover:text-[var(--fg-brand)] disabled:opacity-50"
+                className="rounded-full border border-[var(--ax-cyan-300)] bg-[var(--ax-cyan-100)] px-3 py-1 text-left text-[12px] font-semibold text-[var(--ax-cyan-700)] transition-colors hover:border-[var(--ax-cyan-600)] hover:bg-[var(--ax-cyan-600)] hover:text-white disabled:opacity-50"
               >
                 {s}
               </button>
