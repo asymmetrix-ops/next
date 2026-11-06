@@ -12,8 +12,6 @@ import {
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
-import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
-import { readHqCountryIso2 } from "@/lib/dealRadar";
 import { useRightClick } from "@/hooks/useRightClick";
 import {
   enrichSectorEntries,
@@ -105,8 +103,6 @@ type SubsidiariesProfilePanelProps = {
   maxInitial?: number;
   /** `narrow` = single grid column; fits Revenue-model width */
   layout?: "default" | "narrow";
-  /** 1/3-width card: flag next to the name, no Country column (3 columns). */
-  compact?: boolean;
   /** Fallback name → id lookup when subsidiary sector refs omit ids. */
   sectorNameToId?: SectorNameLookup;
 };
@@ -224,19 +220,12 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     acquisitionYearByCompanyId = {},
     maxInitial = 3,
     layout = "default",
-    compact = false,
     sectorNameToId,
   }) => {
-    const narrow = layout === "narrow" || compact;
-    const headers: readonly string[] = compact
-      ? ["Company", "Sector", "Year Acquired"]
-      : narrow
-        ? ["Company", "Sector", "Country", "Year Acquired"]
-        : HEADERS;
-    const rowGrid = compact
-      ? "minmax(0, 1.3fr) minmax(0, 1fr) auto"
-      : SUBS_PROFILE_ROW_GRID;
-    const yearCol = compact ? 2 : 3;
+    const narrow = layout === "narrow";
+    const headers = narrow
+      ? (["Company", "Sector", "Country", "Year Acquired"] as const)
+      : HEADERS;
     const { createClickableElement } = useRightClick();
 
     const [showAll, setShowAll] = useState(false);
@@ -283,7 +272,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
           <div
             style={{
               ...tableColHeaderBarStyle,
-              gridTemplateColumns: rowGrid,
+              gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
               gap: PROFILE_EVENTS_ROW_GAP,
               padding: headerPad,
             }}
@@ -336,18 +325,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     }
                   )}
                 </span>
-                {compact ? (
-                  <CountryFlagImg
-                    iso2={
-                      readHqCountryIso2(
-                        subsidiary as unknown as Record<string, unknown>
-                      ) ??
-                      readHqCountryIso2({
-                        country: subsidiary._locations?.Country,
-                      })
-                    }
-                  />
-                ) : null}
               </div>
             );
 
@@ -356,7 +333,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 key={subsidiary.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: rowGrid,
+                  gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
                   gap: PROFILE_EVENTS_ROW_GAP,
                   alignItems: "center",
                   padding: cellPad,
@@ -388,7 +365,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                     createClickableElement={createClickableElement}
                   />
                 </div>
-                {!compact && (
                 <div
                   style={{
                     textAlign: profileTableColAlign(2),
@@ -398,10 +374,9 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                 >
                   {subsidiary._locations?.Country?.trim() || "-"}
                 </div>
-                )}
                 <div
                   style={{
-                    textAlign: profileTableColAlign(yearCol),
+                    textAlign: profileTableColAlign(3),
                     color: T.body,
                     fontVariantNumeric: "tabular-nums",
                     whiteSpace: "nowrap",

@@ -27,6 +27,7 @@ export default function CompanyNewsSummaryCard({
         flexDirection: "column",
         gap: 12,
         minWidth: 0,
+        height: "100%",
         boxSizing: "border-box",
         fontFamily: T.sans,
       }}
@@ -38,7 +39,7 @@ export default function CompanyNewsSummaryCard({
         </span>
       </div>
 
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column" }}>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", flex: 1 }}>
         {summary.items.map((a) => {
           const tone = a.news_type ? getNewsSubtypeTone(a.news_type) : null;
           return (
