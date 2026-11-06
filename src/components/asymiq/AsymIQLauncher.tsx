@@ -5,11 +5,16 @@ import AsymIQButton from "@/components/AsymIQButton";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 const FLAG_KEY = "asymiq_enabled";
+const PRODUCTION_HOSTS = new Set([
+  "www.asymmetrixintelligence.com",
+  "asymmetrixintelligence.com",
+]);
 
 /**
  * Floating AsymIQ launcher, mounted once in the root layout so the conversation survives
- * navigation (entity chips, "View results" links). Test gate: visit any page with ?asymiq=1 to
- * enable it in this browser (?asymiq=0 disables it). Only shown to signed-in, non-guest users.
+ * navigation (entity chips, "View results" links). Shown on every non-production host
+ * (develop previews, localhost) to signed-in, non-guest users. On production it stays hidden
+ * unless explicitly enabled in this browser via ?asymiq=1 (?asymiq=0 turns it off again).
  */
 export default function AsymIQLauncher() {
   const { isAuthenticated, isMcpGuest } = useAuth();
@@ -20,9 +25,10 @@ export default function AsymIQLauncher() {
       const param = new URLSearchParams(window.location.search).get("asymiq");
       if (param === "1") localStorage.setItem(FLAG_KEY, "1");
       if (param === "0") localStorage.removeItem(FLAG_KEY);
-      setEnabled(localStorage.getItem(FLAG_KEY) === "1");
+      const isProduction = PRODUCTION_HOSTS.has(window.location.hostname);
+      setEnabled(!isProduction || localStorage.getItem(FLAG_KEY) === "1");
     } catch {
-      setEnabled(false);
+      setEnabled(!PRODUCTION_HOSTS.has(window.location.hostname));
     }
   }, []);
 
