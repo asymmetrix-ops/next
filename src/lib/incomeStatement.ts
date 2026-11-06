@@ -562,56 +562,6 @@ function attachFinancialMetricCurrencyField(
   return next;
 }
 
-function mergeIncomeStatementCurrencyMetadata(
-  primary: NormalizedIncomeStatementRow,
-  supplement: NormalizedIncomeStatementRow
-): NormalizedIncomeStatementRow {
-  const merged: NormalizedIncomeStatementRow = { ...primary };
-  const mergedRecord = asIncomeStatementRecord(merged);
-  const supplementRecord = asIncomeStatementRecord(supplement);
-
-  for (const field of INCOME_STATEMENT_MONEY_FIELDS) {
-    const fxKey =
-      field === "revenue"
-        ? "revenue_fx"
-        : field === "ebit"
-          ? "ebit_fx"
-          : "ebitda_fx";
-
-    if (!merged[fxKey] && supplement[fxKey]) {
-      merged[fxKey] = supplement[fxKey];
-    }
-
-    for (const suffix of [
-      "_reported_value",
-      "_reported_currency_display",
-      "_converted",
-      "_is_approximate",
-    ] as const) {
-      const key = `${field}${suffix}`;
-      if (mergedRecord[key] == null && supplementRecord[key] != null) {
-        mergedRecord[key] = supplementRecord[key];
-      }
-    }
-  }
-
-  merged.reported_currency =
-    merged.reported_currency ||
-    supplement.reported_currency ||
-    merged.statement_currency ||
-    supplement.statement_currency;
-  merged.statement_currency =
-    merged.reported_currency ||
-    merged.statement_currency ||
-    supplement.statement_currency;
-  merged.cost_of_goods_sold_currency =
-    merged.cost_of_goods_sold_currency ||
-    supplement.cost_of_goods_sold_currency ||
-    merged.reported_currency;
-
-  return merged;
-}
-
 function resolveIncomeStatementFx(
   row: NormalizedIncomeStatementRow,
   field: IncomeStatementMoneyField
@@ -805,55 +755,12 @@ function buildConvertedIncomeStatementBaseRows({
   profileRows?: NormalizedIncomeStatementRow[];
   financialMetricsRows?: FinancialMetricsIncomeRow[];
 }): NormalizedIncomeStatementRow[] {
-  // The `income_statements` API rows are actual filed/reported periods — the
-  // source of truth. The `financial_metrics` rows can carry forward-looking
-  // (forecast/TTM) periods that are not always labeled as "Estimate" by the
-  // source, so a stray future year there must never be allowed to outrank or
-  // displace real filed years in the displayed columns. Cap any
-  // metrics-derived year at the latest actual filed year when we have one.
-  const latestActualFiledYear = apiRows.reduce<number | null>((max, row) => {
-    if (row.period_type !== "fiscal_year") return max;
-    const year = resolvePeriodYear(row);
-    if (year == null) return max;
-    return max == null || year > max ? year : max;
-  }, null);
-
-  const fromMetricsRaw = buildIncomeStatementFromFinancialMetrics(financialMetricsRows);
-  const fromMetrics =
-    latestActualFiledYear == null
-      ? fromMetricsRaw
-      : fromMetricsRaw.filter((row) => {
-          const year = resolvePeriodYear(row);
-          return year == null || year <= latestActualFiledYear;
-        });
-
-  const metricsByYear = new Map<number, NormalizedIncomeStatementRow>();
-  for (const row of fromMetrics) {
-    const year = resolvePeriodYear(row);
-    if (year != null) metricsByYear.set(year, row);
-  }
-
-  const enrichedMetrics = fromMetrics.map((row) => {
-    const year = resolvePeriodYear(row);
-    if (year == null) return row;
-    const apiMatch = apiRows.find(
-      (candidate) =>
-        candidate.period_type === "fiscal_year" && resolvePeriodYear(candidate) === year
-    );
-    return apiMatch ? mergeIncomeStatementCurrencyMetadata(row, apiMatch) : row;
-  });
-
-  const metricFiscalYears = new Set(metricsByYear.keys());
-  const supplementalApi = apiRows.filter((row) => {
-    if (row.period_type !== "fiscal_year") return true;
-    const year = resolvePeriodYear(row);
-    return year == null || !metricFiscalYears.has(year);
-  });
-
-  const hasApiData = enrichedMetrics.length > 0 || apiRows.length > 0;
-  if (!hasApiData) return profileRows;
-
-  return dedupeIncomeStatementPeriods([...enrichedMetrics, ...supplementalApi]);
+  // Income Statement is built ONLY from backend income_statement /
+  // income_statement_history rows. It must never be synthesized from
+  // financial_metrics / other_metrics (those are estimates, shown elsewhere).
+  void financialMetricsRows;
+  if (apiRows.length === 0) return profileRows;
+  return dedupeIncomeStatementPeriods([...apiRows]);
 }
 
 /** Merges profile and card income-statement API rows (excludes financial metrics estimates). */
