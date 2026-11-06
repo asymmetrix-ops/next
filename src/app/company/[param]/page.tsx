@@ -46,6 +46,7 @@ import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
 import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesign/ProductAttributesCard";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
+import ProfileMasonry, { type MasonryItem } from "@/components/company/ProfileMasonry";
 import CompanyNewsTab from "@/components/company/CompanyNewsTab";
 import CompanyNewsSummaryCard from "@/components/company/CompanyNewsSummaryCard";
 import { fetchCompanyNewsSummary, type CompanyNewsSummary } from "@/lib/companyNews";
@@ -4351,8 +4352,8 @@ const CompanyDetail = () => {
               // leave a blank hole under the main column move over to balance heights.
               type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights || showNews), node: () => (
-                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNews && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "start", minWidth: 0 }}>
+                { id: "news", col: "main" as const, weight: 330, movable: false, show: Boolean(showNews && newsSummary), node: () => (
+                <>
                 {showNews && newsSummary && (
                   <CompanyNewsSummaryCard
                     summary={newsSummary}
@@ -4362,6 +4363,10 @@ const CompanyDetail = () => {
                     }}
                   />
                 )}
+                </>
+                ) },
+                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
+                <>
                 {showInsights && (
                 <div
                   className="insights-summary-card company-grid-insights"
@@ -4411,7 +4416,7 @@ const CompanyDetail = () => {
                   />
                 </div>
                 )}
-                </div>
+                </>
                 ) },
                 { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
                 <div className="company-grid-corporate-events">
@@ -4563,148 +4568,50 @@ const CompanyDetail = () => {
                 </div>
                 ) },
               ].filter((c) => c.show);
-              const wide = cards.filter((c) => c.col === "main");
-              const pairOrder = ["management", "subsidiaries", "headcount"];
-              // Product cards (Product type / Core products) sit above Corporate Events.
-              const productIds = ["productmix", "coreproducts"];
-              const eventsIdx = wide.findIndex((c) => c.id === "events");
-              const wideAbove = eventsIdx >= 0 ? wide.slice(0, eventsIdx) : wide;
-              const wideBelow = eventsIdx >= 0 ? wide.slice(eventsIdx) : [];
-              const pair = cards
-                .filter((c) => c.col === "pair" && !productIds.includes(c.id))
-                .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
-              const rail = cards.filter((c) => c.col === "rail");
-              const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
-              // Product block is a fixed 2-col grid: [productmix | coreproducts] over [data collection | management].
-              // Its height is the taller column, not the sum of its cards.
-              // Product block: two independent columns, each card goes under the shorter one
-              // (content height, nothing stretched), so no blank space inside or between cards.
-              const productItems: Array<{ key: string; weight: number; node: React.ReactNode }> = [];
-              if (showProductType || showRevenueModel)
-                productItems.push({
-                  key: "ptype",
-                  weight: 440,
-                  node: (
-                    <ProductTypeRevenueCard
-                      productRows={productTypeBarRows}
-                      revenueRows={revenueModelRows.map((r) => ({ name: r.label, weight: r.value }))}
-                    />
-                  ),
-                });
-              if (showCoreProducts)
-                productItems.push({
-                  key: "core",
-                  weight: 170,
-                  node: <ProductUsersListCard sections={coreProductsSections} useCaseSections={usersUseCaseSections} />,
-                });
-              if (showDataCollection)
-                productItems.push({
-                  key: "datacoll",
-                  weight: 150,
-                  node: <DataCollectionCard productRows={productTypeBarRows} dataRows={productDataToggleDataRows} />,
-                });
-              const productCols: [typeof productItems, typeof productItems] = [[], []];
-              const colH = [0, 0];
-              for (const it of productItems) {
-                const i = colH[0] <= colH[1] ? 0 : 1;
-                productCols[i].push(it);
-                colH[i] += it.weight;
-              }
-              const productZoneW = Math.max(colH[0], colH[1]);
-              const renderProductZone = () =>
-                productItems.length > 0 && (
-                  <div className="company-grid-product-zone" style={{ alignItems: "start" }}>
-                    {productCols.map((col, i) => (
-                      <div key={i} className="product-zone-cell" style={{ gap: 12 }}>
-                        {col.map((it) => (
-                          <React.Fragment key={it.key}>{it.node}</React.Fragment>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                );
-              // The lower-main area is two independent vertical stacks; each card goes
-              // into the shorter stack (ties -> left), so nothing is stretched.
-              const splitPair = (a: ZoneCard[]): [ZoneCard[], ZoneCard[]] => {
-                const left: ZoneCard[] = [];
-                const right: ZoneCard[] = [];
-                for (const c of a) (sum(left) <= sum(right) ? left : right).push(c);
-                return [left, right];
-              };
-              const pairWeight = (a: ZoneCard[]) => {
-                const [l, r] = splitPair(a);
-                return Math.max(sum(l), sum(r));
-              };
-              let pairCards = [...pair];
-              let railCards = [...rail];
-              const fin = rail.find((c) => c.id === "fin2");
-              // Aligned mode: when the AI card is shown and the top stack (Insights...) is about
-              // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
-              // AI sits level with Product type / Data Collection / Core Products. The shorter
-              // top block simply leaves extra space under it (nothing is cut or stretched).
-              // Aligned (level tiers) mode is off: it left blank holes; cards pack upwards instead.
-              const aligned = false;
-              const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
-              // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
-              // Only Headcount / Management may hop from the main column to the rail
-              // when the main column is taller, so any leftover gap is always in the
-              // bottom-left corner (main column shorter than the rail), never the right.
-              const cost = (mainHeight: number, railHeight: number) =>
-                mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
-              for (let guard = 0; guard < 4 && !aligned; guard++) {
-                const current = cost(mainH(pairCards), sum(railCards));
-                let best: { cost: number; card: ZoneCard } | null = null;
-                for (const c of pairCards) {
-                  if (!c.movable) continue;
-                  const k = cost(mainH(pairCards.filter((x) => x !== c)), sum(railCards) + c.weight);
-                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c };
+              // Real-height masonry: order = placement priority; spans = share of the page width.
+              const byId = (id: string) => cards.find((c) => c.id === id);
+              const order: Array<[string, 1 | 2]> = [
+                ["news", 1],
+                ["insights", showNews && newsSummary ? 1 : 2],
+                ["fin2", 1],
+                ["productmix", 1],
+                ["coreproducts", 1],
+                ["airisk", 1],
+                ["events", 2],
+                ["datacollection", 1],
+                ["management", 1],
+                ["subsidiaries", 1],
+                ["headcount", 1],
+              ];
+              const masonryItems: MasonryItem[] = [];
+              for (const [id, span] of order) {
+                if (id === "productmix") {
+                  if (showProductType || showRevenueModel)
+                    masonryItems.push({
+                      id,
+                      span,
+                      node: (
+                        <ProductTypeRevenueCard
+                          productRows={productTypeBarRows}
+                          revenueRows={revenueModelRows.map((r) => ({ name: r.label, weight: r.value }))}
+                        />
+                      ),
+                    });
+                  continue;
                 }
-                if (!best) break;
-                const moving = best.card;
-                pairCards = pairCards.filter((x) => x !== moving);
-                railCards = [...railCards, moving];
+                if (id === "datacollection") {
+                  if (showDataCollection)
+                    masonryItems.push({
+                      id,
+                      span,
+                      node: <DataCollectionCard productRows={productTypeBarRows} dataRows={productDataToggleDataRows} />,
+                    });
+                  continue;
+                }
+                const c = byId(id);
+                if (c) masonryItems.push({ id, span, flexible: id === "events", node: c.node() });
               }
-              const renderPair = (cardsIn: ZoneCard[]) =>
-                cardsIn.length > 0 && (
-                  <div className="company-zone-pair">
-                    {splitPair(cardsIn).map((col, i) => (
-                      <div key={i} className="company-zone-pair-col">
-                        {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                      </div>
-                    ))}
-                  </div>
-                );
-              if (aligned) {
-                return (
-                  <>
-                    <div className="company-zone-top-left">
-                      {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                      {renderProductZone()}
-                      {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    </div>
-                    <div className="company-zone-top-right">{fin?.node()}</div>
-                    <div className="company-zone-low-left">{renderPair(pairCards)}</div>
-                    <div className="company-zone-low-right">
-                      {railCards
-                        .filter((c) => c.id !== "fin2")
-                        .map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    </div>
-                  </>
-                );
-              }
-              return (
-                <>
-                  <div className="company-zone-main">
-                    {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {renderProductZone()}
-                    {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {renderPair(pairCards)}
-                  </div>
-                  <div className="company-zone-rail">
-                    {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                  </div>
-                </>
-              );
+              return <ProfileMasonry items={masonryItems} />;
             })()}
 
             {/* Market Overview removed */}
