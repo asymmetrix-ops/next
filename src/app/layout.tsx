@@ -19,6 +19,7 @@ import ErrorTracker from "@/components/ErrorTracker";
 import { ExportLimitNotice } from "@/components/ExportLimitNotice";
 import SessionExpiredModal from "@/components/SessionExpiredModal";
 import NpsGate from "@/components/nps/NpsGate";
+import AsymIQLauncher from "@/components/asymiq/AsymIQLauncher";
 
 export const metadata: Metadata = {
   title: "Asymmetrix - Data & Analytics Demystified",
@@ -152,6 +153,7 @@ export default function RootLayout({
               <ErrorTracker />
               <ExportLimitNotice />
               <NpsGate />
+              <AsymIQLauncher />
               <GlobalSearchProvider>
                 {children}
                 <GlobalSearchModal />

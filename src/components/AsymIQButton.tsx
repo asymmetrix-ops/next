@@ -4,12 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { askCompanyProfileAgent } from "@/lib/asymiq";
+import {
+  closeAsymIQSession,
+  sendAsymIQMessage,
+  type AsymIQChoice,
+} from "@/lib/asymiq";
+import AsymIQMessageBody, {
+  type AsymIQAssistantPayload,
+} from "@/components/asymiq/AsymIQMessageBody";
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "loading";
   content: string;
+  payload?: AsymIQAssistantPayload;
 };
 
 type AsymIQButtonProps = {
@@ -19,7 +27,10 @@ type AsymIQButtonProps = {
 };
 
 const LOADING_MESSAGE =
-  "Looking up company… This can take 5–15 seconds while AsymIQ searches and builds a profile.";
+  "Thinking… AsymIQ is searching the Asymmetrix database. This can take 10–30 seconds.";
+
+const WELCOME_MESSAGE =
+  "Hi, I'm AsymIQ — your Asymmetrix research assistant. Ask about a company, investor or sector, or ask for a list (e.g. “10 biggest German companies by revenue”) and I'll open it pre-filtered.";
 
 function SparklesIcon() {
   return (
@@ -80,6 +91,8 @@ export default function AsymIQButton({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const requestIdRef = useRef(0);
+  // Session memory lives server-side; we only keep the session id for the open conversation.
+  const sessionUidRef = useRef<string | null>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -107,24 +120,33 @@ export default function AsymIQButton({
     setInput(seed);
     setIsLoading(false);
     requestIdRef.current += 1;
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content:
-          "Hi, I'm AsymIQ — your AI search assistant. Ask about a company and I'll look up its profile for you.",
-      },
-    ]);
+    sessionUidRef.current = null;
+    setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE }]);
     setIsOpen(true);
+  };
+
+  const endSession = () => {
+    const uid = sessionUidRef.current;
+    sessionUidRef.current = null;
+    if (uid) void closeAsymIQSession(uid);
   };
 
   const closeChat = () => {
     if (isLoading) return;
+    endSession(); // closing the chat resets memory
     setIsOpen(false);
   };
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
+  const newConversation = () => {
+    if (isLoading) return;
+    endSession();
+    requestIdRef.current += 1;
+    setInput("");
+    setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE }]);
+  };
+
+  const sendMessage = async (override?: string) => {
+    const trimmed = (override ?? input).trim();
     if (!trimmed || isLoading) return;
 
     const requestId = requestIdRef.current + 1;
@@ -148,15 +170,25 @@ export default function AsymIQButton({
     ]);
 
     try {
-      const result = await askCompanyProfileAgent(trimmed);
+      const result = await sendAsymIQMessage(trimmed, sessionUidRef.current);
       if (requestIdRef.current !== requestId) return;
+      if (result.session_uid) sessionUidRef.current = result.session_uid;
 
       setMessages((prev) => [
         ...prev.filter((message) => message.id !== loadingId),
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: result,
+          content: result.reply,
+          payload: {
+            content: result.reply,
+            entities: result.entities,
+            choices: result.choices,
+            listLinks: result.list_links,
+            suggestions: result.suggestions,
+            cards: result.cards,
+            actions: result.actions,
+          },
         },
       ]);
     } catch (error) {
@@ -180,6 +212,14 @@ export default function AsymIQButton({
         setIsLoading(false);
       }
     }
+  };
+
+  const handleChoose = (choice: AsymIQChoice) => {
+    void sendMessage(choice.name);
+  };
+
+  const handleSuggest = (text: string) => {
+    void sendMessage(text);
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -226,15 +266,14 @@ export default function AsymIQButton({
         createPortal(
           <div
             role="presentation"
-            onClick={closeChat}
-            className="fixed inset-0 z-[10000] flex items-end justify-end bg-slate-900/40 p-0 sm:items-end sm:p-4"
+            className="pointer-events-none fixed inset-0 z-[10000] flex items-end justify-end p-0 sm:items-end sm:p-4"
           >
             <div
               role="dialog"
-              aria-modal="true"
+              aria-modal="false"
               aria-labelledby="asymiq-title"
               onClick={(event) => event.stopPropagation()}
-              className="flex h-[min(640px,100dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-indigo-100 bg-white shadow-2xl sm:h-[min(640px,calc(100dvh-2rem))] sm:w-[min(420px,calc(100vw-2rem))] sm:rounded-2xl"
+              className="pointer-events-auto flex h-[min(640px,100dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-indigo-100 bg-white shadow-2xl sm:h-[min(640px,calc(100dvh-2rem))] sm:w-[min(440px,calc(100vw-2rem))] sm:rounded-2xl"
             >
               <div className="flex items-start justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-4 text-white">
                 <div className="min-w-0">
@@ -247,11 +286,19 @@ export default function AsymIQButton({
                         AsymIQ
                       </h2>
                       <p className="text-xs text-indigo-100">
-                        AI search assistant
+                        AI research assistant
                       </p>
                     </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={newConversation}
+                  disabled={isLoading}
+                  className="ml-auto mr-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  New chat
+                </button>
                 <button
                   type="button"
                   aria-label="Close AsymIQ"
@@ -283,6 +330,13 @@ export default function AsymIQButton({
                           <LoadingDots />
                           <span>{message.content}</span>
                         </div>
+                      ) : message.role === "assistant" && message.payload ? (
+                        <AsymIQMessageBody
+                          payload={message.payload}
+                          onChoose={handleChoose}
+                          onSuggest={handleSuggest}
+                          disabled={isLoading}
+                        />
                       ) : message.role === "assistant" ? (
                         <AssistantMessageContent content={message.content} />
                       ) : (
@@ -306,7 +360,7 @@ export default function AsymIQButton({
                     onKeyDown={handleKeyDown}
                     rows={2}
                     disabled={isLoading}
-                    placeholder="Ask about a company..."
+                    placeholder="Ask about a company, or for a list…"
                     className="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                   <button
