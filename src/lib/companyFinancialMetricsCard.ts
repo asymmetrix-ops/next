@@ -643,7 +643,9 @@ function formatMetricValue(
     case "money_whole":
       primaryDisplay = formatMoneyWhole(
         preferredRaw,
-        metric.key === "rev_per_client" || !metric.formattedField
+        metric.key === "rev_per_client" ||
+        metric.key === "rev_per_employee" ||
+        !metric.formattedField
           ? null
           : row[metric.formattedField],
         currency
@@ -684,7 +686,9 @@ function formatMetricValue(
         ? formatMillions(reportedRaw, reportedCurrency)
         : formatMoneyWhole(
             reportedRaw,
-            metric.key === "rev_per_client" || !metric.formattedField
+            metric.key === "rev_per_client" ||
+        metric.key === "rev_per_employee" ||
+        !metric.formattedField
               ? null
               : row[metric.formattedField],
             reportedCurrency
