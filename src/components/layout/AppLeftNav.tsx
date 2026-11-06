@@ -64,14 +64,12 @@ const SECTIONS: NavSection[] = [
     href: "/news",
     icon: NewspaperIcon,
     isActive: (p) => p.startsWith("/news"),
-    badge: "New",
   },
   {
     key: "dealRadar",
     label: "Deal Radar",
     href: "/deal-radar",
     icon: SignalIcon,
-    badge: "New",
     isActive: (p) => p.startsWith("/deal-radar"),
   },
   {
@@ -112,7 +110,6 @@ const SECTIONS: NavSection[] = [
     label: "Transaction Comps",
     href: "/transaction-comps",
     icon: ScaleIcon,
-    badge: "New",
     isActive: (p) => p.startsWith("/transaction-comps"),
   },
   {
