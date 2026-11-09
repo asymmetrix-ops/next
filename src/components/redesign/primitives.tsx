@@ -305,8 +305,8 @@ export const SUBS_PROFILE_GRID_COL = {
   yearAcquired: 6,
 } as const;
 
-/** Equal-width columns for Current Subsidiaries (4 fields). */
-export const SUBS_PROFILE_ROW_GRID = "repeat(4, minmax(0, 1fr))";
+/** Current Subsidiaries (1/3-width card): Company | Sector | Year acquired. */
+export const SUBS_PROFILE_ROW_GRID = "minmax(0, 1.5fr) minmax(0, 1fr) 64px";
 
 /** Equal thirds — Role centered between Name and LinkedIn. */
 export const MANAGEMENT_ROW_GRID = "repeat(3, minmax(0, 1fr))";

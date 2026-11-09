@@ -4304,7 +4304,6 @@ const CompanyDetail = () => {
                         ?.Subsidiaries_companies ?? []
                     }
                     acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
-                    maxInitial={3}
                   />
                   </LinkPanel>
               </div>

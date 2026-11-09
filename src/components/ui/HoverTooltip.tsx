@@ -116,6 +116,7 @@ export function HoverTooltip({ content, children, maxWidth = 260 }: Props) {
                 lineHeight: 1.45,
                 fontFamily: T.sans,
                 fontWeight: 500,
+                whiteSpace: "pre-line",
                 boxShadow: "0 6px 16px rgba(15, 23, 42, 0.18)",
                 pointerEvents: "none",
                 ...style,

@@ -4,7 +4,7 @@ import type { MultiSelectOption } from "@/components/settings/EmailPrefsMultiSel
 let nameToIso2: Map<string, string> | null = null;
 
 /** English country name -> ISO2, built from the runtime's region names. */
-function iso2ForName(name: string): string | null {
+export function iso2ForName(name: string): string | null {
   if (!nameToIso2) {
     nameToIso2 = new Map();
     const display = new Intl.DisplayNames(["en"], { type: "region" });
