@@ -233,7 +233,7 @@ export function GlobalSearchModal() {
       key: `${r.type}-${r.id}`,
       avatarResult: r,
       title: r.title,
-      subtitle: getSearchBadgeLabel(r.type),
+      subtitle: getSearchBadgeLabel(r.type, r.sector_importance),
       onSelect: () => goToResult(r),
     });
     if (filter) return visibleResults.map(toRow);

@@ -1036,7 +1036,7 @@ export default function MyPortfolioPage() {
                         <td className="px-4 py-3 text-center">
                           <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}>
                             {getEntityIcon(r.type)}
-                            <span className="capitalize">{getSearchBadgeLabel(r.type)}</span>
+                            <span className="capitalize">{getSearchBadgeLabel(r.type, r.sector_importance)}</span>
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-center">

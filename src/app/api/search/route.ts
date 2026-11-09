@@ -26,6 +26,7 @@ export type SearchResultItem = {
   /** Company the row belongs to (Deal Radar, Transaction Comps, News tagged company). */
   company_id?: number | null;
   sort_date?: string;
+  sector_importance?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -130,7 +131,12 @@ function extractItems(data: unknown, defaultType: string): SearchResultItem[] {
       const company_id =
         Number.isFinite(companyIdRaw) && companyIdRaw > 0 ? companyIdRaw : null;
       const sort_date = typeof rec.sort_date === "string" ? rec.sort_date : undefined;
-      return { id, title, type: itemType, logo, company_id, sort_date };
+      const sectorImportanceRaw = rec.sector_importance ?? rec.Sector_importance;
+      const sector_importance =
+        typeof sectorImportanceRaw === "string" && sectorImportanceRaw.trim()
+          ? sectorImportanceRaw.trim()
+          : undefined;
+      return { id, title, type: itemType, logo, company_id, sort_date, sector_importance };
     })
     .filter((r): r is SearchResultItem => r !== null);
 }

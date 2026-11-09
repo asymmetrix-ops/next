@@ -1,3 +1,5 @@
+import { getSectorHref } from "@/lib/sectorLinks";
+
 /**
  * Platform-wide search using split APIs (sectors, investors, individuals, events, content, companies, advisors).
  * Client calls /api/search which fetches from all 7 Xano endpoints in parallel on the server.
@@ -47,6 +49,8 @@ export type GlobalSearchResult = {
   company_id?: number | null;
   /** Raw logo payload from search APIs (base64 JPEG/PNG or URL) for companies, investors, and advisors. */
   logo?: string | null;
+  /** Sector search: Primary → /sector/[id], Secondary → /sub-sector/[id]. */
+  sector_importance?: string;
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -341,16 +345,25 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
     return `/transaction-comps?company_id=${id}&company_name=${encodeURIComponent(result.title)}`;
   if (t === "deal_radar")
     return `/deal-radar?company_id=${id}&company_name=${encodeURIComponent(result.title)}`;
-  if (t === "sector") return `/sector/${id}`;
-  if (t === "sub_sector" || t === "sub-sector") return `/sub-sector/${id}`;
+  if (t === "sector" || t === "sectors" || t === "sub_sector" || t === "sub-sector") {
+    const importance =
+      t === "sub_sector" || t === "sub-sector"
+        ? result.sector_importance ?? "Secondary"
+        : result.sector_importance;
+    return getSectorHref({ id, importance }) ?? "";
+  }
 
   return "";
 }
 
-export function getSearchBadgeLabel(type: string): string {
+export function getSearchBadgeLabel(type: string, sectorImportance?: string): string {
   const t = (type || "").toLowerCase().trim();
   if (t === "insight" || t === "insights" || t === "article")
     return "Insights & Analysis";
+  if (t === "sector" || t === "sectors") {
+    const imp = String(sectorImportance ?? "").trim().toLowerCase();
+    return imp === "secondary" ? "Secondary sector" : "Sector";
+  }
   if (t === "sub_sector" || t === "sub-sector") return "Secondary sector";
   if (t === "news") return "News";
   if (t === "transaction_comps") return "Transaction Comps";
