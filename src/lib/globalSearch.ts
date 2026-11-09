@@ -350,7 +350,7 @@ export function resolveSearchHref(result: GlobalSearchResult): string {
       t === "sub_sector" || t === "sub-sector"
         ? result.sector_importance ?? "Secondary"
         : result.sector_importance;
-    return getSectorHref({ id, importance }) ?? "";
+    return getSectorHref({ name: result.title, id, importance }) ?? "";
   }
 
   return "";
