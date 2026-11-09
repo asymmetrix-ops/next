@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -1770,7 +1771,7 @@ const ArticleDetailPage = () => {
                     {visibleItems.map((itemHtml, idx) => (
                       <li
                         key={`${idx}-${itemHtml}`}
-                        dangerouslySetInnerHTML={{ __html: itemHtml }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(itemHtml) }}
                       />
                     ))}
                   </ul>
@@ -1823,7 +1824,7 @@ const ArticleDetailPage = () => {
                 <div
                   style={styles.body}
                   className="article-body"
-                  dangerouslySetInnerHTML={{ __html: stripEntityTagMarker(html) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(stripEntityTagMarker(html)) }}
                 />
               );
             })()}

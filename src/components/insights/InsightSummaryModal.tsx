@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 import { useEffect } from "react";
 import { parseSummaryItems } from "@/lib/insightSummary";
 import { T } from "@/components/redesign/primitives";
@@ -151,7 +152,7 @@ export function InsightSummaryModal({
                 marginBottom: i < items.length - 1 ? 10 : 0,
                 display: "list-item",
               }}
-              dangerouslySetInnerHTML={{ __html: item }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(item) }}
             />
           ))}
         </ul>
