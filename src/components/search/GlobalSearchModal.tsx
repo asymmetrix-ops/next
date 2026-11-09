@@ -11,7 +11,6 @@ import {
   sortSearchResults,
   resolveSearchHref,
   getSearchBadgeLabel,
-  getSearchTypeLabel,
   groupSearchResults,
   SEARCH_PAGE_TYPES,
   SEARCH_PAGE_TYPE_LABELS,
@@ -230,11 +229,10 @@ export function GlobalSearchModal() {
         onSelect: () => goToRecentItem(r),
       }));
     }
-    // "All": grouped by company, titled "Name (Type)". A single section keeps plain titles.
     const toRow = (r: GlobalSearchResult): Row => ({
       key: `${r.type}-${r.id}`,
       avatarResult: r,
-      title: filter ? r.title : `${r.title} (${getSearchTypeLabel(r.type)})`,
+      title: r.title,
       subtitle: getSearchBadgeLabel(r.type),
       onSelect: () => goToResult(r),
     });
