@@ -1,0 +1,417 @@
+"use client";
+
+import { trackListQuery } from "@/lib/listTracking";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { andFiltersSql } from "@/lib/companiesFilterPayload";
+import { InvestorDashboard } from "@/components/investors/InvestorDashboard";
+import {
+  InvestorSection,
+  type Investor,
+  type Filters,
+} from "@/components/investors/InvestorSection";
+import { createDefaultInvestorFilters } from "@/lib/investorsFilterPayload";
+import { DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS } from "@/components/investors/investorsColumnCategories";
+import { getColumnKeysForActiveFilters } from "@/components/investors/investorsColumnFilterMap";
+import {
+  EMPTY_INVESTOR_TYPE_COUNTS,
+  type InvestorsTypeCounts,
+  type InvestorTypeOption,
+} from "@/components/investors/investorsFilterConfig";
+import {
+  fetchInvestorsServer,
+  fetchInvestorTypesServer,
+} from "@/app/investors/actions";
+import {
+  getInvestorServerSortColumn,
+  getInvestorServerSortDefaultDirection,
+} from "@/components/investors/investorsTableSort";
+import { useEntitySelection } from "@/components/search/useEntitySelection";
+import type { ListExportRequest } from "@/lib/listExport/types";
+import { ListViewPortfolioBar } from "@/components/portfolio/ListViewPortfolioBar";
+import { collectAllInvestorIds } from "@/lib/listExport/investorsListExport";
+import { hasActiveFilters } from "@/lib/savedFilterUtils";
+
+const useInvestorsAPI = (listRestrictionSql: string | null) => {
+  const withListRestriction = useCallback(
+    <T extends Filters | undefined>(filters: T): T => {
+      if (!filters || !listRestrictionSql) return filters;
+      if ((filters.filters_sql ?? "").includes(listRestrictionSql)) return filters;
+      return {
+        ...filters,
+        filters_sql: andFiltersSql(filters.filters_sql, listRestrictionSql) ?? "",
+      };
+    },
+    [listRestrictionSql]
+  );
+  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const lastRequestIdRef = useRef(0);
+  const lastCountsRequestIdRef = useRef(0);
+  const countsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentFiltersRef = useRef<Filters | undefined>(undefined);
+  const currentCountsFiltersRef = useRef<Filters | undefined>(undefined);
+  const [currentFilters, setCurrentFilters] = useState<Filters | undefined>(
+    undefined
+  );
+  const [pagination, setPagination] = useState({
+    curPage: 1,
+    nextPage: null as number | null,
+    prevPage: null as number | null,
+    pageTotal: 0,
+    itemsTotal: 0,
+  });
+  const [typeCounts, setTypeCounts] =
+    useState<InvestorsTypeCounts>(EMPTY_INVESTOR_TYPE_COUNTS);
+  const [investorTypes, setInvestorTypes] = useState<InvestorTypeOption[]>([]);
+
+  const scheduleCountsFetch = useCallback((countsFilters: Filters) => {
+    if (countsTimeoutRef.current) clearTimeout(countsTimeoutRef.current);
+    countsTimeoutRef.current = setTimeout(() => {
+      const countsRequestId = ++lastCountsRequestIdRef.current;
+      void fetchInvestorsServer({ ...countsFilters, page: 1 })
+        .then((countsData) => {
+          if (countsRequestId !== lastCountsRequestIdRef.current || !countsData) {
+            return;
+          }
+          setTypeCounts(countsData.typeCounts);
+        })
+        .catch((countsError) => {
+          console.error("Error fetching investor type counts:", countsError);
+        });
+    }, 400);
+  }, []);
+
+  const fetchInvestors = useCallback(
+    async (page: number = 1, filters?: Filters, countsFilters?: Filters) => {
+      filters = withListRestriction(filters);
+      countsFilters = withListRestriction(countsFilters);
+      const requestId = ++lastRequestIdRef.current;
+      setLoading(true);
+      setError(null);
+
+      if (filters !== undefined) {
+        currentFiltersRef.current = filters;
+        setCurrentFilters(filters);
+      }
+      if (countsFilters !== undefined) {
+        currentCountsFiltersRef.current = countsFilters;
+      }
+
+      const filtersToUse =
+        filters !== undefined
+          ? filters
+          : currentFiltersRef.current ??
+            withListRestriction(createDefaultInvestorFilters());
+      const countsFiltersToUse =
+        countsFilters ?? currentCountsFiltersRef.current ?? filtersToUse;
+
+      try {
+        if (page === 1) {
+          scheduleCountsFetch(countsFiltersToUse);
+        }
+
+        const data = await fetchInvestorsServer({ ...filtersToUse, page });
+
+        if (page === 1 && filters !== undefined && data) {
+          trackListQuery({
+            section: "investors",
+            filters: filtersToUse as unknown as Record<string, unknown>,
+            defaults: createDefaultInvestorFilters() as unknown as Record<string, unknown>,
+            resultsCount: data?.itemsTotal,
+          });
+        }
+
+        if (!data) {
+          throw new Error("Failed to fetch investors. Please try again or adjust your filters.");
+        }
+
+        if (requestId === lastRequestIdRef.current) {
+          setInvestors(data.items);
+          setPagination({
+            curPage: data.curPage,
+            nextPage: data.nextPage,
+            prevPage: data.prevPage,
+            pageTotal: data.pageTotal,
+            itemsTotal: data.itemsTotal,
+          });
+          if (page === 1) {
+            setTypeCounts(data.typeCounts);
+          }
+        }
+      } catch (err) {
+        if (requestId === lastRequestIdRef.current) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch investors"
+          );
+        }
+        console.error("Error fetching investors:", err);
+      } finally {
+        if (requestId === lastRequestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [scheduleCountsFetch, withListRestriction]
+  );
+
+  useEffect(() => {
+    void fetchInvestorTypesServer().then(setInvestorTypes).catch(console.error);
+    fetchInvestors(1, createDefaultInvestorFilters());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return {
+    investors,
+    loading,
+    error,
+    pagination,
+    typeCounts,
+    investorTypes,
+    fetchInvestors,
+    currentFilters,
+  };
+};
+
+export type InvestorsListViewProps = {
+  /** Only show investors that are in this My Portfolio list (every filter is applied on top). */
+  restrictToListId?: number;
+  embedded?: boolean;
+  columnsStorageKey?: string;
+  /** Rendered between the filter bar and the table, e.g. bulk actions for the selected rows. */
+  renderSelectionBar?: (selection: {
+    selectedIds: Set<number>;
+    clear: () => void;
+  }) => React.ReactNode;
+};
+
+export function InvestorsListView({
+  restrictToListId,
+  embedded = false,
+  columnsStorageKey,
+  renderSelectionBar,
+}: InvestorsListViewProps) {
+  const listRestrictionSql = useMemo(
+    () =>
+      restrictToListId != null
+        ? `nc.id = ANY (ARRAY(SELECT unnest(followed_investors) FROM x2_124 WHERE id = ${Math.trunc(
+            Number(restrictToListId)
+          )}))`
+        : null,
+    [restrictToListId]
+  );
+
+  const {
+    investors,
+    loading,
+    error,
+    pagination,
+    typeCounts,
+    investorTypes,
+    fetchInvestors,
+    currentFilters,
+  } = useInvestorsAPI(listRestrictionSql);
+
+  const [isPortfolioOnlyFilter, setIsPortfolioOnlyFilter] = useState(false);
+  const [filterPinnedColumnKeys, setFilterPinnedColumnKeys] = useState<string[]>(
+    []
+  );
+  const [showColumnsModal, setShowColumnsModal] = useState(false);
+  const [columnsCount, setColumnsCount] = useState(
+    DEFAULT_VISIBLE_INVESTOR_COLUMN_KEYS.length
+  );
+  const [initialSearch, setInitialSearch] = useState<string | undefined>(
+    undefined
+  );
+  const [initialInvestorTypeId, setInitialInvestorTypeId] = useState<
+    number | undefined
+  >(undefined);
+  const [sortColumnKey, setSortColumnKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const exportCSVRef = useRef<
+    ((request: ListExportRequest) => Promise<void>) | null
+  >(null);
+  const [exporting, setExporting] = useState(false);
+
+  const mergeSortIntoFilters = useCallback(
+    (filters: Filters): Filters => {
+      if (!sortColumnKey) return filters;
+      const apiColumn = getInvestorServerSortColumn(sortColumnKey);
+      if (!apiColumn) return filters;
+      return {
+        ...filters,
+        sort_column: apiColumn,
+        sort_direction: sortDirection,
+      };
+    },
+    [sortColumnKey, sortDirection]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || restrictToListId != null) return;
+    const params = new URLSearchParams(window.location.search);
+    setInitialSearch(params.get("search") || undefined);
+    const typeId = Number(params.get("investorTypeId"));
+    if (Number.isFinite(typeId) && typeId > 0) {
+      setInitialInvestorTypeId(typeId);
+    }
+  }, [restrictToListId]);
+
+  const handleSearch = useCallback(
+    (listFilters: Filters, countsFilters: Filters, portfolioOnly?: boolean) => {
+      setIsPortfolioOnlyFilter(Boolean(portfolioOnly));
+      void fetchInvestors(1, mergeSortIntoFilters(listFilters), countsFilters);
+    },
+    [fetchInvestors, mergeSortIntoFilters]
+  );
+
+  const handleSortColumn = useCallback(
+    (columnKey: string) => {
+      const apiColumn = getInvestorServerSortColumn(columnKey);
+      if (!apiColumn) return;
+
+      const nextDirection: "asc" | "desc" =
+        sortColumnKey === columnKey
+          ? sortDirection === "asc"
+            ? "desc"
+            : "asc"
+          : getInvestorServerSortDefaultDirection(apiColumn);
+
+      setSortColumnKey(columnKey);
+      setSortDirection(nextDirection);
+
+      const base = currentFilters ?? createDefaultInvestorFilters();
+      void fetchInvestors(1, {
+        ...base,
+        page: 1,
+        sort_column: apiColumn,
+        sort_direction: nextDirection,
+      });
+    },
+    [sortColumnKey, sortDirection, currentFilters, fetchInvestors]
+  );
+
+  const handleSortClear = useCallback(() => {
+    setSortColumnKey(null);
+    setSortDirection("desc");
+    const base = currentFilters ?? createDefaultInvestorFilters();
+    const rest = { ...base };
+    delete rest.sort_column;
+    delete rest.sort_direction;
+    void fetchInvestors(1, { ...rest, page: 1 });
+  }, [currentFilters, fetchInvestors]);
+
+  const handleFilterColumnsChange = useCallback(
+    ({
+      filterIds,
+      investorTypeTabActive,
+    }: {
+      filterIds: string[];
+      investorTypeTabActive: boolean;
+    }) => {
+      setFilterPinnedColumnKeys(
+        getColumnKeysForActiveFilters(filterIds, investorTypeTabActive)
+      );
+    },
+    []
+  );
+
+  const filtersKey = useMemo(
+    () => JSON.stringify(currentFilters ?? {}),
+    [currentFilters]
+  );
+  const {
+    selectedIds: selectedEntityIds,
+    toggleSelection: toggleEntitySelection,
+    togglePageSelection,
+    clearSelection,
+  } = useEntitySelection(filtersKey);
+
+  return (
+    <div
+      className={embedded ? "px-5" : "min-h-screen"}
+      style={
+        embedded
+          ? {
+              background: "#fff",
+              border: "1px solid #E4E8F2",
+              borderRadius: 16,
+              boxShadow:
+                "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
+              overflow: "hidden",
+            }
+          : undefined
+      }
+    >
+      <InvestorDashboard
+        hidePageHeader={embedded}
+        embedded={embedded}
+        onSearch={handleSearch}
+        onFilterColumnsChange={handleFilterColumnsChange}
+        initialSearch={initialSearch}
+        initialInvestorTypeId={initialInvestorTypeId}
+        typeCounts={typeCounts}
+        investorTypes={investorTypes}
+        onColumnsClick={() => setShowColumnsModal((value) => !value)}
+        onExport={(mode) =>
+          exportCSVRef.current?.({ mode, scope: "full_list" })
+        }
+        exporting={exporting}
+        columnsActive={showColumnsModal}
+        columnsCount={columnsCount}
+      />
+      {restrictToListId == null && (
+      <ListViewPortfolioBar
+        entityType="investor"
+        entityPlural="Investors"
+        filters={currentFilters as Record<string, unknown> | undefined}
+        hasFilters={hasActiveFilters(
+          currentFilters as Record<string, unknown> | undefined,
+          createDefaultInvestorFilters() as unknown as Record<string, unknown>
+        )}
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={() => collectAllInvestorIds((currentFilters ?? createDefaultInvestorFilters()) as never)}
+        onApplySaved={(f) => {
+          void fetchInvestors(1, { ...createDefaultInvestorFilters(), ...f, page: 1 });
+        }}
+      />
+      )}
+      {renderSelectionBar?.({
+        selectedIds: selectedEntityIds,
+        clear: clearSelection,
+      })}
+      <InvestorSection
+        columnsStorageKey={columnsStorageKey}
+        investors={investors}
+        loading={loading}
+        error={error}
+        pagination={pagination}
+        fetchInvestors={fetchInvestors}
+        currentFilters={currentFilters}
+        filterPinnedColumnKeys={filterPinnedColumnKeys}
+        externalShowColumnsModal={showColumnsModal}
+        externalSetShowColumnsModal={setShowColumnsModal}
+        onColumnsCountChange={setColumnsCount}
+        onRegisterExportCSV={(fn) => {
+          exportCSVRef.current = fn;
+        }}
+        onExportingChange={setExporting}
+        isPortfolioOnlyFilter={isPortfolioOnlyFilter}
+        sortColumnKey={sortColumnKey}
+        sortDirection={sortDirection}
+        onSortColumn={handleSortColumn}
+        onSortClear={handleSortClear}
+        selectedEntityIds={selectedEntityIds}
+        onToggleEntitySelection={toggleEntitySelection}
+        onTogglePageSelection={togglePageSelection}
+        onClearSelection={clearSelection}
+      />
+    </div>
+  );
+}

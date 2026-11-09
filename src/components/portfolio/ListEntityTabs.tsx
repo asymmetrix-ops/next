@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { ScopedCompaniesPanel } from "@/components/companies/ScopedCompaniesPanel";
+import { InvestorsListView } from "@/components/investors/InvestorsListView";
+import { AdvisorsListView } from "@/components/advisors/AdvisorsListView";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import {
   removeEntityFromPortfolioApi,
@@ -185,6 +187,13 @@ export function ListEntityTabs({ listId, rows, loading, onChanged }: Props) {
             />
           )}
         />
+      ) : active === "investor" || active === "advisor" ? (
+        <ScopedListView
+          key={`${listId}-${active}-${version}`}
+          listId={listId}
+          entityType={active}
+          onChanged={handleRemoved}
+        />
       ) : (
         <BasicEntityTable
           listId={listId}
@@ -194,6 +203,37 @@ export function ListEntityTabs({ listId, rows, loading, onChanged }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/** Investors / Advisors list view (same as the main list pages), limited to this list. */
+function ScopedListView({
+  listId,
+  entityType,
+  onChanged,
+}: {
+  listId: number;
+  entityType: "investor" | "advisor";
+  onChanged: () => void | Promise<void>;
+}) {
+  const View = entityType === "investor" ? InvestorsListView : AdvisorsListView;
+  return (
+    <View
+      restrictToListId={listId}
+      embedded
+      columnsStorageKey={`portfolio-list-${listId}-${entityType}s`}
+      renderSelectionBar={({ selectedIds, clear }) => (
+        <RemoveSelectedBar
+          listId={listId}
+          entityType={entityType}
+          selectedIds={selectedIds}
+          onDone={async () => {
+            clear();
+            await onChanged();
+          }}
+        />
+      )}
+    />
   );
 }
 
