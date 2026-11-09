@@ -86,6 +86,7 @@ function ResetPasswordForm() {
             required
             minLength={8}
           />
+          <p className="mt-1 text-xs text-gray-500">Minimum 8 characters.</p>
         </div>
 
         <div>
