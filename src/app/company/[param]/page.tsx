@@ -4492,7 +4492,6 @@ const CompanyDetail = () => {
                       }
                       acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
                       sectorNameToId={sectorNameToId}
-                      maxInitial={3}
                     />
                     </LinkPanel>
                 </div>

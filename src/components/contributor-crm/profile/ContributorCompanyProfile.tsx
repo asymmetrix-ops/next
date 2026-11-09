@@ -4381,7 +4381,6 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                       }
                       acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
                       sectorNameToId={sectorNameToId}
-                      maxInitial={3}
                     />
                     </LinkPanel>
                 </div>
