@@ -1914,9 +1914,19 @@ const ArticleDetailPage = () => {
                   </span>
                 ) : null}
                 {/* Export PDF Button */}
-                {ENABLE_PDF_EXPORT && (
+                {ENABLE_PDF_EXPORT &&
+                  // PDF-body content (empty Body + uploaded PDF) exports the original file;
+                  // with neither text nor a PDF there is nothing to export, so hide the button.
+                  (!isArticleBodyEmpty(article.Body) ||
+                    Boolean(
+                      getEmbeddablePdfDoc(article.Related_Documents, article.Body)
+                    )) && (
                   <button
-                    onClick={() => openArticlePdfWindow(article)}
+                    onClick={() =>
+                      openArticlePdfWindow(article, {
+                        preferredCurrencyId: platformCurrencyId,
+                      })
+                    }
                     className="side-pill-btn b"
                   >
                     <svg

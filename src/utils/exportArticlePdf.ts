@@ -86,142 +86,93 @@ function ensureHtml2Pdf(): Promise<void> {
   return html2pdfLoaded;
 }
 
-export async function openArticlePdfWindow(article: ExportableArticle) {
-  // Prefer external PDF service; fallback to client-side html2pdf on failure.
-  try {
-    const ct = (
-      article.Content_Type ||
-      article.content_type ||
-      article.Content?.Content_type ||
-      article.Content?.Content_Type ||
-      ""
-    ).trim();
+export type ArticlePdfOptions = {
+  /** Bearer token; defaults to the platform token in localStorage. */
+  token?: string | null;
+  /** Platform currency id so the PDF shows the same currency as the page. */
+  preferredCurrencyId?: number | null;
+};
 
-    const safeParse = <T>(v: unknown): T | undefined => {
-      if (Array.isArray(v)) return v as unknown as T;
-      if (typeof v === "string" && v.trim()) {
-        try {
-          return JSON.parse(v) as T;
-        } catch {
-          return undefined;
+/** Filename the service chose (`Asymmetrix - [Content type] - [Title].pdf`), from Content-Disposition. */
+function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1];
+  if (star) {
+    try {
+      return decodeURIComponent(star);
+    } catch {
+      /* fall through */
+    }
+  }
+  return /filename="([^"]+)"/i.exec(header)?.[1] ?? null;
+}
+
+export async function openArticlePdfWindow(
+  article: ExportableArticle,
+  options: ArticlePdfOptions = {}
+) {
+  // The PDF service fetches the article (and, for PDF-body content, the original
+  // file) itself: we only send the id, the Bearer token and the currency.
+  // Client-side html2pdf below is only a fallback for service/network failures.
+  try {
+    const token =
+      options.token ??
+      (typeof localStorage !== "undefined"
+        ? localStorage.getItem("asymmetrix_auth_token")
+        : null);
+    if (article.id != null && token) {
+      const endpoint =
+        (typeof process !== "undefined" &&
+          (process as unknown as { env?: { [k: string]: string | undefined } })
+            .env?.NEXT_PUBLIC_PDF_SERVICE_URL) ||
+        "https://asymmetrix-pdf-service.fly.dev/api/export-article-pdf";
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: article.id,
+          ...(options.preferredCurrencyId != null
+            ? { preferred_currency_id: options.preferredCurrencyId }
+            : {}),
+        }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const ctLabel = (
+          article.Content_Type ||
+          article.content_type ||
+          article.Content?.Content_type ||
+          article.Content?.Content_Type ||
+          "Article"
+        ).trim();
+        const headline = (article.Headline || "Untitled")
+          .toString()
+          .replace(/[\\/:*?"<>|]/g, " ")
+          .slice(0, 150);
+        a.download =
+          filenameFromDisposition(res.headers.get("Content-Disposition")) ||
+          `Asymmetrix - ${ctLabel} - ${headline}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        return;
+      }
+      // A PDF-body piece without a file has nothing to export — don't print the page instead.
+      if (res.status === 404) {
+        const body = (await res.json().catch(() => null)) as { code?: string } | null;
+        if (body?.code === "NO_PDF_FILE") {
+          window.alert("This piece has no PDF file to export.");
+          return;
         }
       }
-      return undefined;
-    };
-
-    const sectors =
-      safeParse<
-        Array<{
-          id?: number | string;
-          sector_id?: number | string;
-          Sector_id?: number | string;
-          sector_name?: string;
-          Sector_importance?: string;
-        }>
-      >(article.sectors) || [];
-    const companies =
-      safeParse<Array<{ id?: number; name?: string }>>(
-        article.companies_mentioned
-      ) || [];
-    const relatedEvents =
-      safeParse<
-        Array<{
-          id?: number;
-          description?: string;
-          deal_type?: string;
-          deal_status?: string;
-          announcement_date?: string;
-          target?: { id?: number; name?: string };
-          advisors?: Array<{ _new_company?: { id?: number; name?: string } }>;
-          primary_sectors?: Array<{ id?: number; sector_name?: string }>;
-          secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
-        }>
-      >(article.Related_Corporate_Event) || [];
-
-    const getSectorId = (s: unknown): number | undefined => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sectorAny = s as any;
-      const candidate =
-        sectorAny?.id ?? sectorAny?.sector_id ?? sectorAny?.Sector_id;
-      if (typeof candidate === "number") return candidate;
-      if (typeof candidate === "string") {
-        const parsed = parseInt(candidate, 10);
-        return Number.isFinite(parsed) ? parsed : undefined;
-      }
-      return undefined;
-    };
-
-    // Determine if Company_of_Focus is populated (convert to boolean)
-    const hasCompanyOfFocus =
-      article.Company_of_Focus != null && article.Company_of_Focus !== "";
-
-    const payload = {
-      id: article.id,
-      Headline: article.Headline || "",
-      Strapline: article.Strapline || undefined,
-      Publication_Date: article.Publication_Date || "",
-      Content_Type: ct,
-      Company_of_Focus: hasCompanyOfFocus,
-      Body: article.Body || "",
-      companies_mentioned: companies
-        .map((c) => ({ id: c?.id, name: c?.name }))
-        .filter((c) => (c?.name || "").trim()),
-      sectors: sectors
-        .map((s) => ({
-          id: getSectorId(s),
-          sector_name: (s as { sector_name?: string })?.sector_name,
-          Sector_importance: (s as { Sector_importance?: string })
-            ?.Sector_importance,
-        }))
-        .filter((s) => (s.sector_name || "").trim()),
-      Related_Corporate_Event: relatedEvents.map((e) => ({
-        id: e?.id,
-        description: e?.description,
-        announcement_date: e?.announcement_date,
-        deal_type: e?.deal_type,
-        target: e?.target?.name
-          ? { id: e?.target?.id, name: e?.target?.name }
-          : undefined,
-        advisors: e?.advisors,
-        primary_sectors: e?.primary_sectors,
-        secondary_sectors: e?.secondary_sectors,
-      })),
-    };
-
-    const endpointBase =
-      (typeof process !== "undefined" &&
-        (process as unknown as { env?: { [k: string]: string | undefined } })
-          .env?.NEXT_PUBLIC_PDF_SERVICE_URL) ||
-      "https://asymmetrix-pdf-service.fly.dev/api/export-article-pdf";
-    const endpoint = `${endpointBase}${endpointBase.includes("?") ? "&" : "?"}version=v2`;
-
-    // Log payload and endpoint to browser console
-    try {
-      // Avoid mutating payload; shallow clone for readability
-      // eslint-disable-next-line no-console
-      console.log("[PDF Export] POST", endpoint, { ...payload });
-    } catch {}
-
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const headline = (article.Headline || "Article")
-        .toString()
-        .replace(/[\\/:*?"<>|]/g, " ")
-        .slice(0, 180);
-      a.download = `Asymmetrix - ${headline}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 3000);
-      return;
     }
   } catch {
     // ignore and fallback
