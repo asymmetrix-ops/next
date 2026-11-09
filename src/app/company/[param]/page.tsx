@@ -4464,7 +4464,8 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                { id: "subsidiaries", col: "main" as const, weight: 190, movable: false, show: Boolean(hasSubsidiaries), node: () => (
+                // 1/3-width card, last in the right rail.
+                { id: "subsidiaries", col: "rail" as const, weight: 230, movable: false, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
                     fillGridCell
@@ -4574,7 +4575,7 @@ const CompanyDetail = () => {
               const pair = cards
                 .filter((c) => c.col === "pair" && !productIds.includes(c.id))
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
-              const railOrder = ["fin2", "airisk", "headcount"];
+              const railOrder = ["fin2", "airisk", "headcount", "subsidiaries"];
               const rail = cards
                 .filter((c) => c.col === "rail")
                 .sort((x, y) => railOrder.indexOf(x.id) - railOrder.indexOf(y.id));
