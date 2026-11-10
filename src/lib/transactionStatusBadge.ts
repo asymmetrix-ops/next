@@ -23,7 +23,7 @@ export function formatTransactionStatusLabel(status: string): string {
 }
 
 /**
- * Dotted pill, no visible border — tags.txt §2 / .lp-chip.lp-chip-dot.
+ * Status pill with a thin border in its family colour — tags.txt §2.
  */
 export function getTransactionStatusPillStyle(status: string): CSSProperties {
   const tone = getTone(status);

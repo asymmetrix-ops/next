@@ -30,23 +30,24 @@ export const DEAL_TYPE_TONE: TagTone = {
 };
 
 /** Funding-stage ramp — stepping darker as the stage advances. */
+// Same text colour across each group
 export const FUNDING_STAGE_TONES: Record<string, TagTone> = {
-  "pre-seed": { text: "#5B7FC9", fill: "#EEF3FC", border: "#DCE6F6" }, // △ 3.54
-  seed: { text: "#2A5DB5", fill: "#E4ECFA", border: "#CCDBF3" },
+  "pre-seed": { text: "#143E96", fill: "#EEF3FC", border: "#DCE6F6" },
+  seed: { text: "#143E96", fill: "#E4ECFA", border: "#CCDBF3" },
   "series a": { text: "#143E96", fill: "#D7E2F4", border: "#B8CAEA" },
-  "series b": { text: "#2FAA7C", fill: "#E7F7EF", border: "#C8EAD9" }, // △ 2.65
-  "series c": { text: "#1E946A", fill: "#DEF3E7", border: "#BBE2CE" }, // △ 3.29
-  "series d": { text: "#117955", fill: "#D5EFDF", border: "#AED8C3" }, // △ 4.43
-  "series e": { text: "#0B6346", fill: "#CCEAD6", border: "#9DCEB7" },
-  "series f": { text: "#074E37", fill: "#C3E6CD", border: "#8FC4AB" },
-  "series g": { text: "#053C2B", fill: "#BBE2C5", border: "#80B89D" },
+  "series b": { text: "#032D20", fill: "#E7F7EF", border: "#C8EAD9" },
+  "series c": { text: "#032D20", fill: "#DEF3E7", border: "#BBE2CE" },
+  "series d": { text: "#032D20", fill: "#D5EFDF", border: "#AED8C3" },
+  "series e": { text: "#032D20", fill: "#CCEAD6", border: "#9DCEB7" },
+  "series f": { text: "#032D20", fill: "#C3E6CD", border: "#8FC4AB" },
+  "series g": { text: "#032D20", fill: "#BBE2C5", border: "#80B89D" },
   growth: { text: "#032D20", fill: "#B2DDBC", border: "#6FAE91" },
-  buyout: { text: "#7A52AE", fill: "#EFE6F7", border: "#DDD0EC" },
+  buyout: { text: "#4D2D7C", fill: "#EFE6F7", border: "#DDD0EC" },
   "take private": { text: "#4D2D7C", fill: "#E1D4EF", border: "#C5B0DE" },
-  "credit facility": { text: "#B5860B", fill: "#FFF2D2", border: "#F2DEA1" }, // △ 2.96
-  debt: { text: "#8C6306", fill: "#F5E2B6", border: "#E2C880" }, // △ 4.21
+  "credit facility": { text: "#5E4204", fill: "#FFF2D2", border: "#F2DEA1" },
+  debt: { text: "#5E4204", fill: "#F5E2B6", border: "#E2C880" },
   grant: { text: "#5E4204", fill: "#ECD68F", border: "#CDAE5B" },
-  closing: { text: "#B85015", fill: "#FCE3D2", border: "#F4CCB1" }, // △ 4.06
+  closing: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1" },
 };
 
 export function getFundingStageTone(value: string): TagTone {
@@ -63,29 +64,31 @@ export const TRANSACTION_STATUS_TONES: Record<string, TagTone> = {
     text: "#0F7040",
     fill: "#E4F5EC",
     dot: "#17A05C",
-    border: "transparent",
+    border: "#C3E7D3",
   },
-  // Same colours as "Reported in Market" — both mean the company is in market.
-  get "rumoured in market"(): TagTone {
-    return TRANSACTION_STATUS_TONES["reported in market"];
+  "rumoured in market": {
+    text: "#7A5605",
+    fill: "#FEF6E0",
+    dot: "#E0A32E",
+    border: "#F6E3B4",
   },
   "anticipated within 6 months": {
     text: "#182A9B",
     fill: "#E2E8FD",
     dot: "#2A46EA",
-    border: "transparent",
+    border: "#BFCBF8",
   },
   "anticipated within 18 months": {
     text: "#1F35C4",
     fill: "#F1F4FE",
     dot: "#3D5BF3",
-    border: "transparent",
+    border: "#C6D1FB",
   },
   "process on hold": {
     text: "#3D4657",
     fill: "#F5F7FD",
     dot: "#8A93A8",
-    border: "transparent",
+    border: "#E4E8F2",
   },
 };
 
@@ -179,9 +182,9 @@ export function getInsightsTypeTone(contentType: string): TagTone {
 
 export const NEWS_SUBTYPE_TONES: Record<string, TagTone> = {
   fundraise: { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB", dot: "#3D5BF3" },
-  // Rose: scoops should feel livelier than the old mustard, and it doesn't clash with
+  // Raspberry: scoops should feel livelier than the old mustard, and it doesn't clash with
   // the other News sub-types (blue, green, teal, purple, grey) or the process-stage tones.
-  "sale process": { text: "#B0235F", fill: "#FDECF3", border: "#F6C8DA", dot: "#E23B7B" },
+  "sale process": { text: "#B0154F", fill: "#FDECF2", border: "#F7C5D6", dot: "#E23B7B" },
   "deal close": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", dot: "#17A05C" },
   "carve-out": { text: "#0A5E75", fill: "#E1F3F8", border: "#BCE2EC", dot: "#1898B8" },
   ipo: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", dot: "#7A5BD0" },
@@ -215,7 +218,8 @@ export function getProcessStageTone(value: string): TagTone {
  * ---------------------------------------------------------------------- */
 
 export const INTERMEDIARY_TONES = {
-  namedAdvisor: { text: "#0370AA", fill: "#E8F8FF", border: "#8DDAFF" } as TagTone,
+  // Same orange as the advisor entity tag
+  namedAdvisor: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1" } as TagTone,
   notYetHired: { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4" } as TagTone,
   noIntermediary: { text: "#3D4657", fill: "#F5F7FD", border: "#E4E8F2" } as TagTone,
   unknown: { text: "#6B7488", fill: "#FFFFFF", border: "#D8DEEB" } as TagTone, // dashed
@@ -288,11 +292,11 @@ export const NUMERIC_VALUE_TONES = {
  * ---------------------------------------------------------------------- */
 
 export const ENTITY_TONES = {
-  company: { text: "#0F7040", fill: "#E4F5EC", hoverFill: "#D3EEE0" },
-  investor: { text: "#0370AA", fill: "#E8F8FF", hoverFill: "#D5F1FE" },
-  advisor: { text: "#93400F", fill: "#FCE3D2", hoverFill: "#F8D4BC" },
-  individual: { text: "#372A78", fill: "#E4E0F6", hoverFill: "#D5CFF0" },
-  sector: { text: "#523793", fill: "#F1EBFC", hoverFill: "#E5DAF9" },
+  company: { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", hoverFill: "#D3EEE0" },
+  investor: { text: "#0370AA", fill: "#E8F8FF", border: "#8DDAFF", hoverFill: "#D5F1FE" },
+  advisor: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1", hoverFill: "#F8D4BC" },
+  individual: { text: "#372A78", fill: "#E4E0F6", border: "#CBC3EA", hoverFill: "#D5CFF0" },
+  sector: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", hoverFill: "#E5DAF9" },
   subsector: { text: "#5E4AA8", fill: "#FBF9FE", border: "#D8CDF0", hoverFill: "#F2ECFC" },
 } as const;
 
@@ -301,6 +305,11 @@ export type EntityKind = keyof typeof ENTITY_TONES;
 /* -------------------------------------------------------------------------
  * Generic style builders
  * ---------------------------------------------------------------------- */
+
+// Colours only, for tags that keep their own size and shape
+export function tagColourStyle(tone: { text: string; fill: string; border: string }): CSSProperties {
+  return { backgroundColor: tone.fill, color: tone.text, border: `1px solid ${tone.border}` };
+}
 
 /** Standard filled pill (Deal type, Funding stage, Process stage, Buyer type, Intermediary, etc). */
 export function pillStyleFromTone(
@@ -323,8 +332,8 @@ export function pillStyleFromTone(
   };
 }
 
-/** Status pill (Transaction status, News subtypes) — no dot, no visible border. */
-export function dotPillStyleFromTone(tone: TagTone, bordered = false): CSSProperties {
+/** Status pill (Transaction status, News subtypes) — no dot. */
+export function dotPillStyleFromTone(tone: TagTone, bordered = true): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
