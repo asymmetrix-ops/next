@@ -303,6 +303,26 @@ export const ENTITY_TONES = {
 export type EntityKind = keyof typeof ENTITY_TONES;
 
 /* -------------------------------------------------------------------------
+ * Ownership (not in the reference, each type uses the matching reference tone)
+ * ---------------------------------------------------------------------- */
+
+export const OWNERSHIP_TONES: Record<string, TagTone> = {
+  public: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7" },
+  "private equity": { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB" },
+  "venture capital": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3" },
+  private: { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4" },
+  subsidiary: { text: "#182A9B", fill: "#E2E8FD", border: "#BFCBF8" },
+  acquired: { text: "#A62E22", fill: "#FCEAE7", border: "#F5CFC8" },
+};
+
+const OWNERSHIP_FALLBACK_TONE: TagTone = { text: "#4A5468", fill: "#EEF0F4", border: "#DDE2E8" };
+
+export function getOwnershipTone(value: string): TagTone {
+  const key = String(value || "").trim().toLowerCase();
+  return OWNERSHIP_TONES[key] ?? OWNERSHIP_FALLBACK_TONE;
+}
+
+/* -------------------------------------------------------------------------
  * Generic style builders
  * ---------------------------------------------------------------------- */
 
