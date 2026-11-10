@@ -10117,7 +10117,7 @@ function ContributeFinancialMetricsTab({
             gap: 8,
           }}
         >
-          {submitting ? "Submitting..." : "Submit Updates"}
+          {submitting ? "Saving…" : "Save changes"}
           {!submitting && filledCount > 0 && (
             <ContributorTabIcon name="arrow" />
           )}
@@ -10658,6 +10658,42 @@ function SectorIntelligenceTab({
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
+          </div>
+          <div className="bm-cc" ref={colsRef}>
+            <button type="button" onClick={() => setColsOpen((o) => !o)} aria-expanded={colsOpen}>
+              Columns
+            </button>
+            {colsOpen && (
+              <div className="bm-cp" role="dialog" aria-label="Column control room">
+                <strong style={{ fontSize: 13 }}>Column control room</strong>
+                <label className="lock"><input type="checkbox" checked disabled /> Revenue range</label>
+                <label className="lock"><input type="checkbox" checked disabled /> Companies</label>
+                {SECTOR_GROUPS.map((g) => (
+                  <div key={g.title}>
+                    <h4>{g.title}</h4>
+                    {g.metrics.map((m) => (
+                      <label key={m.key}>
+                        <input
+                          type="checkbox"
+                          checked={visibleCols.includes(m.key)}
+                          onChange={(e) =>
+                            saveCols(
+                              e.target.checked
+                                ? [...visibleCols, m.key]
+                                : visibleCols.filter((k) => k !== m.key)
+                            )
+                          }
+                        />
+                        {m.format === "money_m" ? m.label.replace(/\(M\)/, `(${currencyInfo.symbol}M)`) : m.label}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+                <button type="button" className="rs" onClick={() => saveCols(SECTOR_DEFAULT_COLUMNS)}>
+                  Reset to default
+                </button>
+              </div>
+            )}
           </div>
           <div className="bm-seg">
             {SECTOR_CURRENCY_OPTIONS.map((opt) => (
