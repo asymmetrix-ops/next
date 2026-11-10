@@ -330,6 +330,7 @@ export function InvestorsListView({
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -377,6 +378,7 @@ export function InvestorsListView({
         )}
         resultCount={pagination.itemsTotal || 0}
         collectIds={() => collectAllInvestorIds((currentFilters ?? createDefaultInvestorFilters()) as never)}
+        onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchInvestors(1, { ...createDefaultInvestorFilters(), ...f, page: 1 });
         }}

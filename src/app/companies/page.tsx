@@ -367,6 +367,7 @@ function CompaniesPageInner() {
     selectedIds: selectedCompanyIds,
     toggleSelection: toggleCompanySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -412,6 +413,7 @@ function CompaniesPageInner() {
         )}
         resultCount={pagination.totalCount || 0}
         collectIds={() => collectAllCompanyIds((currentFilters ?? createDefaultFilters()) as never)}
+        onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchCompanies(1, { ...createDefaultFilters(), ...f } as Filters);
         }}

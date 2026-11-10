@@ -28,6 +28,11 @@ export function useEntitySelection(resetKey?: string) {
     });
   }, []);
 
+  /** Replaces the selection with these ids (used by admin "Select all"). */
+  const selectMany = useCallback((ids: number[]) => {
+    setSelectedIds(new Set(ids));
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
@@ -39,6 +44,7 @@ export function useEntitySelection(resetKey?: string) {
     selectedIdList,
     toggleSelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   };
 }

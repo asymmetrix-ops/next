@@ -341,6 +341,7 @@ export function AdvisorsListView({
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -386,6 +387,7 @@ export function AdvisorsListView({
         )}
         resultCount={pagination.itemsTotal || 0}
         collectIds={() => collectAllAdvisorIds((currentFilters ?? createDefaultAdvisorFilters()) as never)}
+        onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchAdvisors(1, { ...createDefaultAdvisorFilters(), ...f, page: 1 });
         }}

@@ -6,6 +6,8 @@ import { toast } from "react-hot-toast";
 import { AnchoredPopover } from "@/components/filters/AnchoredPopover";
 import { useFilterBarSlot } from "@/components/portfolio/filterBarSlot";
 import { BulkAddToPortfolioModal } from "@/components/companies/BulkAddToPortfolioModal";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { isAdminUser } from "@/lib/userStatus";
 import type { PortfolioEntityType } from "@/lib/portfolioEntity";
 import {
   createSavedFilter,
@@ -35,6 +37,8 @@ type Props = {
   collectIds: () => Promise<number[]>;
   /** Re-apply a saved filter set in the list view. */
   onApplySaved: (filters: Record<string, unknown>) => void;
+  /** Admin only: select every result of the current filters (all pages). */
+  onSelectAll?: (ids: number[]) => void;
 };
 
 type NameDialog = { mode: "save" } | { mode: "rename"; filter: SavedFilter };
@@ -50,7 +54,12 @@ export function ListViewPortfolioBar({
   resultCount,
   collectIds,
   onApplySaved,
+  onSelectAll,
 }: Props) {
+  const { user } = useAuth();
+  const canSelectAll = Boolean(onSelectAll) && isAdminUser(user) && resultCount > 0;
+  const [selectingAll, setSelectingAll] = useState(false);
+
   const [saved, setSaved] = useState<SavedFilter[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [nameDialog, setNameDialog] = useState<NameDialog | null>(null);
@@ -94,6 +103,24 @@ export function ListViewPortfolioBar({
     const q = query.toLowerCase().trim();
     return q ? saved.filter((f) => f.name.toLowerCase().includes(q)) : saved;
   }, [saved, query]);
+
+  const selectAllResults = async () => {
+    if (!onSelectAll || selectingAll) return;
+    setSelectingAll(true);
+    try {
+      const ids = await collectIds();
+      onSelectAll(ids);
+      toast.success(
+        `Selected ${ids.length.toLocaleString()} ${ids.length === 1 ? "result" : "results"}.`
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not select all results."
+      );
+    } finally {
+      setSelectingAll(false);
+    }
+  };
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
@@ -398,9 +425,21 @@ export function ListViewPortfolioBar({
   return (
     <>
       {slot ? createPortal(menu, slot) : null}
-      {(!slot || hasFilters) && (
+      {(!slot || hasFilters || canSelectAll) && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2">
           {!slot && menu}
+          {canSelectAll && (
+            <button
+              type="button"
+              className={BUTTON}
+              disabled={selectingAll}
+              onClick={() => void selectAllResults()}
+            >
+              {selectingAll
+                ? "Selecting…"
+                : `Select all ${resultCount.toLocaleString()} ${resultCount === 1 ? "result" : "results"}`}
+            </button>
+          )}
           {hasFilters && (
             <button
               type="button"

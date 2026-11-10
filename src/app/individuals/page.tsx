@@ -248,6 +248,7 @@ function IndividualsPageInner() {
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -282,6 +283,7 @@ function IndividualsPageInner() {
         )}
         resultCount={pagination.itemsTotal || 0}
         collectIds={() => collectAllIndividualIds((currentFilters ?? createDefaultIndividualFilters()) as never)}
+        onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchIndividuals(1, { ...createDefaultIndividualFilters(), ...f, page: 1 }, { ...createDefaultIndividualFilters(), ...f, page: 1 });
         }}
