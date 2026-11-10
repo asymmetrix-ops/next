@@ -10131,7 +10131,7 @@ function ContributeFinancialMetricsTab({
 
 const CE_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events";
-// The contributor benchmark shows only the 5 most recent corporate events (no paging).
+// The contributor benchmark shows the 5 most recent sector-related corporate events of the last 6 months (no paging).
 const CE_PER_PAGE = 5;
 
 type CEItem = {
@@ -10495,6 +10495,10 @@ function SectorIntelligenceTab({
       Per_page: String(CE_PER_PAGE),
       preferred_currency_id: String(PLATFORM_CURRENCY_BY_CODE[currency]),
     });
+    // Only events from the last 6 months (announcement date), related to the target sector.
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    params.set("Date_start", sixMonthsAgo.toISOString().slice(0, 10));
     (targetSectorId != null ? [targetSectorId] : primarySectorIds).forEach((id) =>
       params.append("primary_sectors_ids[]", String(id))
     );
