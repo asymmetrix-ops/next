@@ -34,7 +34,7 @@ type Props = {
   /** Number of results the current filters return (all pages). */
   resultCount: number;
   /** Resolve every id matching the current filters, not just the visible page. */
-  collectIds: () => Promise<number[]>;
+  collectIds: (maxIds?: number) => Promise<number[]>;
   /** Re-apply a saved filter set in the list view. */
   onApplySaved: (filters: Record<string, unknown>) => void;
   /** Admin only: select every result of the current filters (all pages). */
@@ -59,6 +59,7 @@ export function ListViewPortfolioBar({
   const { user } = useAuth();
   const canSelectAll = Boolean(onSelectAll) && isAdminUser(user) && resultCount > 0;
   const [selectingAll, setSelectingAll] = useState(false);
+  const [customCount, setCustomCount] = useState("");
 
   const [saved, setSaved] = useState<SavedFilter[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,11 +105,17 @@ export function ListViewPortfolioBar({
     return q ? saved.filter((f) => f.name.toLowerCase().includes(q)) : saved;
   }, [saved, query]);
 
-  const selectAllResults = async () => {
+  const customCountNumber = Number.parseInt(customCount, 10);
+  const customCountValid =
+    /^\d+$/.test(customCount.trim()) &&
+    customCountNumber >= 1 &&
+    customCountNumber <= resultCount;
+
+  const selectResults = async (count?: number) => {
     if (!onSelectAll || selectingAll) return;
     setSelectingAll(true);
     try {
-      const ids = await collectIds();
+      const ids = await collectIds(count);
       onSelectAll(ids);
       toast.success(
         `Selected ${ids.length.toLocaleString()} ${ids.length === 1 ? "result" : "results"}.`
@@ -433,12 +440,41 @@ export function ListViewPortfolioBar({
               type="button"
               className={BUTTON}
               disabled={selectingAll}
-              onClick={() => void selectAllResults()}
+              onClick={() => void selectResults()}
             >
               {selectingAll
                 ? "Selecting…"
                 : `Select all ${resultCount.toLocaleString()} ${resultCount === 1 ? "result" : "results"}`}
             </button>
+          )}
+          {canSelectAll && resultCount > 1 && (
+            <span className="inline-flex items-center gap-1">
+              <input
+                type="number"
+                min={1}
+                max={resultCount}
+                inputMode="numeric"
+                value={customCount}
+                disabled={selectingAll}
+                onChange={(e) => setCustomCount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && customCountValid) {
+                    void selectResults(customCountNumber);
+                  }
+                }}
+                placeholder="Custom number"
+                aria-label="Number of results to select"
+                className="w-36 px-3 py-1.5 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+              />
+              <button
+                type="button"
+                className={BUTTON}
+                disabled={selectingAll || !customCountValid}
+                onClick={() => void selectResults(customCountNumber)}
+              >
+                Select first {customCountValid ? customCountNumber.toLocaleString() : "…"}
+              </button>
+            </span>
           )}
           {hasFilters && (
             <button

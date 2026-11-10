@@ -282,7 +282,7 @@ function IndividualsPageInner() {
           createDefaultIndividualFilters() as unknown as Record<string, unknown>
         )}
         resultCount={pagination.itemsTotal || 0}
-        collectIds={() => collectAllIndividualIds((currentFilters ?? createDefaultIndividualFilters()) as never)}
+        collectIds={(maxIds) => collectAllIndividualIds((currentFilters ?? createDefaultIndividualFilters()) as never, maxIds)}
         onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchIndividuals(1, { ...createDefaultIndividualFilters(), ...f, page: 1 }, { ...createDefaultIndividualFilters(), ...f, page: 1 });

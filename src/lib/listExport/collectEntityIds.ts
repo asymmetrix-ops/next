@@ -17,7 +17,9 @@ type PageResult = {
 export async function collectAllEntityIds(
   fetchPage: (page: number) => Promise<PageResult>,
   getId: (row: Record<string, unknown>) => number,
-  perPage: number
+  perPage: number,
+  /** Stop once this many ids are collected (a custom "select first N"). */
+  maxIds?: number
 ): Promise<number[]> {
   const ids = new Set<number>();
   let page = 1;
@@ -41,12 +43,14 @@ export async function collectAllEntityIds(
       }
     }
     if (added === 0) break;
+    if (maxIds && ids.size >= maxIds) break;
     if (totalCount > 0 && ids.size >= totalCount) break;
     if (result.items.length < perPage) break;
     page += 1;
   }
 
-  return Array.from(ids);
+  const all = Array.from(ids);
+  return maxIds ? all.slice(0, maxIds) : all;
 }
 
 export type CollectableEntityType = Extract<

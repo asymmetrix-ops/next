@@ -290,12 +290,14 @@ async function fetchInvestorsPage(
 
 /** Every investor id (New_Company id) matching the filters, across all pages. */
 export async function collectAllInvestorIds(
-  filters: InvestorsSearchFilters
+  filters: InvestorsSearchFilters,
+  maxIds?: number
 ): Promise<number[]> {
   return collectAllEntityIds(
     (page) => fetchInvestorsPage(filters, page, EXPORT_PER_PAGE, false),
     getInvestorId,
-    EXPORT_PER_PAGE
+    EXPORT_PER_PAGE,
+    maxIds
   );
 }
 

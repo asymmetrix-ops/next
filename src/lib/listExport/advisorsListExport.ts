@@ -276,12 +276,14 @@ async function fetchAdvisorsPage(
 
 /** Every advisor id matching the filters, across all pages. */
 export async function collectAllAdvisorIds(
-  filters: AdvisorsSearchFilters
+  filters: AdvisorsSearchFilters,
+  maxIds?: number
 ): Promise<number[]> {
   return collectAllEntityIds(
     (page) => fetchAdvisorsPage(filters, page, EXPORT_PER_PAGE, false),
     getAdvisorId,
-    EXPORT_PER_PAGE
+    EXPORT_PER_PAGE,
+    maxIds
   );
 }
 

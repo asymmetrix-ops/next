@@ -386,7 +386,7 @@ export function AdvisorsListView({
           createDefaultAdvisorFilters() as unknown as Record<string, unknown>
         )}
         resultCount={pagination.itemsTotal || 0}
-        collectIds={() => collectAllAdvisorIds((currentFilters ?? createDefaultAdvisorFilters()) as never)}
+        collectIds={(maxIds) => collectAllAdvisorIds((currentFilters ?? createDefaultAdvisorFilters()) as never, maxIds)}
         onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchAdvisors(1, { ...createDefaultAdvisorFilters(), ...f, page: 1 });

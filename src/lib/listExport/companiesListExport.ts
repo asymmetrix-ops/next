@@ -381,7 +381,8 @@ async function fetchCompaniesPage(
 
 /** Every company id matching the filters, across all pages. */
 export async function collectAllCompanyIds(
-  filters: CompanySearchPayload
+  filters: CompanySearchPayload,
+  maxIds?: number
 ): Promise<number[]> {
   return collectAllEntityIds(
     (page) =>
@@ -390,7 +391,8 @@ export async function collectAllCompanyIds(
       const id = Number(row.id);
       return Number.isFinite(id) ? id : 0;
     },
-    EXPORT_PER_PAGE
+    EXPORT_PER_PAGE,
+    maxIds
   );
 }
 

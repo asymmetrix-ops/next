@@ -222,12 +222,14 @@ async function fetchIndividualsPage(
 
 /** Every individual id matching the filters, across all pages. */
 export async function collectAllIndividualIds(
-  filters: IndividualsSearchFilters
+  filters: IndividualsSearchFilters,
+  maxIds?: number
 ): Promise<number[]> {
   return collectAllEntityIds(
     (page) => fetchIndividualsPage(filters, page, EXPORT_PER_PAGE, false),
     getIndividualId,
-    EXPORT_PER_PAGE
+    EXPORT_PER_PAGE,
+    maxIds
   );
 }
 

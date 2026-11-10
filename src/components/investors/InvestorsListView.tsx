@@ -377,7 +377,7 @@ export function InvestorsListView({
           createDefaultInvestorFilters() as unknown as Record<string, unknown>
         )}
         resultCount={pagination.itemsTotal || 0}
-        collectIds={() => collectAllInvestorIds((currentFilters ?? createDefaultInvestorFilters()) as never)}
+        collectIds={(maxIds) => collectAllInvestorIds((currentFilters ?? createDefaultInvestorFilters()) as never, maxIds)}
         onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchInvestors(1, { ...createDefaultInvestorFilters(), ...f, page: 1 });

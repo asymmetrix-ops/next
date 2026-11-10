@@ -412,7 +412,7 @@ function CompaniesPageInner() {
           createDefaultFilters() as unknown as Record<string, unknown>
         )}
         resultCount={pagination.totalCount || 0}
-        collectIds={() => collectAllCompanyIds((currentFilters ?? createDefaultFilters()) as never)}
+        collectIds={(maxIds) => collectAllCompanyIds((currentFilters ?? createDefaultFilters()) as never, maxIds)}
         onSelectAll={selectMany}
         onApplySaved={(f) => {
           void fetchCompanies(1, { ...createDefaultFilters(), ...f } as Filters);
