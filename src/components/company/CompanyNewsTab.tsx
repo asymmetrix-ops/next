@@ -201,7 +201,7 @@ export default function CompanyNewsTab({ companyId }: { companyId: number }) {
 
           {recent.items.length > 0 && (
             <section aria-labelledby="cnw-recent-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h2 className="nw-section-title" id="cnw-recent-h">Recent news</h2>
+              <h2 className="nw-section-title" id="cnw-recent-h">Related News</h2>
               <div className="nw-feed nw-recent-feed">
                 {recent.items.map((a) => (
                   <NewsCard

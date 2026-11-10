@@ -48,7 +48,7 @@ import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesig
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import CompanyNewsTab from "@/components/company/CompanyNewsTab";
 import CompanyNewsSummaryCard from "@/components/company/CompanyNewsSummaryCard";
-import { fetchCompanyNewsSummary, type CompanyNewsSummary } from "@/lib/companyNews";
+import { fetchCompanyNewsSummary, fetchCompanyTopStoriesSummary, type CompanyNewsSummary } from "@/lib/companyNews";
 import { trackKeyAction } from "@/lib/tracking";
 import CompanyInsightsTab from "@/components/company/CompanyInsightsTab";
 import {
@@ -1326,13 +1326,28 @@ const CompanyDetail = () => {
   const [newsSummary, setNewsSummary] = useState<CompanyNewsSummary | null>(null);
   const [newsSummaryLoading, setNewsSummaryLoading] = useState(true);
   const showNews = Boolean(newsSummary?.show);
+  // Summary card shows Top Stories only; hidden when there are none (News tab keeps Related News).
+  const [topStories, setTopStories] = useState<CompanyNewsSummary | null>(null);
+  const showNewsCard = Boolean(topStories?.show);
   useEffect(() => {
     if (!company?.id || company.id <= 0) return;
     const ac = new AbortController();
     setNewsSummary(null);
+    setTopStories(null);
     setNewsSummaryLoading(true);
     fetchCompanyNewsSummary(company.id, ac.signal)
-      .then((s) => !ac.signal.aborted && setNewsSummary(s))
+      .then(async (s) => {
+        if (ac.signal.aborted) return;
+        setNewsSummary(s);
+        if (s.show && s.top_count > 0) {
+          try {
+            const t = await fetchCompanyTopStoriesSummary(company.id, s.top_count, ac.signal);
+            if (!ac.signal.aborted) setTopStories(t);
+          } catch {
+            /* card stays hidden */
+          }
+        }
+      })
       .catch(() => undefined)
       .finally(() => !ac.signal.aborted && setNewsSummaryLoading(false));
     return () => ac.abort();
@@ -4350,18 +4365,21 @@ const CompanyDetail = () => {
               // Card matrix: cards hide when empty, and tall rail cards that would
               // leave a blank hole under the main column move over to balance heights.
               type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
+              const newsCardNode = () => (
+                <CompanyNewsSummaryCard
+                  summary={topStories as CompanyNewsSummary}
+                  onViewAll={() => {
+                    setActiveProfileTab("News");
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              );
+              // News is always 1/3 width. Without an I&A card it leads the product grid, so Product type moves up beside it.
+              const newsLead = showNewsCard && !showInsights && !!topStories;
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights || showNews), node: () => (
-                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNews && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "stretch", minWidth: 0 }}>
-                {showNews && newsSummary && (
-                  <CompanyNewsSummaryCard
-                    summary={newsSummary}
-                    onViewAll={() => {
-                      setActiveProfileTab("News");
-                      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
-                )}
+                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
+                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNewsCard && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "stretch", minWidth: 0 }}>
+                {showNewsCard && topStories && newsCardNode()}
                 {showInsights && (
                 <div
                   className="insights-summary-card company-grid-insights"
@@ -4585,8 +4603,9 @@ const CompanyDetail = () => {
               const zoneW = (id: string) => productCards.find((c) => c.id === id)?.weight ?? 0;
               const productZoneW = Math.max(zoneW("productmix"), zoneW("coreproducts") + zoneW("management"));
               const renderProductZone = () =>
-                productCards.length > 0 && (
+                (productCards.length > 0 || newsLead) && (
                   <div className="company-grid-product-zone">
+                    {newsLead && <div className="product-zone-cell">{newsCardNode()}</div>}
                     {(showProductType || showRevenueModel) && (
                       <div className="product-zone-cell">
                         <ProductTypeRevenueCard

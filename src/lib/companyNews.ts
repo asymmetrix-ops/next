@@ -100,6 +100,25 @@ export async function fetchCompanyNewsSummary(companyId: number, signal?: AbortS
   };
 }
 
+/** Summary card: Top Stories only (company tagged as Company of Focus). Count, footer and View all use these. */
+export async function fetchCompanyTopStoriesSummary(
+  companyId: number,
+  total: number,
+  signal?: AbortSignal
+): Promise<CompanyNewsSummary> {
+  const page = await fetchCompanyNews({ companyId, filters: {}, topLimit: 5, recentLimit: 1, signal });
+  const items: CompanyNewsSummaryItem[] = page.top.items.map((a) => ({
+    id: a.id as number,
+    headline: a.Headline as string,
+    news_type: (a.News_Sub_Type as string | undefined) ?? null,
+    publication_date: a.Publication_Date as string,
+    part: "top_stories",
+    reason: "top",
+  }));
+  const count = page.top.total ?? total;
+  return { show: count > 0 && items.length > 0, total: count, top_count: count, recent_count: 0, shown: items.length, items };
+}
+
 function parseSectorTags(v: ApiItem["sector_tags"]): Array<{ id: number; name: string }> {
   if (Array.isArray(v)) return v;
   if (typeof v === "string") {
