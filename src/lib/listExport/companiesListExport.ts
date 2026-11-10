@@ -387,17 +387,26 @@ async function fetchSelectedCompaniesForExport(
   const safeIds = normalizeSelectedCompanyIds(selectedIds);
   if (safeIds.length === 0) return [];
 
-  const exportFilters = buildSelectedCompaniesFilters(filters, safeIds);
-  const apiColumns = getAllExportApiColumns(exportFilters);
-  const perPage = Math.min(Math.max(safeIds.length, 1), EXPORT_PER_PAGE);
-  const result = await fetchCompaniesPage(
-    exportFilters,
-    1,
-    apiColumns,
-    perPage
+  // The endpoint serves at most EXPORT_PER_PAGE rows a request, so fetch the
+  // selection in chunks. Stop at the export cap (limit + 1): the runner trims
+  // to the user's limit and tells them when it cut the list.
+  const idsToFetch = safeIds.slice(0, await getExportFetchCap());
+  const apiColumns = getAllExportApiColumns(
+    buildSelectedCompaniesFilters(filters, idsToFetch.slice(0, EXPORT_PER_PAGE))
   );
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 0; i < idsToFetch.length; i += EXPORT_PER_PAGE) {
+    const chunk = idsToFetch.slice(i, i + EXPORT_PER_PAGE);
+    const result = await fetchCompaniesPage(
+      buildSelectedCompaniesFilters(filters, chunk),
+      1,
+      apiColumns,
+      chunk.length
+    );
+    rows.push(...result.items);
+  }
 
-  return orderRowsBySelectedIds(result.items, safeIds);
+  return orderRowsBySelectedIds(rows, idsToFetch);
 }
 
 export async function fetchAllCompaniesForExport(
