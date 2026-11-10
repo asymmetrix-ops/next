@@ -11180,7 +11180,7 @@ function MetricsCardDrawer({
         {header}
         <div style={{ padding: "40px 24px", textAlign: "center", color: "#334155" }}>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>Thank you</div>
-          Your {yearLabel} figures are saved but not sent yet. Press "Send all changes" at the bottom of the page when you are done.
+          Your {yearLabel} figures are saved but not sent yet. Press &quot;Send all changes&quot; at the bottom of the page when you are done.
           <div style={{ marginTop: "20px" }}>
             <button
               type="button"
