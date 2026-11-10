@@ -2,7 +2,7 @@
 
 import { ListEntityTabs } from "@/components/portfolio/ListEntityTabs";
 import { trackKeyAction } from "@/lib/tracking";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import {
@@ -41,6 +41,7 @@ import {
   fetchUserListsFromXano,
 } from "@/lib/userLists";
 import { Badge } from "@/components/ui/badge";
+import { ENTITY_TONES, tagColourStyle, type EntityKind } from "@/lib/tagColors";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
 import {
@@ -103,16 +104,17 @@ const getEntityIcon = (type: string) => {
   }
 };
 
+// Entity types use the shared entity colours, anything else stays grey
+const isEntityKind = (t: string): t is EntityKind => t in ENTITY_TONES;
+
 const getEntityBadgeColor = (type: string) => {
   const t = (type || "").toLowerCase().trim();
-  switch (t) {
-    case "company":    return "bg-green-50 text-green-700 border-green-200";
-    case "individual": return "bg-purple-50 text-purple-700 border-purple-200";
-    case "investor":   return "bg-orange-50 text-orange-700 border-orange-200";
-    case "advisor":    return "bg-blue-50 text-blue-700 border-blue-200";
-    case "sector":     return "bg-amber-50 text-amber-700 border-amber-200";
-    default:           return "bg-gray-50 text-gray-700 border-gray-200";
-  }
+  return isEntityKind(t) ? "" : "bg-gray-50 text-gray-700 border-gray-200";
+};
+
+const getEntityBadgeStyle = (type: string): CSSProperties | undefined => {
+  const t = (type || "").toLowerCase().trim();
+  return isEntityKind(t) ? tagColourStyle(ENTITY_TONES[t]) : undefined;
 };
 
 const formatEntityType = (entity: string) => {
@@ -1035,7 +1037,11 @@ export default function MyPortfolioPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}
+                            style={getEntityBadgeStyle(r.type)}
+                          >
                             {getEntityIcon(r.type)}
                             <span className="capitalize">{getSearchBadgeLabel(r.type)}</span>
                           </Badge>
@@ -1163,7 +1169,11 @@ export default function MyPortfolioPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}>
+                          <Badge
+                            variant="outline"
+                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}
+                            style={getEntityBadgeStyle(String(r.entity))}
+                          >
                             {getEntityIcon(String(r.entity))}
                             {formatEntityType(String(r.entity))}
                           </Badge>

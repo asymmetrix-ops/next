@@ -42,6 +42,12 @@ import {
   getContentTypeBadgeStyle,
 } from "@/lib/contentTypeBadge";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
+import {
+  DEAL_TYPE_TONE,
+  getFundingStageTone,
+  getNewsSubtypeTone,
+  tagColourStyle,
+} from "@/lib/tagColors";
 import { locationsService } from "@/lib/locationsService";
 import { normalizeSectorName } from "@/components/corporate-events/corporateEventsTableUtils";
 import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks";
@@ -166,16 +172,6 @@ interface InsightArticle {
     hqCountryIso2?: string | null;
     hq_iso2?: string | null;
   }>;
-}
-
-function dashNewsSubtypeTagClass(subtype: string): string {
-  const s = subtype.toLowerCase().trim();
-  if (s.includes("fundraise")) return "dash-tag dash-tag-fund";
-  if (s.includes("sale process")) return "dash-tag dash-tag-sale";
-  if (s.includes("deal close")) return "dash-tag dash-tag-close";
-  if (s.includes("carve")) return "dash-tag dash-tag-carve";
-  if (s === "ipo") return "dash-tag dash-tag-ipo";
-  return "dash-tag dash-tag-lead";
 }
 
 function getInsightTransactionStatus(article: InsightArticle): string {
@@ -1214,7 +1210,10 @@ function HomeUserPageContent() {
                     <a key={article.id} href={href} className="dash-news-item">
                       <span className="dash-news-item-meta">
                         {newsSubType ? (
-                          <span className={dashNewsSubtypeTagClass(newsSubType)}>
+                          <span
+                            className="dash-tag"
+                            style={tagColourStyle(getNewsSubtypeTone(newsSubType))}
+                          >
                             {newsSubType}
                           </span>
                         ) : null}
@@ -1818,7 +1817,10 @@ function HomeUserPageContent() {
 
                                 if (!fundingStage) return "Not Available";
                                 return (
-                                  <span className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full bg-green-100 text-green-800">
+                                  <span
+                                    className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full"
+                                    style={tagColourStyle(getFundingStageTone(fundingStage))}
+                                  >
                                     {fundingStage}
                                   </span>
                                 );
@@ -2494,7 +2496,10 @@ function HomeUserPageContent() {
                                       {dealType && (
                                         <div className="dash-ev-kv">
                                           <strong>Type</strong>{" "}
-                                          <span className="dash-chip-neutral">
+                                          <span
+                                            className="dash-chip-neutral"
+                                            style={tagColourStyle(DEAL_TYPE_TONE)}
+                                          >
                                             {dealType}
                                           </span>
                                         </div>
@@ -2502,7 +2507,10 @@ function HomeUserPageContent() {
                                       {fundingStage && (
                                         <div className="dash-ev-kv">
                                           <strong>Stage</strong>{" "}
-                                          <span className="dash-chip-pos">
+                                          <span
+                                            className="dash-chip-pos"
+                                            style={tagColourStyle(getFundingStageTone(fundingStage))}
+                                          >
                                             {fundingStage}
                                           </span>
                                         </div>

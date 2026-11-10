@@ -46,7 +46,7 @@ import {
 import { exportMarketMapBucket } from "@/lib/listExport/marketMapExport";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
 import { getContentTypeBadgeStyle } from "@/lib/contentTypeBadge";
-import { getInsightsTypeTone } from "@/lib/tagColors";
+import { DEAL_TYPE_TONE, getInsightsTypeTone, tagColourStyle } from "@/lib/tagColors";
 import {
   buildGetAllContentArticlesParams,
   buildSectorInsightsFilters,
@@ -1462,8 +1462,7 @@ function RecentTransactionsCard({
                             display: "inline-block",
                             padding: "2px 8px",
                             borderRadius: 999,
-                            background: TINT,
-                            color: INK_3,
+                            ...tagColourStyle(DEAL_TYPE_TONE),
                             fontSize: 11.5,
                             fontWeight: 600,
                           }}
