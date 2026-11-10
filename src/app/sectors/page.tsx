@@ -573,7 +573,7 @@ const SectorsSection = () => {
             onKeyDown={(e) => {
               if (e.key === "Enter") fetchSectors();
             }}
-            placeholder="Search sectors or secondary sectors…"
+            placeholder="Search primary sectors…"
             style={{
               width: "100%",
               height: 38,
