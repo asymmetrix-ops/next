@@ -22,7 +22,7 @@ function badgeStyleFromColors({ bg, fg, bd }: DealTypeBadgeColors): CSSPropertie
     display: "inline-flex",
     alignItems: "center",
     padding: "2px 8px",
-    borderRadius: 4,
+    borderRadius: 999,
     backgroundColor: bg,
     color: fg,
     border: `1px solid ${bd}`,
