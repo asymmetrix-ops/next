@@ -6,9 +6,9 @@
  * Companies, investors, advisors, individuals, sectors and subsectors,
  * wherever a set of linked entities is listed (report/article pages,
  * profile cross-links, benchmark criteria). These are links, not
- * classifications: 999px pill, 24px tall, 12px weight 600, borderless
- * (except Subsectors, the one exception), never a dot. Hover darkens the
- * fill only — no border, no lift, no underline; text stays the link colour.
+ * classifications: 999px pill, 24px tall, 12px weight 600, thin border in
+ * the entity's colour, never a dot. Hover darkens the fill only — no lift,
+ * no underline; text stays the link colour.
  *
  * Mappings are fixed platform-wide — do not re-map colours per page.
  */
