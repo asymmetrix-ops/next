@@ -46,6 +46,10 @@ import {
 import { extractCurrencyField } from "@/lib/currencyField";
 import { FINANCIAL_METRICS_FIELDS } from "@/lib/financialFieldMaps";
 import {
+  fetchCompanyFinancialMetricsCard,
+  resolveLatestFinancialMetricsRow,
+} from "@/lib/companyFinancialMetricsCard";
+import {
   COMPANY_TABLE_DATA_URL,
   extractCompanyTableItems,
   formatPlainNumber,
@@ -905,6 +909,26 @@ const ArticleDetailPage = () => {
             : null;
         setCompanyOfFocusCompanyId(coFocusCompanyId);
 
+        // Use the same source + latest-year selection as the Company Profile
+        // (`company_financial_metrics`), so the figures match; fall back to
+        // the endpoint's own row only if that returns nothing.
+        let profileFinancial: CompanyOfFocusFinancialOverview | undefined;
+        if (coFocusCompanyId) {
+          try {
+            const card = await fetchCompanyFinancialMetricsCard(
+              coFocusCompanyId,
+              platformCurrencyId
+            );
+            const latest = resolveLatestFinancialMetricsRow(card.metricsRows);
+            if (latest) {
+              profileFinancial =
+                latest as unknown as CompanyOfFocusFinancialOverview;
+            }
+          } catch (e) {
+            console.error("Error fetching company financial metrics:", e);
+          }
+        }
+
         setCompanyOfFocus({
           id: rawItem.id ?? 0,
           name: rawItem.name || "",
@@ -923,7 +947,7 @@ const ArticleDetailPage = () => {
               ? (rawItem as unknown as { company_id: number }).company_id
               : undefined,
           company_overview: overview,
-          financial_overview: financial,
+          financial_overview: profileFinancial ?? financial,
         });
       } catch (err) {
         console.error("Error fetching company of focus:", err);
