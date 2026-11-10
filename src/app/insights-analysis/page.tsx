@@ -16,6 +16,7 @@ import {
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import { T } from "@/components/redesign/primitives";
 import { getInsightsTypeTone } from "@/lib/tagColors";
+import { getSearchTabTone } from "@/components/search/searchDashboardLayout";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import CompactPagination from "@/components/ui/CompactPagination";
 import {
@@ -843,17 +844,26 @@ function InsightsAnalysisPageContent() {
                 >
                   All types
                 </button>
-                {contentTypes.map((ct) => (
-                  <button
-                    key={ct}
-                    type="button"
-                    className={`ia-type-pill${activeContentType === ct ? " active" : ""}`}
-                    onClick={() => handleTypeSelect(ct)}
-                  >
-                    <span className="ia-type-dot" style={{ background: getTypeDotColor(ct) }} />
-                    {ct}
-                  </button>
-                ))}
+                {contentTypes.map((ct) => {
+                  const dot = getTypeDotColor(ct);
+                  const tone = activeContentType === ct ? getSearchTabTone(dot) : null;
+                  return (
+                    <button
+                      key={ct}
+                      type="button"
+                      className={`ia-type-pill${tone ? " active" : ""}`}
+                      style={
+                        tone
+                          ? { background: tone.bg, borderColor: tone.border, color: tone.fg }
+                          : undefined
+                      }
+                      onClick={() => handleTypeSelect(ct)}
+                    >
+                      <span className="ia-type-dot" style={{ background: dot }} />
+                      {ct}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="ia-adv-filters" style={{ borderTop: "none", paddingTop: 0 }}>
