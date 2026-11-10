@@ -17,23 +17,30 @@ import {
   isNewsArticle,
 } from "@/lib/contentArticleDisplay";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import { getInsightsTypeTone } from "@/lib/tagColors";
 import { LinkPanel, LinkedH, Pill, T } from "./primitives";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-// Matches the InsightsAnalysis design's per-type accent: Company Analysis
-// blue, Sector Analysis purple, Executive Interview green, News red, Deal
-// Perspective amber.
+// Matches the InsightsAnalysis design's per-type accent: Sector Analysis
+// purple, Executive Interview green, News red, Deal Perspective amber.
 function badgeTone(
   contentType: string
-): "coral" | "azure" | "lavender" | "emerald" | "warn" | "neutral" {
+): "coral" | "lavender" | "emerald" | "warn" | "neutral" {
   const ct = contentType.toLowerCase().trim();
   if (ct === "news") return "coral";
-  if (ct === "company analysis" || ct === "company update") return "azure";
   if (ct === "sector analysis") return "lavender";
   if (ct === "executive interview") return "emerald";
   if (ct === "deal analysis" || ct === "deal perspective" || ct === "hot take")
     return "warn";
   return "neutral";
+}
+
+// Company Analysis uses the same green as the I&A cards
+function typePillColours(contentType: string): React.CSSProperties {
+  const ct = contentType.toLowerCase().trim();
+  if (ct !== "company analysis" && ct !== "company update") return {};
+  const tone = getInsightsTypeTone(ct);
+  return { background: tone.fill, color: tone.text, border: `1px solid ${tone.border}` };
 }
 
 function titleCase(raw: string): string {
@@ -154,7 +161,11 @@ function ArticleRow({
       }}
     >
       <div style={insightsMetaColStyle}>
-        <Pill tone={tone} wrap style={insightTagPillStyle}>
+        <Pill
+          tone={tone}
+          wrap
+          style={{ ...insightTagPillStyle, ...typePillColours(article.Content_Type || "") }}
+        >
           {tag}
         </Pill>
         {isNews && byline ? (

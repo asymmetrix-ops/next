@@ -64,6 +64,7 @@ import {
 } from "@/lib/articleCustomCompanyTableColumns";
 import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
+import { getInsightsTypeTone } from "@/lib/tagColors";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -467,6 +468,19 @@ const styles = {
     gap: "6px",
   },
 };
+
+// Company Analysis uses the same green as the I&A cards
+function contentTypeBadgeStyle(ct: string): React.CSSProperties {
+  const t = ct.toLowerCase();
+  if (t !== "company analysis" && t !== "company update") return styles.contentTypeBadge;
+  const tone = getInsightsTypeTone(t);
+  return {
+    ...styles.contentTypeBadge,
+    color: tone.text,
+    backgroundColor: tone.fill,
+    border: `1px solid ${tone.border}`,
+  };
+}
 
 // Safe JSON-or-array parser used for multiple payload shapes
 const tryParse = <T,>(val: unknown): T | undefined => {
@@ -1699,7 +1713,7 @@ const ArticleDetailPage = () => {
               return (
                 <div style={styles.contentTypeRow}>
                   {ct ? (
-                    <span style={styles.contentTypeBadge}>{ct}</span>
+                    <span style={contentTypeBadgeStyle(ct)}>{ct}</span>
                   ) : null}
                   {newsSubType ? (
                     <span

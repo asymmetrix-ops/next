@@ -15,6 +15,7 @@ import {
 } from "../../types/insightsAnalysis";
 import InsightsAnalysisCard from "@/components/InsightsAnalysisCard";
 import { T } from "@/components/redesign/primitives";
+import { getInsightsTypeTone } from "@/lib/tagColors";
 import { normalizeContentArticles } from "@/lib/contentArticleDisplay";
 import CompactPagination from "@/components/ui/CompactPagination";
 import {
@@ -40,7 +41,7 @@ const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04
 // Content-type accent dots — mirrors src/lib/contentTypeBadge.ts semantic mapping.
 function getTypeDotColor(contentType: string): string {
   const t = contentType.toLowerCase();
-  if (t === "company analysis" || t === "company update") return T.azure;
+  if (t === "company analysis" || t === "company update") return getInsightsTypeTone(t).text;
   if (t === "sector analysis") return T.lavender;
   if (t === "executive interview") return T.emerald;
   if (t === "news") return T.coral;
