@@ -13564,38 +13564,7 @@ const CompanyDetail = () => {
                 flexShrink: 0,
               }}
             >
-              {isAdminSession && (
-                <button
-                  type="button"
-                  onClick={() => router.push("/admin/internal-crm")}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "7px 14px",
-                    border: "1.5px solid #bfdbfe",
-                    borderRadius: "8px",
-                    background: "#eff6ff",
-                    color: "#1d4ed8",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                    transition: "all 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#93c5fd";
-                    (e.currentTarget as HTMLButtonElement).style.background = "#dbeafe";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#bfdbfe";
-                    (e.currentTarget as HTMLButtonElement).style.background = "#eff6ff";
-                  }}
-                >
-                  Internal CRM
-                </button>
-              )}
+              {/* The "Internal CRM" shortcut is gone: staff work in the CMS, contributors never see it. */}
               {!isPublicContributorSession && (
               <button
                 type="button"
