@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   CONTRIBUTOR_COMPANY_HEADER,
+  CONTRIBUTOR_DONE_COOKIE,
   CONTRIBUTOR_SESSION_COOKIE,
   verifyContributorToken,
 } from "@/lib/contributorCrm/linkToken";
@@ -15,6 +16,7 @@ import {
  */
 const COMPANY_PAGE = /^\/contributor-crm\/(\d+)\/?$/;
 const ACCESS_ERROR = "/contributor-crm/link-expired";
+const LINK_USED = "/contributor-crm/link-used";
 
 export async function middleware(request: NextRequest) {
   const secret = process.env.CONTRIBUTOR_LINK_SECRET;
@@ -47,11 +49,17 @@ export async function middleware(request: NextRequest) {
   if (!match) return NextResponse.next();
   const pageCompanyId = Number(match[1]);
 
+  // A link whose data was already sent cannot be opened again (on this browser).
+  const doneIds = (request.cookies.get(CONTRIBUTOR_DONE_COOKIE)?.value ?? "").split(",");
   const linkToken = searchParams.get("t");
   if (linkToken) {
     const fromLink = await verifyContributorToken(linkToken, secret);
     if (!fromLink || fromLink.companyId !== pageCompanyId) {
       return NextResponse.redirect(new URL(ACCESS_ERROR, request.url));
+    }
+    const nonce = linkToken.split(".")[2];
+    if (doneIds.includes(`${pageCompanyId}:${nonce}`)) {
+      return NextResponse.redirect(new URL(LINK_USED, request.url));
     }
     const clean = request.nextUrl.clone();
     clean.searchParams.delete("t");
@@ -66,7 +74,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (!session) return NextResponse.redirect(new URL(ACCESS_ERROR, request.url));
+  if (!session) {
+    // No session: either the link was never opened/expired, or it was already used up.
+    const finished = doneIds.some((id) => id.startsWith(`${pageCompanyId}:`));
+    return NextResponse.redirect(new URL(finished ? LINK_USED : ACCESS_ERROR, request.url));
+  }
 
   // Blocked from navigating to another company: send them back to their own.
   if (session.companyId !== pageCompanyId) {

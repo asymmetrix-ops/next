@@ -22,14 +22,21 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
-  createChangeRequest,
   fetchPublicContributorCompany,
-  notifyDataContribution,
   type ContributorYearItem,
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
 import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
+import {
+  draftCount,
+  isDone as isContributionSent,
+  saveDraftChangeRequest,
+  saveDraftNotice,
+  submitAllDrafts,
+  subscribeDrafts,
+} from "@/lib/contributorCrm/draftSubmission";
 import { readIdentity, saveIdentity, REVIEW_SLA_TEXT } from "@/lib/contributorCrm/identity";
+
 import ContributorCompanyProfile from "@/components/contributor-crm/profile/ContributorCompanyProfile";
 import {
   fetchTransactionStatuses,
@@ -1191,6 +1198,13 @@ const CONTRIBUTOR_TABS: Array<{
     icon: "globe",
   },
 ];
+
+// Saving a form keeps the change as a draft; nothing is sent (or emailed) until "Send all changes".
+const createChangeRequest = saveDraftChangeRequest;
+const notifyDataContribution = (
+  _token: unknown,
+  notice: Parameters<typeof saveDraftNotice>[0]
+) => saveDraftNotice(notice);
 
 // The contributor can enter exactly the metrics on the company profile cards, in the same
 // order and with the same names: the list comes from the cards' own configuration.
@@ -3170,10 +3184,18 @@ function SuggestManagementPersonEditor({
         >
           {person.isNew ? "Add New Individual" : person.name || "Edit Individual"}
         </div>
-        {person.isNew && (
+        {(
           <button
             type="button"
-            onClick={onRemovePerson}
+            title={person.isNew ? "Remove" : "Suggest removing this person from the company"}
+            onClick={() => {
+              if (
+                person.isNew ||
+                window.confirm(`Suggest removing ${person.name || "this person"} from the company's management?`)
+              ) {
+                onRemovePerson();
+              }
+            }}
             style={{
               padding: "8px 12px",
               borderRadius: "10px",
@@ -3185,7 +3207,7 @@ function SuggestManagementPersonEditor({
               fontWeight: 600,
             }}
           >
-            Remove
+            {person.isNew ? "Remove" : "Remove person"}
           </button>
         )}
       </div>
@@ -6580,6 +6602,23 @@ function SuggestBasicCompanyChangeForm({
       ? currentValues.corporateEvents
       : [createEmptyCorporateEvent()]
   );
+  // The events can finish loading after this form opened: fill the form when they arrive,
+  // as long as nothing has been edited yet (otherwise the existing events showed up empty).
+  const ceSigRef = useRef(JSON.stringify(currentValues.corporateEvents));
+  useEffect(() => {
+    const incoming = currentValues.corporateEvents;
+    const sig = JSON.stringify(incoming);
+    if (sig === ceSigRef.current) return;
+    const wasSig = ceSigRef.current;
+    ceSigRef.current = sig;
+    if (incoming.length === 0) return;
+    setCorporateEvents((prev) => {
+      const untouched =
+        JSON.stringify(prev) === wasSig ||
+        (wasSig === "[]" && prev.every((event) => !corporateEventHasContent(event)));
+      return untouched ? incoming : prev;
+    });
+  }, [currentValues.corporateEvents]);
   const yearOptions: LookupOption[] = Array.from(
     { length: new Date().getFullYear() - 1799 },
     (_, index) => {
@@ -7266,11 +7305,11 @@ function SuggestBasicCompanyChangeForm({
             fontFamily: "Georgia, serif",
           }}
         >
-          Suggestion ready
+          Saved
         </div>
         <p style={{ margin: "0 0 18px 0", color: "#166534", fontSize: "14px" }}>
-          Thanks, our team will review your suggested changes for {companyName}{" "}
-          {REVIEW_SLA_TEXT}.
+          Your changes for {companyName} are saved but not sent yet. Keep contributing if you like, then
+          press &quot;Send all changes&quot; at the bottom of the page to send everything at once.
         </p>
         <button
           type="button"
@@ -9496,7 +9535,7 @@ function ContributeFinancialMetricsTab({
               fontFamily: "Georgia, serif",
             }}
           >
-            Submission received
+            Saved
           </div>
           <div
             style={{
@@ -9505,8 +9544,8 @@ function ContributeFinancialMetricsTab({
               maxWidth: 380,
             }}
           >
-            Thanks, our team will review your {selectedYearLabel} data{" "}
-            {REVIEW_SLA_TEXT}. We&apos;ll be in touch if we have any questions.
+            Your {selectedYearLabel} data is saved but not sent yet. Press &quot;Send all changes&quot; at the
+            bottom of the page when you are done.
           </div>
         </div>
         <button
@@ -11141,7 +11180,7 @@ function MetricsCardDrawer({
         {header}
         <div style={{ padding: "40px 24px", textAlign: "center", color: "#334155" }}>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>Thank you</div>
-          Thanks, our team will review your {yearLabel} figures {REVIEW_SLA_TEXT}.
+          Your {yearLabel} figures are saved but not sent yet. Press "Send all changes" at the bottom of the page when you are done.
           <div style={{ marginTop: "20px" }}>
             <button
               type="button"
@@ -11345,6 +11384,13 @@ const CompanyDetail = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const shouldOpenReview = searchParams.get("review") === "1";
+  // The Benchmark stays closed until the contributor has contributed (saved) something.
+  const [hasContributed, setHasContributed] = useState(false);
+  useEffect(() => {
+    const update = () => setHasContributed(draftCount(companyId) > 0);
+    update();
+    return subscribeDrafts(update);
+  }, [companyId]);
   const authToken = authService.getAuthToken();
   const isPublicContributorSession =
     !authToken || isTokenExpired(authToken);
@@ -12930,12 +12976,23 @@ const CompanyDetail = () => {
               localId: `event-${event.id ?? index}`,
               title: newEvent.target_label || event.description || "",
               announcementDate: event.announcement_date || "",
-              closedDate: "",
+              closedDate: newEvent.closed_date || "",
               dealType: event.deal_type || "",
-              dealStatus: "",
-              amountMillions: "",
-              currency: "",
-              fundingStage: "",
+              dealStatus: newEvent.deal_status || "",
+              amountMillions:
+                newEvent.investment_data?.investment_amount_m != null
+                  ? String(newEvent.investment_data.investment_amount_m)
+                  : newEvent.ev_data?.enterprise_value_m != null
+                    ? String(newEvent.ev_data.enterprise_value_m)
+                    : "",
+              currency:
+                newEvent.investment_data?.currency?.Currency ||
+                newEvent.ev_data?.currency?.Currency ||
+                "",
+              fundingStage:
+                newEvent.investment_data?.Funding_stage ||
+                newEvent.investment_data?.funding_stage ||
+                "",
               amountSourceUrl: "",
               sourceUrl: "",
               longDescription: event.description || "",
@@ -13618,7 +13675,46 @@ const CompanyDetail = () => {
             </div>
           )}
 
-          {activeTab === "sector-intelligence" && (
+          {activeTab === "sector-intelligence" && !hasContributed && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #E3E8F0",
+                borderRadius: "12px",
+                padding: "48px 24px",
+                textAlign: "center",
+                color: "#1B2A41",
+              }}
+            >
+              <div style={{ fontSize: "28px", marginBottom: "8px" }} aria-hidden>
+                🔒
+              </div>
+              <div style={{ fontSize: "17px", fontWeight: 700, marginBottom: "6px" }}>
+                The benchmark opens once you contribute
+              </div>
+              <div style={{ fontSize: "14px", color: "#6A7A90", maxWidth: 420, margin: "0 auto 16px" }}>
+                Save a few figures or profile changes for this company and the sector benchmark and corporate
+                events unlock.
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("contribute-financial-metrics")}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "#1d4ed8",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                Contribute financial metrics
+              </button>
+            </div>
+          )}
+          {activeTab === "sector-intelligence" && hasContributed && (
             <SectorIntelligenceTab
               companyCurrency={metricsCurrencyCode || displayCurrency}
               primarySectorIds={primarySectors
@@ -13819,7 +13915,121 @@ const CompanyDetail = () => {
   );
 };
 
-export default CompanyDetail;
+// Wraps the page: shows the "Send all changes" bar while drafts exist, and once everything has
+// been sent the contributor sees only the thank-you screen (no editing, no going back).
+const ContributorCompanyPage = () => {
+  const params = useParams();
+  const companyId = String(Array.isArray(params?.companyId) ? params.companyId[0] : params?.companyId ?? "");
+  const [count, setCount] = useState(0);
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+
+  useEffect(() => {
+    if (!companyId) return;
+    setSent(isContributionSent(companyId));
+    const update = () => setCount(draftCount(companyId));
+    update();
+    return subscribeDrafts(update);
+  }, [companyId]);
+
+  // After sending, going back must not return to the editable page.
+  useEffect(() => {
+    if (!sent) return;
+    window.history.replaceState(null, "", window.location.href);
+    window.history.pushState(null, "", window.location.href);
+    const lock = () => window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", lock);
+    return () => window.removeEventListener("popstate", lock);
+  }, [sent]);
+
+  const sendAll = async () => {
+    if (
+      !window.confirm(
+        `Send ${count} saved change${count === 1 ? "" : "s"} to the Asymmetrix team?\n\nOnce sent you cannot edit or undo them, and this link can no longer be opened.`
+      )
+    ) {
+      return;
+    }
+    setSending(true);
+    setSendError("");
+    try {
+      await submitAllDrafts(companyId, authService.getAuthToken());
+      setSent(true);
+    } catch (e) {
+      setSendError((e as Error)?.message || "Could not send your changes. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="min-h-screen bg-[#f9fafb] flex items-center justify-center px-6">
+        <div className="max-w-md rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] p-8 text-center">
+          <h1 className="text-xl font-bold text-[#0f172a]">Thank you, your contribution has been sent</h1>
+          <p className="mt-3 text-sm text-[#475569]">
+            Our team will review it {REVIEW_SLA_TEXT}. This link can no longer be used. If you need to add
+            something, reply to the email you received.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <CompanyDetail />
+      {count > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 900,
+            background: "#0f172a",
+            color: "#fff",
+            padding: "12px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ fontSize: "13px" }}>
+            <strong>
+              {count} change{count === 1 ? "" : "s"} saved
+            </strong>{" "}
+            · nothing has been sent yet. Keep contributing, then send everything in one go.
+            {sendError && <span style={{ marginLeft: 12, color: "#fecaca" }}>{sendError}</span>}
+          </div>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={sendAll}
+            style={{
+              padding: "10px 18px",
+              borderRadius: "10px",
+              border: "none",
+              background: "#22c55e",
+              color: "#052e16",
+              fontWeight: 700,
+              fontSize: "13px",
+              cursor: sending ? "default" : "pointer",
+              opacity: sending ? 0.6 : 1,
+            }}
+          >
+            {sending ? "Sending…" : "Send all changes"}
+          </button>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default ContributorCompanyPage;
 
 
 //

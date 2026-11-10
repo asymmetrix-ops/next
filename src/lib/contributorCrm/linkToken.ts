@@ -5,6 +5,8 @@
  * middleware (edge runtime).
  */
 export const CONTRIBUTOR_SESSION_COOKIE = "contributor_session";
+/** Remembers links whose data was already sent (`<companyId>:<nonce>`, comma separated). */
+export const CONTRIBUTOR_DONE_COOKIE = "contributor_done";
 /** Header the middleware sets on contributor API requests (always overwritten). */
 export const CONTRIBUTOR_COMPANY_HEADER = "x-contributor-company";
 
