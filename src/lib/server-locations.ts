@@ -3,6 +3,7 @@ import { serverAuthService } from "./server-auth";
 const BASE_URL = "https://xdil-abvj-o7rq.e2.xano.io/api:8KyIulob";
 
 export interface Country {
+  id?: number;
   locations_Country: string;
 }
 
@@ -36,7 +37,18 @@ export class ServerLocationsService {
       );
     }
 
-    return await response.json();
+    // Response is `{ id, name }[]` (older shape: `{ locations_Country }[]`).
+    const data = (await response.json()) as unknown;
+    const rows = Array.isArray(data) ? data : [];
+    return rows
+      .map((row) => {
+        const r = (row ?? {}) as Record<string, unknown>;
+        return {
+          id: Number(r.id ?? 0),
+          locations_Country: String(r.name ?? r.locations_Country ?? "").trim(),
+        };
+      })
+      .filter((row) => row.locations_Country);
   }
 
   async getPrimarySectors(): Promise<PrimarySector[]> {

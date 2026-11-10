@@ -178,7 +178,19 @@ class LocationsService {
       );
     }
 
-    return await response.json();
+    // Response is `{ id, name }[]` (older shape: `{ locations_Country }[]`);
+    // normalise to `{ id, locations_Country }` for all callers.
+    const data = (await response.json()) as unknown;
+    const rows = Array.isArray(data) ? data : [];
+    return rows
+      .map((row) => {
+        const r = (row ?? {}) as Record<string, unknown>;
+        return {
+          id: Number(r.id ?? 0),
+          locations_Country: String(r.name ?? r.locations_Country ?? "").trim(),
+        };
+      })
+      .filter((row) => row.locations_Country);
   }
 
   /**
