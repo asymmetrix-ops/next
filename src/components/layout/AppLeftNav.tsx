@@ -172,7 +172,11 @@ function formatCount(n: number | undefined): string | null {
   return n.toLocaleString();
 }
 
-export default function AppLeftNav() {
+export default function AppLeftNav({
+  activeSection,
+}: {
+  activeSection?: string;
+} = {}) {
   const pathname = usePathname() || "";
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -419,7 +423,7 @@ export default function AppLeftNav() {
             label={s.label}
             icon={s.icon}
             count={formatCount(counts[s.key])}
-            active={s.isActive(pathname)}
+            active={activeSection ? s.key === activeSection : s.isActive(pathname)}
             comingSoon={s.comingSoon}
             badge={s.badge}
           />

@@ -1072,8 +1072,13 @@ const ArticleDetailPage = () => {
 
   // Sector navigation handled via <Link> elements
 
+  // News and Insights & Analysis share this page (emails deep-link here), so
+  // the back link / nav highlight follow the article's content type.
+  const articleIsNews = article
+    ? isNewsArticle(article as unknown as ContentArticle)
+    : false;
   const handleBackClick = () => {
-    router.push("/insights-analysis");
+    router.push(articleIsNews ? "/news" : "/insights-analysis");
   };
 
   // Utilities to embed image attachments within the body content
@@ -1619,11 +1624,11 @@ const ArticleDetailPage = () => {
   const latestCorrection = getLatestCorrection(contentArticle);
 
   return (
-    <AppShell>
+    <AppShell activeSection={isNews ? "news" : undefined}>
     <div className={ARTICLE_PAGE_ROOT_CLASS} style={styles.container}>
       <div style={styles.maxWidth}>
         <button onClick={handleBackClick} style={styles.backButton}>
-          ← Back to Insights & Analysis
+          ← Back to {isNews ? "News" : "Insights & Analysis"}
         </button>
 
         <div className="article-layout">
