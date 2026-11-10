@@ -386,37 +386,6 @@
   border: 1px solid var(--nbd, var(--dash-blue-100));
 }
 
-.dash-tag-fund {
-  --nfg: #1f35c4;
-  --nbg: #f1f4fe;
-  --nbd: #c6d1fb;
-}
-.dash-tag-sale {
-  --nfg: #7a5605;
-  --nbg: #fef6e0;
-  --nbd: #f6e3b4;
-}
-.dash-tag-close {
-  --nfg: #0f7040;
-  --nbg: #e4f5ec;
-  --nbd: #c3e7d3;
-}
-.dash-tag-carve {
-  --nfg: #0a5e75;
-  --nbg: #e1f3f8;
-  --nbd: #bce2ec;
-}
-.dash-tag-ipo {
-  --nfg: #523793;
-  --nbg: #f1ebfc;
-  --nbd: #ddcef7;
-}
-.dash-tag-lead {
-  --nfg: #3d4657;
-  --nbg: #f5f7fd;
-  --nbd: #e4e8f2;
-}
-
 /* ---------------- news banner ---------------- */
 .dash-news-tabs {
   display: flex;

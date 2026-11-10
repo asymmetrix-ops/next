@@ -63,7 +63,12 @@ import {
 } from "@/lib/articleCustomCompanyTableColumns";
 import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
-import { getInsightsTypeTone } from "@/lib/tagColors";
+import {
+  getInsightsTypeTone,
+  getNewsSubtypeTone,
+  tagColourStyle,
+  type EntityKind,
+} from "@/lib/tagColors";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -470,17 +475,21 @@ const styles = {
   },
 };
 
-// Company Analysis uses the same green as the I&A cards
+// Same content type colours as the I&A cards
 function contentTypeBadgeStyle(ct: string): React.CSSProperties {
-  const t = ct.toLowerCase();
-  if (t !== "company analysis" && t !== "company update") return styles.contentTypeBadge;
-  const tone = getInsightsTypeTone(t);
-  return {
-    ...styles.contentTypeBadge,
-    color: tone.text,
-    backgroundColor: tone.fill,
-    border: `1px solid ${tone.border}`,
-  };
+  return { ...styles.contentTypeBadge, ...tagColourStyle(getInsightsTypeTone(ct)) };
+}
+
+// Same news subtype colours as the news cards
+function newsSubTypeBadgeStyle(subType: string): React.CSSProperties {
+  return { ...styles.newsSubTypeBadge, ...tagColourStyle(getNewsSubtypeTone(subType)) };
+}
+
+// Chip colour follows the page the mentioned entity links to
+function mentionedEntityKind(href: string): EntityKind {
+  if (href.startsWith("/advisor/")) return "advisor";
+  if (href.startsWith("/investors/")) return "investor";
+  return "company";
 }
 
 // Safe JSON-or-array parser used for multiple payload shapes
@@ -1728,7 +1737,7 @@ const ArticleDetailPage = () => {
                     <span style={contentTypeBadgeStyle(ct)}>{ct}</span>
                   ) : null}
                   {newsSubType ? (
-                    <span style={styles.newsSubTypeBadge}>{newsSubType}</span>
+                    <span style={newsSubTypeBadgeStyle(newsSubType)}>{newsSubType}</span>
                   ) : null}
                 </div>
               );
@@ -2551,14 +2560,17 @@ const ArticleDetailPage = () => {
                   article.companies_mentioned &&
                   article.companies_mentioned.length > 0 && (
                     <div className="chipset">
-                      {article.companies_mentioned.map((company) => (
-                        <EntityChip
-                          key={company.id}
-                          kind="company"
-                          href={getMentionedEntityHref(company)}
-                          label={company.name}
-                        />
-                      ))}
+                      {article.companies_mentioned.map((company) => {
+                        const href = getMentionedEntityHref(company);
+                        return (
+                          <EntityChip
+                            key={company.id}
+                            kind={mentionedEntityKind(href)}
+                            href={href}
+                            label={company.name}
+                          />
+                        );
+                      })}
                     </div>
                   )}
               </div>
@@ -2580,7 +2592,7 @@ const ArticleDetailPage = () => {
                     return (
                       <EntityChip
                         key={sid}
-                        kind="sector"
+                        kind={isPrimary ? "sector" : "subsector"}
                         href={isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`}
                         title="Open sector page"
                         label={

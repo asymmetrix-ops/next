@@ -5,6 +5,7 @@ import {
   formatCorporateEventEnterpriseValue,
   formatCorporateEventInvestmentAmount,
 } from "@/lib/corporateEventAmountDisplay";
+import { DEAL_TYPE_TONE, getFundingStageTone, tagColourStyle } from "@/lib/tagColors";
 
 export interface CorporateEventDealMetricsProps {
   dealType?: string | null;
@@ -39,18 +40,6 @@ const pillStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const pillBlueStyle: React.CSSProperties = {
-  ...pillStyle,
-  backgroundColor: "#e6f0ff",
-  color: "#1d4ed8",
-};
-
-const pillGreenStyle: React.CSSProperties = {
-  ...pillStyle,
-  backgroundColor: "#dcfce7",
-  color: "#15803d",
-};
-
 export const CorporateEventDealMetrics: React.FC<
   CorporateEventDealMetricsProps
 > = ({
@@ -81,10 +70,16 @@ export const CorporateEventDealMetrics: React.FC<
         {isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
           <>
             {isNonEmptyString(dealType) && (
-              <span style={pillBlueStyle}>{dealType}</span>
+              <span style={{ ...pillStyle, ...tagColourStyle(DEAL_TYPE_TONE) }}>{dealType}</span>
             )}
             {isNonEmptyString(fundingStage) && (
-              <span style={{ ...pillGreenStyle, marginLeft: 4 }}>
+              <span
+                style={{
+                  ...pillStyle,
+                  ...tagColourStyle(getFundingStageTone(fundingStage)),
+                  marginLeft: 4,
+                }}
+              >
                 {fundingStage}
               </span>
             )}

@@ -3,6 +3,7 @@
 import React from "react";
 import { LinkPanel, LinkedH, KV, T, Pill, CappedPillTags } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
+import { DEAL_TYPE_TONE, ENTITY_TONES, getFundingStageTone, tagColourStyle } from "@/lib/tagColors";
 
 export type CorporateEventSector = {
   id?: number;
@@ -37,11 +38,11 @@ function displayText(value: string | null | undefined): React.ReactNode {
   return normalized === EM ? faintDash() : normalized;
 }
 
-function SectorTags({ sectors, tone }: { sectors: CorporateEventSector[]; tone: "coral" | "lavender" }) {
+function SectorTags({ sectors }: { sectors: CorporateEventSector[] }) {
   if (sectors.length === 0) return faintDash();
   return (
     <CappedPillTags
-      tone={tone}
+      pillStyle={tagColourStyle(ENTITY_TONES.sector)}
       items={sectors.map((s, i) => ({
         key: `${s.id ?? s.name}-${i}`,
         label: s.name,
@@ -55,7 +56,7 @@ function SubSectorTags({ sectors }: { sectors: CorporateEventSector[] }) {
   if (sectors.length === 0) return faintDash();
   return (
     <CappedPillTags
-      tone="lavender"
+      pillStyle={tagColourStyle(ENTITY_TONES.subsector)}
       items={sectors.map((s, i) => ({
         key: `${s.id ?? s.name}-${i}`,
         label: s.name,
@@ -92,7 +93,7 @@ export function CorporateEventOverviewCard({
   const rows: { k: string; v: React.ReactNode; show?: boolean }[] = [
     {
       k: "Sector(s)",
-      v: <SectorTags sectors={primarySectors} tone="coral" />,
+      v: <SectorTags sectors={primarySectors} />,
       show: primarySectors.length > 0,
     },
     {
@@ -104,12 +105,16 @@ export function CorporateEventOverviewCard({
     { k: "Date closed", v: displayText(dateClosed), show: hasValue(dateClosed) },
     {
       k: "Deal type",
-      v: dealType?.trim() ? <Pill tone="azure">{dealType}</Pill> : faintDash(),
+      v: dealType?.trim() ? <Pill style={tagColourStyle(DEAL_TYPE_TONE)}>{dealType}</Pill> : faintDash(),
       show: hasValue(dealType),
     },
     {
       k: "Deal stage",
-      v: dealStage?.trim() ? displayText(dealStage) : faintDash(),
+      v: dealStage?.trim() ? (
+        <Pill style={tagColourStyle(getFundingStageTone(dealStage))}>{dealStage}</Pill>
+      ) : (
+        faintDash()
+      ),
       show: hasValue(dealStage),
     },
     {

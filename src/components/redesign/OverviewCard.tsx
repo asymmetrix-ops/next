@@ -9,7 +9,7 @@ import Link from "next/link";
 import { LinkPanel, LinkedH, KV, Delta, Pill, T, CappedPillTags } from "./primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
-import { getTransactionStatusTone } from "@/lib/tagColors";
+import { ENTITY_TONES, getTransactionStatusTone, tagColourStyle } from "@/lib/tagColors";
 
 export type OverviewSector = {
   name: string;
@@ -84,16 +84,16 @@ function displayText(value: string | number | null | undefined): React.ReactNode
 
 function SectorTags({
   sectors,
-  tone,
+  kind,
 }: {
   sectors: OverviewSector[];
-  tone: "coral" | "lavender";
+  kind: "sector" | "subsector";
 }) {
   if (sectors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
 
   return (
     <CappedPillTags
-      tone={tone}
+      pillStyle={tagColourStyle(ENTITY_TONES[kind])}
       items={sectors.map((s, i) => ({
         key: s.href ?? `${s.name}-${i}`,
         label: s.name,
@@ -103,11 +103,12 @@ function SectorTags({
   );
 }
 
-function transactionStatusTone(label: string): { bg: string; fg: string; dot: string } {
+function transactionStatusTone(label: string): { bg: string; fg: string; bd: string; dot: string } {
   const tone = getTransactionStatusTone(label);
   return {
     bg: tone.fill,
     fg: tone.text,
+    bd: tone.border,
     dot: tone.dot || tone.text,
   };
 }
@@ -139,6 +140,7 @@ function TransactionStatusHighlight({ label }: { label: string }) {
           gap: 6,
           backgroundColor: tone.bg,
           color: tone.fg,
+          border: `1px solid ${tone.bd}`,
           borderRadius: "999px",
           fontSize: 12,
           fontWeight: 700,
@@ -156,7 +158,7 @@ function InvestorTags({ investors }: { investors: OverviewInvestor[] }) {
   if (investors.length === 0) return <span style={{ color: T.faint }}>{EM}</span>;
   return (
     <CappedPillTags
-      tone="azure"
+      pillStyle={tagColourStyle(ENTITY_TONES.investor)}
       items={investors.map((inv) => ({
         key: String(inv.id),
         label: inv.name,
@@ -213,14 +215,14 @@ export function OverviewCard({
       k: "Primary sector(s)",
       show: hasPrimarySectors,
       v: (
-        <SectorTags sectors={primarySectors} tone="coral" />
+        <SectorTags sectors={primarySectors} kind="sector" />
       ),
     },
     {
       k: "Secondary sector(s)",
       show: hasSecondarySectors,
       v: (
-        <SectorTags sectors={secondarySectors} tone="lavender" />
+        <SectorTags sectors={secondarySectors} kind="subsector" />
       ),
     },
     {
@@ -276,10 +278,10 @@ export function OverviewCard({
               prefetch={false}
               style={{ textDecoration: "none" }}
             >
-              <Pill tone="azure">{holdingPeriod.investorName}</Pill>
+              <Pill style={tagColourStyle(ENTITY_TONES.investor)}>{holdingPeriod.investorName}</Pill>
             </Link>
           ) : (
-            <Pill tone="azure">{holdingPeriod.investorName}</Pill>
+            <Pill style={tagColourStyle(ENTITY_TONES.investor)}>{holdingPeriod.investorName}</Pill>
           )}
           <span>·</span>
           <span>{normalizedHoldingPeriodDisplay}</span>
@@ -309,7 +311,7 @@ export function OverviewCard({
       v: parentCompany ? (
         parentCompany.id ? (
           <Link href={`/company/${parentCompany.id}`} prefetch={false} style={{ textDecoration: "none" }}>
-            <Pill tone="neutral">{parentCompany.name}</Pill>
+            <Pill style={tagColourStyle(ENTITY_TONES.company)}>{parentCompany.name}</Pill>
           </Link>
         ) : (
           <span>{parentCompany.name}</span>

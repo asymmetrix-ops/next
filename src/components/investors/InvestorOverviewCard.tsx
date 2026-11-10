@@ -4,6 +4,7 @@ import React from "react";
 import { LinkPanel, LinkedH, KV, T, Pill, Delta, CappedPillTags } from "@/components/redesign/primitives";
 import { EMPTY_DISPLAY, isEmptyDisplayValue, normalizeEmptyDisplay } from "@/lib/emptyDisplay";
 import { normalizeHoldingPeriodDisplay } from "@/lib/holdingPeriod";
+import { ENTITY_TONES, tagColourStyle } from "@/lib/tagColors";
 
 export type InvestorFocusSector = {
   id?: number;
@@ -47,7 +48,7 @@ function FocusTags({ sectors }: { sectors: InvestorFocusSector[] }) {
 
   return (
     <CappedPillTags
-      tone="lavender"
+      pillStyle={tagColourStyle(ENTITY_TONES.sector)}
       items={sectors.map((s, i) => ({
         key: s.href ?? `${s.name}-${i}`,
         label: s.name,

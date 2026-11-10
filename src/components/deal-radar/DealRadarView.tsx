@@ -21,6 +21,7 @@ import {
   ENTITY_TONES,
   DEAL_TYPE_TONE,
   TRANSACTION_SIGNAL_TONES,
+  tagColourStyle,
   type TagTone,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
@@ -548,7 +549,7 @@ function DealRadarMobileCard({
         onNavigate(href);
       }}
       className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5"
-      style={{ backgroundColor: ENTITY_TONES.company.fill, color: ENTITY_TONES.company.text }}
+      style={tagColourStyle(ENTITY_TONES.company)}
     >
       {name}
     </a>
@@ -1306,10 +1307,7 @@ export default function DealRadarView({
                                           })
                                         }
                                         className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
-                                        style={{
-                                          backgroundColor: ENTITY_TONES.company.fill,
-                                          color: ENTITY_TONES.company.text,
-                                        }}
+                                        style={tagColourStyle(ENTITY_TONES.company)}
                                       >
                                         {b.name}
                                       </a>

@@ -11,12 +11,14 @@ import { fetchIaContentType, type NewsArticle, type NewsRef } from "@/lib/news";
 import { trackKeyAction } from "@/lib/tracking";
 import type { ArticleSeries } from "@/types/insightsAnalysis";
 import {
+  ENTITY_TONES,
   dotPillStyleFromTone,
   formatTransactionStatusLabel,
   getInsightsTypeTone,
   getNewsSubtypeTone,
   getTransactionStatusTone,
   researchPillStyleFromTone,
+  tagColourStyle,
 } from "@/lib/tagColors";
 
 type Props = {
@@ -161,7 +163,7 @@ function SectorTags({ sectors }: { sectors: string[] }) {
   return (
     <div className="nw-tags">
       {visibleSectors.map((sector) => (
-        <span className="nw-sector" key={sector}>
+        <span className="nw-sector" key={sector} style={tagColourStyle(ENTITY_TONES.sector)}>
           {sector}
         </span>
       ))}
