@@ -15,7 +15,6 @@ import {
 import type { FiMetricSourceType } from "@/lib/financialIntelligence/types";
 import {
   ListViewEnumEditor,
-  ListViewIdEnumEditor,
   ListViewRangeEditor,
 } from "@/components/filters/ListViewFilterEditors";
 import { AnchoredPopover } from "@/components/filters/AnchoredPopover";
@@ -460,14 +459,25 @@ export function FiControlBar({
     const dismiss = options?.onDismiss ?? (() => {});
 
     if (ID_FILTER_IDS.has(def.id)) {
-      const initialIds = initialIdFilterValues(options?.initial);
+      // Same name-based enum editor as the Companies filters; picked names are
+      // mapped back to ids because the benchmark API filters by country id.
+      const idOptions = idOptionsForDef(def);
+      const initialNames = initialIdFilterValues(options?.initial)
+        .map((id) => idOptions.find((o) => o.id === id)?.name)
+        .filter((n): n is string => Boolean(n));
       return (
-        <ListViewIdEnumEditor
-          key={`${def.id}-${initialIds.join(",")}`}
+        <ListViewEnumEditor
+          key={`${def.id}-${initialNames.join(",")}`}
           def={def}
-          options={idOptionsForDef(def)}
-          value={initialIds}
-          onApply={(values) => onApply(values)}
+          options={idOptions.map((o) => o.name)}
+          value={initialNames}
+          onApply={(names) =>
+            onApply(
+              names
+                .map((n) => idOptions.find((o) => o.name === n)?.id)
+                .filter((id): id is number => id != null)
+            )
+          }
           onBack={options?.onBack}
           onRemove={options?.onRemove}
           onDismiss={dismiss}
