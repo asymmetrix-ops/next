@@ -1124,7 +1124,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
                         </div>
                       </div>
                     </td>
-                    <td style={numCell}>{r.ev_m ? r.ev_m.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
+                    <td style={numCell}>{(r.ev_m ?? r.ev_m_usd) ? (r.ev_m ?? r.ev_m_usd)!.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "–"}</td>
                     <td style={numCell}>{mult(r.ev_revenue, r.ev_revenue_basis)}</td>
                     <td style={numCell}>{mult(r.ev_ebitda, r.ev_ebitda_basis)}</td>
                   </tr>
