@@ -14,6 +14,7 @@ import {
   LinkedH,
 } from "@/components/redesign/primitives";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { DEAL_TYPE_TONE, tagColourStyle } from "@/lib/tagColors";
 import { formatCurrency } from "@/utils/advisorHelpers";
 
 export type AdvisorDealEvent = {
@@ -126,20 +127,6 @@ function formatSideAdvised(role: string): string {
   if (!trimmed) return "-";
   if (/^investor\s*\(unknown size\)/i.test(trimmed)) return "Investor";
   return trimmed;
-}
-
-function dealTypePillTone(dealType: string): "acq" | "div" | "neu" {
-  const d = dealType.toLowerCase();
-  if (d.includes("acquisition") || d.includes("merger")) return "acq";
-  if (d.includes("divest")) return "div";
-  return "neu";
-}
-
-function dealTypePillStyle(dealType: string): React.CSSProperties {
-  const tone = dealTypePillTone(dealType);
-  if (tone === "acq") return { background: T.azureSoft, color: T.azure };
-  if (tone === "div") return { background: T.coralSoft, color: T.down };
-  return { background: T.inset, color: T.muted };
 }
 
 function sectorLabel(
@@ -324,7 +311,7 @@ function SummaryDealsTable({ events }: { events: AdvisorDealEvent[] }) {
                   borderRadius: 999,
                   fontSize: "11.5px",
                   fontWeight: 600,
-                  ...dealTypePillStyle(dealType),
+                  ...tagColourStyle(DEAL_TYPE_TONE),
                 }}
               >
                 {dealType}
@@ -754,7 +741,7 @@ export function AdvisorDealsProfilePanel({
                         borderRadius: 999,
                         fontSize: "11.5px",
                         fontWeight: 600,
-                        ...dealTypePillStyle(dealType),
+                        ...tagColourStyle(DEAL_TYPE_TONE),
                       }}
                     >
                       {dealType}

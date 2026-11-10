@@ -64,7 +64,7 @@ import {
 } from "@/lib/articleCustomCompanyTableColumns";
 import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
-import { getInsightsTypeTone, tagColourStyle } from "@/lib/tagColors";
+import { getInsightsTypeTone, tagColourStyle, type EntityKind } from "@/lib/tagColors";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -472,6 +472,13 @@ const styles = {
 // Same content type colours as the I&A cards
 function contentTypeBadgeStyle(ct: string): React.CSSProperties {
   return { ...styles.contentTypeBadge, ...tagColourStyle(getInsightsTypeTone(ct)) };
+}
+
+// Chip colour follows the page the mentioned entity links to
+function mentionedEntityKind(href: string): EntityKind {
+  if (href.startsWith("/advisor/")) return "advisor";
+  if (href.startsWith("/investors/")) return "investor";
+  return "company";
 }
 
 // Safe JSON-or-array parser used for multiple payload shapes
@@ -2504,14 +2511,17 @@ const ArticleDetailPage = () => {
                   article.companies_mentioned &&
                   article.companies_mentioned.length > 0 && (
                     <div className="chipset">
-                      {article.companies_mentioned.map((company) => (
-                        <EntityChip
-                          key={company.id}
-                          kind="company"
-                          href={getMentionedEntityHref(company)}
-                          label={company.name}
-                        />
-                      ))}
+                      {article.companies_mentioned.map((company) => {
+                        const href = getMentionedEntityHref(company);
+                        return (
+                          <EntityChip
+                            key={company.id}
+                            kind={mentionedEntityKind(href)}
+                            href={href}
+                            label={company.name}
+                          />
+                        );
+                      })}
                     </div>
                   )}
               </div>

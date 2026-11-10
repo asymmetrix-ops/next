@@ -14,6 +14,7 @@ import {
   PROFILE_EVENTS_ROW_PAD,
 } from "@/components/redesign/primitives";
 import type { AdvisorActiveMandate } from "@/types/advisor";
+import { getTransactionStatusTone, tagColourStyle } from "@/lib/tagColors";
 
 type Props = {
   mandates: AdvisorActiveMandate[];
@@ -84,13 +85,6 @@ function shortenStatusLabel(label: string): string {
   if (stripped === label) return stripped;
   return stripped.charAt(0).toUpperCase() + stripped.slice(1);
 }
-
-const STATUS_TONE: Record<number, "neutral" | "warn" | "azure" | "coral"> = {
-  1: "azure", // Transaction anticipated
-  2: "warn", // Rumoured in market
-  3: "warn", // Reported in market
-  4: "coral", // In market / strategic review
-};
 
 export function AdvisorActiveMandatesProfilePanel({
   mandates,
@@ -190,7 +184,7 @@ export function AdvisorActiveMandatesProfilePanel({
                     ? String(row.transaction_status_id)
                     : "—")
               );
-              const tone = STATUS_TONE[row.transaction_status_id] ?? "neutral";
+              const statusColours = tagColourStyle(getTransactionStatusTone(statusLabel));
               const companyName =
                 (row.company_name || "").trim() || `Company ${row.company_id}`;
               const processStage = row.process_stage?.trim();
@@ -245,8 +239,8 @@ export function AdvisorActiveMandatesProfilePanel({
 
                   <div style={{ textAlign: colAlign(1), minWidth: 0 }}>
                     <Pill
-                      tone={tone}
                       style={{
+                        ...statusColours,
                         fontSize: 10,
                         height: "auto",
                         minHeight: 18,

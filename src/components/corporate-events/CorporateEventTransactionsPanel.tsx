@@ -9,6 +9,7 @@ import {
   T,
   Pill,
 } from "@/components/redesign/primitives";
+import { DEAL_TYPE_TONE, tagColourStyle } from "@/lib/tagColors";
 
 export type CorporateEventTransactionRow = {
   id: number;
@@ -30,13 +31,6 @@ const ROW_GRID =
   "minmax(0, 26%) minmax(124px, 17%) minmax(0, 14%) minmax(0, 22%) minmax(0, 21%)";
 const COL_GAP = 2;
 const ROW_PAD = "6px 10px";
-
-function dealTypeTone(dealType: string): "coral" | "azure" | "neutral" {
-  const d = dealType.toLowerCase();
-  if (d.includes("acquisition") || d.includes("merger")) return "azure";
-  if (d.includes("divest")) return "coral";
-  return "neutral";
-}
 
 export function CorporateEventTransactionsPanel({
   title,
@@ -127,7 +121,7 @@ export function CorporateEventTransactionsPanel({
                   </div>
                   <div style={{ minWidth: 0 }}>
                     {row.dealType ? (
-                      <Pill tone={dealTypeTone(row.dealType)} style={{ fontSize: 10, padding: "1px 5px" }}>
+                      <Pill style={{ ...tagColourStyle(DEAL_TYPE_TONE), fontSize: 10, padding: "1px 5px" }}>
                         {row.dealType}
                       </Pill>
                     ) : (
