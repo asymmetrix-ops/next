@@ -33,6 +33,8 @@ import {
   getInvestorServerSortDefaultDirection,
 } from "@/components/investors/investorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import { AdminSelectResultsBar } from "@/components/search/AdminSelectResultsBar";
+import { collectAllInvestorIds } from "@/lib/listExport/investorsListExport";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useInvestorsAPI = () => {
@@ -287,6 +289,7 @@ function InvestorsPageInner() {
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -307,6 +310,16 @@ function InvestorsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <AdminSelectResultsBar
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={(maxIds) =>
+          collectAllInvestorIds(
+            (currentFilters ?? createDefaultInvestorFilters()) as never,
+            maxIds
+          )
+        }
+        onSelect={selectMany}
       />
       <InvestorSection
         investors={investors}

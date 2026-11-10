@@ -31,6 +31,8 @@ import {
 } from "./actions";
 import { authService } from "@/lib/auth";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import { AdminSelectResultsBar } from "@/components/search/AdminSelectResultsBar";
+import { collectAllIndividualIds } from "@/lib/listExport/individualsListExport";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useIndividualsAPI = () => {
@@ -245,6 +247,7 @@ function IndividualsPageInner() {
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -268,6 +271,16 @@ function IndividualsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <AdminSelectResultsBar
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={(maxIds) =>
+          collectAllIndividualIds(
+            (currentFilters ?? createDefaultIndividualFilters()) as never,
+            maxIds
+          )
+        }
+        onSelect={selectMany}
       />
       <IndividualSection
         individuals={individuals}

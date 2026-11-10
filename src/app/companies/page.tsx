@@ -46,6 +46,8 @@ import {
 } from "./actions";
 import { CompaniesEditContext } from "./CompaniesEditContext";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import { AdminSelectResultsBar } from "@/components/search/AdminSelectResultsBar";
+import { collectAllCompanyIds } from "@/lib/listExport/companiesListExport";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useCompaniesAPI = (
@@ -337,6 +339,7 @@ function CompaniesPageInner() {
     selectedIds: selectedCompanyIds,
     toggleSelection: toggleCompanySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -368,6 +371,16 @@ function CompaniesPageInner() {
             ? pagination.totalCount || ownershipCounts.totalCount
             : undefined
         }
+      />
+      <AdminSelectResultsBar
+        resultCount={pagination.totalCount || ownershipCounts.totalCount || 0}
+        collectIds={(maxIds) =>
+          collectAllCompanyIds(
+            (currentFilters ?? createDefaultFilters()) as never,
+            maxIds
+          )
+        }
+        onSelect={selectMany}
       />
       <CompanySection
         companies={companies}

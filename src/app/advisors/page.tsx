@@ -29,6 +29,8 @@ import {
 } from "./actions";
 import { getAdvisorServerSortColumn } from "@/components/advisors/advisorsTableSort";
 import { useEntitySelection } from "@/components/search/useEntitySelection";
+import { AdminSelectResultsBar } from "@/components/search/AdminSelectResultsBar";
+import { collectAllAdvisorIds } from "@/lib/listExport/advisorsListExport";
 import type { ListExportRequest } from "@/lib/listExport/types";
 
 const useAdvisorsAPI = () => {
@@ -298,6 +300,7 @@ function AdvisorsPageInner() {
     selectedIds: selectedEntityIds,
     toggleSelection: toggleEntitySelection,
     togglePageSelection,
+    selectMany,
     clearSelection,
   } = useEntitySelection(filtersKey);
 
@@ -316,6 +319,16 @@ function AdvisorsPageInner() {
         exporting={exporting}
         columnsActive={showColumnsModal}
         columnsCount={columnsCount}
+      />
+      <AdminSelectResultsBar
+        resultCount={pagination.itemsTotal || 0}
+        collectIds={(maxIds) =>
+          collectAllAdvisorIds(
+            (currentFilters ?? createDefaultAdvisorFilters()) as never,
+            maxIds
+          )
+        }
+        onSelect={selectMany}
       />
       <AdvisorSection
         advisors={advisors}
