@@ -1,5 +1,5 @@
 Tag colour reference
-Every tag family in use across the platform, with its values and hexes. New values are held at 4.5:1 or better on their own fill. The inherited funding-stage ramp in section 1 is the exception — seven of its light tones sit between 2.65:1 and 4.43:1 and are grandfathered, marked △ in the table. Mappings are fixed platform-wide — do not re-map per page.
+Every tag family in use across the platform, with its values and hexes. New values are held at 4.5:1 or better on their own fill. Mappings are fixed platform-wide — do not re-map per page.
 
 1 · Deal type & funding stage
 Deal type is the neutral grey label — Equity, M&A, Debt, Grant and every other value share one grey. Funding stage sits beside it, coloured by group and stepping darker as the stage advances.
@@ -9,62 +9,62 @@ Deal type · grey (neutral) — always grey, whatever the value
 Deal type	
 Deal type	#343C46	#ECEFF3	#DDE2E8
 Early · blue
-Pre-seed△	
-Pre-seed△	
-Pre-seed	#5B7FC9	#EEF3FC	#DCE6F6
+Pre-seed	
+Pre-seed	
+Pre-seed	#143E96	#EEF3FC	#DCE6F6
 Seed	
-Seed	#2A5DB5	#E4ECFA	#CCDBF3
+Seed	#143E96	#E4ECFA	#CCDBF3
 Series A	
 Series A	#143E96	#D7E2F4	#B8CAEA
 Growth · green
-Series B△	
-Series B	#2FAA7C	#E7F7EF	#C8EAD9
-Series C△	
-Series C	#1E946A	#DEF3E7	#BBE2CE
-Series D△	
-Series D	#117955	#D5EFDF	#AED8C3
+Series B	
+Series B	#032D20	#E7F7EF	#C8EAD9
+Series C	
+Series C	#032D20	#DEF3E7	#BBE2CE
+Series D	
+Series D	#032D20	#D5EFDF	#AED8C3
 Series E	
-Series E	#0B6346	#CCEAD6	#9DCEB7
+Series E	#032D20	#CCEAD6	#9DCEB7
 Series F	
-Series F	#074E37	#C3E6CD	#8FC4AB
+Series F	#032D20	#C3E6CD	#8FC4AB
 Series G	
-Series G	#053C2B	#BBE2C5	#80B89D
+Series G	#032D20	#BBE2C5	#80B89D
 Growth	
 Growth	#032D20	#B2DDBC	#6FAE91
 Private equity · purple
 Buyout	
-Buyout	#7A52AE	#EFE6F7	#DDD0EC
+Buyout	#4D2D7C	#EFE6F7	#DDD0EC
 Take Private	
 Take Private	#4D2D7C	#E1D4EF	#C5B0DE
 Non-dilutive · amber
-Credit facility△	
-Credit facility	#B5860B	#FFF2D2	#F2DEA1
-Debt△	
-Debt	#8C6306	#F5E2B6	#E2C880
+Credit facility	
+Credit facility	#5E4204	#FFF2D2	#F2DEA1
+Debt	
+Debt	#5E4204	#F5E2B6	#E2C880
 Grant	
 Grant	#5E4204	#ECD68F	#CDAE5B
 Closing · orange
-Closing△	
-Closing	#B85015	#FCE3D2	#F4CCB1
+Closing	
+Closing	#93400F	#FCE3D2	#F4CCB1
 Tokens: --tag-<value>-fg / -bg / -bd in colors_and_type.css. Full specimen with usage notes: tags-investment.html.
 
-△ marks a tone below 4.5:1 on its own fill — Pre-seed 3.54, Series B 2.65, Series C 3.29, Series D 4.43, Credit facility 2.96, Debt 4.21, Closing 4.06. These are the shipped values and are not being changed; the ramp needs a light end, and each value's meaning is carried by the label. Do not copy these tones onto new tag families, and do not use any of them for a value that must be read at a glance from across a table.
+Every stage in a group shares the text colour of the group's darkest stage, so lighter fills no longer fade the label. Fills and borders still step darker as the stage advances.
 
 2 · Transaction status
-Deal Radar and every entity screen. Built on the landing semantic families — fill / text / dot per family, no border. Fixed mapping; never re-coloured per page. The two Anticipated horizons share the blue family and step darker as the horizon shortens, the same convention the funding stages use.
+Deal Radar and every entity screen. Built on the landing semantic families — fill / text / dot / border per family. Fixed mapping; never re-coloured per page. The two Anticipated horizons share the blue family and step darker as the horizon shortens, the same convention the funding stages use.
 
 Value	Tag	Family	Text	Fill	Dot	Border
 Reported in Market	
-Reported in Market	pos · green	#0F7040	#E4F5EC	#17A05C	transparent
+Reported in Market	pos · green	#0F7040	#E4F5EC	#17A05C	#C3E7D3
 Rumoured in Market	
-Rumoured in Market	warn · amber	#7A5605	#FEF6E0	#E0A32E	transparent
+Rumoured in Market	warn · amber	#7A5605	#FEF6E0	#E0A32E	#F6E3B4
 Anticipated within 6 months	
-Anticipated · 6 months	blue, near tone	#182A9B	#E2E8FD	#2A46EA	transparent
+Anticipated · 6 months	blue, near tone	#182A9B	#E2E8FD	#2A46EA	#BFCBF8
 Anticipated within 18 months	
-Anticipated · 18 months	info · blue	#1F35C4	#F1F4FE	#3D5BF3	transparent
+Anticipated · 18 months	info · blue	#1F35C4	#F1F4FE	#3D5BF3	#C6D1FB
 Process on hold	
-Process on hold	quiet · neutral	#3D4657	#F5F7FD	#8A93A8	transparent
-Classes: .lp-chip.lp-chip-dot.lp-chip-pos / -warn / -info / -neg — all set border-color:transparent; the fill alone separates them. The bordered variants in section 4 are News-card overrides, not a shared spec. In emails, deal status renders neutral instead — #1F252E on #E1E4E9, border #CBD0D8 (e.g. "Completed"), since the mail client shows the stage tag alongside.
+Process on hold	quiet · neutral	#3D4657	#F5F7FD	#8A93A8	#E4E8F2
+Classes: .lp-chip.lp-chip-dot.lp-chip-pos / -warn / -info / -neg — each with a thin border in its own family colour. In emails, deal status renders neutral instead — #1F252E on #E1E4E9, border #CBD0D8 (e.g. "Completed"), since the mail client shows the stage tag alongside.
 
 3 · Insights & Analysis piece type
 The research-piece type only — never repeats the transaction status, which the Stage column carries. Sentence case, no dot. News is the one type in red, and it carries a dot plus its own six subtypes (section 4).
@@ -87,7 +87,7 @@ Value	Tag	Family	Text	Fill	Border	Dot
 Fundraise	
 Fundraise	blue	#1F35C4	#F1F4FE	#C6D1FB	#3D5BF3
 Sale process	
-Sale process	amber · warn	#7A5605	#FEF6E0	#F6E3B4	#E0A32E
+Sale process	raspberry red	#B0154F	#FDECF2	#F7C5D6	#E23B7B
 Deal close	
 Deal close	green · pos	#0F7040	#E4F5EC	#C3E7D3	#17A05C
 Carve-out	
@@ -115,11 +115,11 @@ In Exclusivity	deep indigo	#372A78	#E4E0F6	#CBC3EA
 Cyan, teal and violet are the existing brand cyan, --lp-teal-* and Sector Analysis violet. In Market darkens the Closing orange text from #B85015 to #93400F to clear 4.5:1 on the same fill. In Exclusivity is the one new family — a deep indigo, the darkest tag on the platform, for the one stage where a deal is effectively decided.
 
 6 · Intermediary
-Mixed field: three fixed absence states, or a company tagged from the Advisors table. The named advisor is the only one that renders as an entity tag — cyan, the platform's link colour — so a real advisor never looks like a placeholder.
+Mixed field: three fixed absence states, or a company tagged from the Advisors table. The named advisor is the only one that renders as an entity tag — orange, the same as the advisor entity tag in section 10 — so a real advisor never looks like a placeholder.
 
 Value	Tag	Form	Text	Fill	Border
 Named advisor (Advisors lookup)	
-Rothschild & Co	entity tag, links through	#0370AA	#E8F8FF	#8DDAFF
+Rothschild & Co	entity tag, links through	#93400F	#FCE3D2	#F4CCB1
 Not Yet Hired	
 Not Yet Hired	pending — amber, action outstanding	#7A5605	#FEF6E0	#F6E3B4
 No Intermediary	
@@ -162,16 +162,16 @@ Value, undisclosed	Undisclosed	#6B7488	#FFFFFF	#E4E8F2
 Weight 700, font-variant-numeric: tabular-nums, currency and multiple suffixes included in the tag. Where the figure sits in a numeric column instead, keep it as plain right-aligned tabular text — the tag form is for cards, headers and dense mixed cells.
 
 10 · Entity tags
-Companies, investors, advisors, individuals, sectors and subsectors, wherever a set of linked entities is listed — report and news pages, profile cross-links, benchmark criteria. These are links, not classifications, so they take the .lp-chip geometry the product already uses for these chipsets — 999px pill, 24px tall, 12px weight 600 — with the borderless treatment .lp-chip-purple already uses, and never a dot. Absence of a dot is what separates an entity from the semantic chip families above, which frees the five hues to be picked purely for telling entity kinds apart.
+Companies, investors, advisors, individuals, sectors and subsectors, wherever a set of linked entities is listed — report and news pages, profile cross-links, benchmark criteria. These are links, not classifications, so they take the .lp-chip geometry the product already uses for these chipsets — 999px pill, 24px tall, 12px weight 600 — with a thin border in the entity's colour, and never a dot. Absence of a dot is what separates an entity from the semantic chip families above, which frees the five hues to be picked purely for telling entity kinds apart.
 
-Entity	Tag	Family	Text	Fill	Hover fill
-Companies	Informa plc	green — as shipped today	#0F7040	#E4F5EC	#D3EEE0
-Investors	Hg Capital	cyan — the brand colour, for the money	#0370AA	#E8F8FF	#D5F1FE
-Advisors	Rothschild & Co	orange — the intermediary	#93400F	#FCE3D2	#F8D4BC
-Individuals	Sara Kennedy	indigo — people, distinct from their firms	#372A78	#E4E0F6	#D5CFF0
-Sectors	Debt Capital Markets	purple — as shipped today	#523793	#F1EBFC	#E5DAF9
-Subsectors	Fixed Income Pricing	purple, outlined on near-white — a child of Sectors	#5E4AA8	#FBF9FE · bd #D8CDF0	#F2ECFC
-Subsectors keep the Sectors hue but invert the weighting: a near-white fill with a soft purple hairline, against the sector chip’s solid lavender. The one exception to the no-border entity rule, and the reason a sector and its child never blur into each other in a mixed chipset — 6.4:1 on fill. Where both appear in one chipset, primary sectors lead and subsectors follow.
+Entity	Tag	Family	Text	Fill	Hover fill	Border
+Companies	Informa plc	green — as shipped today	#0F7040	#E4F5EC	#D3EEE0	#C3E7D3
+Investors	Hg Capital	cyan — the brand colour, for the money	#0370AA	#E8F8FF	#D5F1FE	#8DDAFF
+Advisors	Rothschild & Co	orange — the intermediary	#93400F	#FCE3D2	#F8D4BC	#F4CCB1
+Individuals	Sara Kennedy	indigo — people, distinct from their firms	#372A78	#E4E0F6	#D5CFF0	#CBC3EA
+Sectors	Debt Capital Markets	purple — as shipped today	#523793	#F1EBFC	#E5DAF9	#DDCEF7
+Subsectors	Fixed Income Pricing	purple, outlined on near-white — a child of Sectors	#5E4AA8	#FBF9FE	#F2ECFC	#D8CDF0
+Subsectors keep the Sectors hue but invert the weighting: a near-white fill with a soft purple hairline, against the sector chip’s solid lavender. That is the reason a sector and its child never blur into each other in a mixed chipset — 6.4:1 on fill. Where both appear in one chipset, primary sectors lead and subsectors follow.
 
 Sectors is as shipped: #523793 on #F1EBFC is .lp-chip-purple exactly. Companies green is .lp-chip-pos’s fill and text exactly, taken from the live product’s company chips — but in this design system every entity chipset currently renders as the default blue .lp-chip (New Design/ReportDetail.html, NewsDetail.html, CompanyProfile.html). Section 10 supersedes that: those chipsets need the per-entity variant applied, and investors, advisors and individuals need three new variants added to landing.css.
 
@@ -201,4 +201,4 @@ Entity tags share both hue and geometry with the semantic chip families — a gr
 
 Process stage and Transaction status share no hue — status holds green, amber, blue and neutral; process stage holds cyan, teal, violet, orange and indigo. They sit in adjacent Deal Radar columns, so keep that separation whenever either list gains a value.
 
-Buyer type deliberately re-uses section 1’s hues — grey, purple, green mean corporate, private equity and growth capital in both places, which is the point. Cyan appears in Process stage (Strategic Review), Intermediary (named advisor) and I&A (Investor Analysis); the first is a filled dotted pill, the second carries a link, the third is a no-dot research pill. Green, amber and blue likewise carry meaning in more than one family — the platform pattern is one status tag plus one type tag per row, and the label carries the meaning when a row has to show both.
+Buyer type deliberately re-uses section 1’s hues — grey, purple, green mean corporate, private equity and growth capital in both places, which is the point. Cyan appears in Process stage (Strategic Review), Investor entity tags and I&A (Investor Analysis); the first is a filled pill, the second carries a link, the third is a research pill. Green, amber and blue likewise carry meaning in more than one family — the platform pattern is one status tag plus one type tag per row, and the label carries the meaning when a row has to show both.
