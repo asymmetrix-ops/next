@@ -18,7 +18,7 @@ type DraftNotice = Omit<DataContributionNotificationPayload, "contributor_name">
 type Draft = { id: string; payload: ChangeRequestPayload; notice?: DraftNotice; savedAt: number };
 
 const key = (companyId: string | number) => `contributor-drafts:${companyId}`;
-const DONE_KEY = (companyId: string | number) => `contributor-done:${companyId}`;
+const SENT_KEY = (companyId: string | number) => `contributor-sent:${companyId}`;
 const EVENT = "contributor-drafts-changed";
 
 function read(companyId: string | number): Draft[] {
@@ -86,17 +86,18 @@ export async function saveDraftNotice(notice: DraftNotice): Promise<void> {
   }
 }
 
-export function isDone(companyId: string | number): boolean {
+/** True once the contributor has sent something from this browser (keeps the Benchmark open). */
+export function hasSentBefore(companyId: string | number): boolean {
   try {
-    return localStorage.getItem(DONE_KEY(companyId)) === "1";
+    return localStorage.getItem(SENT_KEY(companyId)) === "1";
   } catch {
     return false;
   }
 }
 
 /**
- * Sends every draft, then exactly one notification email, then closes the link: the
- * contributor can neither edit nor reopen it afterwards.
+ * Sends every draft, then exactly one notification email. The link stays open: the
+ * contributor can keep adding or editing data and send again later.
  */
 export async function submitAllDrafts(companyId: string | number, token: string | null): Promise<void> {
   const drafts = read(companyId);
@@ -128,9 +129,9 @@ export async function submitAllDrafts(companyId: string | number, token: string 
   }
 
   try {
-    localStorage.setItem(DONE_KEY(companyId), "1");
+    localStorage.setItem(SENT_KEY(companyId), "1");
   } catch {
-    /* the server cookie below is the real lock */
+    /* only used to keep the Benchmark open */
   }
-  await fetch("/contributor-crm/api/contributor/finish", { method: "POST" }).catch(() => {});
+  window.dispatchEvent(new Event(EVENT));
 }

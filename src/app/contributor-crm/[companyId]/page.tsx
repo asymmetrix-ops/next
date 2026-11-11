@@ -29,7 +29,7 @@ import {
 import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
 import {
   draftCount,
-  isDone as isContributionSent,
+  hasSentBefore,
   saveDraftChangeRequest,
   saveDraftNotice,
   submitAllDrafts,
@@ -6862,7 +6862,7 @@ function SuggestBasicCompanyChangeForm({
       return currentSnapshot !== initialSnapshot;
     }
     return managementPersonHasContent(person);
-  }).length;
+  }).length + currentValues.managementPeople.filter((p) => !managementPeople.some((m) => m.localId === p.localId)).length;
 
   const initialSubsidiariesById = new Map(
     currentValues.subsidiaries.map((subsidiary) => [
@@ -10132,7 +10132,7 @@ function ContributeFinancialMetricsTab({
 const CE_API =
   "https://xdil-abvj-o7rq.e2.xano.io/api:617tZc8l/get_all_corporate_events";
 // The contributor benchmark shows the 5 most recent sector-related corporate events of the last 6 months (no paging).
-const CE_PER_PAGE = 5;
+const CE_PER_PAGE = 25;
 
 type CEItem = {
   id?: number;
@@ -10822,14 +10822,15 @@ function SectorIntelligenceTab({
     <div style={{ marginTop: "20px" }}>
       {/* Read-only on the contributor page: nothing in the event list opens another page. */}
       <div
-        ref={(el) => {
-          if (el) (el as HTMLElement & { inert?: boolean }).inert = true;
-        }}
         onClickCapture={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
+          // Links inside the list must not open other pages; scrolling stays possible.
+          const a = (e.target as HTMLElement).closest("a");
+          if (a) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
-        style={{ pointerEvents: "none", cursor: "default" }}
+        style={{ overflowX: "auto", maxWidth: "100%", WebkitOverflowScrolling: "touch" }}
       >
       <PlatformCurrencyOverride currency={currency}>
         {/* The platform's own corporate events list (same columns, flags, deal tags), embedded. */}
@@ -11427,7 +11428,7 @@ const CompanyDetail = () => {
   // The Benchmark stays closed until the contributor has contributed (saved) something.
   const [hasContributed, setHasContributed] = useState(false);
   useEffect(() => {
-    const update = () => setHasContributed(draftCount(companyId) > 0);
+    const update = () => setHasContributed(draftCount(companyId) > 0 || hasSentBefore(companyId));
     update();
     return subscribeDrafts(update);
   }, [companyId]);
@@ -13924,38 +13925,27 @@ const CompanyDetail = () => {
   );
 };
 
-// Wraps the page: shows the "Send all changes" bar while drafts exist, and once everything has
-// been sent the contributor sees only the thank-you screen (no editing, no going back).
+// Wraps the page: shows the "Send all changes" bar while drafts exist. Sending does not lock the
+// link: the contributor stays on the page and can keep contributing.
 const ContributorCompanyPage = () => {
   const params = useParams();
   const companyId = String(Array.isArray(params?.companyId) ? params.companyId[0] : params?.companyId ?? "");
   const [count, setCount] = useState(0);
-  const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [sentNote, setSentNote] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
-    setSent(isContributionSent(companyId));
     const update = () => setCount(draftCount(companyId));
     update();
     return subscribeDrafts(update);
   }, [companyId]);
 
-  // After sending, going back must not return to the editable page.
-  useEffect(() => {
-    if (!sent) return;
-    window.history.replaceState(null, "", window.location.href);
-    window.history.pushState(null, "", window.location.href);
-    const lock = () => window.history.pushState(null, "", window.location.href);
-    window.addEventListener("popstate", lock);
-    return () => window.removeEventListener("popstate", lock);
-  }, [sent]);
-
   const sendAll = async () => {
     if (
       !window.confirm(
-        `Send ${count} saved change${count === 1 ? "" : "s"} to the Asymmetrix team?\n\nOnce sent you cannot edit or undo them, and this link can no longer be opened.`
+        `Send ${count} saved change${count === 1 ? "" : "s"} to the Asymmetrix team?\n\nYou can keep adding or editing data afterwards and send again.`
       )
     ) {
       return;
@@ -13964,7 +13954,7 @@ const ContributorCompanyPage = () => {
     setSendError("");
     try {
       await submitAllDrafts(companyId, authService.getAuthToken());
-      setSent(true);
+      setSentNote(true);
     } catch (e) {
       setSendError((e as Error)?.message || "Could not send your changes. Please try again.");
     } finally {
@@ -13972,23 +13962,35 @@ const ContributorCompanyPage = () => {
     }
   };
 
-  if (sent) {
-    return (
-      <div className="min-h-screen bg-[#f9fafb] flex items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] p-8 text-center">
-          <h1 className="text-xl font-bold text-[#0f172a]">Thank you, your contribution has been sent</h1>
-          <p className="mt-3 text-sm text-[#475569]">
-            Our team will review it {REVIEW_SLA_TEXT}. This link can no longer be used. If you need to add
-            something, reply to the email you received.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <CompanyDetail />
+      {count === 0 && sentNote && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 900,
+            background: "#052e16",
+            color: "#fff",
+            padding: "12px 24px",
+            fontSize: "13px",
+          }}
+        >
+          <strong>Thank you, your changes have been sent.</strong> The Asymmetrix team will review them{" "}
+          {REVIEW_SLA_TEXT}. You can keep adding or editing data, or browse the Benchmark, and come back to
+          this link at any time.
+          <button
+            type="button"
+            onClick={() => setSentNote(false)}
+            style={{ marginLeft: 12, background: "none", border: "none", color: "#bbf7d0", cursor: "pointer", fontWeight: 700 }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {count > 0 && (
         <div
           style={{
