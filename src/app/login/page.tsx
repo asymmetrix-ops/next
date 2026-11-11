@@ -63,6 +63,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get("expired")) {
+      toast.error("Your session has expired. Please log in again.", { id: "session-expired" });
+    }
     const error = params.get("error") || params.get("sso_error");
     if (error) {
       const [code, missingVars] = error.split(":");
@@ -91,7 +94,10 @@ export default function LoginPage() {
       const userId = Number(authService.getUser()?.id) || 0;
       trackLogin(userId);
       toast.success("Login successful!");
-      router.push("/home-user");
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      const safe =
+        redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : null;
+      router.push(safe || "/home-user");
     } catch (err) {
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
       toast.error("Login failed. Please check your credentials.");

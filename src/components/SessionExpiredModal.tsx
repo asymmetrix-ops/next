@@ -6,6 +6,7 @@ import { authService } from "@/lib/auth";
 import {
   SESSION_EXPIRED_EVENT,
   installFetchAuthGuard,
+  installSessionWatcher,
   resetSessionExpiredFlag,
 } from "@/lib/sessionExpired";
 
@@ -30,6 +31,7 @@ export default function SessionExpiredModal() {
 
   useEffect(() => {
     installFetchAuthGuard();
+    installSessionWatcher();
 
     const handleSessionExpired = () => {
       // Contributor pages are link-based (no login); a failed call must never ask for one.
@@ -42,19 +44,28 @@ export default function SessionExpiredModal() {
       }
       authService.logout();
       setOpen(true);
+      // Redirect automatically; the modal stays as a fallback while navigation happens.
+      const back = `${window.location.pathname}${window.location.search}`;
+      resetSessionExpiredFlag();
+      router.replace(`/login?redirect=${encodeURIComponent(back)}&expired=1`);
     };
 
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     return () =>
       window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-  }, [pathname]);
+  }, [pathname, router]);
+
+  // Hide the notice once we have arrived on the login page.
+  useEffect(() => {
+    if (open && pathname === "/login") setOpen(false);
+  }, [open, pathname]);
 
   if (!open) return null;
 
   const handleGoToLogin = () => {
     resetSessionExpiredFlag();
     setOpen(false);
-    router.push("/login");
+    router.replace("/login");
   };
 
   return (
