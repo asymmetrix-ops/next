@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { XANO_USER_PORTFOLIO_BASE } from "@/lib/portfolioApi";
+
 const XANO_PORTFOLIO_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xbsQ0H4R";
 
 async function fetchWithAuth(
@@ -173,9 +175,12 @@ export async function PATCH(
   }
 }
 
-/** DELETE /api/portfolio/lists/:id — delete a user portfolio in Xano. */
+/**
+ * DELETE /api/portfolio/lists/:id — delete in Xano (api:jlAOWruI, no body).
+ * Default: user_lists/{user_lists_id}. With ?type=portfolio: user_list/{user_portfolio_id}.
+ */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -195,13 +200,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid portfolio id" }, { status: 400 });
     }
 
+    const isPortfolio = new URL(req.url).searchParams.get("type") === "portfolio";
+    const path = isPortfolio ? "user_list" : "user_lists";
+
     const upstream = await fetchWithAuth(
-      `${XANO_PORTFOLIO_BASE}/user_list/${userPortfolioId}`,
+      `${XANO_USER_PORTFOLIO_BASE}/${path}/${userPortfolioId}`,
       token,
-      {
-        method: "DELETE",
-        body: JSON.stringify({ user_portfolio_id: userPortfolioId }),
-      }
+      { method: "DELETE" }
     );
 
     const text = await upstream.text().catch(() => "");

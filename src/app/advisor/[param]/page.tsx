@@ -667,7 +667,7 @@ export default function AdvisorProfilePage() {
     responsiveGrid: {
       display: "grid",
       gridTemplateColumns:
-        "minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr)",
+        "repeat(3, minmax(0, 1fr))",
       gap: "12px",
       flex: 1,
       maxWidth: "100%",
@@ -680,7 +680,7 @@ export default function AdvisorProfilePage() {
     .advisor-detail-page { overflow-x: hidden; }
     .responsiveGrid {
       display: grid;
-      grid-template-columns: minmax(0, 0.66fr) minmax(0, 0.96fr) minmax(0, 1.22fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
       max-width: 100%;
       align-items: stretch;
