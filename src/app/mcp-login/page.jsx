@@ -21,8 +21,10 @@ async function call(method, path, body, headers = {}) {
   return data;
 }
 
-// Marker prefix sent by the Xano mcp/login endpoint when the user has no MCP seat.
-const NO_ACCESS_CODE = "MCP_ACCESS_DENIED";
+// Text sent by the Xano mcp/login endpoint when the user has no MCP seat
+// (MCP_ACCESS_DENIED kept for the earlier message format).
+const isNoAccessMessage = (m) =>
+  /MCP_ACCESS_DENIED|Access to Asymmetrix MCP is not enabled/i.test(String(m));
 
 const inputClass =
   "px-4 py-3 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent";
@@ -67,7 +69,7 @@ export default function McpLoginPage() {
       setConsent(info);
       setPassword("");
     } catch (err) {
-      if (String(err.message).startsWith(NO_ACCESS_CODE)) {
+      if (isNoAccessMessage(err.message)) {
         setNoAccess(true);
         setError("");
       } else if (/invalid credentials/i.test(err.message)) {
@@ -117,10 +119,10 @@ export default function McpLoginPage() {
         <div className="px-6 w-full max-w-xl">
           {noAccess ? (
             <div className="text-center">
-              <h1 className="mb-2 text-3xl font-bold text-gray-900">No MCP access</h1>
+              <h1 className="mb-2 text-3xl font-bold text-gray-900">Access not enabled yet</h1>
               <p className="mb-6 text-gray-600">
-                Your account is not enabled for MCP access. Please contact your Asymmetrix
-                administrator to get a seat.
+                Your Asymmetrix account is not set up for MCP access yet. Please ask your
+                Asymmetrix administrator to add you, then try connecting again.
               </p>
               <button
                 type="button"
