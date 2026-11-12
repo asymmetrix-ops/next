@@ -21,6 +21,9 @@ async function call(method, path, body, headers = {}) {
   return data;
 }
 
+// Marker prefix sent by the Xano mcp/login endpoint when the user has no MCP seat.
+const NO_ACCESS_CODE = "MCP_ACCESS_DENIED";
+
 const inputClass =
   "px-4 py-3 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent";
 const primaryButtonClass =
@@ -34,6 +37,7 @@ export default function McpLoginPage() {
   const [consent, setConsent] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [noAccess, setNoAccess] = useState(false);
   const authRef = useRef(null);
 
   const getMcpRequest = () =>
@@ -42,6 +46,7 @@ export default function McpLoginPage() {
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
+    setNoAccess(false);
     setBusy(true);
     try {
       const mcpRequest = getMcpRequest();
@@ -62,7 +67,14 @@ export default function McpLoginPage() {
       setConsent(info);
       setPassword("");
     } catch (err) {
-      setError(err.message);
+      if (String(err.message).startsWith(NO_ACCESS_CODE)) {
+        setNoAccess(true);
+        setError("");
+      } else if (/invalid credentials/i.test(err.message)) {
+        setError("Invalid email or password.");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -103,7 +115,22 @@ export default function McpLoginPage() {
 
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
         <div className="px-6 w-full max-w-xl">
-          {!consent ? (
+          {noAccess ? (
+            <div className="text-center">
+              <h1 className="mb-2 text-3xl font-bold text-gray-900">No MCP access</h1>
+              <p className="mb-6 text-gray-600">
+                Your account is not enabled for MCP access. Please contact your Asymmetrix
+                administrator to get a seat.
+              </p>
+              <button
+                type="button"
+                onClick={() => setNoAccess(false)}
+                className={secondaryButtonClass}
+              >
+                Try another account
+              </button>
+            </div>
+          ) : !consent ? (
             <>
               <div className="mb-8 text-center">
                 <h1 className="mb-2 text-3xl font-bold text-gray-900">Connect to Asymmetrix</h1>
