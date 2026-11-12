@@ -1801,11 +1801,6 @@ const ArticleDetailPage = () => {
               );
             })()}
 
-            <ArticleRelatedCorporateEventsSection
-              events={relatedCorporateEvents}
-              variant="main"
-            />
-
             {/* Article Body (or embedded PDF viewer when body is empty) */}
             {(() => {
               const embeddablePdfDoc = getEmbeddablePdfDoc(
@@ -2647,64 +2642,6 @@ const ArticleDetailPage = () => {
             display: list-item !important;
             margin: 6px 0;
             line-height: 1.5;
-          }
-          .article-related-ce {
-            margin-bottom: 24px;
-          }
-          .article-related-ce-title {
-            font-size: 13px;
-            font-weight: 800;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: #6B7488;
-            margin: 0 0 12px 0;
-          }
-          .article-related-ce-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-          .article-related-ce-card {
-            display: block;
-            border: 1px solid #E2E8FD;
-            border-radius: 12px;
-            padding: 14px 16px;
-            background: #F8FAFF;
-            text-decoration: none;
-            color: inherit;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-          }
-          .article-related-ce-card:hover {
-            border-color: #9EB4FF;
-            box-shadow: 0 4px 14px rgba(31, 53, 196, 0.08);
-          }
-          .article-related-ce-card-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #1F35C4;
-            margin-bottom: 10px;
-            line-height: 1.35;
-          }
-          .article-related-ce-meta {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 4px 12px;
-            margin: 0 0 10px 0;
-            font-size: 13px;
-          }
-          .article-related-ce-meta dt {
-            margin: 0;
-            color: #6B7488;
-            font-weight: 600;
-          }
-          .article-related-ce-meta dd {
-            margin: 0;
-            color: #3D4657;
-          }
-          .article-related-ce-cta {
-            font-size: 12.5px;
-            font-weight: 700;
-            color: #0075df;
           }
           /* Content builder: highlight & key point (TipTap asymmetrix-* marks) */
           .article-body .asymmetrix-highlight,
