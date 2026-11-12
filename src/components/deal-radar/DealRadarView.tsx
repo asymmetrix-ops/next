@@ -787,9 +787,8 @@ export default function DealRadarView({
 
     async function loadFilterOptions() {
       try {
-        const [ownershipRes, countriesRes, advisorsRes, bankersRes] = await Promise.all([
+        const [ownershipRes, advisorsRes, bankersRes] = await Promise.all([
           fetch(`${FILTER_API}/get_all_ownership_types`, { headers }),
-          fetch(`${FILTER_API}/locations_country`, { headers }),
           fetch(`${API_BASE}/get_deal_radar_advisor_options`, { headers }),
           fetch(`${API_BASE}/get_deal_radar_banker_options`, { headers }),
         ]);
@@ -799,14 +798,14 @@ export default function DealRadarView({
           setOwnershipTypes(Array.isArray(data) ? data : []);
         }
         try {
-          const primarySectors = await locationsService.getPrimarySectors();
+          const [primarySectors, countries] = await Promise.all([
+            locationsService.getPrimarySectors(),
+            locationsService.getCountries(),
+          ]);
           setSectorOptions(Array.isArray(primarySectors) ? primarySectors : []);
+          setCountryOptions(Array.isArray(countries) ? countries : []);
         } catch {
-          // Primary sectors are optional — other filters still work
-        }
-        if (countriesRes.ok) {
-          const data = (await countriesRes.json()) as CountryOption[];
-          setCountryOptions(Array.isArray(data) ? data : []);
+          // Location / sector options are optional — other filters still work
         }
         if (advisorsRes.ok) {
           const data = (await advisorsRes.json()) as AdvisorOption[];
