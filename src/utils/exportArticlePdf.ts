@@ -303,9 +303,9 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
 
   // (legacy list HTML removed; using tag-style rendering at bottom)
 
-  const isHotTake = /^(hot\s*take)$/i.test(ct);
-  const relatedCardsHtml = isHotTake
-    ? relatedEvents
+  const relatedCardsHtml =
+    relatedEvents.length > 0
+      ? relatedEvents
         .map((e) => {
           const id = typeof e?.id === "number" ? e.id : undefined;
           const desc = (e?.description || "Related corporate event").trim();
@@ -533,7 +533,7 @@ export async function openArticlePdfWindow(article: ExportableArticle) {
       <hr class="rule" />
 
       ${
-        isHotTake && relatedCardsHtml
+        relatedCardsHtml
           ? `
         <div class="section-block">
           <div class="meta-title">Related Corporate Event</div>

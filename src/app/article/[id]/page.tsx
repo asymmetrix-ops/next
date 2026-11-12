@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
@@ -33,6 +32,11 @@ import {
 import { getNewsSubtypeTone } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { ArticleCorrectionNotice } from "@/components/ArticleCorrectionNotice";
+import { ArticleRelatedCorporateEventsSection } from "@/components/article/ArticleRelatedCorporateEventsSection";
+import {
+  normalizeArticleRelatedCorporateEvents,
+  pickRelatedCorporateEventsFromArticlePayload,
+} from "@/lib/articleRelatedCorporateEvents";
 import { EntityChip } from "@/components/ui/EntityChip";
 import { EmbeddedArticlePdf } from "@/components/article/EmbeddedArticlePdf";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -737,25 +741,11 @@ const ArticleDetailPage = () => {
             }>
           >(raw.companies_of_focus) ||
           (Array.isArray(raw.companies_of_focus) ? raw.companies_of_focus : []),
-        Related_Corporate_Event:
-          tryParse<
-            Array<{
-              id: number;
-              created_at?: number;
-              description?: string;
-              long_description?: string;
-              deal_status?: string;
-              announcement_date?: string;
-              closed_date?: string;
-              deal_type?: string;
-              target?: { id?: number; name?: string };
-              advisors?: Array<{
-                _new_company?: { id?: number; name?: string };
-              }>;
-              primary_sectors?: Array<{ id?: number; sector_name?: string }>;
-              secondary_sectors?: Array<{ id?: number; sector_name?: string }>;
-            }>
-          >(raw.Related_Corporate_Event) || [],
+        Related_Corporate_Event: normalizeArticleRelatedCorporateEvents(
+          pickRelatedCorporateEventsFromArticlePayload(
+            raw as unknown as Record<string, unknown>
+          )
+        ),
         Related_Documents: (
           tryParse<
             Array<{
@@ -1646,6 +1636,9 @@ const ArticleDetailPage = () => {
   const byline = getArticleByline(article);
   const corrections = getArticleCorrections(contentArticle);
   const latestCorrection = getLatestCorrection(contentArticle);
+  const relatedCorporateEvents = normalizeArticleRelatedCorporateEvents(
+    article.Related_Corporate_Event
+  );
 
   return (
     <AppShell activeSection={isNews ? "news" : undefined}>
@@ -1807,6 +1800,11 @@ const ArticleDetailPage = () => {
                 </div>
               );
             })()}
+
+            <ArticleRelatedCorporateEventsSection
+              events={relatedCorporateEvents}
+              variant="main"
+            />
 
             {/* Article Body (or embedded PDF viewer when body is empty) */}
             {(() => {
@@ -2575,47 +2573,10 @@ const ArticleDetailPage = () => {
                 </div>
               </div>
             )}
-            {(() => {
-              const ct = (
-                article.Content_Type ||
-                article.content_type ||
-                article.Content?.Content_type ||
-                article.Content?.Content_Type ||
-                ""
-              ).trim();
-              const isHotTake = /^(hot\s*take)$/i.test(ct);
-              const events = article.Related_Corporate_Event || [];
-              if (!isHotTake || !Array.isArray(events) || events.length === 0) {
-                return null;
-              }
-              return (
-                <div className="card">
-                  <header>
-                    <h2>Related Corporate Event</h2>
-                  </header>
-                  <div className="chipset">
-                    {events.map((ev, idx) => {
-                      const id = ev?.id;
-                      const label = (ev?.description || "View event").trim();
-                      return typeof id === "number" && id > 0 ? (
-                        <Link
-                          key={id}
-                          href={`/corporate-event/${id}`}
-                          className="lp-chip"
-                          prefetch={false}
-                        >
-                          {label}
-                        </Link>
-                      ) : (
-                        <span key={`ev-${idx}`} className="lp-chip">
-                          {label}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
+            <ArticleRelatedCorporateEventsSection
+              events={relatedCorporateEvents}
+              variant="sidebar"
+            />
           </div>
         </div>
       </div>
@@ -2686,6 +2647,64 @@ const ArticleDetailPage = () => {
             display: list-item !important;
             margin: 6px 0;
             line-height: 1.5;
+          }
+          .article-related-ce {
+            margin-bottom: 24px;
+          }
+          .article-related-ce-title {
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #6B7488;
+            margin: 0 0 12px 0;
+          }
+          .article-related-ce-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .article-related-ce-card {
+            display: block;
+            border: 1px solid #E2E8FD;
+            border-radius: 12px;
+            padding: 14px 16px;
+            background: #F8FAFF;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          }
+          .article-related-ce-card:hover {
+            border-color: #9EB4FF;
+            box-shadow: 0 4px 14px rgba(31, 53, 196, 0.08);
+          }
+          .article-related-ce-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1F35C4;
+            margin-bottom: 10px;
+            line-height: 1.35;
+          }
+          .article-related-ce-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+            margin: 0 0 10px 0;
+            font-size: 13px;
+          }
+          .article-related-ce-meta dt {
+            margin: 0;
+            color: #6B7488;
+            font-weight: 600;
+          }
+          .article-related-ce-meta dd {
+            margin: 0;
+            color: #3D4657;
+          }
+          .article-related-ce-cta {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #0075df;
           }
           /* Content builder: highlight & key point (TipTap asymmetrix-* marks) */
           .article-body .asymmetrix-highlight,
