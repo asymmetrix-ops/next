@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { authService } from "@/lib/auth";
+import { DeviceConfirmationRequiredError } from "@/lib/deviceAuth";
+import { DeviceConfirmationForm } from "@/components/auth/DeviceConfirmationForm";
 import { AZURE_SSO_ERROR_MESSAGES } from "@/lib/azureSsoServer";
 import { GOOGLE_SSO_ERROR_MESSAGES } from "@/lib/googleSsoServer";
 import { trackError, trackLogin } from "@/lib/tracking";
@@ -59,6 +61,11 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [ssoError, setSsoError] = useState<string | null>(null);
+  // Credentials are kept in memory only (never persisted) while the user confirms
+  // this new device; pendingConfirmationId drives whether the code screen shows.
+  const [pendingConfirmationId, setPendingConfirmationId] = useState<number | null>(
+    null
+  );
   const router = useRouter();
 
   useEffect(() => {
@@ -91,16 +98,49 @@ export default function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
-      const userId = Number(authService.getUser()?.id) || 0;
-      trackLogin(userId);
-      toast.success("Login successful!");
-      const redirect = new URLSearchParams(window.location.search).get("redirect");
-      const safe =
-        redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : null;
-      router.push(safe || "/home-user");
+      completeLogin();
     } catch (err) {
+      if (err instanceof DeviceConfirmationRequiredError) {
+        setPendingConfirmationId(err.confirmationId);
+        setIsLoading(false);
+        return;
+      }
       trackError(`Login failed: ${(err as Error)?.message || "unknown"}`);
-      toast.error("Login failed. Please check your credentials.");
+      toast.error(
+        (err as Error)?.message && (err as Error).message !== "Login failed"
+          ? (err as Error).message
+          : "Login failed. Please check your credentials."
+      );
+      setIsLoading(false);
+    }
+  };
+
+  const completeLogin = () => {
+    const userId = Number(authService.getUser()?.id) || 0;
+    trackLogin(userId);
+    toast.success("Login successful!");
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    const safe =
+      redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : null;
+    router.push(safe || "/home-user");
+  };
+
+  const handleDeviceConfirmed = async () => {
+    // The device is now trusted — calling login again with the same device_token
+    // (already persisted) returns the real authToken this time.
+    setIsLoading(true);
+    try {
+      await login(formData.email, formData.password);
+      setPendingConfirmationId(null);
+      completeLogin();
+    } catch (err) {
+      if (err instanceof DeviceConfirmationRequiredError) {
+        // Shouldn't normally happen right after confirmation, but handle gracefully.
+        setPendingConfirmationId(err.confirmationId);
+      } else {
+        toast.error("Login failed. Please try again.");
+        setPendingConfirmationId(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -220,6 +260,15 @@ export default function LoginPage() {
             <p className="text-gray-600">Access your Asymmetrix dashboard.</p>
           </div>
 
+          {pendingConfirmationId !== null ? (
+            <DeviceConfirmationForm
+              email={formData.email}
+              password={formData.password}
+              confirmationId={pendingConfirmationId}
+              onConfirmed={handleDeviceConfirmed}
+              onCancel={() => setPendingConfirmationId(null)}
+            />
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {ssoError ? (
               <div className="px-4 py-3 text-sm text-red-700 bg-red-50 rounded-lg border border-red-200">
@@ -297,6 +346,7 @@ export default function LoginPage() {
               </a>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>
