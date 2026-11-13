@@ -8,6 +8,8 @@ import {
   PASSWORD_RESET_PERMISSION_DENIED_MESSAGE,
   PASSWORD_RESET_SUPPORT_EMAIL,
 } from "@/lib/auth";
+import { LoginApiError } from "@/lib/deviceAuth";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 import Image from "next/image";
 
 export default function ForgotPasswordPage() {
@@ -15,6 +17,7 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [ssoRequiredMessage, setSsoRequiredMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,12 +28,15 @@ export default function ForgotPasswordPage() {
 
     setIsLoading(true);
     setPermissionDenied(false);
+    setSsoRequiredMessage(null);
     try {
       await authService.requestPasswordReset(email);
       setIsSubmitted(true);
       toast.success("Check your email for instructions to reset your password.");
     } catch (err) {
-      if (
+      if (err instanceof LoginApiError && err.code === "sso_required") {
+        setSsoRequiredMessage(err.message);
+      } else if (
         err instanceof Error &&
         err.message === PASSWORD_RESET_PERMISSION_DENIED_MESSAGE
       ) {
@@ -81,7 +87,12 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
-          {permissionDenied ? (
+          {ssoRequiredMessage ? (
+            <SsoRequiredNotice
+              message={ssoRequiredMessage}
+              onBack={() => setSsoRequiredMessage(null)}
+            />
+          ) : permissionDenied ? (
             <div className="space-y-6">
               <div className="p-4 text-center bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="font-medium text-amber-900">

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 
 // Login page for the Xano-hosted MCP OAuth flow ("test" MCP server).
 // Xano redirects the browser here with ?mcp_request=<id>. Flow: sign in (Client users only),
@@ -17,7 +18,11 @@ async function call(method, path, body, headers = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || data.reason || String(res.status));
+  if (!res.ok) {
+    const err = new Error(data.message || data.reason || String(res.status));
+    err.code = data.code;
+    throw err;
+  }
   return data;
 }
 
@@ -40,6 +45,7 @@ export default function McpLoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [noAccess, setNoAccess] = useState(false);
+  const [ssoRequiredMessage, setSsoRequiredMessage] = useState(null);
   const authRef = useRef(null);
 
   const getMcpRequest = () =>
@@ -49,6 +55,7 @@ export default function McpLoginPage() {
     e.preventDefault();
     setError("");
     setNoAccess(false);
+    setSsoRequiredMessage(null);
     setBusy(true);
     try {
       const mcpRequest = getMcpRequest();
@@ -69,7 +76,12 @@ export default function McpLoginPage() {
       setConsent(info);
       setPassword("");
     } catch (err) {
-      if (isNoAccessMessage(err.message)) {
+      if (err.code === "sso_required") {
+        setSsoRequiredMessage(
+          err.message || "Your organisation requires SSO sign-in."
+        );
+        setError("");
+      } else if (isNoAccessMessage(err.message)) {
         setNoAccess(true);
         setError("");
       } else if (/invalid credentials/i.test(err.message)) {
@@ -117,7 +129,12 @@ export default function McpLoginPage() {
 
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
         <div className="px-6 w-full max-w-xl">
-          {noAccess ? (
+          {ssoRequiredMessage ? (
+            <SsoRequiredNotice
+              message={ssoRequiredMessage}
+              onBack={() => setSsoRequiredMessage(null)}
+            />
+          ) : noAccess ? (
             <div className="text-center">
               <h1 className="mb-2 text-3xl font-bold text-gray-900">Access not enabled yet</h1>
               <p className="mb-6 text-gray-600">

@@ -17,7 +17,8 @@ function formatLastSeen(unixSeconds?: number): string {
 }
 
 export function DevicesSection() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isSsoOrg = user?.sso_required === true;
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,9 +42,13 @@ export function DevicesSection() {
   };
 
   useEffect(() => {
+    if (isSsoOrg) {
+      setIsLoading(false);
+      return;
+    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isSsoOrg]);
 
   const handleRevoke = async (device: DeviceSummary) => {
     const confirmed = window.confirm(
@@ -83,7 +88,11 @@ export function DevicesSection() {
         </p>
       </div>
 
-      {isLoading ? (
+      {isSsoOrg ? (
+        <p className="text-sm text-gray-600">
+          Your organisation uses SSO; devices are managed by your identity provider.
+        </p>
+      ) : isLoading ? (
         <div className="py-8 flex justify-center">
           <LoadingSpinner />
         </div>

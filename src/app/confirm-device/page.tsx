@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   confirmDevice,
+  LoginApiError,
   type ConfirmDeviceResponse,
   type DeviceSummary,
 } from "@/lib/deviceAuth";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 
 function formatLastSeen(unixSeconds?: number): string {
   if (!unixSeconds) return "Unknown";
@@ -23,9 +25,9 @@ function ConfirmDeviceContent() {
   const confirmationId = Number(searchParams.get("id"));
   const linkToken = searchParams.get("token") || "";
 
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "picker">(
-    "loading"
-  );
+  const [status, setStatus] = useState<
+    "loading" | "success" | "error" | "picker" | "sso_required"
+  >("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [maxDevices, setMaxDevices] = useState<number | null>(null);
@@ -70,8 +72,13 @@ function ConfirmDeviceContent() {
           setErrorMessage("Could not confirm this device.");
       }
     } catch (e) {
-      setStatus("error");
-      setErrorMessage((e as Error)?.message || "Could not confirm this device.");
+      if (e instanceof LoginApiError && e.code === "sso_required") {
+        setStatus("sso_required");
+        setErrorMessage(e.message || "Your organisation requires SSO sign-in.");
+      } else {
+        setStatus("error");
+        setErrorMessage((e as Error)?.message || "Could not confirm this device.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -109,6 +116,10 @@ function ConfirmDeviceContent() {
               Go to login
             </Link>
           </div>
+        )}
+
+        {status === "sso_required" && (
+          <SsoRequiredNotice message={errorMessage} />
         )}
 
         {status === "error" && (
