@@ -14,7 +14,7 @@ import {
 // Xano redirects the browser here with ?mcp_request=<id>. Flow: sign in (Client users only),
 // show consent, then hand the browser to the continue URL returned by Xano.
 // Set MCP_LOGIN_URL in Xano to https://www.asymmetrixintelligence.com/mcp-login
-const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6"; // Authentication group, live branch
+const BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop"; // Authentication group, develop branch (device gate lives here)
 
 async function call(method, path, body, headers = {}) {
   const res = await fetch(BASE + path, {
