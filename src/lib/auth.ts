@@ -1,7 +1,7 @@
 import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
 import { MCP_GUEST_AUTH_ME_URL } from "@/lib/mcpGuestAuthServer";
-import { loginWithDevice } from "@/lib/deviceAuth";
+import { loginApiErrorFromResponse, loginWithDevice } from "@/lib/deviceAuth";
 
 interface AuthUser {
   id: string;
@@ -12,6 +12,9 @@ interface AuthUser {
   Status?: string; // e.g., "Admin"
   status?: string; // lowercase variant just in case
   role?: string; // some backends use a single role field
+  // Login Security / SSO: true when this user's company is SSO-only
+  // (returned by /auth/me so the frontend can hide device-specific UI for them).
+  sso_required?: boolean;
 }
 
 interface LoginResponse {
@@ -394,7 +397,7 @@ class AuthService {
     }
 
     if (!response.ok) {
-      throw new Error("Request failed");
+      throw loginApiErrorFromResponse(data, "Request failed");
     }
   }
 
@@ -420,8 +423,15 @@ class AuthService {
       }),
     });
 
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      // ignore
+    }
+
     if (!response.ok) {
-      throw new Error("Password reset failed");
+      throw loginApiErrorFromResponse(data, "Password reset failed");
     }
   }
 

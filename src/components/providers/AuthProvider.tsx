@@ -14,6 +14,7 @@ interface AuthUser {
   Status?: string;
   status?: string;
   role?: string;
+  sso_required?: boolean;
 }
 
 interface AuthContextType {

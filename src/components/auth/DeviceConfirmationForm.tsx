@@ -8,6 +8,7 @@ import {
   DeviceConfirmationRequiredError,
   type DeviceSummary,
 } from "@/lib/deviceAuth";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 
 interface DeviceConfirmationFormProps {
   email: string;
@@ -44,6 +45,7 @@ export function DeviceConfirmationForm({
   const [maxDevices, setMaxDevices] = useState<number | null>(null);
   const [selectedReplaceId, setSelectedReplaceId] = useState<number | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [ssoRequiredMessage, setSsoRequiredMessage] = useState<string | null>(null);
 
   const codeIsValid = useMemo(() => /^\d{6}$/.test(code), [code]);
 
@@ -91,7 +93,11 @@ export function DeviceConfirmationForm({
           setError("Could not confirm this device. Please try again.");
       }
     } catch (e) {
-      setError((e as Error)?.message || "Could not confirm this device.");
+      if (e instanceof LoginApiError && e.code === "sso_required") {
+        setSsoRequiredMessage(e.message || "Your organisation requires SSO sign-in.");
+      } else {
+        setError((e as Error)?.message || "Could not confirm this device.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -125,6 +131,8 @@ export function DeviceConfirmationForm({
         setCode("");
         setAttemptsLeft(null);
         setInfo("A new code has been sent to your email.");
+      } else if (e instanceof LoginApiError && e.code === "sso_required") {
+        setSsoRequiredMessage(e.message || "Your organisation requires SSO sign-in.");
       } else if (e instanceof LoginApiError) {
         setError(e.message);
       } else {
@@ -134,6 +142,12 @@ export function DeviceConfirmationForm({
       setIsResending(false);
     }
   };
+
+  if (ssoRequiredMessage) {
+    return (
+      <SsoRequiredNotice message={ssoRequiredMessage} onBack={onCancel} />
+    );
+  }
 
   if (devices) {
     return (

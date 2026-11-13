@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { authService } from "@/lib/auth";
+import { LoginApiError } from "@/lib/deviceAuth";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 import Image from "next/image";
 
 function ResetPasswordForm() {
@@ -15,6 +17,7 @@ function ResetPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [ssoRequiredMessage, setSsoRequiredMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,11 +31,16 @@ function ResetPasswordForm() {
     }
 
     setIsLoading(true);
+    setSsoRequiredMessage(null);
     try {
       await authService.updatePassword(token!, password, confirmPassword);
       toast.success("Password reset successfully. You can now log in.");
       router.push("/login");
-    } catch {
+    } catch (err) {
+      if (err instanceof LoginApiError && err.code === "sso_required") {
+        setSsoRequiredMessage(err.message);
+        return;
+      }
       toast.error("Reset failed. The link may have expired. Please request a new one.");
     } finally {
       setIsLoading(false);
@@ -67,6 +75,9 @@ function ResetPasswordForm() {
         </p>
       </div>
 
+      {ssoRequiredMessage ? (
+        <SsoRequiredNotice message={ssoRequiredMessage} />
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label
@@ -116,6 +127,7 @@ function ResetPasswordForm() {
           {isLoading ? "Resetting password..." : "Reset password"}
         </button>
       </form>
+      )}
 
       <p className="mt-6 text-center">
         <Link

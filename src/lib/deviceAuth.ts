@@ -83,6 +83,20 @@ export class LoginApiError extends Error {
   }
 }
 
+export function loginApiErrorFromResponse(
+  data: unknown,
+  fallbackMessage: string
+): LoginApiError {
+  const err = (data as ApiError) || { message: fallbackMessage };
+  return new LoginApiError(err.message || fallbackMessage, err.code);
+}
+
+export const SSO_REQUIRED_DEFAULT_MESSAGE =
+  "Your organisation requires SSO sign-in.";
+
+export const SSO_ACCOUNT_DISABLED_MESSAGE =
+  "Your account is not enabled. Contact your administrator.";
+
 export function getDeviceToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -201,16 +215,19 @@ export async function confirmDevice(params: {
     body: JSON.stringify(params),
   });
 
-  // Spec: always 200 for expected outcomes; still guard against transport errors.
+  // Spec: always 200 for expected outcomes; still guard against transport errors
+  // (and the SSO-blocking error, which can also surface here as {code, message}).
   if (!response.ok) {
     let message = "Could not confirm device.";
+    let code: string | undefined;
     try {
       const err = (await response.json()) as ApiError;
       message = err.message || message;
+      code = err.code;
     } catch {
       // ignore
     }
-    throw new LoginApiError(message);
+    throw new LoginApiError(message, code);
   }
 
   return (await response.json()) as ConfirmDeviceResponse;

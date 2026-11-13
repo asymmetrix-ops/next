@@ -39,9 +39,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
+      const upstream = (await response.json().catch(() => null)) as {
+        code?: string;
+        message?: string;
+      } | null;
       return NextResponse.json(
-        { error: MCP_GUEST_AUTH_GENERIC_ERROR },
-        { status: 400 }
+        {
+          error: upstream?.message || MCP_GUEST_AUTH_GENERIC_ERROR,
+          code: upstream?.code,
+          message: upstream?.message,
+        },
+        { status: response.status }
       );
     }
 

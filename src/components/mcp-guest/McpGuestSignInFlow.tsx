@@ -24,6 +24,8 @@ import {
   MCP_GUEST_OTP_SENT_MESSAGE,
   sendMcpGuestOtp,
 } from "@/lib/mcpGuestAuth";
+import { LoginApiError } from "@/lib/deviceAuth";
+import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
 import { isWorkEmail, WORK_EMAIL_REQUIRED_MESSAGE } from "@/lib/workEmail";
 
 type SignInStep = "email" | Exclude<McpGuestRequestStatus, "not_submitted">;
@@ -47,6 +49,7 @@ export default function McpGuestSignInFlow({
   const [otpSent, setOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [ssoRequiredMessage, setSsoRequiredMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -115,12 +118,17 @@ export default function McpGuestSignInFlow({
     }
 
     setIsSendingOtp(true);
+    setSsoRequiredMessage(null);
     try {
       await sendMcpGuestOtp(trimmedEmail);
       setOtpSent(true);
       toast.success(MCP_GUEST_OTP_SENT_MESSAGE);
-    } catch {
-      toast.error(MCP_GUEST_AUTH_GENERIC_ERROR);
+    } catch (err) {
+      if (err instanceof LoginApiError && err.code === "sso_required") {
+        setSsoRequiredMessage(err.message);
+      } else {
+        toast.error(MCP_GUEST_AUTH_GENERIC_ERROR);
+      }
     } finally {
       setIsSendingOtp(false);
     }
@@ -146,11 +154,16 @@ export default function McpGuestSignInFlow({
     }
 
     setIsSigningIn(true);
+    setSsoRequiredMessage(null);
     try {
       await loginMcpGuestWithOtp(trimmedEmail, trimmedOtp);
       router.replace(MCP_GUEST_ALLOWED_PATH);
-    } catch {
-      toast.error(MCP_GUEST_AUTH_GENERIC_ERROR);
+    } catch (err) {
+      if (err instanceof LoginApiError && err.code === "sso_required") {
+        setSsoRequiredMessage(err.message);
+      } else {
+        toast.error(MCP_GUEST_AUTH_GENERIC_ERROR);
+      }
     } finally {
       setIsSigningIn(false);
     }
@@ -158,6 +171,17 @@ export default function McpGuestSignInFlow({
 
   const companyLabel = statusResult?.company?.trim() || "your company";
   const emailLocked = step !== "email";
+
+  if (ssoRequiredMessage) {
+    return (
+      <McpGuestPageShell>
+        <SsoRequiredNotice
+          message={ssoRequiredMessage}
+          onBack={() => setSsoRequiredMessage(null)}
+        />
+      </McpGuestPageShell>
+    );
+  }
 
   return (
     <McpGuestPageShell>

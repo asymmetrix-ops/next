@@ -75,6 +75,13 @@ export async function GET(req: NextRequest) {
         ? error.message
         : "sso_sync";
 
+    // A refused sync (not in Users, or Status isn't Client — reasons live only in
+    // SSO_Refusals on the backend) is not something to retry from /login: send the
+    // user to a dead-end "account not enabled" screen instead.
+    if (code === "sso_sync") {
+      return NextResponse.redirect(new URL("/auth/sso-complete?refused=1", req.url));
+    }
+
     return redirectToLogin(req, code);
   }
 }

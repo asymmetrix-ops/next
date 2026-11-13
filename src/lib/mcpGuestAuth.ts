@@ -1,3 +1,5 @@
+import { LoginApiError } from "@/lib/deviceAuth";
+
 export const MCP_GUEST_OTP_EXPIRY_MINUTES = 30;
 
 export const MCP_GUEST_AUTH_GENERIC_ERROR =
@@ -37,6 +39,17 @@ export async function sendMcpGuestOtp(workEmail: string): Promise<void> {
   });
 
   if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+      error?: string;
+    } | null;
+    if (data?.code === "sso_required") {
+      throw new LoginApiError(
+        data.message || data.error || MCP_GUEST_AUTH_GENERIC_ERROR,
+        "sso_required"
+      );
+    }
     throw new Error(MCP_GUEST_AUTH_GENERIC_ERROR);
   }
 }
@@ -58,6 +71,17 @@ export async function verifyMcpGuestOtp(
   });
 
   if (!response.ok) {
+    const errBody = (await response.json().catch(() => null)) as {
+      code?: string;
+      message?: string;
+      error?: string;
+    } | null;
+    if (errBody?.code === "sso_required") {
+      throw new LoginApiError(
+        errBody.message || errBody.error || MCP_GUEST_AUTH_GENERIC_ERROR,
+        "sso_required"
+      );
+    }
     throw new Error(MCP_GUEST_AUTH_GENERIC_ERROR);
   }
 
