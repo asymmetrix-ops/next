@@ -17,6 +17,10 @@ interface DeviceConfirmationFormProps {
   /** Called once the device is confirmed and login should be retried by the caller. */
   onConfirmed: () => void;
   onCancel: () => void;
+  /** Re-runs the login that issued the code (defaults to the web login). */
+  resendLogin?: () => Promise<unknown>;
+  /** API base used to confirm the device (defaults to the web login group). */
+  baseUrl?: string;
 }
 
 function formatLastSeen(unixSeconds?: number): string {
@@ -34,6 +38,8 @@ export function DeviceConfirmationForm({
   confirmationId: initialConfirmationId,
   onConfirmed,
   onCancel,
+  resendLogin,
+  baseUrl,
 }: DeviceConfirmationFormProps) {
   const [confirmationId, setConfirmationId] = useState(initialConfirmationId);
   const [code, setCode] = useState("");
@@ -53,11 +59,14 @@ export function DeviceConfirmationForm({
     setError(null);
     setIsSubmitting(true);
     try {
-      const result = await confirmDevice({
-        confirmation_id: confirmationId,
-        code,
-        replace_device_id: replaceDeviceId,
-      });
+      const result = await confirmDevice(
+        {
+          confirmation_id: confirmationId,
+          code,
+          replace_device_id: replaceDeviceId,
+        },
+        baseUrl
+      );
 
       if (result.confirmed) {
         onConfirmed();
@@ -121,7 +130,7 @@ export function DeviceConfirmationForm({
     setInfo(null);
     setDevices(null);
     try {
-      await loginWithDevice(email, password, "web");
+      await (resendLogin ? resendLogin() : loginWithDevice(email, password, "web"));
       // A confirmed, non-pending device would resolve here without throwing —
       // treat that as success too.
       onConfirmed();
