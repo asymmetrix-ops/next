@@ -2579,34 +2579,57 @@ const ArticleDetailPage = () => {
             <ArticleThreadLinks links={article.thread_links ?? []} />
 
             {/* Sectors Section */}
-            {article.sectors && article.sectors.length > 0 && (
-              <div className="card">
-                <header>
-                  <h2>Sectors</h2>
-                </header>
-                <div className="chipset">
-                  {article.sectors.map((sector) => {
-                    const sid = getSectorId(sector);
-                    if (!sid) return null;
-                    const isPrimary = sector.Sector_importance === "Primary";
-                    return (
-                      <EntityChip
-                        key={sid}
-                        kind={isPrimary ? "sector" : "subsector"}
-                        href={isPrimary ? `/sector/${sid}` : `/sub-sector/${sid}`}
-                        title="Open sector page"
-                        label={
-                          <>
-                            {sector.sector_name}
-                            {isPrimary && " (Primary)"}
-                          </>
-                        }
-                      />
-                    );
-                  })}
+            {article.sectors && article.sectors.length > 0 && (() => {
+              const linked = article.sectors.filter((sector) => getSectorId(sector));
+              const groups = [
+                {
+                  label: "Primary sectors",
+                  kind: "sector" as const,
+                  items: linked.filter((sector) => sector.Sector_importance === "Primary"),
+                },
+                {
+                  label: "Secondary sectors",
+                  kind: "subsector" as const,
+                  items: linked.filter((sector) => sector.Sector_importance !== "Primary"),
+                },
+              ].filter((group) => group.items.length > 0);
+              if (groups.length === 0) return null;
+              return (
+                <div className="card">
+                  <header>
+                    <h2>Sectors</h2>
+                  </header>
+                  {groups.map((group) => (
+                    <div key={group.label}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#6B7488",
+                          padding: "10px 16px 0",
+                        }}
+                      >
+                        {group.label}
+                      </div>
+                      <div className="chipset">
+                        {group.items.map((sector) => {
+                          const sid = getSectorId(sector);
+                          return (
+                            <EntityChip
+                              key={sid}
+                              kind={group.kind}
+                              href={group.kind === "sector" ? `/sector/${sid}` : `/sub-sector/${sid}`}
+                              title="Open sector page"
+                              label={sector.sector_name}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {(() => {
               const ct = (
                 article.Content_Type ||

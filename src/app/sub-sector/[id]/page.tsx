@@ -15,6 +15,31 @@ import { ScopedCorporateEventsPanel } from "@/components/corporate-events/Scoped
 import InsightsAnalysisCard, { INSIGHTS_CARD_GRID_STYLE } from "@/components/InsightsAnalysisCard";
 import { useHasTransactionComps } from "@/components/transaction-comps/useHasTransactionComps";
 import { TransactionCompsView } from "@/components/transaction-comps/TransactionCompsView";
+import { EntityChip } from "@/components/ui/EntityChip";
+
+type PrimarySectorLink = { id: number; sector_name: string };
+type RelatedPrimary = { id?: number | null; sector_name?: string | null };
+
+// Primary sectors of a secondary sector, list first with the legacy single field as fallback
+function relatedPrimarySectors(found?: {
+  related_primary_sector?: RelatedPrimary | null;
+  related_primary_sectors?: RelatedPrimary[] | null;
+}): PrimarySectorLink[] {
+  const many = found?.related_primary_sectors;
+  const list =
+    Array.isArray(many) && many.length > 0
+      ? many
+      : found?.related_primary_sector
+        ? [found.related_primary_sector]
+        : [];
+  const out: PrimarySectorLink[] = [];
+  for (const sector of list) {
+    if (sector?.id == null || !sector.sector_name) continue;
+    if (out.some((p) => p.id === sector.id)) continue;
+    out.push({ id: sector.id, sector_name: sector.sector_name });
+  }
+  return out;
+}
 
 const TABS = [
   { id: "all", name: "All Companies" },
@@ -37,12 +62,9 @@ const SubSectorPage = () => {
     (searchParams?.get("tab") as TabId) || "all"
   );
 
-  // Header lookup: sub-sector name + parent primary sector (for breadcrumb)
+  // Header lookup: sub-sector name + the primary sectors it is part of
   const [subSectorName, setSubSectorName] = useState<string>("");
-  const [primarySector, setPrimarySector] = useState<{
-    id: number;
-    sector_name: string;
-  } | null>(null);
+  const [primarySectors, setPrimarySectors] = useState<PrimarySectorLink[]>([]);
   const [headerLoaded, setHeaderLoaded] = useState(false);
 
   useEffect(() => {
@@ -55,12 +77,7 @@ const SubSectorPage = () => {
           (s) => s.id === subSectorId
         );
         setSubSectorName(found?.sector_name || "");
-        const related = found?.related_primary_sector;
-        setPrimarySector(
-          related?.id != null
-            ? { id: related.id, sector_name: related.sector_name }
-            : null
-        );
+        setPrimarySectors(relatedPrimarySectors(found));
       } catch {
         // ignore name fetch failure
       } finally {
@@ -185,21 +202,6 @@ const SubSectorPage = () => {
             >
               Secondary Sector
             </a>
-            {primarySector && (
-              <>
-                {" / "}
-                <a
-                  href={`/sector/${primarySector.id}`}
-                  style={{
-                    fontWeight: 600,
-                    color: T.azure,
-                    textDecoration: "none",
-                  }}
-                >
-                  {primarySector.sector_name}
-                </a>
-              </>
-            )}
             {" / "}
             {headerLoaded ? subSectorName || "Secondary Sector" : "…"}
           </div>
@@ -230,6 +232,36 @@ const SubSectorPage = () => {
                   />
                 )}
               </h1>
+              {/* Part of */}
+              {primarySectors.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 10,
+                    fontSize: 12.5,
+                    color: T.muted,
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>Part of:</span>
+                  {primarySectors.map((sector, i) => (
+                    <span
+                      key={sector.id}
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      <EntityChip
+                        kind="sector"
+                        href={`/sector/${sector.id}`}
+                        title="Open sector page"
+                        label={sector.sector_name}
+                      />
+                      {i < primarySectors.length - 1 && <span aria-hidden>,</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div
               style={{
