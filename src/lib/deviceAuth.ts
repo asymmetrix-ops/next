@@ -97,6 +97,9 @@ export const SSO_REQUIRED_DEFAULT_MESSAGE =
 export const SSO_ACCOUNT_DISABLED_MESSAGE =
   "Your account is not enabled. Contact your administrator.";
 
+export const REVOKE_LIMIT_MESSAGE =
+  "Device removal limit reached. Contact support.";
+
 export function getDeviceToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -155,12 +158,16 @@ export function getDeviceLabel(): string {
 export async function loginWithDevice(
   email: string,
   password: string,
-  kind: DeviceKind = "web"
-): Promise<LoginApiResponse> {
+  kind: DeviceKind = "web",
+  options: { baseUrl?: string; path?: string } = {}
+): Promise<LoginApiResponse & { token?: string }> {
   const deviceToken = getDeviceToken();
-  const deviceLabel = kind === "web" ? getDeviceLabel() : undefined;
+  // The device is the browser the user signs in on, for the MCP consent page too.
+  const deviceLabel = getDeviceLabel();
+  const baseUrl = options.baseUrl || DEVICE_AUTH_API_URL;
+  const path = options.path || "/auth/login";
 
-  const response = await fetch(`${DEVICE_AUTH_API_URL}/auth/login`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -184,7 +191,7 @@ export async function loginWithDevice(
     throw new LoginApiError(err.message || "Login failed", err.code);
   }
 
-  const payload = data as LoginApiResponse;
+  const payload = data as LoginApiResponse & { token?: string };
 
   // Any time the backend returns a new device_token, it must overwrite the stored
   // one — an old/revoked token produces a fresh pending device on the next attempt.
@@ -208,8 +215,8 @@ export async function confirmDevice(params: {
   code?: string;
   link_token?: string;
   replace_device_id?: number;
-}): Promise<ConfirmDeviceResponse> {
-  const response = await fetch(`${DEVICE_AUTH_API_URL}/auth/device/confirm`, {
+}, baseUrl: string = DEVICE_AUTH_API_URL): Promise<ConfirmDeviceResponse> {
+  const response = await fetch(`${baseUrl}/auth/device/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -259,6 +266,19 @@ export async function revokeDevice(
     },
   });
   if (!response.ok) {
+    let err: ApiError | null = null;
+    try {
+      err = (await response.json()) as ApiError;
+    } catch {
+      // ignore
+    }
+    const text = `${err?.code || ""} ${err?.message || ""}`;
+    if (
+      err?.code === "device_revoke_limit_reached" ||
+      /revoke.*limit|removal limit|limit.*revok/i.test(text)
+    ) {
+      throw new LoginApiError(REVOKE_LIMIT_MESSAGE, "device_revoke_limit_reached");
+    }
     if (response.status === 404) throw new LoginApiError("Device not found.");
     if (response.status === 400) throw new LoginApiError("Device already revoked.");
     throw new LoginApiError("Could not revoke device.");

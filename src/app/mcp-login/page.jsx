@@ -4,6 +4,11 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { SsoRequiredNotice } from "@/components/auth/SsoRequiredNotice";
+import { DeviceConfirmationForm } from "@/components/auth/DeviceConfirmationForm";
+import {
+  DeviceConfirmationRequiredError,
+  loginWithDevice,
+} from "@/lib/deviceAuth";
 
 // Login page for the Xano-hosted MCP OAuth flow ("test" MCP server).
 // Xano redirects the browser here with ?mcp_request=<id>. Flow: sign in (Client users only),
@@ -46,7 +51,48 @@ export default function McpLoginPage() {
   const [busy, setBusy] = useState(false);
   const [noAccess, setNoAccess] = useState(false);
   const [ssoRequiredMessage, setSsoRequiredMessage] = useState(null);
+  const [confirmationId, setConfirmationId] = useState(null);
   const authRef = useRef(null);
+
+  const mcpLogin = (mail, pass) =>
+    loginWithDevice(mail, pass, "mcp", { baseUrl: BASE, path: "/mcp/login" });
+
+  // Shared by the password step and, after the email code, the retry.
+  async function finishLogin(mail, pass) {
+    const mcpRequest = getMcpRequest();
+    // Fresh session token: Xano requires it to be less than 10 minutes old at complete.
+    const res = await mcpLogin(mail, pass);
+    const token = res.token || res.authToken;
+    authRef.current = { Authorization: `Bearer ${token}` };
+    const info = await call(
+      "GET",
+      `/mcp/request?mcp_request=${encodeURIComponent(mcpRequest)}`,
+      null,
+      authRef.current
+    );
+    setConsent(info);
+    setConfirmationId(null);
+    setPassword("");
+  }
+
+  function handleLoginError(err) {
+    if (err instanceof DeviceConfirmationRequiredError) {
+      setConfirmationId(err.confirmationId);
+      setError("");
+    } else if (err.code === "sso_required") {
+      setSsoRequiredMessage(
+        err.message || "Your organisation requires SSO sign-in."
+      );
+      setError("");
+    } else if (isNoAccessMessage(err.message)) {
+      setNoAccess(true);
+      setError("");
+    } else if (/invalid credentials/i.test(err.message)) {
+      setError("Invalid email or password.");
+    } else {
+      setError(err.message);
+    }
+  }
 
   const getMcpRequest = () =>
     new URLSearchParams(window.location.search).get("mcp_request");
@@ -64,31 +110,9 @@ export default function McpLoginPage() {
           "This page is opened by your AI assistant when you connect Asymmetrix. Start the connection from there."
         );
       }
-      // Fresh session token: Xano requires it to be less than 10 minutes old at complete.
-      const { token } = await call("POST", "/mcp/login", { email, password });
-      authRef.current = { Authorization: `Bearer ${token}` };
-      const info = await call(
-        "GET",
-        `/mcp/request?mcp_request=${encodeURIComponent(mcpRequest)}`,
-        null,
-        authRef.current
-      );
-      setConsent(info);
-      setPassword("");
+      await finishLogin(email, password);
     } catch (err) {
-      if (err.code === "sso_required") {
-        setSsoRequiredMessage(
-          err.message || "Your organisation requires SSO sign-in."
-        );
-        setError("");
-      } else if (isNoAccessMessage(err.message)) {
-        setNoAccess(true);
-        setError("");
-      } else if (/invalid credentials/i.test(err.message)) {
-        setError("Invalid email or password.");
-      } else {
-        setError(err.message);
-      }
+      handleLoginError(err);
     } finally {
       setBusy(false);
     }
@@ -129,7 +153,30 @@ export default function McpLoginPage() {
 
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
         <div className="px-6 w-full max-w-xl">
-          {ssoRequiredMessage ? (
+          {confirmationId ? (
+            <div className="p-6 bg-white rounded-xl border border-gray-200">
+              <DeviceConfirmationForm
+                email={email}
+                password={password}
+                confirmationId={confirmationId}
+                baseUrl={BASE}
+                resendLogin={() => mcpLogin(email, password)}
+                onConfirmed={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await finishLogin(email, password);
+                  } catch (err) {
+                    setConfirmationId(null);
+                    handleLoginError(err);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                onCancel={() => setConfirmationId(null)}
+              />
+            </div>
+          ) : ssoRequiredMessage ? (
             <SsoRequiredNotice
               message={ssoRequiredMessage}
               onBack={() => setSsoRequiredMessage(null)}
