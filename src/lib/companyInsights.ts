@@ -75,13 +75,22 @@ async function fetchCompanyArticlesAll(companyId: number, signal?: AbortSignal):
 /** Newest I&A tagged to the company's primary sectors (up to 3 pages of 50). */
 async function fetchSectorArticles(sectorIds: number[], signal?: AbortSignal): Promise<ContentArticle[]> {
   if (sectorIds.length === 0) return [];
+  // The endpoint takes one integer per call (a comma list is a 400 on live): one request chain per sector, merged.
+  const perSector = await Promise.all(
+    sectorIds.map((id) => fetchSectorArticlesFor(id, signal).catch(() => [] as ContentArticle[]))
+  );
+  const seen = new Set<number>();
+  return perSector.flat().filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
+}
+
+async function fetchSectorArticlesFor(sectorId: number, signal?: AbortSignal): Promise<ContentArticle[]> {
   const out: ContentArticle[] = [];
   for (let page = 1; page <= 3; page += 1) {
     const params = new URLSearchParams({
       Offset: String(page),
       Per_page: "50",
       portfolio_only: "false",
-      primary_sectors_ids: sectorIds.join(","),
+      primary_sectors_ids: String(sectorId),
     });
     const res = await fetch(`${CONTENT_ARTICLES_API}?${params}`, {
       headers: { "Content-Type": "application/json", ...authHeader() },
