@@ -1,3 +1,5 @@
+import { ENTITY_TONES } from "@/lib/tagColors";
+
 export interface ExportableArticle {
   id?: number;
   Headline?: string;
@@ -391,23 +393,33 @@ export async function openArticlePdfWindow(
     .filter(Boolean)
     .join("");
 
-  const sectorsTagsHtml = sectors
-    .map((s) => {
-      const name = (s?.sector_name || "").trim();
-      if (!name) return "";
-      const id = getSectorId(s);
-      const isPrimary = (s?.Sector_importance || "").trim() === "Primary";
-      const href =
-        typeof id === "number"
-          ? `${baseUrl}${isPrimary ? "/sector" : "/sub-sector"}/${id}`
-          : undefined;
-      const label = `${escapeHtml(name)}${isPrimary ? " (Primary)" : ""}`;
-      return href
-        ? `<a href="${href}" class="tag sectorTag">${label}</a>`
-        : `<span class="tag sectorTag">${label}</span>`;
-    })
-    .filter(Boolean)
-    .join("");
+  // Primary and secondary sectors as two labelled groups, empty groups left out
+  const isPrimarySector = (s: (typeof sectors)[number]) =>
+    (s?.Sector_importance || "").trim() === "Primary";
+  const sectorGroupHtml = (label: string, primary: boolean) => {
+    const tags = sectors
+      .filter((s) => isPrimarySector(s) === primary)
+      .map((s) => {
+        const name = (s?.sector_name || "").trim();
+        if (!name) return "";
+        const id = getSectorId(s);
+        const tagClass = primary ? "sectorTag" : "subsectorTag";
+        const href =
+          typeof id === "number"
+            ? `${baseUrl}${primary ? "/sector" : "/sub-sector"}/${id}`
+            : undefined;
+        return href
+          ? `<a href="${href}" class="tag ${tagClass}">${escapeHtml(name)}</a>`
+          : `<span class="tag ${tagClass}">${escapeHtml(name)}</span>`;
+      })
+      .filter(Boolean)
+      .join("");
+    return tags
+      ? `<div class="sector-group"><div class="sector-group-label">${label}</div><div class="tag-container">${tags}</div></div>`
+      : "";
+  };
+  const sectorsTagsHtml =
+    sectorGroupHtml("Primary sectors", true) + sectorGroupHtml("Secondary sectors", false);
 
   const styleCss = `
       @page { size: A4; margin: 16mm 0 0 0; }
@@ -437,7 +449,10 @@ export async function openArticlePdfWindow(
       .tag-container { display:flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px 0; }
       .tag { display:inline-block; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; }
       .companyTag { background-color: #e8f5e8; color: #2e7d32; }
-      .sectorTag { background-color: #f3e5f5; color: #7b1fa2; }
+      .sectorTag { background-color: ${ENTITY_TONES.sector.fill}; color: ${ENTITY_TONES.sector.text}; border: 1px solid ${ENTITY_TONES.sector.border}; }
+      .subsectorTag { background-color: ${ENTITY_TONES.subsector.fill}; color: ${ENTITY_TONES.subsector.text}; border: 1px solid ${ENTITY_TONES.subsector.border}; }
+      .sector-group + .sector-group { margin-top: 12px; }
+      .sector-group-label { font-size: 11px; font-weight: 700; color: #6B7488; }
       a.tag { text-decoration: none; }
       .avoid-break { page-break-inside: avoid; break-inside: avoid; -webkit-region-break-inside: avoid; }
       .section-block { margin: 18px 0 26px 0; }
@@ -508,12 +523,10 @@ export async function openArticlePdfWindow(
 
       <div class="section-block avoid-break">
         <div class="section-title">Sectors</div>
-        <div class="tag-container">
-          ${
-            sectorsTagsHtml ||
-            `<span style=\"color:var(--muted);\">-</span>`
-          }
-        </div>
+        ${
+          sectorsTagsHtml ||
+          `<div class="tag-container"><span style=\"color:var(--muted);\">-</span></div>`
+        }
       </div>
 
       <div class="footer">

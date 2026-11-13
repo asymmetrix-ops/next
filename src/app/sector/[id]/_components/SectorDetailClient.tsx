@@ -1860,6 +1860,12 @@ const SectorDetailPage = ({
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
+  const [subSectorQuery, setSubSectorQuery] = useState("");
+  const visibleSubSectors = useMemo(() => {
+    const q = subSectorQuery.trim().toLowerCase();
+    if (!q) return subSectors;
+    return subSectors.filter((s) => String(s.sector_name || "").toLowerCase().includes(q));
+  }, [subSectors, subSectorQuery]);
   const [mmExportingBucket, setMmExportingBucket] = useState<string | null>(null);
 
   // Fetch all overview data via Next.js API route (cached for 5 min).
@@ -2996,43 +3002,70 @@ const SectorDetailPage = ({
                 No secondary sectors found.
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                {subSectors.map((s) => (
-                  <a
-                    key={s.id}
-                    href={`/sub-sector/${s.id}`}
+              <>
+                {/* Secondary sector search */}
+                <div style={{ position: "relative", width: 280, maxWidth: "100%", marginBottom: 14 }}>
+                  <input
+                    type="search"
+                    placeholder="Search secondary sectors…"
+                    aria-label="Search secondary sectors"
+                    value={subSectorQuery}
+                    onChange={(e) => setSubSectorQuery(e.target.value)}
                     style={{
-                      background: "#fff",
+                      width: "100%",
+                      height: 38,
+                      padding: "0 14px",
+                      borderRadius: 999,
                       border: `1px solid ${LINE}`,
-                      borderRadius: R_LG,
-                      boxShadow: SH_XS,
-                      padding: "14px 15px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      textDecoration: "none",
+                      fontSize: 13,
+                      color: INK,
                     }}
-                    title={s.sector_name}
-                  >
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: 14,
-                        fontWeight: 700,
-                        lineHeight: 1.3,
-                        color: BLUE_600,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {s.sector_name}
-                    </h3>
-                  </a>
-                ))}
-              </div>
+                  />
+                </div>
+                {visibleSubSectors.length === 0 ? (
+                  <div style={{ padding: "40px 0", textAlign: "center", color: MUTED, fontSize: 13 }}>
+                    No secondary sectors match “{subSectorQuery.trim()}”
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                    {visibleSubSectors.map((s) => (
+                      <a
+                        key={s.id}
+                        href={`/sub-sector/${s.id}`}
+                        style={{
+                          background: "#fff",
+                          border: `1px solid ${LINE}`,
+                          borderRadius: R_LG,
+                          boxShadow: SH_XS,
+                          padding: "14px 15px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                          textDecoration: "none",
+                        }}
+                        title={s.sector_name}
+                      >
+                        <h3
+                          style={{
+                            margin: 0,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            lineHeight: 1.3,
+                            color: BLUE_600,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                          }}
+                        >
+                          {s.sector_name}
+                        </h3>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : activeTab === "most_active" ? (

@@ -543,7 +543,12 @@ class LocationsService {
 
   // Get all secondary sectors with their related primary sector information
   async getAllSecondarySectorsWithPrimary(): Promise<
-    Array<SecondarySector & { related_primary_sector?: PrimarySector }>
+    Array<
+      SecondarySector & {
+        related_primary_sector?: PrimarySector;
+        related_primary_sectors?: PrimarySector[];
+      }
+    >
   > {
     const url = `${BASE_URL}/Get_Secondary_Sectors`;
 
