@@ -1,4 +1,11 @@
+import { clearDeviceToken } from "@/lib/deviceAuth";
+
 export const SESSION_EXPIRED_EVENT = "auth:session-expired";
+
+// Exact backend message sent when the current device was revoked (Login Security).
+// In that case the stale device_token must be dropped too, or the next login
+// would just report a new pending device bound to the same (revoked) token.
+const DEVICE_SIGNED_OUT_MESSAGE = "This device has been signed out.";
 
 let notified = false;
 let guardInstalled = false;
@@ -66,6 +73,16 @@ export function installFetchAuthGuard(): void {
       const isOwnApiCall = isSameOriginApi(url) && hasStoredToken();
 
       if ((wasAuthenticatedRequest || isOwnApiCall) && !AUTH_ENDPOINT_PATTERN.test(url)) {
+        // Peek at the body (cloned, so the caller still gets an unread response)
+        // to detect a revoked-device 401 and drop the stale device_token too.
+        try {
+          const body = await response.clone().json();
+          if (body?.message === DEVICE_SIGNED_OUT_MESSAGE) {
+            clearDeviceToken();
+          }
+        } catch {
+          // Non-JSON or unreadable body — fall through to the generic expiry flow.
+        }
         notifySessionExpired();
       }
     }
