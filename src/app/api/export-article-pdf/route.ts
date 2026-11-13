@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
+import { ENTITY_TONES } from "@/lib/tagColors";
 
 export const runtime = "nodejs";
 
@@ -186,18 +187,27 @@ export async function POST(req: NextRequest) {
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&");
 
-    const sectorsHtml = (sectors || [])
-      .map((s: any) => {
-        const name = (s?.sector_name || "").trim();
-        const imp = (s?.Sector_importance || "").trim();
-        return name
-          ? `<span class="tag sectorTag">${escapeHtml(name)}${
-              imp === "Primary" ? " (Primary)" : ""
-            }</span>`
-          : "";
-      })
-      .filter(Boolean)
-      .join("");
+    // Primary and secondary sectors as two labelled groups, empty groups left out
+    const sectorGroupHtml = (label: string, tagClass: string, items: any[]) => {
+      const tags = items
+        .map((s: any) => {
+          const name = (s?.sector_name || "").trim();
+          return name ? `<span class="tag ${tagClass}">${escapeHtml(name)}</span>` : "";
+        })
+        .filter(Boolean)
+        .join("");
+      return tags
+        ? `<div class="sector-group"><div class="sector-group-label">${label}</div><div class="tag-container">${tags}</div></div>`
+        : "";
+    };
+    const isPrimarySector = (s: any) => (s?.Sector_importance || "").trim() === "Primary";
+    const sectorsHtml =
+      sectorGroupHtml("Primary sectors", "sectorTag", (sectors || []).filter(isPrimarySector)) +
+      sectorGroupHtml(
+        "Secondary sectors",
+        "subsectorTag",
+        (sectors || []).filter((s: any) => !isPrimarySector(s))
+      );
 
     const companiesHtml = (companies || [])
       .map((c: any) =>
@@ -440,7 +450,10 @@ export async function POST(req: NextRequest) {
             text-decoration: none; 
         }
         .companyTag { background-color: #e8f5e8; color: #2e7d32; }
-        .sectorTag { background-color: #f3e5f5; color: #7b1fa2; }
+        .sectorTag { background-color: ${ENTITY_TONES.sector.fill}; color: ${ENTITY_TONES.sector.text}; border: 1px solid ${ENTITY_TONES.sector.border}; }
+        .subsectorTag { background-color: ${ENTITY_TONES.subsector.fill}; color: ${ENTITY_TONES.subsector.text}; border: 1px solid ${ENTITY_TONES.subsector.border}; }
+        .sector-group + .sector-group { margin-top: 12px; }
+        .sector-group-label { font-size: 11px; font-weight: 700; color: #6B7488; }
         .rce-card { 
             border: 1px solid #e2e8f0; 
             border-radius: 10px; 
@@ -521,10 +534,10 @@ export async function POST(req: NextRequest) {
 
                 <div class="section-block">
                 <div class="section-title">Sectors</div>
-                <div class="tag-container">${
+                ${
                   sectorsHtml ||
-                  `<span style='color:var(--muted);'>-</span>`
-                }</div>
+                  `<div class="tag-container"><span style='color:var(--muted);'>-</span></div>`
+                }
                 </div>
             </div>
             </body>
