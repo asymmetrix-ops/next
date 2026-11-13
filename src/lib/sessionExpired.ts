@@ -109,7 +109,7 @@ function getTokenExpiryMs(token: string): number | null {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
 let lastProbe = 0;
 let lastActive = Date.now();
