@@ -4464,7 +4464,8 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                { id: "subsidiaries", col: "main" as const, weight: 190, movable: false, show: Boolean(hasSubsidiaries), node: () => (
+                // 1/3-width card, last in the right rail.
+                { id: "subsidiaries", col: "rail" as const, weight: 230, movable: false, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
                     fillGridCell
@@ -4492,12 +4493,11 @@ const CompanyDetail = () => {
                       }
                       acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
                       sectorNameToId={sectorNameToId}
-                      maxInitial={3}
                     />
                     </LinkPanel>
                 </div>
                 ) },
-                { id: "headcount", col: "pair" as const, weight: 320, movable: true, show: Boolean(employeeData.length > 0), node: () => (
+                { id: "headcount", col: "rail" as const, weight: 320, movable: false, show: Boolean(employeeData.length > 0), node: () => (
                 <div className="company-grid-headcount">
                   <HeadcountCard
                     fillGridCell
@@ -4575,7 +4575,10 @@ const CompanyDetail = () => {
               const pair = cards
                 .filter((c) => c.col === "pair" && !productIds.includes(c.id))
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
-              const rail = cards.filter((c) => c.col === "rail");
+              const railOrder = ["fin2", "airisk", "headcount", "subsidiaries"];
+              const rail = cards
+                .filter((c) => c.col === "rail")
+                .sort((x, y) => railOrder.indexOf(x.id) - railOrder.indexOf(y.id));
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
               // Product block is a fixed 2-col grid: [productmix | coreproducts] over [data collection | management].
               // Its height is the taller column, not the sum of its cards.

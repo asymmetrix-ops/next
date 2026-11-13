@@ -2,17 +2,20 @@
 
 import React, { useMemo, useState } from "react";
 import type { CorporateEventsProfileTokens } from "@/components/corporate-events/CorporateEventsProfilePanel";
+import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import {
   LinkedH,
   profileTableColAlign,
   profileTableCellStyle,
   PROFILE_EVENTS_ROW_GAP,
-  PROFILE_EVENTS_ROW_PAD,
   SUBS_PROFILE_ROW_GRID,
   tableColHeaderBarStyle,
   tableColHeaderStyle,
 } from "@/components/redesign/primitives";
+import { HoverTooltip } from "@/components/ui/HoverTooltip";
 import { useRightClick } from "@/hooks/useRightClick";
+import { iso2ForName } from "@/lib/countryOptions";
+import { readHqCountryIso2 } from "@/lib/dealRadar";
 import {
   enrichSectorEntries,
   extractSectorId,
@@ -95,77 +98,147 @@ export function growthPctToSpark(pct: number): number[] {
   ];
 }
 
+/** Rows shown before "View all". */
+export const SUBSIDIARIES_PREVIEW_COUNT = 5;
+
 type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;
   subsidiaries: SubsidiaryProfileRecord[];
   /** Subsidiary company id → calendar year acquired (from acquisition corporate events). */
   acquisitionYearByCompanyId?: Record<number, number>;
+  /** Rows shown before "View all". */
   maxInitial?: number;
-  /** `narrow` = single grid column; fits Revenue-model width */
-  layout?: "default" | "narrow";
   /** Fallback name → id lookup when subsidiary sector refs omit ids. */
   sectorNameToId?: SectorNameLookup;
 };
 
-const HEADERS = [
-  "Company",
-  "Sector",
-  "Country",
-  "Year Acquired",
-] as const;
+const HEADERS = ["Company", "Sector", "Year Acquired"] as const;
 
+const HEADER_PAD = "8px 14px";
+const ROW_PAD = "10px 14px";
+
+/** Same shape as the "+N" pill in the list views, in the card's tokens. */
+const overflowPillStyle = (
+  T: SubsidiariesProfileTokens
+): React.CSSProperties => ({
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "1px 6px",
+  margin: 0,
+  border: "none",
+  borderRadius: 999,
+  background: T.inset,
+  color: T.body,
+  fontSize: 11,
+  fontWeight: 600,
+  lineHeight: 1.4,
+  cursor: "default",
+  whiteSpace: "nowrap",
+  fontFamily: "inherit",
+});
+
+const isPrimarySector = (entry: SectorLinkEntry) =>
+  String(entry.importance ?? "Primary").trim().toLowerCase() === "primary";
+
+/** All sectors, primary first (API order kept within each group). */
 function subsidiarySectorEntries(
-  subsidiary: SubsidiaryProfileRecord
+  subsidiary: SubsidiaryProfileRecord,
+  sectorNameToId?: SectorNameLookup
 ): SectorLinkEntry[] {
-  return (
+  const entries =
     subsidiary.sectors_id
-      ?.filter((x) => x && typeof x.sector_name === "string")
-      .slice(0, 3)
+      ?.filter(
+        (x) => x && typeof x.sector_name === "string" && x.sector_name.trim()
+      )
       .map((sector) => ({
         name: sector.sector_name!.trim(),
         id: extractSectorId(sector),
         importance: sector.Sector_importance ?? "Primary",
-      })) ?? []
-  );
+      })) ?? [];
+  const enriched = enrichSectorEntries(entries, sectorNameToId);
+  return [
+    ...enriched.filter(isPrimarySector),
+    ...enriched.filter((entry) => !isPrimarySector(entry)),
+  ];
 }
 
-function SubsidiarySectorLinks({
+/** ISO2 code for the subsidiary's HQ country (any English country name). */
+function subsidiaryCountryIso2(
+  subsidiary: SubsidiaryProfileRecord
+): string | null {
+  const direct = readHqCountryIso2(
+    subsidiary as unknown as Record<string, unknown>
+  );
+  if (direct) return direct;
+  const country = subsidiary._locations?.Country?.trim();
+  return country ? iso2ForName(country) : null;
+}
+
+/** First sector as a link, then "+N" with the full list on hover. */
+function SubsidiarySectorCell({
   subsidiary,
   sectorNameToId,
-  linkColor,
+  T,
   createClickableElement,
 }: {
   subsidiary: SubsidiaryProfileRecord;
   sectorNameToId?: SectorNameLookup;
-  linkColor: string;
+  T: SubsidiariesProfileTokens;
   createClickableElement: ReturnType<
     typeof useRightClick
   >["createClickableElement"];
 }) {
-  const sectors = enrichSectorEntries(
-    subsidiarySectorEntries(subsidiary),
-    sectorNameToId
-  );
+  const sectors = subsidiarySectorEntries(subsidiary, sectorNameToId);
   if (sectors.length === 0) return <>-</>;
 
+  const first = sectors[0];
+  const href = getSectorHref(first);
+  const extra = sectors.length - 1;
+  const names = sectors.map((sector) => sector.name);
+
+  // One line: a long first sector is cut with an ellipsis (full name on hover); "+N" always shows.
   return (
-    <>
-      {sectors.map((sector, idx) => {
-        const href = getSectorHref(sector);
-        return (
-          <span key={`${sector.name}-${sector.id ?? idx}`}>
-            {href
-              ? createClickableElement(href, sector.name, undefined, {
-                  color: linkColor,
-                  fontWeight: 500,
-                  textDecoration: "underline",
-                })
-              : sector.name}
-            {idx < sectors.length - 1 ? ", " : ""}
-          </span>
-        );
-      })}
-    </>
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        maxWidth: "100%",
+        minWidth: 0,
+        verticalAlign: "middle",
+      }}
+    >
+      <span
+        title={first.name}
+        style={{
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {href
+          ? createClickableElement(href, first.name, undefined, {
+              color: T.azure,
+              fontWeight: 500,
+              textDecoration: "underline",
+            })
+          : first.name}
+      </span>
+      {extra > 0 ? (
+        <HoverTooltip content={names.join("\n")}>
+          <button
+            type="button"
+            aria-label={`${extra} more ${extra === 1 ? "sector" : "sectors"}: ${names.join("; ")}`}
+            // Touch screens have no hover: a tap focuses the pill, which opens the list.
+            onClick={(e) => e.currentTarget.focus()}
+            style={overflowPillStyle(T)}
+          >
+            +{extra}
+          </button>
+        </HoverTooltip>
+      ) : null}
+    </span>
   );
 }
 
@@ -218,14 +291,9 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     tokens: T,
     subsidiaries: rawSubs,
     acquisitionYearByCompanyId = {},
-    maxInitial = 3,
-    layout = "default",
+    maxInitial = SUBSIDIARIES_PREVIEW_COUNT,
     sectorNameToId,
   }) => {
-    const narrow = layout === "narrow";
-    const headers = narrow
-      ? (["Company", "Sector", "Country", "Year Acquired"] as const)
-      : HEADERS;
     const { createClickableElement } = useRightClick();
 
     const [showAll, setShowAll] = useState(false);
@@ -247,9 +315,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
     const headerRight =
       n === 0 ? "" : `${n} ${n === 1 ? "subsidiary" : "subsidiaries"}`;
 
-    const cellPad = narrow ? "10px 8px" : PROFILE_EVENTS_ROW_PAD.body;
-    const headerPad = narrow ? "8px 8px" : PROFILE_EVENTS_ROW_PAD.header;
-
     const subsHeaderCell = (colIndex: number) => ({
       ...tableColHeaderStyle,
       textAlign: profileTableColAlign(colIndex),
@@ -263,7 +328,6 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
 
         <div
           style={{
-            overflowX: "auto",
             maxWidth: "100%",
             minWidth: 0,
             ...profileTableCellStyle,
@@ -274,10 +338,10 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               ...tableColHeaderBarStyle,
               gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
               gap: PROFILE_EVENTS_ROW_GAP,
-              padding: headerPad,
+              padding: HEADER_PAD,
             }}
           >
-            {headers.map((h, colIndex) => (
+            {HEADERS.map((h, colIndex) => (
               <div key={h} style={subsHeaderCell(colIndex)}>
                 {h}
               </div>
@@ -290,43 +354,7 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
               acquisitionYearByCompanyId[subsidiary.id] != null
                 ? String(acquisitionYearByCompanyId[subsidiary.id])
                 : "-";
-
-            const companyCell = (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  gap: narrow ? 8 : 10,
-                  minWidth: 0,
-                }}
-              >
-                <LogoLetter
-                  name={subsidiary.name}
-                  logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
-                  T={T}
-                />
-                <span
-                  style={{
-                    minWidth: 0,
-                    overflow: narrow ? "hidden" : undefined,
-                    textOverflow: narrow ? "ellipsis" : undefined,
-                    whiteSpace: narrow ? "nowrap" : undefined,
-                  }}
-                >
-                  {createClickableElement(
-                    `/company/${subsidiary.id}`,
-                    subsidiary.name,
-                    undefined,
-                    {
-                      color: T.azure,
-                      fontWeight: 500,
-                      textDecoration: "underline",
-                    }
-                  )}
-                </span>
-              </div>
-            );
+            const iso2 = subsidiaryCountryIso2(subsidiary);
 
             return (
               <div
@@ -336,47 +364,56 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
                   gridTemplateColumns: SUBS_PROFILE_ROW_GRID,
                   gap: PROFILE_EVENTS_ROW_GAP,
                   alignItems: "center",
-                  padding: cellPad,
+                  padding: ROW_PAD,
                   borderBottom: last ? "none" : `1px solid ${T.hair}`,
                 }}
               >
                 <div
                   style={{
-                    textAlign: profileTableColAlign(0),
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                     minWidth: 0,
+                    textAlign: profileTableColAlign(0),
                   }}
                 >
-                  {companyCell}
+                  <LogoLetter
+                    name={subsidiary.name}
+                    logo={subsidiary._linkedin_data_of_new_company?.linkedin_logo}
+                    T={T}
+                  />
+                  {/* Long names wrap; the flag follows the name. */}
+                  <span style={{ minWidth: 0, overflowWrap: "break-word" }}>
+                    {createClickableElement(
+                      `/company/${subsidiary.id}`,
+                      subsidiary.name,
+                      undefined,
+                      {
+                        color: T.azure,
+                        fontWeight: 500,
+                        textDecoration: "underline",
+                      }
+                    )}
+                    {iso2 ? <CountryFlagImg iso2={iso2} /> : null}
+                  </span>
                 </div>
                 <div
                   style={{
                     textAlign: profileTableColAlign(1),
                     color: T.muted,
                     minWidth: 0,
-                    overflow: narrow ? "hidden" : undefined,
-                    textOverflow: narrow ? "ellipsis" : undefined,
-                    whiteSpace: narrow ? "nowrap" : undefined,
                   }}
                 >
-                  <SubsidiarySectorLinks
+                  <SubsidiarySectorCell
                     subsidiary={subsidiary}
                     sectorNameToId={sectorNameToId}
-                    linkColor={T.azure}
+                    T={T}
                     createClickableElement={createClickableElement}
                   />
                 </div>
                 <div
                   style={{
                     textAlign: profileTableColAlign(2),
-                    color: T.body,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {subsidiary._locations?.Country?.trim() || "-"}
-                </div>
-                <div
-                  style={{
-                    textAlign: profileTableColAlign(3),
                     color: T.body,
                     fontVariantNumeric: "tabular-nums",
                     whiteSpace: "nowrap",
@@ -390,22 +427,37 @@ export const SubsidiariesProfilePanel: React.FC<SubsidiariesProfilePanelProps> =
         </div>
 
         {n > maxInitial ? (
-          <div style={{ textAlign: "center", padding: "12px 0 16px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: `1px solid ${T.hair}`,
+              padding: ROW_PAD,
+              fontSize: 12.5,
+              color: T.muted,
+              fontFamily: T.sans,
+            }}
+          >
+            <span>
+              Showing {displayed.length} of {n}
+            </span>
             <button
               type="button"
-              onClick={() => setShowAll(!showAll)}
+              aria-expanded={showAll}
+              onClick={() => setShowAll((v) => !v)}
               style={{
-                background: "none",
                 border: "none",
-                color: T.azure,
-                textDecoration: "underline",
+                background: "none",
+                padding: 0,
                 cursor: "pointer",
-                fontSize: "12.5px",
-                fontWeight: 500,
                 fontFamily: T.sans,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: T.azure,
               }}
             >
-              {showAll ? "Show less" : "See more"}
+              {showAll ? "Show less" : "View all"}
             </button>
           </div>
         ) : null}
