@@ -71,13 +71,26 @@ const SubSectorPage = () => {
     let cancelled = false;
     const run = async () => {
       try {
-        const all = await locationsService.getAllSecondarySectorsWithPrimary();
+        const [all, primaries] = await Promise.all([
+          locationsService.getAllSecondarySectorsWithPrimary(),
+          locationsService
+            .getPrimarySectorsOfSecondarySector(subSectorId)
+            .catch(() => []),
+        ]);
         if (cancelled) return;
         const found = (Array.isArray(all) ? all : []).find(
           (s) => s.id === subSectorId
         );
         setSubSectorName(found?.sector_name || "");
-        setPrimarySectors(relatedPrimarySectors(found));
+        // Primary sectors from the list when it carries them, otherwise from the lookup
+        const fromList = relatedPrimarySectors(found);
+        setPrimarySectors(
+          fromList.length > 0
+            ? fromList
+            : relatedPrimarySectors({
+                related_primary_sectors: Array.isArray(primaries) ? primaries : [],
+              })
+        );
       } catch {
         // ignore name fetch failure
       } finally {

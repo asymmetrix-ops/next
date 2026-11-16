@@ -405,6 +405,32 @@ class LocationsService {
     return await response.json();
   }
 
+  // Primary sectors a secondary sector belongs to
+  async getPrimarySectorsOfSecondarySector(
+    secondarySectorId: number
+  ): Promise<PrimarySector[]> {
+    const url = `${BASE_URL}/Get_Primary_Sectors?sectors_id=${secondarySectorId}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...this.getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error("Authentication required");
+      }
+      throw new Error(
+        `Failed to fetch primary sectors of secondary sector: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  }
+
   async getSecondarySectors(
     primarySectorIds: number[]
   ): Promise<SecondarySector[]> {
