@@ -2580,6 +2580,7 @@ const ArticleDetailPage = () => {
 
             {/* Sectors Section */}
             {article.sectors && article.sectors.length > 0 && (() => {
+              // Primary and secondary sectors as two labelled groups, empty groups left out
               const linked = article.sectors.filter((sector) => getSectorId(sector));
               const groups = [
                 {
