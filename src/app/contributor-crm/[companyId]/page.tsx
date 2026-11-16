@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import {
   fetchPublicContributorCompany,
+  notifyDataContribution as sendFeedbackNotification,
   type ContributorYearItem,
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
@@ -13999,6 +14000,150 @@ const CompanyDetail = () => {
   );
 };
 
+// Floating button on every contributor page: lets the contributor tell us where our data or
+// assessment is wrong. Sent straight away as one email to the team (not held as a draft).
+const FeedbackWidget = ({ companyId }: { companyId: string }) => {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [needsIdentity, setNeedsIdentity] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  const openBox = () => {
+    const id = readIdentity();
+    setName(id.name);
+    setRole(id.role);
+    setNeedsIdentity(!authService.getAuthToken() && !(id.name.trim() && id.role.trim()));
+    setDone(false);
+    setError("");
+    setOpen(true);
+  };
+
+  const send = async () => {
+    if (!text.trim()) {
+      setError("Please write a few words first.");
+      return;
+    }
+    if (needsIdentity && (!name.trim() || !role.trim())) {
+      setError("Please enter your name and role.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      if (needsIdentity) saveIdentity({ name: name.trim(), role: role.trim() });
+      const user = authService.getUser();
+      await sendFeedbackNotification(authService.getAuthToken(), {
+        contributor_name: user?.name?.trim() || "",
+        contributor_email: user?.email || "",
+        company_name: `Company #${companyId}`,
+        request_url: `${window.location.origin}/contributor-crm/${companyId}`,
+        field_name: "Feedback: Asymmetrix assessment is wrong",
+        notes: text.trim(),
+      });
+      setDone(true);
+      setText("");
+    } catch (e) {
+      setError((e as Error)?.message || "Could not send. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = {
+    width: "100%",
+    boxSizing: "border-box" as const,
+    padding: "9px 11px",
+    border: "1.5px solid #e2e8f0",
+    borderRadius: "8px",
+    fontSize: "13.5px",
+    fontFamily: "inherit",
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openBox}
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 20,
+          zIndex: 950,
+          padding: "11px 18px",
+          borderRadius: "999px",
+          border: "none",
+          background: "#b45309",
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: "13px",
+          cursor: "pointer",
+          boxShadow: "0 6px 18px rgba(15, 23, 42, 0.3)",
+        }}
+      >
+        Tell us why we are wrong
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(15, 23, 42, 0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 14, padding: 22, width: "min(480px, 100%)", boxShadow: "0 20px 50px rgba(15,23,42,0.35)" }}
+          >
+            {done ? (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#14532d", marginBottom: 8 }}>Thank you</div>
+                <p style={{ fontSize: 14, color: "#334155", margin: "0 0 16px" }}>
+                  Your comment has gone to the Asymmetrix team. We will take a look {REVIEW_SLA_TEXT}.
+                </p>
+                <button type="button" onClick={() => setOpen(false)} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 600, cursor: "pointer" }}>
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Tell us why we are wrong</div>
+                <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 12px" }}>
+                  Think our data, figures or assessment of this company is off? Tell us what and why.
+                </p>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={5}
+                  placeholder="What is wrong, and what should it say?"
+                  style={{ ...input, resize: "vertical" }}
+                />
+                {needsIdentity && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={input} />
+                    <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Your role" style={input} />
+                  </div>
+                )}
+                {error && <div style={{ color: "#b91c1c", fontSize: 13, marginTop: 8 }}>{error}</div>}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                  <button type="button" onClick={() => setOpen(false)} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid #e2e8f0", background: "#fff", fontWeight: 600, cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                  <button type="button" disabled={busy} onClick={send} style={{ padding: "9px 16px", borderRadius: 9, border: "none", background: "#1d4ed8", color: "#fff", fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+                    {busy ? "Sending…" : "Send to the team"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 // Wraps the page: shows the "Send all changes" bar while drafts exist. Sending does not lock the
 // link: the contributor stays on the page and can keep contributing.
 const ContributorCompanyPage = () => {
@@ -14108,6 +14253,7 @@ const ContributorCompanyPage = () => {
         </div>
       )}
       <CompanyDetail />
+      <FeedbackWidget companyId={companyId} />
     </>
   );
 };
