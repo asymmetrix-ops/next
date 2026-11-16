@@ -42,6 +42,7 @@ import {
 } from "@/lib/holdingPeriod";
 import { parsePortfolioApiResponse } from "@/lib/parsePortfolioApiResponse";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
+import { formatLocation } from "@/utils/investorHelpers";
 import {
   EntityLogoTile,
   EntityProfileHeader,
@@ -1365,11 +1366,7 @@ const InvestorDetailPage = () => {
     extractOptionalString(investorRaw, ["status", "investor_status"]) || "Active";
 
   const resolvedLocation = Location ?? Investor._locations;
-  const hq = `${resolvedLocation?.City || ""}, ${
-    resolvedLocation?.State__Province__County || ""
-  }, ${resolvedLocation?.Country || ""}`
-    .replace(/^,\s*/, "")
-    .replace(/,\s*$/, "");
+  const hq = formatLocation(resolvedLocation);
 
   const resolvedLinkedinUrl =
     LinkedIn_Data?.LinkedIn_URL ||

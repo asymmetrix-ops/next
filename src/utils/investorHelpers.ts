@@ -30,14 +30,18 @@ export const truncateDescription = (
   return { text: truncated, isLong };
 };
 
-export const formatLocation = (location: {
-  City?: string;
-  State__Province__County?: string;
-  Country?: string;
-}): string => {
-  return `${location.City || ""}, ${location.State__Province__County || ""}, ${
-    location.Country || ""
-  }`
-    .replace(/^,\s*/, "")
-    .replace(/,\s*$/, "");
+export const formatLocation = (location?: {
+  City?: string | null;
+  State__Province__County?: string | null;
+  Country?: string | null;
+} | null): string => {
+  if (!location) return "";
+  const parts = [
+    location.City,
+    location.State__Province__County,
+    location.Country,
+  ]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+  return parts.join(", ");
 };
