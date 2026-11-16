@@ -12,7 +12,7 @@ async function loginWithCredentials(
   password: string
 ): Promise<string | null> {
   try {
-    const response = await fetch(`${XANO_AUTH_URL}/auth/login`, {
+    const response = await fetch(`${XANO_AUTH_URL}/auth/service-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

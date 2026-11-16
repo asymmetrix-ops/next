@@ -1,5 +1,5 @@
 const AUTH_LOGIN_URL =
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/login";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6/auth/service-login";
 
 let cachedToken: string | null = null;
 let cachedTokenExpiryMs: number | null = null;
