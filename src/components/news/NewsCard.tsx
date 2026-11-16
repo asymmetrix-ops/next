@@ -12,10 +12,12 @@ import { trackKeyAction } from "@/lib/tracking";
 import type { ArticleSeries } from "@/types/insightsAnalysis";
 import {
   dotPillStyleFromTone,
+  ENTITY_TONES,
   formatTransactionStatusLabel,
   getInsightsTypeTone,
   getNewsSubtypeTone,
   getTransactionStatusTone,
+  pillStyleFromTone,
   researchPillStyleFromTone,
 } from "@/lib/tagColors";
 
@@ -153,15 +155,24 @@ const SECTOR_TAG_CAP = 2;
  * (`PartyLinks`): click it to reveal the rest inline, click "Show less" to
  * collapse again.
  */
-function SectorTags({ sectors }: { sectors: string[] }) {
+function SectorTags({
+  sectors,
+  label,
+  tone = ENTITY_TONES.sector,
+}: {
+  sectors: string[];
+  label?: string;
+  tone?: Parameters<typeof pillStyleFromTone>[0];
+}) {
   const [expanded, setExpanded] = useState(false);
   if (sectors.length === 0) return null;
   const overflowCount = Math.max(0, sectors.length - SECTOR_TAG_CAP);
   const visibleSectors = expanded ? sectors : sectors.slice(0, SECTOR_TAG_CAP);
   return (
     <div className="nw-tags">
+      {label && <span className="nw-tags-label">{label}</span>}
       {visibleSectors.map((sector) => (
-        <span className="nw-sector" key={sector}>
+        <span className="nw-sector" key={sector} style={pillStyleFromTone(tone)}>
           {sector}
         </span>
       ))}
@@ -290,7 +301,19 @@ export default function NewsCard({ article, variant = "feed", relation, seriesLi
           <span className="nw-company" aria-hidden="true" />
         )}
 
-        {article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />}
+        {/* Sectors */}
+        {article.sector_groups ? (
+          <>
+            <SectorTags label="Primary sectors" sectors={article.sector_groups.primary} />
+            <SectorTags
+              label="Secondary sectors"
+              sectors={article.sector_groups.secondary}
+              tone={ENTITY_TONES.subsector}
+            />
+          </>
+        ) : (
+          article.focus_tags && <SectorTags sectors={article.focus_tags.primarySectors} />
+        )}
 
         {(ia || hasSeries || series || seriesChip) && (
           <div className="nw-card-foot">
