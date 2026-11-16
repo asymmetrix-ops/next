@@ -2098,6 +2098,10 @@ function SuggestChangeFieldRow({
 // is not added to our list: the team reviews it ("New option suggested") before anything changes.
 const NEW_OPTION_SENTINEL = "__suggest_new_option__";
 const CLASSIFICATION_MAX_ITEMS = 3;
+// Product types and data collection methods can legitimately have many values: allow up to one
+// row per option in their lists (10 and 14).
+const PRODUCT_TYPE_MAX_ITEMS = 10;
+const DATA_COLLECTION_MAX_ITEMS = 14;
 
 function ClassificationOptionSelect({
   value,
@@ -8044,7 +8048,7 @@ function SuggestBasicCompanyChangeForm({
                 </button>
               </div>
             ))}
-            {productTypeItems.length < CLASSIFICATION_MAX_ITEMS && (
+            {productTypeItems.length < PRODUCT_TYPE_MAX_ITEMS && (
             <button
               type="button"
               onClick={() =>
@@ -8160,7 +8164,7 @@ function SuggestBasicCompanyChangeForm({
                 </button>
               </div>
             ))}
-            {dataCollectionItems.length < CLASSIFICATION_MAX_ITEMS && (
+            {dataCollectionItems.length < DATA_COLLECTION_MAX_ITEMS && (
             <button
               type="button"
               onClick={() =>
