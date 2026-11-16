@@ -28,6 +28,7 @@ import {
   uploadFileToXano,
 } from "@/lib/contributorCrm/api";
 import { contributorFetch } from "@/lib/contributorCrm/contributorFetch";
+import { fetchCompanyCorporateEvents } from "@/lib/companyCorporateEvents";
 import {
   draftCount,
   hasSentBefore,
@@ -11654,6 +11655,24 @@ const CompanyDetail = () => {
     return (await fetchPublicContributorCompany(id)) as CompanyResponse;
   }, []);
 
+
+  // The company payload often carries no events. The profile card loads them from the events
+  // endpoint, so do the same here: the editor then lists the existing events and can edit them.
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    fetchCompanyCorporateEvents(companyId, 1, 100)
+      .then((data) => {
+        if (cancelled || !data?.items?.length) return;
+        setCorporateEvents((prev) =>
+          prev.length > 0 ? prev : (data.items as unknown as NewCorporateEvent[])
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
 
   // Fetch Asymmetrix content articles via public companies_articles endpoint
   const fetchCompanyArticles = useCallback(
