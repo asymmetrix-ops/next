@@ -1874,6 +1874,7 @@ const SectorDetailPage = ({
   const [subSectors, setSubSectors] = useState<SubSector[]>([]);
   const [subSectorsLoading, setSubSectorsLoading] = useState(false);
   const [subSectorsError, setSubSectorsError] = useState<string | null>(null);
+  // Secondary sectors filtered by the search text
   const [subSectorQuery, setSubSectorQuery] = useState("");
   const visibleSubSectors = useMemo(() => {
     const q = subSectorQuery.trim().toLowerCase();
