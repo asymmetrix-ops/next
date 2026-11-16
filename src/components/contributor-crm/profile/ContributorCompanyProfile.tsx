@@ -4506,7 +4506,6 @@ const CompanyDetailInner = ({ companyId, onEditSection, onEditMetrics }: Contrib
                     )}
                     {showCoreProducts && (
                       <div className="product-zone-cell" style={{ position: "relative" }}>
-                        <CardPen label="core products" onClick={() => onEditSection("overview")} />
                         <ProductUsersListCard
                           sections={coreProductsSections}
                           useCaseSections={usersUseCaseSections}
