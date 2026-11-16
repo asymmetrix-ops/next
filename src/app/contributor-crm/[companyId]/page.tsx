@@ -6444,6 +6444,7 @@ function SuggestBasicCompanyChangeForm({
   companyName,
   currentValues,
   autoExpandAll = false,
+  autoAdd = null,
   focusSection = null,
   onClose,
 }: {
@@ -6451,6 +6452,8 @@ function SuggestBasicCompanyChangeForm({
   companyName: string;
   currentValues: SuggestChangeCurrentValues;
   autoExpandAll?: boolean;
+  /** Quick action: open the section with one new empty row already added. */
+  autoAdd?: "management" | "subsidiaries" | "events" | null;
   /** Show only one section's fields (opened from a card's pen icon). */
   focusSection?: SuggestSectionKey | null;
   onClose: () => void;
@@ -7017,6 +7020,23 @@ function SuggestBasicCompanyChangeForm({
     return nextSubsidiary.localId;
   };
 
+  const hasAutoAddedRef = useRef(false);
+  useEffect(() => {
+    if (!autoAdd || hasAutoAddedRef.current) return;
+    hasAutoAddedRef.current = true;
+    if (autoAdd === "management") {
+      const id = addManagementPerson("Current");
+      setExpandedManagementPersonIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    } else if (autoAdd === "subsidiaries") {
+      const id = addSubsidiary();
+      setExpandedSubsidiaryIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    } else if (autoAdd === "events") {
+      const id = addCorporateEvent();
+      setExpandedCorporateEventIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdd]);
+
   const removeSubsidiary = (localId: string) => {
     setSubsidiaries((prev) => prev.filter((subsidiary) => subsidiary.localId !== localId));
     setExpandedSubsidiaryIds((prev) =>
@@ -7309,7 +7329,7 @@ function SuggestBasicCompanyChangeForm({
         </div>
         <p style={{ margin: "0 0 18px 0", color: "#166534", fontSize: "14px" }}>
           Your changes for {companyName} are saved but not sent yet. Keep contributing if you like, then
-          press &quot;Send all changes&quot; at the bottom of the page to send everything at once.
+          press &quot;Send all changes&quot; in the bar at the top of the page to send everything at once.
         </p>
         <button
           type="button"
@@ -9544,8 +9564,8 @@ function ContributeFinancialMetricsTab({
               maxWidth: 380,
             }}
           >
-            Your {selectedYearLabel} data is saved but not sent yet. Press &quot;Send all changes&quot; at the
-            bottom of the page when you are done.
+            Your {selectedYearLabel} data is saved but not sent yet. Press &quot;Send all changes&quot; in the
+            bar at the top of the page when you are done.
           </div>
         </div>
         <button
@@ -11221,7 +11241,7 @@ function MetricsCardDrawer({
         {header}
         <div style={{ padding: "40px 24px", textAlign: "center", color: "#334155" }}>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", marginBottom: "8px" }}>Thank you</div>
-          Your {yearLabel} figures are saved but not sent yet. Press &quot;Send all changes&quot; at the bottom of the page when you are done.
+          Your {yearLabel} figures are saved but not sent yet. Press &quot;Send all changes&quot; in the bar at the top of the page when you are done.
           <div style={{ marginTop: "20px" }}>
             <button
               type="button"
@@ -11525,6 +11545,7 @@ const CompanyDetail = () => {
   const [competitorsPreloadLoading, setCompetitorsPreloadLoading] = useState(false);
   const [showSuggestChangeForm, setShowSuggestChangeForm] = useState(false);
   const [editSection, setEditSection] = useState<SuggestSectionKey | null>(null);
+  const [quickAdd, setQuickAdd] = useState<"management" | "subsidiaries" | "events" | null>(null);
   // The profile reads like the normal company page; edit mode adds the pens.
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [metricsDrawer, setMetricsDrawer] = useState<MetricsDrawerGroup | null>(null);
@@ -13826,10 +13847,59 @@ const CompanyDetail = () => {
                   </button>
                 </div>
               )}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  padding: "12px 16px",
+                  marginBottom: "20px",
+                }}
+              >
+                <span style={{ fontSize: "13.5px", fontWeight: 700, color: "#334155", marginRight: 4 }}>
+                  Something missing? Add it in one click:
+                </span>
+                {([
+                  { label: "+ Add a manager", run: () => { setQuickAdd("management"); setEditSection("management"); } },
+                  { label: "+ Add a subsidiary", run: () => { setQuickAdd("subsidiaries"); setEditSection("subsidiaries"); } },
+                  { label: "+ Add a corporate event", run: () => { setQuickAdd("events"); setEditSection("events"); } },
+                  { label: "+ Add peers & targets", run: () => { setQuickAdd(null); setEditSection("peers"); } },
+                  { label: "+ Add financial metrics", run: () => setActiveTab("contribute-financial-metrics") },
+                ] as Array<{ label: string; run: () => void }>).map((b) => (
+                  <button
+                    key={b.label}
+                    type="button"
+                    onClick={() => {
+                      setProfileEditMode(true);
+                      b.run();
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "9px",
+                      border: "1px solid #bfdbfe",
+                      background: "#eff6ff",
+                      color: "#1d4ed8",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
               <ContributorCompanyProfile
                 companyId={String(company.id)}
                 editMode={profileEditMode}
-                onEditSection={setEditSection}
+                onEditSection={(section) => {
+                  setQuickAdd(null);
+                  setEditSection(section);
+                }}
                 onEditMetrics={(g) => setMetricsDrawer(g)}
               />
               {profileEditMode && metricsDrawer && (
@@ -13905,13 +13975,17 @@ const CompanyDetail = () => {
                     }}
                   >
                     <SuggestBasicCompanyChangeForm
-                      key={editSection}
+                      key={`${editSection}-${quickAdd ?? ""}`}
+                      autoAdd={quickAdd}
                       companyId={String(company.id)}
                       companyName={company.name}
                       currentValues={suggestChangeCurrentValues}
                       focusSection={editSection}
                       autoExpandAll={editSection === "management" || editSection === "subsidiaries"}
-                      onClose={() => setEditSection(null)}
+                      onClose={() => {
+                        setEditSection(null);
+                        setQuickAdd(null);
+                      }}
                     />
                   </aside>
                 </div>
@@ -13964,15 +14038,13 @@ const ContributorCompanyPage = () => {
 
   return (
     <>
-      <CompanyDetail />
       {count === 0 && sentNote && (
         <div
           style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
+            position: "sticky",
+            top: 0,
             zIndex: 900,
+            boxShadow: "0 4px 14px rgba(15, 23, 42, 0.25)",
             background: "#052e16",
             color: "#fff",
             padding: "12px 24px",
@@ -13994,11 +14066,10 @@ const ContributorCompanyPage = () => {
       {count > 0 && (
         <div
           style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
+            position: "sticky",
+            top: 0,
             zIndex: 900,
+            boxShadow: "0 4px 14px rgba(15, 23, 42, 0.25)",
             background: "#0f172a",
             color: "#fff",
             padding: "12px 24px",
@@ -14036,6 +14107,7 @@ const ContributorCompanyPage = () => {
           </button>
         </div>
       )}
+      <CompanyDetail />
     </>
   );
 };
