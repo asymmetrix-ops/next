@@ -3,7 +3,7 @@
 // feature can evolve independently from the legacy auth.ts base URL.
 const DEVICE_AUTH_API_URL =
   process.env.NEXT_PUBLIC_XANO_API_URL ||
-  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
+  "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
 const DEVICE_TOKEN_KEY = "asymmetrix_device_token";
 // MCP sign-in is bound to ONE device and must not share (or overwrite) the platform's device token.
