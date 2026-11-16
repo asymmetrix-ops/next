@@ -6,8 +6,14 @@ const DEVICE_AUTH_API_URL =
   "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6:develop";
 
 const DEVICE_TOKEN_KEY = "asymmetrix_device_token";
+// MCP sign-in is bound to ONE device and must not share (or overwrite) the platform's device token.
+const MCP_DEVICE_TOKEN_KEY = "asymmetrix_mcp_device_token";
 
 export type DeviceKind = "web" | "mcp";
+
+function deviceTokenKey(kind: DeviceKind): string {
+  return kind === "mcp" ? MCP_DEVICE_TOKEN_KEY : DEVICE_TOKEN_KEY;
+}
 
 export interface LoginApiResponse {
   authToken: string | null;
@@ -100,28 +106,28 @@ export const SSO_ACCOUNT_DISABLED_MESSAGE =
 export const REVOKE_LIMIT_MESSAGE =
   "Device removal limit reached. Contact support.";
 
-export function getDeviceToken(): string | null {
+export function getDeviceToken(kind: DeviceKind = "web"): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(DEVICE_TOKEN_KEY);
+    return localStorage.getItem(deviceTokenKey(kind));
   } catch {
     return null;
   }
 }
 
-export function setDeviceToken(token: string): void {
+export function setDeviceToken(token: string, kind: DeviceKind = "web"): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(DEVICE_TOKEN_KEY, token);
+    localStorage.setItem(deviceTokenKey(kind), token);
   } catch {
     // ignore
   }
 }
 
-export function clearDeviceToken(): void {
+export function clearDeviceToken(kind: DeviceKind = "web"): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    localStorage.removeItem(deviceTokenKey(kind));
   } catch {
     // ignore
   }
@@ -161,7 +167,7 @@ export async function loginWithDevice(
   kind: DeviceKind = "web",
   options: { baseUrl?: string; path?: string } = {}
 ): Promise<LoginApiResponse & { token?: string }> {
-  const deviceToken = getDeviceToken();
+  const deviceToken = getDeviceToken(kind);
   // The device is the browser the user signs in on, for the MCP consent page too.
   const deviceLabel = getDeviceLabel();
   const baseUrl = options.baseUrl || DEVICE_AUTH_API_URL;
@@ -196,7 +202,7 @@ export async function loginWithDevice(
   // Any time the backend returns a new device_token, it must overwrite the stored
   // one — an old/revoked token produces a fresh pending device on the next attempt.
   if (payload.device_token) {
-    setDeviceToken(payload.device_token);
+    setDeviceToken(payload.device_token, kind);
   }
 
   if (payload.device_confirmation_required) {
