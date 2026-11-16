@@ -31,6 +31,8 @@ export type NewsArticle = ContentArticle & {
   is_content_series?: boolean;
   /** Sector and transaction status of the first company of focus (card tags). */
   focus_tags?: { primarySectors: string[]; transactionStatus: string | null };
+  // Article sectors split by importance, when the feed sends them
+  sector_groups?: { primary: string[]; secondary: string[] };
 };
 
 /** One filter the user picked (suggestion or Enter-to-search). */
@@ -122,6 +124,7 @@ type ApiNewsItem = {
   ia_content_type?: string | null;
   News_Sub_Type?: string | null;
   focus_companies?: unknown;
+  sectors?: unknown;
 };
 
 type FocusCompany = {
@@ -155,6 +158,13 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
     item.series_others
   ).map((o) => ({ id: o.id, headline: o.Headline, publication_date: o.Publication_Date }));
   const focus = parseArray<FocusCompany>(item.focus_companies);
+  // Article sectors as primary and secondary name lists
+  const sectors = parseArray<{ sector_name?: string; Sector_importance?: string }>(item.sectors);
+  const sectorNames = (primary: boolean) =>
+    sectors
+      .filter((sector) => ((sector?.Sector_importance || "").trim() === "Primary") === primary)
+      .map((sector) => (sector?.sector_name || "").trim())
+      .filter(Boolean);
   return {
     id: item.id,
     Headline: item.Headline,
@@ -171,6 +181,8 @@ function fromApiItem(item: ApiNewsItem): NewsArticle {
           transactionStatus: focus[0].transaction_status?.trim() || null,
         }
       : undefined,
+    sector_groups:
+      sectors.length > 0 ? { primary: sectorNames(true), secondary: sectorNames(false) } : undefined,
     follow_up_to: item.follow_up_to ?? null,
     label: item.label ?? null,
     card_role: item.card_role ?? null,
