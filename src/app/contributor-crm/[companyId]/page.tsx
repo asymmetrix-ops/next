@@ -2515,7 +2515,7 @@ const COMPANY_CHANGE_REQUEST_FIELDS: Array<{
   { formKey: "ownership", payloadKey: "ownership" },
   { formKey: "hq", payloadKey: "hq" },
   { formKey: "lifecycleStage", payloadKey: "lifecycle_stage" },
-  { formKey: "transactionStatus", payloadKey: "transaction_status" },
+  // Transaction status is shown read-only: contributors share plans in a comment instead.
   { formKey: "description", payloadKey: "description" },
 ];
 
@@ -6471,6 +6471,7 @@ function SuggestBasicCompanyChangeForm({
   const [submitting, setSubmitting] = useState(false);
   const [contributorEmail, setContributorEmail] = useState("");
   const [contributorNote, setContributorNote] = useState("");
+  const [transactionPlans, setTransactionPlans] = useState("");
   const isPublicContributor = !authService.getAuthToken();
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [expandedManagementPersonIds, setExpandedManagementPersonIds] = useState<
@@ -6909,7 +6910,8 @@ function SuggestBasicCompanyChangeForm({
     basicFieldCount +
     managementChangeCount +
     subsidiaryChangeCount +
-    corporateEventChangeCount;
+    corporateEventChangeCount +
+    (transactionPlans.trim() ? 1 : 0);
   const currentManagementCount = managementPeople.filter(
     (person) => person.status === "Current"
   ).length;
@@ -7063,6 +7065,7 @@ function SuggestBasicCompanyChangeForm({
 
   const resetForm = () => {
     setSubmitted(false);
+    setTransactionPlans("");
     setExpandedManagementPersonIds([]);
     setExpandedSubsidiaryIds([]);
     setExpandedCorporateEventIds([]);
@@ -7257,14 +7260,19 @@ function SuggestBasicCompanyChangeForm({
         localStorage.getItem("outreach_crm_login_email") ||
         normalizedContributorEmail;
 
+      const fullNote = [
+        contributorNote.trim(),
+        transactionPlans.trim() ? `Transaction / fundraise plans: ${transactionPlans.trim()}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
       await createChangeRequest({
         entity_type: "company",
         new_company_id: Number(companyId),
         submitted_by: submittedBy,
         old: oldPayload,
-        new: contributorNote.trim()
-          ? { ...newPayload, contributor_note: contributorNote.trim() }
-          : newPayload,
+        new: fullNote ? { ...newPayload, contributor_note: fullNote } : newPayload,
         approved: false,
         reviewed_by: 0,
       });
@@ -7281,7 +7289,7 @@ function SuggestBasicCompanyChangeForm({
             companyName,
           }),
           field_name: "Company Profile",
-          notes: contributorNote.trim(),
+          notes: fullNote,
         });
       } catch (notificationError) {
         // Change request saved; notification failure should not block the contributor.
@@ -7760,13 +7768,14 @@ function SuggestBasicCompanyChangeForm({
         <SuggestChangeFieldRow
           label="Transaction status"
           currentValue={currentValues.transactionStatus}
-          helpText="Market / transaction visibility for this company — choose the option that best fits."
+          helpText="Our current view of the company's transaction status. It can't be edited here, but tell us what you know below."
         >
-          <SuggestChangeSelect
-            value={formData.transactionStatus}
-            onChange={(value) => updateField("transactionStatus", value)}
-            placeholder="Choose transaction status"
-            options={transactionStatusOptions}
+          <textarea
+            value={transactionPlans}
+            onChange={(e) => setTransactionPlans(e.target.value)}
+            rows={3}
+            placeholder="Share fundraise or transaction plans, timing, advisers hired, etc."
+            style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit" }}
           />
         </SuggestChangeFieldRow>
 
