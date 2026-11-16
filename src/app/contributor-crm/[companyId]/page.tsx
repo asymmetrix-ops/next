@@ -2099,9 +2099,10 @@ function SuggestChangeFieldRow({
 const NEW_OPTION_SENTINEL = "__suggest_new_option__";
 const CLASSIFICATION_MAX_ITEMS = 3;
 // Product types and data collection methods can legitimately have many values: allow up to one
-// row per option in their lists (10 and 14).
+// row per option in their lists (10, 14 and 9 for revenue models).
 const PRODUCT_TYPE_MAX_ITEMS = 10;
 const DATA_COLLECTION_MAX_ITEMS = 14;
+const REVENUE_MODEL_MAX_ITEMS = 9;
 
 function ClassificationOptionSelect({
   value,
@@ -2535,7 +2536,7 @@ const DATA_COLLECTION_OPTIONS: LookupOption[] = [
 ].map((v) => ({ value: v, label: v }));
 
 const REVENUE_MODEL_OPTIONS: LookupOption[] = [
-  "Subscription", "Consumption-Based / Usage-Based", "Freemium", "Consulting",
+  "Subscription", "Consumption‑Based / Usage‑Based", "Freemium", "Consulting",
   "Advertising", "Sponsorship", "Transaction Fees", "Licensing", "Other",
 ].map((v) => ({ value: v, label: v }));
 
@@ -8284,7 +8285,7 @@ function SuggestBasicCompanyChangeForm({
                 </button>
               </div>
             ))}
-            {revenueModelItems.length < CLASSIFICATION_MAX_ITEMS && (
+            {revenueModelItems.length < REVENUE_MODEL_MAX_ITEMS && (
             <button
               type="button"
               onClick={() =>
