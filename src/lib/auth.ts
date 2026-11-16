@@ -1,6 +1,7 @@
 import { MCP_GUEST_ROLE, isContributorSession, isMcpGuestSession } from "@/lib/mcpGuest";
 import { verifyMcpGuestOtp } from "@/lib/mcpGuestAuth";
 import { MCP_GUEST_AUTH_ME_URL } from "@/lib/mcpGuestAuthServer";
+import { loginApiErrorFromResponse, loginWithDevice } from "@/lib/deviceAuth";
 
 interface AuthUser {
   id: string;
@@ -11,6 +12,9 @@ interface AuthUser {
   Status?: string; // e.g., "Admin"
   status?: string; // lowercase variant just in case
   role?: string; // some backends use a single role field
+  // Login Security / SSO: true when this user's company is SSO-only
+  // (returned by /auth/me so the frontend can hide device-specific UI for them).
+  sso_required?: boolean;
 }
 
 interface LoginResponse {
@@ -137,29 +141,24 @@ class AuthService {
     return !!this.getToken();
   }
 
-  // Login with email/password
+  // Login with email/password.
+  // Sends device registration fields (device_token/label/kind) per the Login
+  // Security feature. Throws DeviceConfirmationRequiredError (from deviceAuth.ts)
+  // when the backend needs the user to confirm this device first — callers that
+  // care about that flow (e.g. the login page) should catch it explicitly.
   async login(email: string, password: string): Promise<LoginResponse> {
     const normalizedEmail = (email || "").trim().toLowerCase();
     const apiUrl =
       process.env.NEXT_PUBLIC_XANO_API_URL ||
       "https://xdil-abvj-o7rq.e2.xano.io/api:vnXelut6";
 
-    const response = await fetch(`${apiUrl}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: normalizedEmail, password }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Login failed");
-    }
-
-    const data = await response.json();
+    const data = await loginWithDevice(normalizedEmail, password, "web");
 
     // Handle the actual API response structure
-    const token = data.authToken || data.token;
+    const token = data.authToken;
+    if (!token) {
+      throw new Error("Login failed");
+    }
 
     // Get user data from /auth/me endpoint
     let user: AuthUser;
@@ -398,7 +397,7 @@ class AuthService {
     }
 
     if (!response.ok) {
-      throw new Error("Request failed");
+      throw loginApiErrorFromResponse(data, "Request failed");
     }
   }
 
@@ -424,8 +423,15 @@ class AuthService {
       }),
     });
 
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      // ignore
+    }
+
     if (!response.ok) {
-      throw new Error("Password reset failed");
+      throw loginApiErrorFromResponse(data, "Password reset failed");
     }
   }
 
