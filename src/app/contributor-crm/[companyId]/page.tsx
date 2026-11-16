@@ -11462,12 +11462,31 @@ const CompanyDetail = () => {
   const searchParams = useSearchParams();
   const shouldOpenReview = searchParams.get("review") === "1";
   // The Benchmark stays closed until the contributor has contributed (saved) something.
-  const [hasContributed, setHasContributed] = useState(false);
+  const [hasContributedLocal, setHasContributedLocal] = useState(false);
+  // Also true when the team already holds a submission for this company, whichever browser sent it.
+  const [hasContributedOnServer, setHasContributedOnServer] = useState(false);
+  const hasContributed = hasContributedLocal || hasContributedOnServer;
   useEffect(() => {
-    const update = () => setHasContributed(draftCount(companyId) > 0 || hasSentBefore(companyId));
+    const update = () => setHasContributedLocal(draftCount(companyId) > 0 || hasSentBefore(companyId));
     update();
     return subscribeDrafts(update);
   }, [companyId]);
+  useEffect(() => {
+    if (!companyId || hasContributedOnServer) return;
+    let cancelled = false;
+    fetch(`/contributor-crm/api/contributor/has-contributed/${encodeURIComponent(companyId)}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.contributed === true) setHasContributedOnServer(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // re-check after a send: the local flag flips then
+  }, [companyId, hasContributedLocal, hasContributedOnServer]);
   const authToken = authService.getAuthToken();
   const isPublicContributorSession =
     !authToken || isTokenExpired(authToken);

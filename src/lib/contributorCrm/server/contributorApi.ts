@@ -133,3 +133,22 @@ export async function fetchServiceCompany(companyId: string): Promise<unknown> {
     text || `Failed to fetch company (${getResponse.status} ${getResponse.statusText})`
   );
 }
+
+/** True when at least one change request (profile or financial figures) exists for the company. */
+export async function serviceCompanyHasContributions(companyId: string): Promise<boolean> {
+  const url = `${FIN_METRICS_BASE}/companies_change_requests?new_company_id=${encodeURIComponent(companyId)}`;
+  const call = async (forceRefresh: boolean) =>
+    fetch(url, {
+      method: "GET",
+      headers: await serviceAuthorizedHeaders({ Accept: "application/json" }, forceRefresh),
+      cache: "no-store",
+    });
+  let res = await call(false);
+  if (res.status === 401) {
+    clearContributorServiceToken();
+    res = await call(true);
+  }
+  if (!res.ok) throw new Error(`Failed to look up contributions (${res.status})`);
+  const list = (await res.json().catch(() => [])) as unknown;
+  return Array.isArray(list) && list.length > 0;
+}
