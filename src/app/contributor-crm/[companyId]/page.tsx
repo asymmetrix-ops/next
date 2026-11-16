@@ -14011,6 +14011,21 @@ const FeedbackWidget = ({ companyId }: { companyId: string }) => {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [companyName, setCompanyName] = useState("");
+
+  // Resolve the company name once, so the team's email says which company it is about.
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicContributorCompany(companyId)
+      .then((data) => {
+        const n = (data as { Company?: { name?: unknown } })?.Company?.name;
+        if (!cancelled && typeof n === "string" && n.trim()) setCompanyName(n.trim());
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
 
   const openBox = () => {
     const id = readIdentity();
@@ -14039,7 +14054,7 @@ const FeedbackWidget = ({ companyId }: { companyId: string }) => {
       await sendFeedbackNotification(authService.getAuthToken(), {
         contributor_name: user?.name?.trim() || "",
         contributor_email: user?.email || "",
-        company_name: `Company #${companyId}`,
+        company_name: companyName || `Company #${companyId}`,
         request_url: `${window.location.origin}/contributor-crm/${companyId}`,
         field_name: "Feedback: Asymmetrix assessment is wrong",
         notes: text.trim(),
@@ -14111,7 +14126,7 @@ const FeedbackWidget = ({ companyId }: { companyId: string }) => {
               <>
                 <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Tell us why we are wrong</div>
                 <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 12px" }}>
-                  Think our data, figures or assessment of this company is off? Tell us what and why.
+                  Think our data, figures or assessment of {companyName || "this company"} is off? Tell us what and why.
                 </p>
                 <textarea
                   value={text}
