@@ -37,6 +37,7 @@
 
 .nw-section-title { font-size: 15px; font-weight: 700; letter-spacing: -0.014em; margin: 0; }
 .nw-section-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.nw-section-count { margin-left: 10px; font-weight: 600; letter-spacing: 0; }
 
 .nw-top { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
 @media (max-width: 1100px) { .nw-top { grid-template-columns: 1fr 1fr; } }
