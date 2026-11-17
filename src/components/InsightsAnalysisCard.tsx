@@ -31,6 +31,7 @@ import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { getInsightHqCountryIso2 } from "@/lib/insightCountry";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { getInsightsTypeTone } from "@/lib/tagColors";
+import { usePrimarySectorIds } from "@/hooks/usePrimarySectorIds";
 
 const INSIGHT_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 const MAX_NAMES_SHOWN = 4;
@@ -89,16 +90,16 @@ function getCompanyNames(
     .filter((name): name is string => Boolean(name && name.trim().length));
 }
 
-function getSectorNames(
-  sectors: Array<Array<{ sector_name: string }>> | undefined
-): string[] {
+function getSectorEntries(
+  sectors: Array<Array<{ id?: number; sector_name: string }>> | undefined
+): Array<{ id?: number; name: string }> {
   if (!Array.isArray(sectors) || sectors.length === 0) return [];
   return sectors
     .filter(Boolean)
     .flat()
     .filter(Boolean)
-    .map((s) => decodeHtmlEntities(s?.sector_name || ""))
-    .filter((name): name is string => Boolean(name && name.trim().length));
+    .map((s) => ({ id: s?.id, name: decodeHtmlEntities(s?.sector_name || "") }))
+    .filter((s) => Boolean(s.name && s.name.trim().length));
 }
 
 /** "A, B, C, D +3 more" — truncates to `max` names, joined by comma. */
@@ -204,7 +205,24 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
   const hqCountryIso2 = getInsightHqCountryIso2(articleRecord);
 
   const companyNames = getCompanyNames(article.companies_mentioned);
-  const sectorNames = getSectorNames(article.sectors);
+  const sectors = getSectorEntries(article.sectors);
+  const sectorNames = sectors.map((s) => s.name);
+  const primarySectorIds = usePrimarySectorIds(sectors.length > 0);
+  // Primary and secondary sectors as separate rows once the primary list is known
+  const sectorRows = primarySectorIds
+    ? [
+        {
+          label: "Primary sectors:",
+          names: sectors.filter((s) => s.id != null && primarySectorIds.has(s.id)).map((s) => s.name),
+        },
+        {
+          label: "Secondary sectors:",
+          names: sectors.filter((s) => s.id == null || !primarySectorIds.has(s.id)).map((s) => s.name),
+        },
+      ].filter((row) => row.names.length > 0)
+    : sectorNames.length > 0
+      ? [{ label: "Sectors:", names: sectorNames }]
+      : [];
   const companyCount = companyNames.length;
 
   const handleCardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -478,14 +496,14 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                 </span>
               </div>
             )}
-            {sectorNames.length > 0 && (
-              <div style={coverageRowStyle}>
-                <span style={coverageLabelStyle}>Sectors:</span>
+            {sectorRows.map((row) => (
+              <div key={row.label} style={coverageRowStyle}>
+                <span style={coverageLabelStyle}>{row.label}</span>
                 <span style={coverageValueStyle}>
-                  {truncatedList(sectorNames)}
+                  {truncatedList(row.names)}
                 </span>
               </div>
-            )}
+            ))}
           </div>
         )}
 
