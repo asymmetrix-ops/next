@@ -107,6 +107,17 @@ const SECTION_LABEL = Object.fromEntries(
   EMAIL_SECTION_OPTIONS.map((o) => [o.value, o.label])
 ) as Record<EmailSection, string>;
 
+/** Company size presets (minimum LinkedIn employees); 0 = no minimum. */
+export const MIN_EMPLOYEES_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "Any size" },
+  { value: 10, label: "10+ employees" },
+  { value: 50, label: "50+ employees" },
+  { value: 200, label: "200+ employees" },
+  { value: 500, label: "500+ employees" },
+  { value: 1000, label: "1,000+ employees" },
+  { value: 5000, label: "5,000+ employees" },
+];
+
 export function sectionLabel(section: EmailSection): string {
   return SECTION_LABEL[section];
 }
@@ -124,6 +135,8 @@ export interface EmailPref {
   countries: string[];
   /** Primary sector ids; empty = all. */
   primarySectors: number[];
+  /** Minimum company employees (LinkedIn count); 0 = no minimum. */
+  minEmployees: number;
   /** Corporate Events only; empty = all. */
   dealTypes: string[];
   fundingStages: string[];
@@ -197,6 +210,7 @@ export function alertToPref(alert: EmailAlert): EmailPref {
     listId: filters.list_id ?? null,
     countries: filters.countries ?? [],
     primarySectors: filters.primary_sectors ?? [],
+    minEmployees: filters.min_employees ?? 0,
     dealTypes: filters.deal_types ?? [],
     fundingStages: filters.funding_stages ?? [],
     frequency: alert.email_frequency,
@@ -230,6 +244,11 @@ export function prefToAlert(pref: EmailPref, base: EmailAlert): EmailAlert {
     deal_types: hasCe ? pref.dealTypes : [],
     funding_stages: hasCe ? pref.fundingStages : [],
   };
+  if (pref.minEmployees > 0) {
+    filters.min_employees = pref.minEmployees;
+  } else {
+    delete filters.min_employees;
+  }
   if (itemType === "digest") {
     filters.sections = pref.sections;
   } else {
@@ -261,6 +280,7 @@ export function newEmailPref(defaults: {
     listId: null,
     countries: [],
     primarySectors: [],
+    minEmployees: 0,
     dealTypes: [],
     fundingStages: [],
     frequency: "daily",
@@ -298,6 +318,9 @@ export function summariseFilters(
     ctx.countryNames.length ? joinNames(ctx.countryNames) : "all countries",
     ctx.sectorNames.length ? joinNames(ctx.sectorNames) : "all sectors",
   ];
+  if (pref.minEmployees > 0) {
+    parts.push(`Company size: ${pref.minEmployees.toLocaleString("en-GB")}+ employees`);
+  }
   if (pref.sections.includes("corporate_events")) {
     if (pref.dealTypes.length) parts.push(joinNames(pref.dealTypes));
     if (pref.fundingStages.length) parts.push(joinNames(pref.fundingStages));

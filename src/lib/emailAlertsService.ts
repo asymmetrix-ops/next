@@ -93,6 +93,10 @@ function parsePreferenceExtras(
       (n): n is number => typeof n === "number" && Number.isFinite(n)
     );
   }
+  const minEmployees = Number(source.min_employees);
+  if (Number.isFinite(minEmployees) && minEmployees > 0) {
+    out.min_employees = Math.floor(minEmployees);
+  }
   return out;
 }
 
@@ -150,6 +154,10 @@ function buildFiltersWirePayload(
     list_id: filters?.list_id ?? null,
     countries: filters?.countries ?? [],
     primary_sectors: filters?.primary_sectors ?? [],
+    // Only sent when set, so emails without a minimum are unchanged.
+    ...(filters?.min_employees && filters.min_employees > 0
+      ? { min_employees: filters.min_employees }
+      : {}),
   };
 }
 

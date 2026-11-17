@@ -12,6 +12,7 @@ import {
   EMAIL_FREQUENCY_OPTIONS,
   EMAIL_SCOPE_OPTIONS,
   EMAIL_SECTION_OPTIONS,
+  MIN_EMPLOYEES_OPTIONS,
   summariseFilters,
   WEEKDAY_OPTIONS,
   type EmailPref,
@@ -285,6 +286,30 @@ export function EmailEditorPanel({
                 allLabel="All sectors"
                 loading={reference.sectorsLoading}
               />
+            </Field>
+
+            <Field
+              label="Company size"
+              hint="Corporate Events, Insights & Analysis and News"
+            >
+              <select
+                value={draft.minEmployees}
+                onChange={(e) => patch({ minEmployees: Number(e.target.value) })}
+                className={controlClass}
+              >
+                {MIN_EMPLOYEES_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {draft.minEmployees > 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Only items whose company (the target, for Corporate Events) has at
+                  least {draft.minEmployees.toLocaleString("en-GB")} employees. Companies
+                  with no employee count, and items with no linked company, are still included.
+                </p>
+              )}
             </Field>
 
             {hasCe && (
