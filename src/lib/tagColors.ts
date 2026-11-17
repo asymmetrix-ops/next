@@ -292,7 +292,7 @@ export const ENTITY_TONES = {
   investor: { text: "#0370AA", fill: "#E8F8FF", hoverFill: "#D5F1FE" },
   advisor: { text: "#93400F", fill: "#FCE3D2", hoverFill: "#F8D4BC" },
   individual: { text: "#372A78", fill: "#E4E0F6", hoverFill: "#D5CFF0" },
-  sector: { text: "#523793", fill: "#F1EBFC", hoverFill: "#E5DAF9" },
+  sector: { text: "#523793", fill: "#F1EBFC", border: "#E5DAF9", hoverFill: "#E5DAF9" },
   subsector: { text: "#5E4AA8", fill: "#FBF9FE", border: "#D8CDF0", hoverFill: "#F2ECFC" },
 } as const;
 
