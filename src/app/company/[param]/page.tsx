@@ -3430,6 +3430,8 @@ const CompanyDetail = () => {
     /* Product block: [Product type | Core products] over [Data collection | Management]; each row stretches to equal height. */
     .company-grid-product-zone { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; min-width: 0; }
     .product-zone-cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    /* Odd number of cards (e.g. News + 4 product cards): the last one spans the row so the grid has no hole. */
+    .product-zone-cell:last-child:nth-child(odd) { grid-column: 1 / -1; }
     .company-grid-finance-secondary,
     .company-grid-insights,
     .company-grid-product-mix,

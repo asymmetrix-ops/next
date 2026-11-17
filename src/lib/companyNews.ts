@@ -43,7 +43,9 @@ type ApiItem = {
   country_code?: string | null;
   country?: string | null;
   deal_radar_status?: string | null;
-  sector_tags?: Array<{ id: number; name: string }> | string | null;
+  sector_tags?: Array<{ id: number; name: string; importance?: string }> | string | null;
+  /** Article sectors with importance, as on the News page feed: [{ sector_name, Sector_importance }]. */
+  sectors?: Array<{ sector_name?: string; Sector_importance?: string }> | string | null;
   related_ia_id?: number | null;
   related_ia_type?: string | null;
   related_ia_headline?: string | null;
@@ -119,7 +121,20 @@ export async function fetchCompanyTopStoriesSummary(
   return { show: count > 0 && items.length > 0, total: count, top_count: count, recent_count: 0, shown: items.length, items };
 }
 
-function parseSectorTags(v: ApiItem["sector_tags"]): Array<{ id: number; name: string }> {
+function parseSectorTags(v: ApiItem["sector_tags"]): Array<{ id: number; name: string; importance?: string }> {
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function parseArticleSectors(v: ApiItem["sectors"]): Array<{ sector_name?: string; Sector_importance?: string }> {
   if (Array.isArray(v)) return v;
   if (typeof v === "string") {
     try {
@@ -133,6 +148,16 @@ function parseSectorTags(v: ApiItem["sector_tags"]): Array<{ id: number; name: s
 }
 
 function toArticle(item: ApiItem): CompanyNewsArticle {
+  // The company endpoint sends the article's sectors in sector_tags (name + importance); `sectors` is the News page feed shape.
+  const fromFeed = parseArticleSectors(item.sectors);
+  const sectors = fromFeed.length
+    ? fromFeed
+    : parseSectorTags(item.sector_tags).map((t) => ({ sector_name: t.name, Sector_importance: t.importance }));
+  const sectorNames = (primary: boolean) =>
+    sectors
+      .filter((s) => ((s?.Sector_importance || "").trim() === "Primary") === primary)
+      .map((s) => (s?.sector_name || "").trim())
+      .filter(Boolean);
   const roundup = Boolean(item.is_sector_roundup);
   const hasCompany = !roundup && item.company_id != null && !!item.company_name;
   const seriesTotal = item.series_total ?? 0;
@@ -149,6 +174,7 @@ function toArticle(item: ApiItem): CompanyNewsArticle {
       primarySectors: parseSectorTags(item.sector_tags).map((s) => s.name).filter(Boolean),
       transactionStatus: hasCompany ? item.deal_radar_status?.trim() || null : null,
     },
+    // Primary / Secondary sector rows, same as the News page    sector_groups: sectors.length > 0 ? { primary: sectorNames(true), secondary: sectorNames(false) } : undefined,
     follow_up_to: item.follow_up_to ?? null,
     related_ia: item.related_ia_id
       ? {
