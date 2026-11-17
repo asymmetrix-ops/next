@@ -174,7 +174,8 @@ function toArticle(item: ApiItem): CompanyNewsArticle {
       primarySectors: parseSectorTags(item.sector_tags).map((s) => s.name).filter(Boolean),
       transactionStatus: hasCompany ? item.deal_radar_status?.trim() || null : null,
     },
-    // Primary / Secondary sector rows, same as the News page    sector_groups: sectors.length > 0 ? { primary: sectorNames(true), secondary: sectorNames(false) } : undefined,
+    // Primary / Secondary sector rows, same as the News page
+    sector_groups: sectors.length > 0 ? { primary: sectorNames(true), secondary: sectorNames(false) } : undefined,
     follow_up_to: item.follow_up_to ?? null,
     related_ia: item.related_ia_id
       ? {
