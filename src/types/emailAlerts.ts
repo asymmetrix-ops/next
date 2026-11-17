@@ -21,6 +21,8 @@ export interface EmailAlertFilters {
   countries?: string[];
   /** Email preferences: primary sector ids; absent or empty = all. */
   primary_sectors?: number[];
+  /** Email preferences: minimum company employees (LinkedIn); absent or 0 = no minimum. */
+  min_employees?: number;
 }
 
 export type EmailSection =
@@ -48,6 +50,8 @@ export interface EmailAlertFiltersWire {
   list_id?: number | null;
   countries?: string[];
   primary_sectors?: number[];
+  /** Email preferences: minimum company employees (LinkedIn); absent or 0 = no minimum. */
+  min_employees?: number;
 }
 
 export type EmailAlertContentType = "preview" | "full_body" | "digest";
