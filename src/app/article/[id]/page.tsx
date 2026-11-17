@@ -1632,8 +1632,7 @@ const ArticleDetailPage = () => {
   const hasCompetitorsData = Boolean(
     competitors &&
       ((competitors.peers_and_competitors || []).length > 0 ||
-        (competitors.potential_acquirers || []).length > 0 ||
-        (competitors.acquisition_targets || []).length > 0)
+        (competitors.potential_acquirers || []).length > 0)
   );
   const showMarketLandscape = isCompanyAnalysis && hasCompetitorsData;
   const peersTitle =
@@ -2479,31 +2478,6 @@ const ArticleDetailPage = () => {
                           {competitors.potential_acquirers.map((c) => (
                             <EntityChip
                               key={`acq-${c.id}`}
-                              kind="company"
-                              href={`/company/${c.id}`}
-                              label={c.name}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {competitors?.acquisition_targets?.length ? (
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#6B7488",
-                            padding: "10px 16px 0",
-                          }}
-                        >
-                          Acquisition Targets
-                        </div>
-                        <div className="chipset">
-                          {competitors.acquisition_targets.map((c) => (
-                            <EntityChip
-                              key={`tgt-${c.id}`}
                               kind="company"
                               href={`/company/${c.id}`}
                               label={c.name}
