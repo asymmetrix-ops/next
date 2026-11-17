@@ -1766,12 +1766,15 @@ function ContributionMetricRow({
   currency,
   onChange,
   onCommentChange,
+  reportedCurrency,
 }: {
   field: ContributionMetricField;
   existing: string;
   value: string;
   comment: string;
   currency?: string;
+  /** Currency the platform reports this year's figures in. Fixed: the label never follows the picker. */
+  reportedCurrency?: string;
   onChange: (value: string) => void;
   onCommentChange: (value: string) => void;
 }) {
@@ -1784,7 +1787,7 @@ function ContributionMetricRow({
 
   const vtLabel =
     field.valueType === "$"
-      ? currency ? `${currency} (M)` : "$ (M)"
+      ? reportedCurrency ? `${reportedCurrency} (M)` : "(M)"
       : field.valueType === "%" ? "%"
       : field.valueType === "x" ? "×"
       : field.valueType === "#" ? "#"
@@ -9370,6 +9373,16 @@ function ContributeFinancialMetricsTab({
     selectedYearId != null
       ? (rawExistingMetricsByYearId[selectedYearId] as Record<string, unknown> | undefined)
       : undefined;
+  // The currency the platform already reports this year in (never changes with the picker below).
+  const reportedCurrency = (() => {
+    if (!rawPayload) return "";
+    const byId = currencies.find((c) => c.id === Number(rawPayload.Rev_Currency));
+    if (byId) return byId.Currency;
+    const nested = (rawPayload._currency as { Currency?: string } | undefined)?.Currency;
+    if (typeof nested === "string" && nested.trim()) return nested.trim();
+    if (typeof rawPayload.currency === "string" && rawPayload.currency.trim()) return rawPayload.currency.trim();
+    return "";
+  })();
   const yearFromContributorPayload =
     rawPayload?.year_value ?? rawPayload?.financial_year_text;
   const actualYearValue =
@@ -9948,6 +9961,7 @@ function ContributeFinancialMetricsTab({
               value={formData[field.key] || ""}
               comment={commentFormData[field.key] || ""}
               currency={selectedCurrency || undefined}
+              reportedCurrency={reportedCurrency}
               onChange={(nextValue) =>
                 setFormData((prev) => ({ ...prev, [field.key]: nextValue }))
               }
