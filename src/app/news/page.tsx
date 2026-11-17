@@ -9,7 +9,7 @@ import NewsFilterBar from "@/components/news/NewsFilterBar";
 import DealTipButton from "@/components/news/DealTipButton";
 import FollowNewsButton from "@/components/news/FollowNewsButton";
 import "@/components/news/news.css";
-import { formatTransactionStatusLabel, getNewsSubtypeTone } from "@/lib/tagColors";
+import { formatTransactionStatusLabel } from "@/lib/tagColors";
 import { getFilterChipColor } from "@/lib/filterChipColors";
 import Link from "next/link";
 import { usePortfolioStore } from "@/store/portfolioStore";
@@ -33,11 +33,11 @@ const RECENT_NEWS_LOAD_MORE = 20;
 /** Top Stories shown, newest first. */
 const TOP_STORIES_COUNT = 3;
 
+// Type has no chip, the selected type pill already shows it
 const CHIP_ORDER = [
   "company",
   "investor",
   "sector",
-  "subType",
   "transactionStatus",
   "countries",
   "dateRange",
@@ -48,7 +48,6 @@ const CHIP_LABEL = {
   company: "Company",
   investor: "Investor",
   sector: "Sector",
-  subType: "Type",
   transactionStatus: "Status",
   countries: "Geography",
   dateRange: "Date",
@@ -94,7 +93,6 @@ const CHIP_FILTER_ID = {
   company: "company",
   investor: "investor",
   sector: "sector",
-  subType: "subtype",
   transactionStatus: "status",
   countries: "country",
   dateRange: "date",
@@ -102,15 +100,9 @@ const CHIP_FILTER_ID = {
   text: "search",
 } as const;
 
-/** Chip colours: news types keep their own colour, other filters use the shared palette. */
+// Chip colours from the shared filter palette
 function chipColors(chip: NewsChip): React.CSSProperties {
-  let bg: string, border: string, fg: string;
-  if (chip.kind === "subType") {
-    const t = getNewsSubtypeTone(chip.label);
-    ({ fill: bg, border, text: fg } = t);
-  } else {
-    ({ bg, border, fg } = getFilterChipColor(CHIP_FILTER_ID[chip.kind]));
-  }
+  const { bg, border, fg } = getFilterChipColor(CHIP_FILTER_ID[chip.kind]);
   return { "--chip-bg": bg, "--chip-border": border, "--chip-fg": fg } as React.CSSProperties;
 }
 
@@ -255,6 +247,7 @@ export default function NewsPage() {
   }, [recentShown, articles.length, loadMore]);
 
   const filtered = hasNewsFilters(filters);
+  const chips = chipsOf(filters);
   const top = !filtered && topStories.length > 0 ? topStories.slice(0, TOP_STORIES_COUNT) : null;
   
   const seriesFor = (a: NewsArticle) => a.series_others;
@@ -298,9 +291,9 @@ export default function NewsPage() {
             />
           </div>
 
-          {filtered && (
+          {chips.length > 0 && (
             <div className="nw-chips">
-              {chipsOf(filters).map((chip) => (
+              {chips.map((chip) => (
                 <span className="nw-chip" key={chip.kind} style={chipColors(chip)}>
                   <span className="nw-chip-kind">{CHIP_LABEL[chip.kind]}</span>
                   {chip.label}
@@ -319,7 +312,6 @@ export default function NewsPage() {
                   </button>
                 </span>
               ))}
-              {!loading && <span className="nw-count">{total.toLocaleString()} {total === 1 ? "article" : "articles"}</span>}
             </div>
           )}
 
@@ -386,7 +378,12 @@ export default function NewsPage() {
               {filtered && (
                 <section aria-labelledby="nw-feed-h" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="nw-section-row">
-                    <h2 className="nw-section-title" id="nw-feed-h">Results</h2>
+                    <h2 className="nw-section-title" id="nw-feed-h">
+                      Results
+                      <span className="nw-count nw-section-count">
+                        {total.toLocaleString()} {total === 1 ? "article" : "articles"}
+                      </span>
+                    </h2>
                   </div>
                   {feed.length === 0 ? (
                     <div className="nw-state">
