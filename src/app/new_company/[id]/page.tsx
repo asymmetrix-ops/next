@@ -4257,22 +4257,6 @@ const CompanyDetail = () => {
                 dates={employeeData.map((e) => e.date)}
                 count={currentEmployeeCount}
                 yoyLabel={overviewEmployeesYoY || undefined}
-                asOf={(() => {
-                  const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : employeeData[employeeData.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
                 linkedinUrl={linkedinUrl}
               />
             </div>
@@ -4380,22 +4364,6 @@ const CompanyDetail = () => {
                   dates={employeeData.map((e) => e.date)}
                   count={currentEmployeeCount}
                   yoyLabel={overviewEmployeesYoY || undefined}
-                  asOf={(() => {
-                    const nonZero = employeeData.filter((e) => e.employees_count > 0);
-                    const ref =
-                      nonZero.length > 0
-                        ? nonZero[nonZero.length - 1]
-                        : employeeData[employeeData.length - 1];
-                    if (!ref?.date) return undefined;
-                    try {
-                      return new Date(ref.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      });
-                    } catch {
-                      return undefined;
-                    }
-                  })()}
                   linkedinUrl={linkedinUrl}
                 />
               </div>

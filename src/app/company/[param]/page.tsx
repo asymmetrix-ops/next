@@ -33,7 +33,6 @@ import {
 import { COMPANIES_API_BASE } from "@/lib/companiesFilterPayload";
 import {
   fetchCompanyLinkedIn,
-  formatLinkedInEmployeeCountDate,
   mapLinkedInHistoryToTimeSeries,
   resolveLinkedInDisplayEmployeeCount,
   type CompanyLinkedInResponse,
@@ -2686,16 +2685,6 @@ const CompanyDetail = () => {
     resolveChartEmployeeCount(employeeData)
   );
 
-  const employeeCountAsOf =
-    formatLinkedInEmployeeCountDate(
-      companyLinkedIn?.profile?.employee_count_date
-    ) ??
-    (() => {
-      const latest = employeeData[employeeData.length - 1];
-      if (!latest?.date) return undefined;
-      return formatLinkedInEmployeeCountDate(latest.date);
-    })();
-
   const financialMetricsForDisplay = financialMetrics;
 
   const finMetricsFxToggleConfig = resolveFxToggleConfig(
@@ -4525,7 +4514,6 @@ const CompanyDetail = () => {
                     dates={employeeData.map((e) => e.date)}
                     count={currentEmployeeCount}
                     yoyLabel={overviewEmployeesYoY || undefined}
-                    asOf={employeeCountAsOf}
                     linkedinUrl={linkedinUrl}
                   />
                 </div>

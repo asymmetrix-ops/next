@@ -6,7 +6,56 @@
  */
 import React from "react";
 import Link from "next/link";
-import { LinkPanel, LinkedH, Delta, T } from "./primitives";
+import { LinkPanel, T, CARD_HEADER_BAR_STYLE, CARD_TITLE_STYLE } from "./primitives";
+
+const LINKEDIN_BLUE = "#0A66C2";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Card colours, switched by the site's dark class
+const HC_THEME_CSS = `
+.hc-card {
+  --hc-panel: ${T.panel};
+  --hc-ink: ${T.ink};
+  --hc-body: ${T.body};
+  --hc-muted: ${T.muted};
+  --hc-hair: ${T.hair};
+  --hc-grid: ${T.divider};
+  --hc-line: #0370AA;
+  --hc-tint: #E8F8FF;
+  --hc-up-fg: ${T.up};
+  --hc-up-bg: ${T.emeraldSoft};
+  --hc-up-bd: #C3E7D3;
+  --hc-down-fg: ${T.down};
+  --hc-down-bg: ${T.coralSoft};
+  --hc-down-bd: #F5CFC8;
+  --hc-flat-fg: ${T.body};
+  --hc-flat-bg: ${T.inset};
+  --hc-flat-bd: ${T.divider};
+  --hc-tip-bg: #FFFFFF;
+  --hc-tip-bd: ${T.divider};
+}
+.dark .hc-card {
+  --hc-panel: hsl(var(--card));
+  --hc-ink: hsl(var(--card-foreground));
+  --hc-body: hsl(var(--muted-foreground));
+  --hc-muted: hsl(var(--muted-foreground));
+  --hc-hair: hsl(var(--border));
+  --hc-grid: hsl(var(--border));
+  --hc-line: #38BDF8;
+  --hc-tint: rgba(56, 189, 248, 0.14);
+  --hc-up-fg: #4ADE80;
+  --hc-up-bg: rgba(74, 222, 128, 0.12);
+  --hc-up-bd: rgba(74, 222, 128, 0.35);
+  --hc-down-fg: #F87171;
+  --hc-down-bg: rgba(248, 113, 113, 0.12);
+  --hc-down-bd: rgba(248, 113, 113, 0.35);
+  --hc-flat-fg: hsl(var(--muted-foreground));
+  --hc-flat-bg: hsl(var(--muted));
+  --hc-flat-bd: hsl(var(--border));
+  --hc-tip-bg: hsl(var(--popover));
+  --hc-tip-bd: hsl(var(--border));
+}
+`;
 
 function toEmployeeCountNumber(v: unknown): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -17,428 +66,468 @@ function toEmployeeCountNumber(v: unknown): number {
   return 0;
 }
 
-/** ~5 human-readable Y ticks spanning [dataMin, dataMax] (ref: sparse left axis). */
-function buildYTicks(dataMin: number, dataMax: number, maxTicks = 5): number[] {
-  if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax)) return [0, 1];
-  if (dataMax < dataMin) return buildYTicks(dataMax, dataMin, maxTicks);
-  if (dataMin === dataMax) {
-    const pad = Math.max(100, Math.round(Math.abs(dataMin) * 0.04) || 500);
-    return buildYTicks(dataMin - pad, dataMax + pad, maxTicks);
-  }
-  const range = dataMax - dataMin;
-  const rough = range / Math.max(1, maxTicks - 1);
-  const pow10 = 10 ** Math.floor(Math.log10(Math.max(rough, 1e-9)));
-  const fr = rough / pow10;
-  const niceFr = fr <= 1 ? 1 : fr <= 2 ? 2 : fr <= 5 ? 5 : 10;
-  const step = niceFr * pow10;
-  const y0 = Math.floor(dataMin / step) * step;
-  const y1 = Math.ceil(dataMax / step) * step;
-  const out: number[] = [];
-  for (let v = y0; v <= y1 + step * 1e-9; v += step) {
-    out.push(Math.round(v));
-    if (out.length > maxTicks + 3) break;
-  }
-  if (out.length < 2) return [y0, y1];
-  return out;
+// Month index (year * 12 + month) from "2025-03", "2025-03-01" or a full date
+function toMonthIndex(date: string | undefined): number | null {
+  if (!date) return null;
+  const m = /^(\d{4})-(\d{1,2})/.exec(date.trim());
+  if (m) return parseInt(m[1]!, 10) * 12 + parseInt(m[2]!, 10) - 1;
+  const d = new Date(date);
+  return Number.isNaN(d.getTime()) ? null : d.getFullYear() * 12 + d.getMonth();
 }
 
-function formatAxisMonthYear(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.toLocaleString("en-US", { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
+const shortMonth = (mi: number) =>
+  `${MONTHS[mi % 12]} '${String(Math.floor(mi / 12)).slice(2)}`;
+const longMonth = (mi: number) => `${MONTHS[mi % 12]} ${Math.floor(mi / 12)}`;
+
+// Strip trailing zeros, e.g. 1.20 -> "1.2"
+const trimFixed = (v: number, decimals: number) => String(parseFloat(v.toFixed(decimals)));
+
+const axisUnit = (v: number) => (v >= 1_000_000 ? 1_000_000 : v >= 1_000 ? 1_000 : 1);
+
+// Axis label, at most one decimal (80k, 1.2k, 1.2m)
+function formatAxisValue(v: number): string {
+  const unit = axisUnit(v);
+  const suffix = unit === 1_000_000 ? "m" : unit === 1_000 ? "k" : "";
+  return `${trimFixed(v / unit, 1)}${suffix}`;
 }
 
-function formatTooltipMonthYear(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) {
-    const [year, month] = iso.split("-");
-    if (year && month) {
-      const fallback = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
-      if (!Number.isNaN(fallback.getTime())) {
-        return fallback.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        });
+// True when the tick reads exactly with one decimal
+const fitsOneDecimal = (t: number) => {
+  const x = (t / axisUnit(t)) * 10;
+  return Math.abs(x - Math.round(x)) < 1e-6;
+};
+
+// End point label (72, 1.3k, 82k, 148k, 1.2m)
+function formatShortValue(v: number): string {
+  if (v < 1_000) return String(Math.round(v));
+  if (v < 10_000) return `${trimFixed(v / 1_000, 1)}k`;
+  if (Math.round(v / 1_000) < 1_000) return `${Math.round(v / 1_000)}k`;
+  return `${trimFixed(v / 1_000_000, 1)}m`;
+}
+
+// Rounded Y steps, 4 or 5 ticks from a round number
+function buildYTicks(dataMin: number, dataMax: number): number[] {
+  let lo = dataMin;
+  let hi = dataMax;
+  if (hi <= lo) {
+    const pad = Math.max(1, Math.abs(lo) * 0.1);
+    lo -= pad;
+    hi += pad;
+  }
+  lo = Math.max(0, lo);
+  for (let p = 0; p <= 9; p++) {
+    for (const m of [1, 2, 5]) {
+      const step = m * 10 ** p;
+      let start = Math.floor(lo / step) * step;
+      let end = Math.ceil(hi / step) * step;
+      let count = Math.round((end - start) / step) + 1;
+      if (count > 5) continue;
+      while (count < 4) {
+        if (count % 2 === 0 && start - step >= 0) start -= step;
+        else end += step;
+        count++;
       }
+      const ticks = Array.from({ length: count }, (_, i) => start + i * step);
+      if (ticks.every(fitsOneDecimal)) return ticks;
     }
-    return "";
   }
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+  return [lo, hi];
+}
+
+// Month labels every N months back from the latest, spaced so they never overlap
+const X_STEP_MONTHS = [1, 2, 3, 4, 6, 9, 12, 18, 24, 36, 48, 60, 120];
+const X_LABEL_MIN_GAP = 46;
+function buildXTicks(first: number, last: number, plotW: number): number[] {
+  const span = last - first;
+  if (span <= 0) return [last];
+  const pxPerMonth = plotW / span;
+  for (const step of X_STEP_MONTHS) {
+    const n = Math.floor(span / step) + 1;
+    if (n <= 6 && step * pxPerMonth >= X_LABEL_MIN_GAP) {
+      return Array.from({ length: n }, (_, i) => last - (n - 1 - i) * step);
+    }
+  }
+  return [last];
+}
+
+// YoY chip text and tone, grey when flat, none without a figure
+function buildYoYChip(label?: string): { text: string; arrow: string; tone: "up" | "down" | "flat" } | null {
+  const num = label ? parseFloat(label.replace(/[^\-0-9.]/g, "")) : NaN;
+  if (!Number.isFinite(num)) return null;
+  const abs = Math.round(Math.abs(num) * 10) / 10;
+  if (abs === 0) return { text: "0% YoY", arrow: "", tone: "flat" };
+  return num > 0
+    ? { text: `${abs}% YoY`, arrow: "▲", tone: "up" }
+    : { text: `${abs}% YoY`, arrow: "▼", tone: "down" };
 }
 
 type Props = {
   /** Monthly headcount values (oldest → newest); strings / comma-formatted OK */
   data: ReadonlyArray<unknown>;
-  /**
-   * ISO date strings aligned with each `data` entry.
-   * The card picks 5 evenly-spaced ones for the X-axis after filtering zeros.
-   */
+  /** ISO date strings aligned with each `data` entry */
   dates?: string[];
   /** Pre-formatted YoY label e.g. "+6.4% YoY". Optional. */
   yoyLabel?: string;
   /** Current (last) employee count. Falls back to last non-zero data point. */
   count?: unknown;
-  /** "As of" label shown under the headline. */
-  asOf?: string;
-  /** e.g. "56-month history" */
-  historyLabel?: string;
-  /** LinkedIn company URL for the footer icon. */
+  /** LinkedIn company URL for the header icon. */
   linkedinUrl?: string;
   fillGridCell?: boolean;
 };
+
+const CHART_H = 200;
+const PAD_T = 8;
+const PAD_B = 25;
 
 export function HeadcountCard({
   data,
   dates,
   yoyLabel,
   count,
-  asOf,
-  historyLabel,
   linkedinUrl,
   fillGridCell = false,
 }: Props) {
-  const id = React.useId().replace(/:/g, "");
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = React.useState(0);
 
-  const numericData = data.map(toEmployeeCountNumber);
+  // Series points, zero months dropped so the line doesn't dip to 0
+  const points = React.useMemo(() => {
+    const numeric = data.map(toEmployeeCountNumber);
+    const hasAnyNonZero = numeric.some((v) => v > 0);
+    const withDates = Boolean(dates && dates.length === numeric.length);
+    return numeric
+      .map((value, i) => ({ value, month: withDates ? toMonthIndex(dates![i]) : null }))
+      .filter((p) => !hasAnyNonZero || p.value > 0);
+  }, [data, dates]);
 
-  // Mirror EmployeeChart: strip zero entries so the chart doesn't flat-line
-  const hasAnyNonZero = numericData.some((v) => v > 0);
-  const filteredData = hasAnyNonZero
-    ? numericData.filter((v) => v > 0)
-    : numericData;
-
-  // Need ≥2 points to draw a line; duplicate a single point so one month still renders
-  const rawPts =
-    filteredData.length >= 2
-      ? filteredData
-      : filteredData.length === 1
-        ? [filteredData[0]!, filteredData[0]!]
-        : [];
-  const hasChart = rawPts.length >= 2;
-  const pts = hasChart ? rawPts : [0, 1]; // safe fallback so math never divides by 0
-  // Prefer the last non-zero value if caller passed 0
-  const lastNonZero =
-    filteredData.length > 0 ? filteredData[filteredData.length - 1]! : null;
+  const hasChart = points.length >= 3;
+  const lastPoint = points.length > 0 ? points[points.length - 1]!.value : null;
   const countN = count != null ? toEmployeeCountNumber(count) : null;
-  const last =
-    countN != null && countN > 0 ? countN : lastNonZero;
+  const headline = countN != null && countN > 0 ? countN : lastPoint;
+  // No YoY chip with less than a year of history
+  const knownMonths = points.map((p) => p.month).filter((m): m is number => m != null);
+  const historyMonths =
+    knownMonths.length === points.length && knownMonths.length > 0
+      ? knownMonths[knownMonths.length - 1]! - knownMonths[0]!
+      : null;
+  const chip =
+    points.length < 2 || (historyMonths != null && historyMonths < 12) ? null : buildYoYChip(yoyLabel);
 
-  const dataMin = Math.min(...pts);
-  const dataMax = Math.max(...pts);
+  // Track the real card width so labels stay 11px at every size
+  React.useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasChart]);
 
-  const ticks = buildYTicks(dataMin, dataMax, 5);
-  const yMin = ticks[0]!;
-  const yMax = ticks[ticks.length - 1]!;
-  const ySpan = yMax > yMin ? yMax - yMin : 1;
+  // Chart geometry
+  const chart = React.useMemo(() => {
+    if (!hasChart || width <= 0) return null;
+    const values = points.map((p) => p.value);
+    const ticks = buildYTicks(Math.min(...values), Math.max(...values));
+    const yMin = ticks[0]!;
+    const yMax = ticks[ticks.length - 1]!;
+    const yLabels = ticks.map(formatAxisValue);
+    const endLabel = formatShortValue(values[values.length - 1]!);
 
-  const W = 460, H = 180;
-  const padL = 44, padR = 8, padT = 6, padB = 20;
-  const iW = W - padL - padR;
-  const iH = H - padT - padB;
+    const padL = Math.max(...yLabels.map((l) => l.length)) * 5.8 + 10;
+    const padR = endLabel.length * 6.2 + 12;
+    const plotL = padL;
+    const plotR = Math.max(plotL + 40, width - padR);
+    const plotW = plotR - plotL;
+    const plotT = PAD_T;
+    const plotB = CHART_H - PAD_B;
 
-  const cx = (i: number) => padL + (i / (pts.length - 1)) * iW;
-  const cy = (v: number) => padT + (1 - (v - yMin) / ySpan) * iH;
+    const months = points.map((p) => p.month);
+    const byMonth =
+      months.every((m): m is number => m != null) && months[months.length - 1]! > months[0]!;
+    const firstMonth = byMonth ? (months[0] as number) : 0;
+    const lastMonth = byMonth ? (months[months.length - 1] as number) : 0;
+    const xOfMonth = (m: number) => plotL + ((m - firstMonth) / (lastMonth - firstMonth)) * plotW;
+    const xs = points.map((p, i) =>
+      byMonth ? xOfMonth(p.month as number) : plotL + (i / (points.length - 1)) * plotW
+    );
+    const yOf = (v: number) => plotT + (1 - (v - yMin) / (yMax - yMin || 1)) * (plotB - plotT);
+    const ys = values.map(yOf);
 
-  const seriesPoints = React.useMemo(() => {
-    const points: { value: number; dateLabel: string }[] = [];
-    if (dates && dates.length === numericData.length) {
-      numericData.forEach((v, i) => {
-        if (!hasAnyNonZero || v > 0) {
-          points.push({
-            value: v,
-            dateLabel: formatTooltipMonthYear(dates[i]!),
-          });
-        }
-      });
-    } else {
-      pts.forEach((v) => points.push({ value: v, dateLabel: "" }));
-    }
-    return points;
-  }, [dates, numericData, hasAnyNonZero, pts]);
+    const linePath = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)} ${ys[i]!.toFixed(1)}`).join(" ");
+    const areaPath = `${linePath} L${xs[xs.length - 1]!.toFixed(1)} ${plotB} L${xs[0]!.toFixed(1)} ${plotB} Z`;
+    const xTicks = byMonth
+      ? buildXTicks(firstMonth, lastMonth, plotW).map((m) => {
+          const x = xOfMonth(m);
+          const anchor: "start" | "middle" | "end" =
+            x - 18 < 0 ? "start" : x + 18 > width ? "end" : "middle";
+          return { x: anchor === "start" ? 0 : anchor === "end" ? width : x, label: shortMonth(m), anchor };
+        })
+      : [];
 
-  const linePath = pts
-    .map((v, i) => `${i ? "L" : "M"}${cx(i).toFixed(1)} ${cy(v).toFixed(1)}`)
-    .join(" ");
-  const areaPath = `${linePath} L${cx(pts.length - 1)} ${padT + iH} L${padL} ${padT + iH} Z`;
+    return { ticks, yLabels, yOf, endLabel, plotL, plotR, plotT, plotB, xs, ys, linePath, areaPath, xTicks };
+  }, [hasChart, width, points]);
 
-  // X-axis: up to 5 ticks, placed at actual series indices (not fake even spacing)
-  const xAxisTicks: { i: number; label: string }[] = (() => {
-    if (!hasChart) return [];
-    const filteredDates: string[] = [];
-    if (dates && dates.length === numericData.length) {
-      numericData.forEach((v, i) => {
-        if (!hasAnyNonZero || v > 0) filteredDates.push(dates[i]!);
-      });
-    }
-    if (filteredDates.length < 2) return [];
-    const n = filteredDates.length;
-    const rawIdx =
-      n <= 5
-        ? Array.from({ length: n }, (_, j) => j)
-        : [0, Math.round(n * 0.25), Math.round(n * 0.5), Math.round(n * 0.75), n - 1];
-    const uniqueIdx = rawIdx.filter((v, j, arr) => arr.indexOf(v) === j);
-    return uniqueIdx
-      .map((i) => ({ i, label: formatAxisMonthYear(filteredDates[i]!) }))
-      .filter((t) => t.label.length > 0);
-  })();
+  // Nearest point to the pointer
+  const handlePointer = (e: React.PointerEvent<SVGRectElement>) => {
+    if (!chart) return;
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = chart.plotL + ((e.clientX - box.left) / (box.width || 1)) * (chart.plotR - chart.plotL);
+    let best = 0;
+    chart.xs.forEach((px, i) => {
+      if (Math.abs(px - x) < Math.abs(chart.xs[best]! - x)) best = i;
+    });
+    setHoveredIndex(best);
+  };
 
-  /** Line stroke: blue-grey (ref), distinct from bright axis accent */
-  const lineStroke = "#3D4657";
+  const hovered = chart && hoveredIndex != null && hoveredIndex < points.length ? hoveredIndex : null;
+  const hoveredPoint = hovered != null ? points[hovered] : null;
 
+  // LinkedIn icon, linked when the page has a URL
+  const iconGlyph = (
+    <svg width={11} height={11} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
+  );
+  const iconStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 18,
+    height: 18,
+    backgroundColor: LINKEDIN_BLUE,
+    borderRadius: 3,
+    color: "#fff",
+    textDecoration: "none",
+    flexShrink: 0,
+  };
   const linkedinIcon = linkedinUrl ? (
     <Link
       href={linkedinUrl}
       target="_blank"
       rel="noopener noreferrer"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 22,
-        height: 22,
-        backgroundColor: T.azure,
-        borderRadius: 4,
-        color: "#fff",
-        textDecoration: "none",
-        flexShrink: 0,
-      }}
+      aria-label="LinkedIn page"
+      style={iconStyle}
       onClick={(e) => e.stopPropagation()}
     >
-      <svg width={13} height={13} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-      </svg>
+      {iconGlyph}
     </Link>
-  ) : null;
+  ) : (
+    <span style={iconStyle}>{iconGlyph}</span>
+  );
+
+  const axisText = { fontSize: 11, fontFamily: T.sans, fill: "var(--hc-muted)" } as const;
 
   return (
-    <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH
-        right={yoyLabel ? <Delta value={yoyLabel} /> : undefined}
-        leftSlot={linkedinIcon}
-      >
-        LinkedIn employee count
-      </LinkedH>
+    <LinkPanel fillGridCell={fillGridCell} className="hc-card" style={{ background: "var(--hc-panel)" }}>
+      <style dangerouslySetInnerHTML={{ __html: HC_THEME_CSS }} />
 
-      <div
-        style={{
-          padding: "10px 14px 10px",
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-        }}
-      >
-        {/* Headline count + subtitle inline, vertically centered */}
+      {/* Header */}
+      <div style={{ ...CARD_HEADER_BAR_STYLE, borderBottom: "1px solid var(--hc-hair)" }}>
         <div
           style={{
+            ...CARD_TITLE_STYLE,
+            color: "var(--hc-ink)",
             display: "flex",
             alignItems: "center",
-            gap: 10,
-            marginBottom: 6,
-            flexWrap: "wrap",
+            gap: 8,
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
           }}
         >
+          {linkedinIcon}
+          LinkedIn employee count
+        </div>
+      </div>
+
+      <div style={{ padding: "12px 14px 10px", flex: 1, minHeight: 0, minWidth: 0 }}>
+        {/* Headline count + YoY chip */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <div
             style={{
               fontSize: 28,
-              fontWeight: 600,
-              color: T.ink,
+              fontWeight: 700,
+              color: "var(--hc-ink)",
               fontVariantNumeric: "tabular-nums",
               letterSpacing: -0.5,
               lineHeight: 1,
-              flexShrink: 0,
             }}
           >
-            {last != null && last > 0 ? last.toLocaleString() : "-"}
+            {headline != null && headline > 0 ? headline.toLocaleString("en-US") : "-"}
           </div>
-          <div
-            style={{
-              fontSize: 11.5,
-              color: T.muted,
-              lineHeight: 1.35,
-              paddingTop: 1,
-            }}
-          >
-            Total employees{asOf ? ` · ${asOf}` : ""}
-            {historyLabel ? ` · ${historyLabel}` : ""}
-          </div>
+          {chip && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                height: 22,
+                padding: "0 8px",
+                borderRadius: 999,
+                background: `var(--hc-${chip.tone}-bg)`,
+                color: `var(--hc-${chip.tone}-fg)`,
+                border: `1px solid var(--hc-${chip.tone}-bd)`,
+                fontFamily: T.sans,
+                fontSize: 12,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {chip.arrow && <span style={{ fontSize: 9 }}>{chip.arrow}</span>}
+              {chip.text}
+            </span>
+          )}
         </div>
 
-        {/* SVG chart */}
-        {hasChart && (
-          <div style={{ position: "relative", flexShrink: 0, minWidth: 0 }}>
-            <svg
-              viewBox={`0 0 ${W} ${H}`}
-              width="100%"
-              style={{
-                display: "block",
-                overflow: "visible",
-                aspectRatio: `${W} / ${H}`,
-                height: "auto",
-              }}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              <defs>
-                <linearGradient id={`hcg-${id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={T.azure} stopOpacity={0.14} />
-                  <stop offset="55%" stopColor={T.azure} stopOpacity={0.05} />
-                  <stop offset="100%" stopColor={T.azure} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+        {!hasChart && (
+          <div style={{ fontSize: 12.5, color: "var(--hc-muted)", padding: "4px 0 2px" }}>
+            Not enough history yet
+          </div>
+        )}
 
-              {/* Grid lines + Y labels */}
-              {ticks.map((t) => {
-                const yy = cy(t);
-                return (
+        {/* Line chart */}
+        {hasChart && (
+          <div ref={wrapRef} style={{ position: "relative", height: CHART_H, minWidth: 0 }}>
+            {chart && (
+              <svg
+                width={width}
+                height={CHART_H}
+                style={{ display: "block", overflow: "visible" }}
+                role="img"
+                aria-label={`LinkedIn employee count, latest ${chart.endLabel}`}
+              >
+                {/* Gridlines and Y axis labels */}
+                {chart.ticks.map((t, i) => (
                   <g key={t}>
                     <line
-                      x1={padL}
-                      x2={W - padR}
-                      y1={yy}
-                      y2={yy}
-                      stroke={T.hair}
+                      x1={chart.plotL}
+                      x2={chart.plotR}
+                      y1={chart.yOf(t)}
+                      y2={chart.yOf(t)}
+                      stroke="var(--hc-grid)"
                       strokeWidth={1}
-                      strokeDasharray="4 4"
                     />
-                    <text
-                      x={padL - 6}
-                      y={yy + 3}
-                      textAnchor="end"
-                      fontSize={10}
-                      fontFamily={T.sans}
-                      fill={T.muted}
-                    >
-                      {t.toLocaleString()}
+                    <text x={chart.plotL - 8} y={chart.yOf(t)} dy="0.35em" textAnchor="end" {...axisText}>
+                      {chart.yLabels[i]}
                     </text>
                   </g>
-                );
-              })}
+                ))}
 
-              {/* X-axis labels — x = cx(i) so labels line up with the line chart */}
-              {xAxisTicks.map(({ i: xi, label }) => (
+                {/* Tinted area and line */}
+                <path d={chart.areaPath} fill="var(--hc-tint)" />
+                <path
+                  d={chart.linePath}
+                  fill="none"
+                  stroke="var(--hc-line)"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+
+                {chart.xTicks.map((t) => (
+                  <text key={t.label} x={t.x} y={CHART_H - 5} textAnchor={t.anchor} {...axisText}>
+                    {t.label}
+                  </text>
+                ))}
+
+                {/* Hover marker */}
+                {hovered != null && (
+                  <g pointerEvents="none">
+                    <line
+                      x1={chart.xs[hovered]}
+                      x2={chart.xs[hovered]}
+                      y1={chart.plotT}
+                      y2={chart.plotB}
+                      stroke="var(--hc-line)"
+                      strokeOpacity={0.35}
+                      strokeWidth={1}
+                    />
+                    <circle
+                      cx={chart.xs[hovered]}
+                      cy={chart.ys[hovered]}
+                      r={3.5}
+                      fill="var(--hc-line)"
+                      stroke="var(--hc-panel)"
+                      strokeWidth={1.5}
+                    />
+                  </g>
+                )}
+
+                {/* Latest point, hollow, with its short value */}
+                <circle
+                  cx={chart.xs[chart.xs.length - 1]}
+                  cy={chart.ys[chart.ys.length - 1]}
+                  r={4}
+                  fill="var(--hc-panel)"
+                  stroke="var(--hc-line)"
+                  strokeWidth={2}
+                />
                 <text
-                  key={`${xi}-${label}`}
-                  x={cx(xi)}
-                  y={H - 4}
-                  textAnchor="middle"
-                  fontSize={10}
+                  x={chart.xs[chart.xs.length - 1]! + 8}
+                  y={chart.ys[chart.ys.length - 1]}
+                  dy="0.35em"
+                  fontSize={11}
+                  fontWeight={700}
                   fontFamily={T.sans}
-                  fill={T.muted}
+                  fill="var(--hc-line)"
                 >
-                  {label}
+                  {chart.endLabel}
                 </text>
-              ))}
 
-              {/* Area fill */}
-              <path d={areaPath} fill={`url(#hcg-${id})`} />
+                {/* Hover and tap area */}
+                <rect
+                  x={chart.plotL}
+                  y={0}
+                  width={Math.max(0, chart.plotR - chart.plotL)}
+                  height={CHART_H}
+                  fill="transparent"
+                  onPointerMove={handlePointer}
+                  onPointerDown={handlePointer}
+                  onPointerLeave={() => setHoveredIndex(null)}
+                />
+              </svg>
+            )}
 
-              {/* Line */}
-              <path
-                d={linePath}
-                fill="none"
-                stroke={lineStroke}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-
-              {/* Hover targets + highlight */}
-              {seriesPoints.map((pt, i) => (
-                <g key={`pt-${i}-${pt.value}`}>
-                  <circle
-                    cx={cx(i)}
-                    cy={cy(pt.value)}
-                    r={14}
-                    fill="transparent"
-                    style={{ cursor: pt.dateLabel ? "pointer" : "default" }}
-                    onMouseEnter={() => setHoveredIndex(i)}
-                  />
-                  {hoveredIndex === i && (
-                    <>
-                      <line
-                        x1={cx(i)}
-                        x2={cx(i)}
-                        y1={padT}
-                        y2={padT + iH}
-                        stroke={T.azure}
-                        strokeWidth={1}
-                        strokeOpacity={0.35}
-                      />
-                      <circle
-                        cx={cx(i)}
-                        cy={cy(pt.value)}
-                        r={4}
-                        fill={T.azure}
-                      />
-                      <circle
-                        cx={cx(i)}
-                        cy={cy(pt.value)}
-                        r={7}
-                        fill={T.azure}
-                        fillOpacity={0.18}
-                      />
-                    </>
-                  )}
-                </g>
-              ))}
-
-              {/* End dot (when not hovered) */}
-              {hoveredIndex !== pts.length - 1 && (
-                <>
-                  <circle
-                    cx={cx(pts.length - 1)}
-                    cy={cy(pts[pts.length - 1])}
-                    r={3.5}
-                    fill={lineStroke}
-                  />
-                  <circle
-                    cx={cx(pts.length - 1)}
-                    cy={cy(pts[pts.length - 1])}
-                    r={6}
-                    fill={lineStroke}
-                    fillOpacity={0.15}
-                  />
-                </>
-              )}
-            </svg>
-
-            {hoveredIndex != null && seriesPoints[hoveredIndex]?.dateLabel ? (
+            {/* Hover tooltip */}
+            {chart && hovered != null && hoveredPoint && (
               <div
                 style={{
                   position: "absolute",
-                  left: `${(cx(hoveredIndex) / W) * 100}%`,
-                  top: `${(cy(seriesPoints[hoveredIndex]!.value) / H) * 100}%`,
+                  left: chart.xs[hovered],
+                  top: chart.ys[hovered],
                   transform: `translate(${
-                    cx(hoveredIndex) / W > 0.65
+                    chart.xs[hovered]! / width > 0.65
                       ? "calc(-100% + 12px)"
-                      : cx(hoveredIndex) / W < 0.35
+                      : chart.xs[hovered]! / width < 0.35
                         ? "-12px"
                         : "-50%"
                   }, calc(-100% - 10px))`,
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #ccc",
-                  borderRadius: 4,
-                  padding: 10,
+                  background: "var(--hc-tip-bg)",
+                  border: "1px solid var(--hc-tip-bd)",
+                  borderRadius: 6,
+                  padding: "5px 8px",
                   pointerEvents: "none",
                   zIndex: 2,
                   fontFamily: T.sans,
-                  fontSize: 13,
+                  fontSize: 12,
                   lineHeight: 1.4,
                   whiteSpace: "nowrap",
                   boxShadow: "0 2px 8px rgba(15,17,21,0.08)",
                 }}
               >
-                <p style={{ margin: 0, color: T.body }}>
-                  {`Date: ${seriesPoints[hoveredIndex]!.dateLabel}`}
-                </p>
-                <p style={{ margin: 0, color: T.azure }}>
-                  {`Employees: ${seriesPoints[hoveredIndex]!.value.toLocaleString()}`}
-                </p>
+                {hoveredPoint.month != null && (
+                  <span style={{ color: "var(--hc-body)" }}>{`${longMonth(hoveredPoint.month)} · `}</span>
+                )}
+                <span style={{ color: "var(--hc-ink)", fontWeight: 600 }}>
+                  {hoveredPoint.value.toLocaleString("en-US")}
+                </span>
               </div>
-            ) : null}
+            )}
           </div>
         )}
-
       </div>
     </LinkPanel>
   );
