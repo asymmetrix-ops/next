@@ -1425,7 +1425,6 @@ const InvestorDetailPage = () => {
 
   const currentHeadcount = resolveChartEmployeeCount(linkedInHistory);
   const headcountYoY = computeEmployeeYoYFromMonthly(linkedInHistory);
-  const headcountHistoryMonths = linkedInHistory.filter((e) => e.employees_count > 0).length;
 
   const sectorMix = mapPortfolioMixRows(portfolioMix?.sector_mix);
   const stageFocus = mapPortfolioMixRows(portfolioMix?.stage_focus);
@@ -1682,27 +1681,6 @@ const InvestorDetailPage = () => {
                 dates={linkedInHistory.map((e) => e.date)}
                 count={currentHeadcount}
                 yoyLabel={headcountYoY || undefined}
-                asOf={(() => {
-                  const nonZero = linkedInHistory.filter((e) => e.employees_count > 0);
-                  const ref =
-                    nonZero.length > 0
-                      ? nonZero[nonZero.length - 1]
-                      : linkedInHistory[linkedInHistory.length - 1];
-                  if (!ref?.date) return undefined;
-                  try {
-                    return new Date(ref.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      year: "numeric",
-                    });
-                  } catch {
-                    return undefined;
-                  }
-                })()}
-                historyLabel={
-                  headcountHistoryMonths > 0
-                    ? `${headcountHistoryMonths}-month history`
-                    : undefined
-                }
                 linkedinUrl={linkedinUrl || resolvedLinkedinUrl}
               />
             </div>
