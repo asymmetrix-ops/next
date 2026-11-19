@@ -11,9 +11,11 @@ import { trackCompanyNewsOpen } from "@/components/company/CompanyNewsTab";
 export default function CompanyNewsSummaryCard({
   summary,
   onViewAll,
+  fillHeight = true,
 }: {
   summary: CompanyNewsSummary;
   onViewAll: () => void;
+  fillHeight?: boolean;
 }) {
   return (
     <div
@@ -27,7 +29,7 @@ export default function CompanyNewsSummaryCard({
         flexDirection: "column",
         gap: 12,
         minWidth: 0,
-        height: "100%",
+        height: fillHeight ? "100%" : undefined,
         boxSizing: "border-box",
         fontFamily: T.sans,
       }}

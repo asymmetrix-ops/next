@@ -4354,9 +4354,10 @@ const CompanyDetail = () => {
               // Card matrix: cards hide when empty, and tall rail cards that would
               // leave a blank hole under the main column move over to balance heights.
               type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
-              const newsCardNode = () => (
+              const newsCardNode = (fillHeight = true) => (
                 <CompanyNewsSummaryCard
                   summary={topStories as CompanyNewsSummary}
+                  fillHeight={fillHeight}
                   onViewAll={() => {
                     setActiveProfileTab("News");
                     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -4367,8 +4368,8 @@ const CompanyDetail = () => {
               const newsLead = showNewsCard && !showInsights && !!topStories;
               const cards: ZoneCard[] = [
                 { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
-                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNewsCard && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "stretch", minWidth: 0 }}>
-                {showNewsCard && topStories && newsCardNode()}
+                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNewsCard && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "start", minWidth: 0 }}>
+                {showNewsCard && topStories && newsCardNode(false)}
                 {showInsights && (
                 <div
                   className="insights-summary-card company-grid-insights"
