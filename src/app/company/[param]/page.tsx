@@ -23,6 +23,7 @@ import {
 import { CorporateEventsProfilePanel } from "@/components/corporate-events/CorporateEventsProfilePanel";
 import {
   SubsidiariesProfilePanel,
+  SUBSIDIARIES_PREVIEW_COUNT,
   parseLinkedInGrowthPctValue,
 } from "@/components/subsidiaries/SubsidiariesProfilePanel";
 import { fetchCompanyTableDataByIds } from "@/lib/companyTableData";
@@ -2715,6 +2716,13 @@ const CompanyDetail = () => {
       company.have_subsidiaries_companies?.Subsidiaries_companies &&
       company.have_subsidiaries_companies.Subsidiaries_companies.length > 0
   );
+  // Rough card height for the layout: header, up to 5 rows, footer when there are more
+  const subsidiariesCount =
+    company.have_subsidiaries_companies?.Subsidiaries_companies?.length ?? 0;
+  const subsidiariesCardWeight =
+    95 +
+    45 * Math.min(subsidiariesCount, SUBSIDIARIES_PREVIEW_COUNT) +
+    (subsidiariesCount > SUBSIDIARIES_PREVIEW_COUNT ? 55 : 0);
 
   // Parent Company is shown when we have parent data and first parent is NOT Financial Services (74)
   const haveParentCompany = Boolean(
@@ -4473,8 +4481,8 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                // 1/3-width card, last in the right rail.
-                { id: "subsidiaries", col: "rail" as const, weight: 230, movable: false, show: Boolean(hasSubsidiaries), node: () => (
+                // 1/3-width card, last in the right rail; moves left when the rail runs longer
+                { id: "subsidiaries", col: "rail" as const, weight: subsidiariesCardWeight, movable: true, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
                     fillGridCell
@@ -4571,7 +4579,7 @@ const CompanyDetail = () => {
                 ) },
               ].filter((c) => c.show);
               const wide = cards.filter((c) => c.col === "main");
-              const pairOrder = ["headcount", "management"];
+              const pairOrder = ["headcount", "management", "subsidiaries"];
               // Product cards (Product type / Core products) sit above Corporate Events.
               const productIds = ["productmix", "coreproducts", "management"];
               const productCards = cards
@@ -4661,23 +4669,36 @@ const CompanyDetail = () => {
               const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
               const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
               // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
-              // Only Headcount / Management may hop from the main column to the rail
-              // when the main column is taller, so any leftover gap is always in the
-              // bottom-left corner (main column shorter than the rail), never the right.
+              // Only movable cards hop between the main column and the rail, and a taller
+              // main column costs double, so any leftover gap prefers the bottom-left corner.
               const cost = (mainHeight: number, railHeight: number) =>
                 mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
-              for (let guard = 0; guard < 4 && !aligned; guard++) {
-                const current = cost(mainH(pairCards), sum(railCards));
-                let best: { cost: number; card: ZoneCard } | null = null;
+              // Heights compared when balancing; in aligned mode only the lower tier counts
+              const leftH = (p: ZoneCard[]) => (aligned ? pairWeight(p) : mainH(p));
+              const rightH = (r: ZoneCard[]) => (aligned ? sum(r.filter((c) => c.id !== "fin2")) : sum(r));
+              // Movable cards hop whichever way closes the gap more (rail cards move left when the rail runs longer)
+              for (let guard = 0; guard < 4; guard++) {
+                const current = cost(leftH(pairCards), rightH(railCards));
+                let best: { cost: number; card: ZoneCard; toRail: boolean } | null = null;
                 for (const c of pairCards) {
+                  if (!c.movable || aligned) continue;
+                  const k = cost(leftH(pairCards.filter((x) => x !== c)), rightH([...railCards, c]));
+                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c, toRail: true };
+                }
+                for (const c of railCards) {
                   if (!c.movable) continue;
-                  const k = cost(mainH(pairCards.filter((x) => x !== c)), sum(railCards) + c.weight);
-                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c };
+                  const k = cost(leftH([...pairCards, c]), rightH(railCards.filter((x) => x !== c)));
+                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c, toRail: false };
                 }
                 if (!best) break;
                 const moving = best.card;
-                pairCards = pairCards.filter((x) => x !== moving);
-                railCards = [...railCards, moving];
+                if (best.toRail) {
+                  pairCards = pairCards.filter((x) => x !== moving);
+                  railCards = [...railCards, moving];
+                } else {
+                  railCards = railCards.filter((x) => x !== moving);
+                  pairCards = [...pairCards, moving].sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
+                }
               }
               const renderPair = (cardsIn: ZoneCard[]) =>
                 cardsIn.length > 0 && (
