@@ -64,16 +64,20 @@ export async function fetchSubstackArchive(
   sort: SubstackSort,
   limit = 4
 ): Promise<SubstackPost[]> {
-  const url = `${SUBSTACK_ARCHIVE_BASE}?sort=${encodeURIComponent(sort)}&offset=0&limit=${limit}`;
+  const url = `${SUBSTACK_ARCHIVE_BASE}?sort=${encodeURIComponent(sort)}&limit=${limit}`;
 
   try {
     const res = await fetch(url, { next: { revalidate: 1800 } });
     if (!res.ok) return [];
 
     const data = (await res.json()) as unknown;
-    if (!Array.isArray(data)) return [];
+    // Substack now returns { posts: [...], nextCursor }; older responses were a bare array.
+    const items = Array.isArray(data)
+      ? data
+      : (data as { posts?: unknown })?.posts;
+    if (!Array.isArray(items)) return [];
 
-    return (data as RawSubstackPost[])
+    return (items as RawSubstackPost[])
       .map(toSubstackPost)
       .filter((post): post is SubstackPost => post != null)
       .slice(0, limit);
