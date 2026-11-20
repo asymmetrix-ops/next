@@ -85,6 +85,11 @@ import {
 import { individualService } from "@/lib/individualService";
 import { formatJobTitlesFromId } from "@/utils/individualHelpers";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
+import { PeersTargetsCard } from "@/components/redesign/PeersTargetsCard";
+import {
+  fetchCompanyPeersAndTargets,
+  type PeersAndTargetsResponse,
+} from "@/lib/companyPeersAndTargets";
 import {
   fetchCompanyAiRisksV2,
   type CompanyAiRiskData,
@@ -1226,6 +1231,25 @@ const CompanyDetail = () => {
   );
   const profileFinancialsMobileRef = useRef<HTMLDivElement | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Summary");
+  const [peersAndTargets, setPeersAndTargets] =
+    useState<PeersAndTargetsResponse | null>(null);
+  const peersCompanyId = company?.id ?? null;
+  useEffect(() => {
+    if (!peersCompanyId) {
+      setPeersAndTargets(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    setPeersAndTargets(null);
+    fetchCompanyPeersAndTargets(peersCompanyId, ctrl.signal)
+      .then((data) => {
+        if (!ctrl.signal.aborted) setPeersAndTargets(data);
+      })
+      .catch(() => {
+        /* card simply stays hidden */
+      });
+    return () => ctrl.abort();
+  }, [peersCompanyId]);
   const [managementIndividualLinkedIn, setManagementIndividualLinkedIn] =
     useState<Record<number, string>>({});
   const pdfExportMenuRef = useRef<HTMLDivElement | null>(null);
@@ -3173,6 +3197,7 @@ const CompanyDetail = () => {
   let managementGridRow = 0;
   let corporateEventsGridRow = 0;
   let subsidiariesGridRow = 0;
+  let peersGridRow = 0;
 
   if (showAiRisk) {
     const col1Stack =
@@ -3196,6 +3221,10 @@ const CompanyDetail = () => {
     subsidiariesGridRow = hasSubsidiaries
       ? wideSectionStartRow + (showCorporateEvents ? 1 : 0)
       : 0;
+    peersGridRow =
+      wideSectionStartRow +
+      (showCorporateEvents ? 1 : 0) +
+      (hasSubsidiaries ? 1 : 0);
   } else {
     /** No AI risk: row 3 = product type | data collection | headcount;
      *  wide cards under cols 1–2; revenue model under headcount (col 3). */
@@ -3222,7 +3251,16 @@ const CompanyDetail = () => {
         ? PRODUCT_ROW_START + 2
         : PRODUCT_ROW_START + 1
       : 0;
+    peersGridRow =
+      wideSectionStartRow +
+      (showCorporateEvents ? 1 : 0) +
+      (hasSubsidiaries ? 1 : 0);
   }
+
+  const peersItems = peersAndTargets?.peers?.items ?? [];
+  const targetItems = peersAndTargets?.acquisition_targets?.items ?? [];
+  const showPeersCard = peersItems.length > 0 || targetItems.length > 0;
+  const canOpenBenchmark = hasFinancialMetricsCardData(financialMetricsCardRows);
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; }
@@ -3299,6 +3337,7 @@ const CompanyDetail = () => {
       max-width: 100%;
       width: 100%;
     }
+    .company-grid-peers { grid-column: 1 / span 2; grid-row: ${peersGridRow}; min-width: 0; max-width: 100%; align-self: start; }
     .company-grid-headcount { grid-column: 3; grid-row: ${headcountGridRow}; }
     .company-grid-management { grid-column: 3; grid-row: ${managementGridRow}; }
     .card {
@@ -3516,6 +3555,7 @@ const CompanyDetail = () => {
       .company-grid-ai-risk,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
+      .company-grid-peers,
       .company-grid-headcount,
       .company-grid-management {
         grid-column: 1 / -1 !important;
@@ -3677,6 +3717,9 @@ const CompanyDetail = () => {
           hasFinancialMetricsCardData(financialMetricsCardRows) ? (
             <FinancialIntelligenceWorkspace
               initialCompanyId={company?.id ?? null}
+              initialPeerCompanyIds={
+                peersAndTargets?.peers?.benchmark_company_ids ?? undefined
+              }
               embedded
             />
           ) : activeProfileTab === "Financials" && showFinancialsTab ? (
@@ -4290,6 +4333,23 @@ const CompanyDetail = () => {
                     acquisitionYearByCompanyId={subsidiaryAcquisitionYearByCompanyId}
                   />
                   </LinkPanel>
+              </div>
+            )}
+
+            {showPeersCard && (
+              <div className="company-grid-peers">
+                <PeersTargetsCard
+                  peers={peersItems}
+                  targets={targetItems}
+                  onBenchmark={
+                    canOpenBenchmark
+                      ? () => {
+                          setActiveProfileTab("Financial Intelligence");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      : undefined
+                  }
+                />
               </div>
             )}
 

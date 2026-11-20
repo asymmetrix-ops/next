@@ -155,10 +155,13 @@ function FiPeerFinancialsTable({
 
 export function FinancialIntelligenceWorkspace({
   initialCompanyId = null,
+  initialPeerCompanyIds,
   embedded = false,
 }: {
   /** Auto-selects this company as the benchmark target on first mount. */
   initialCompanyId?: number | null;
+  /** Peers preselected (manually included) alongside the initial company. */
+  initialPeerCompanyIds?: number[];
   /** When true, hides the page chrome (Header/Footer/title) for inline embedding. */
   embedded?: boolean;
 } = {}) {
@@ -459,9 +462,9 @@ export function FinancialIntelligenceWorkspace({
   }, [preferredCurrencyId]); // eslint-disable-line react-hooks/exhaustive-deps -- refetch when platform currency changes
 
   const selectTarget = useCallback(
-    (companyId: number, meta?: FiCompanySearchHit) => {
+    (companyId: number, meta?: FiCompanySearchHit, includeIds: number[] = []) => {
       setFilters([]);
-      setCompanyIdsInclude([]);
+      setCompanyIdsInclude(includeIds);
       setCompanyIdsExclude([]);
       setExcludedPeers([]);
       setPeers([]);
@@ -470,7 +473,7 @@ export function FinancialIntelligenceWorkspace({
       setTotalPeers(0);
       resetSourceFilter();
       setTarget(placeholderTarget(companyId, meta));
-      void loadBenchmark(companyId, [], [], [], true);
+      void loadBenchmark(companyId, [], includeIds, [], true);
     },
     [loadBenchmark, resetSourceFilter]
   );
@@ -479,7 +482,11 @@ export function FinancialIntelligenceWorkspace({
   useEffect(() => {
     if (!initialCompanyId || didAutoSelectInitialTarget.current) return;
     didAutoSelectInitialTarget.current = true;
-    selectTarget(initialCompanyId);
+    selectTarget(
+      initialCompanyId,
+      undefined,
+      (initialPeerCompanyIds ?? []).filter((id) => id !== initialCompanyId)
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once for the initial company id
   }, [initialCompanyId]);
 
