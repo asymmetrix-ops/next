@@ -34,6 +34,8 @@ export interface CorporateEventDealMetricsProps {
   evCurrency?: string | null;
   evBandFallback?: string | null;
   align?: "left" | "center";
+  // List views show deal type and funding stage as plain text, not tags
+  plainDealType?: boolean;
 }
 
 const isNonEmptyString = (value: unknown): value is string =>
@@ -77,6 +79,7 @@ export const CorporateEventDealMetrics: React.FC<
   evCurrency,
   evBandFallback,
   align = "left",
+  plainDealType = false,
 }) => {
   const hasAmountNumeric = hasNumericAmount(amountMillions);
   const hasAmountDisplay = isNonEmptyString(amountDisplay);
@@ -105,7 +108,9 @@ export const CorporateEventDealMetrics: React.FC<
       {hasDealType && (
       <div style={rowStyle}>
         <strong>Deal Type:</strong>{" "}
-        {isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
+        {plainDealType ? (
+          [dealType, fundingStage].filter(isNonEmptyString).join(", ")
+        ) : isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
           <span
             style={{
               display: "inline-flex",

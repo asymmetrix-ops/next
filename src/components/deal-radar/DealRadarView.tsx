@@ -1,6 +1,5 @@
 "use client";
 
-import { OwnershipChip } from "@/components/companies/CompanySection";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -15,13 +14,9 @@ import {
 } from "@/components/companies/CompaniesFilterBar";
 import {
   getTransactionStatusTone,
-  getProcessStageTone,
-  getBuyerTypeTone,
   getTransactionSignalDescription,
-  ENTITY_TONES,
   DEAL_TYPE_TONE,
   TRANSACTION_SIGNAL_TONES,
-  tagColourStyle,
   type TagTone,
 } from "@/lib/tagColors";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
@@ -281,26 +276,11 @@ function AdvisorCell({ item, align = "left" }: { item: DealRadarDashboardItem; a
   );
 }
 
-/** Buyer Type column: one pill per recorded type, "-" when none. */
+/** Buyer Type column: recorded types as plain text, "-" when none. */
 function BuyerTypeCell({ types }: { types: string[] }) {
   const list = (types ?? []).filter(Boolean);
   if (list.length === 0) return <>{EMPTY_DISPLAY}</>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {list.map((type) => {
-        const tone = getBuyerTypeTone(type);
-        return (
-          <span
-            key={type}
-            className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-            style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
-          >
-            {type}
-          </span>
-        );
-      })}
-    </div>
-  );
+  return <>{list.join(", ")}</>;
 }
 
 
@@ -539,22 +519,6 @@ function DealRadarMobileCard({
       <div className="min-w-0 flex-1 text-right text-gray-800">{value}</div>
     </div>
   );
-  const chip = (key: string | number, href: string, name: string) => (
-    <a
-      key={key}
-      href={href}
-      onClick={(e) => {
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        onNavigate(href);
-      }}
-      className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5"
-      style={tagColourStyle(ENTITY_TONES.company)}
-    >
-      {name}
-    </a>
-  );
-  const stageTone = item.process_stage ? getProcessStageTone(item.process_stage) : null;
   const cta = pickContentCta(item);
 
   return (
@@ -613,7 +577,7 @@ function DealRadarMobileCard({
           "Ownership",
           item.ownership_type ? (
             <>
-              <OwnershipChip value={item.ownership_type} />
+              <div>{item.ownership_type}</div>
               {item.owner_name && (
                 <p className="text-[10px] text-gray-500">
                   {item.owner_id ? (
@@ -652,27 +616,20 @@ function DealRadarMobileCard({
             dash
           )
         )}
-        {row(
-          "Process stage",
-          stageTone && item.process_stage ? (
-            <span
-              className="inline-block rounded-full border px-2 py-0.5 text-[11px] font-medium"
-              style={{ backgroundColor: stageTone.fill, color: stageTone.text, borderColor: stageTone.border }}
-            >
-              {item.process_stage}
-            </span>
-          ) : (
-            dash
-          )
-        )}
+        {row("Process stage", item.process_stage || dash)}
         {row("Advisor", <AdvisorCell item={item} align="right" />)}
-        {row("Buyer type", <div className="flex justify-end"><BuyerTypeCell types={item.buyer_type} /></div>)}
+        {row("Buyer type", <BuyerTypeCell types={item.buyer_type} />)}
         {row(
           "Bidders",
           item.bidders.length > 0 ? (
-            <div className="flex flex-wrap justify-end gap-1">
-              {item.bidders.map((b) => chip(b.id, `/company/${b.id}`, b.name))}
-            </div>
+            <SearchEntityMultiValueCell
+              items={item.bidders.map((b) => ({
+                key: `bidder-${b.id}`,
+                name: b.name,
+                href: `/company/${b.id}`,
+              }))}
+              onLinkClick={(e) => onNavigate(e.currentTarget.getAttribute("href") || "")}
+            />
           ) : (
             dash
           )
@@ -1205,7 +1162,7 @@ export default function DealRadarView({
                               <td className="text-xs text-gray-700">
                                 {item.ownership_type ? (
                                   <div>
-                                    <OwnershipChip value={item.ownership_type} />
+                                    {item.ownership_type}
                                     {item.owner_name && (
                                       <p className="text-[10px] text-gray-500 mt-0.5">
                                         {item.owner_id ? (
@@ -1257,27 +1214,9 @@ export default function DealRadarView({
                                 </div>
                               </td>
 
-                              {/* Process Stage — hue varies by value, tags.txt §5 */}
+                              {/* Process Stage */}
                               <td className="text-xs text-gray-700">
-                                {item.process_stage ? (
-                                  (() => {
-                                    const tone = getProcessStageTone(item.process_stage);
-                                    return (
-                                      <span
-                                        className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-                                        style={{
-                                          backgroundColor: tone.fill,
-                                          color: tone.text,
-                                          borderColor: tone.border,
-                                        }}
-                                      >
-                                        {item.process_stage}
-                                      </span>
-                                    );
-                                  })()
-                                ) : (
-                                  <span>-</span>
-                                )}
+                                {item.process_stage || <span>-</span>}
                               </td>
 
                               {/* Advisor — each firm with its bankers underneath */}
@@ -1290,29 +1229,26 @@ export default function DealRadarView({
                                 <BuyerTypeCell types={item.buyer_type} />
                               </td>
 
-                              {/* Bidders — entity chip, tags.txt §10 (Companies · green) */}
+                              {/* Bidders */}
                               <td>
                                 {item.bidders.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {item.bidders.map((b) => (
-                                      <a
-                                        key={b.id}
-                                        href={`/company/${b.id}`}
-                                        onClick={() =>
-                                          trackKeyAction({
-                                            section: "deal_radar",
-                                            action: "company_clicked_through",
-                                            targetType: "company",
-                                            targetId: b.id,
-                                          })
-                                        }
-                                        className="entity-chip-company inline-block rounded-full text-[10.5px] font-semibold px-2 py-0.5 transition-colors"
-                                        style={tagColourStyle(ENTITY_TONES.company)}
-                                      >
-                                        {b.name}
-                                      </a>
-                                    ))}
-                                  </div>
+                                  <SearchEntityMultiValueCell
+                                    items={item.bidders.map((b) => ({
+                                      key: `bidder-${b.id}`,
+                                      name: b.name,
+                                      href: `/company/${b.id}`,
+                                    }))}
+                                    onLinkClick={(e) => {
+                                      const href = e.currentTarget.getAttribute("href") || "";
+                                      trackKeyAction({
+                                        section: "deal_radar",
+                                        action: "company_clicked_through",
+                                        targetType: "company",
+                                        targetId: Number(href.split("/").pop()),
+                                      });
+                                      router.push(href);
+                                    }}
+                                  />
                                 ) : (
                                   <span>-</span>
                                 )}

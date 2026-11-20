@@ -9,7 +9,6 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { MCP_GUEST_CONVERSION_PATH } from "@/lib/mcpGuest";
-import { getOwnershipTone, tagColourStyle } from "@/lib/tagColors";
 import { McpGuestSalesConversionModal } from "@/components/mcp-guest/McpGuestSalesConversionPanel";
 import { FollowedOnlyEmptyState } from "@/components/FollowedOnlyEmptyState";
 import { InlineFollowButton } from "@/components/InlineFollowButton";
@@ -338,30 +337,6 @@ const toPlainText = (value: unknown): string => {
   return String(value);
 };
 
-// Ownership chip
-export const OwnershipChip = ({ value }: { value: string }) => {
-  const label = value.trim();
-  if (!label || label === "-") return <>-</>;
-  return (
-    <span
-      style={{
-        ...tagColourStyle(getOwnershipTone(label)),
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        height: 24,
-        padding: "0 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-    </span>
-  );
-};
-
 const readCompanyValue = (company: Company, aliases: string[]): unknown => {
   const rec = company as unknown as Record<string, unknown>;
   for (const alias of aliases) {
@@ -595,7 +570,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           const raw = readCompanyValue(company, [
             ...getFieldAliasesForColumn("ownership"),
           ]);
-          return <OwnershipChip value={toPlainText(raw)} />;
+          return toPlainText(raw);
         },
       },
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {

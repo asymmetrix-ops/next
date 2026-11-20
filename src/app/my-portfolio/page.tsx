@@ -2,7 +2,7 @@
 
 import { ListEntityTabs } from "@/components/portfolio/ListEntityTabs";
 import { trackKeyAction } from "@/lib/tracking";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import {
@@ -40,16 +40,9 @@ import {
   createUserListInXano,
   fetchUserListsFromXano,
 } from "@/lib/userLists";
-import { Badge } from "@/components/ui/badge";
-import { ENTITY_TONES, tagColourStyle, type EntityKind } from "@/lib/tagColors";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-hot-toast";
 import {
-  BuildingOffice2Icon,
-  UserIcon,
-  UsersIcon,
-  ArrowTrendingUpIcon,
-  MapPinIcon,
   MagnifyingGlassIcon,
   PlusIcon,
   TrashIcon,
@@ -90,32 +83,6 @@ const ALL_FOLLOWED_TAB = "__all__";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const getEntityIcon = (type: string) => {
-  const t = (type || "").toLowerCase().trim();
-  const cls = "size-3.5 shrink-0";
-  switch (t) {
-    case "company":      return <BuildingOffice2Icon className={cls} />;
-    case "individual":   return <UserIcon className={cls} />;
-    case "investor":     return <ArrowTrendingUpIcon className={cls} />;
-    case "advisor":      return <UsersIcon className={cls} />;
-    case "sector":       return <MapPinIcon className={cls} />;
-    default:             return null;
-  }
-};
-
-// Entity types use the shared entity colours, anything else stays grey
-const isEntityKind = (t: string): t is EntityKind => t in ENTITY_TONES;
-
-const getEntityBadgeColor = (type: string) => {
-  const t = (type || "").toLowerCase().trim();
-  return isEntityKind(t) ? "" : "bg-gray-50 text-gray-700 border-gray-200";
-};
-
-const getEntityBadgeStyle = (type: string): CSSProperties | undefined => {
-  const t = (type || "").toLowerCase().trim();
-  return isEntityKind(t) ? tagColourStyle(ENTITY_TONES[t]) : undefined;
-};
 
 const formatEntityType = (entity: string) => {
   const s = (entity || "").trim().toLowerCase();
@@ -1036,15 +1003,8 @@ export default function MyPortfolioPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge
-                            variant="outline"
-                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(r.type)}`}
-                            style={getEntityBadgeStyle(r.type)}
-                          >
-                            {getEntityIcon(r.type)}
-                            <span className="capitalize">{getSearchBadgeLabel(r.type)}</span>
-                          </Badge>
+                        <td className="px-4 py-3 text-center text-gray-900 capitalize">
+                          {getSearchBadgeLabel(r.type)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {canFollow && (
@@ -1168,29 +1128,13 @@ export default function MyPortfolioPage() {
                             <span className="font-medium text-gray-900">{r.name}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant="outline"
-                            className={`inline-flex items-center gap-1.5 ${getEntityBadgeColor(String(r.entity))}`}
-                            style={getEntityBadgeStyle(String(r.entity))}
-                          >
-                            {getEntityIcon(String(r.entity))}
-                            {formatEntityType(String(r.entity))}
-                          </Badge>
+                        <td className="px-4 py-3 text-gray-900">
+                          {formatEntityType(String(r.entity))}
                         </td>
                         {activeTabId === ALL_FOLLOWED_TAB && (
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-gray-900">
                             {listLabels.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {listLabels.map((label) => (
-                                  <span
-                                    key={label}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200"
-                                  >
-                                    {label}
-                                  </span>
-                                ))}
-                              </div>
+                              listLabels.join(", ")
                             ) : (
                               <span className="text-xs text-gray-400">—</span>
                             )}
