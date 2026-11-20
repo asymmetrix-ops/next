@@ -64,7 +64,7 @@ import {
 } from "@/lib/articleCustomCompanyTableColumns";
 import { CustomCompanyTableModal } from "@/components/article/CustomCompanyTableModal";
 import { T as REDESIGN_T } from "@/components/redesign/primitives";
-import { getInsightsTypeTone } from "@/lib/tagColors";
+import { getInsightsTypeTone, tagColourStyle } from "@/lib/tagColors";
 import { readLogoFromRecord } from "@/lib/companyLogo";
 
 const ARTICLE_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
@@ -469,17 +469,9 @@ const styles = {
   },
 };
 
-// Company Analysis uses the same green as the I&A cards
+// Same content type colours as the I&A cards
 function contentTypeBadgeStyle(ct: string): React.CSSProperties {
-  const t = ct.toLowerCase();
-  if (t !== "company analysis" && t !== "company update") return styles.contentTypeBadge;
-  const tone = getInsightsTypeTone(t);
-  return {
-    ...styles.contentTypeBadge,
-    color: tone.text,
-    backgroundColor: tone.fill,
-    border: `1px solid ${tone.border}`,
-  };
+  return { ...styles.contentTypeBadge, ...tagColourStyle(getInsightsTypeTone(ct)) };
 }
 
 // Safe JSON-or-array parser used for multiple payload shapes
