@@ -108,6 +108,11 @@ import {
 } from "@/lib/linkedinUrl";
 import { individualService } from "@/lib/individualService";
 import { AIRiskCard } from "@/components/redesign/AIRiskCard";
+import { PeersTargetsCard } from "@/components/redesign/PeersTargetsCard";
+import {
+  fetchCompanyPeersAndTargets,
+  type PeersAndTargetsResponse,
+} from "@/lib/companyPeersAndTargets";
 import { CapitalRadarSection } from "@/components/capital-radar/CapitalRadarSection";
 import {
   fetchCompanyAiRisksV2,
@@ -1291,6 +1296,25 @@ const CompanyDetail = () => {
   const [activeProfileTab, setActiveProfileTab] = useState<
     "Summary" | "News" | "Insights & Analysis" | "Financials" | "Financial Intelligence"
   >("Financials");
+  const [peersAndTargets, setPeersAndTargets] =
+    useState<PeersAndTargetsResponse | null>(null);
+  const peersCompanyId = company?.id ?? null;
+  useEffect(() => {
+    if (!peersCompanyId) {
+      setPeersAndTargets(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    setPeersAndTargets(null);
+    fetchCompanyPeersAndTargets(peersCompanyId, ctrl.signal)
+      .then((data) => {
+        if (!ctrl.signal.aborted) setPeersAndTargets(data);
+      })
+      .catch(() => {
+        /* card simply stays hidden */
+      });
+    return () => ctrl.abort();
+  }, [peersCompanyId]);
   const [companyInsights, setCompanyInsights] = useState<CompanyInsights>(EMPTY_COMPANY_INSIGHTS);
   const [companyInsightsLoading, setCompanyInsightsLoading] = useState(true);
   const [summaryInsightsPage, setSummaryInsightsPage] = useState(1);
@@ -3840,6 +3864,9 @@ const CompanyDetail = () => {
           ) : activeProfileTab === "Financial Intelligence" ? (
             <FinancialIntelligenceWorkspace
               initialCompanyId={company?.id ?? null}
+              initialPeerCompanyIds={
+                peersAndTargets?.peers?.benchmark_company_ids ?? undefined
+              }
               embedded
             />
           ) : (
@@ -4483,6 +4510,22 @@ const CompanyDetail = () => {
                 </div>
                 ) },
                 // 1/3-width card, last in the right rail; moves left when the rail runs longer
+                { id: "peers", col: "main" as const, weight: 330, movable: false, show: Boolean(peersAndTargets && (peersAndTargets.peers.items.length > 0 || peersAndTargets.acquisition_targets.items.length > 0)), node: () => (
+                <div className="company-grid-peers">
+                  <PeersTargetsCard
+                    peers={peersAndTargets?.peers.items ?? []}
+                    targets={peersAndTargets?.acquisition_targets.items ?? []}
+                    onBenchmark={
+                      hasFinancialMetricsCardData(financialMetricsCardRows)
+                        ? () => {
+                            setActiveProfileTab("Financial Intelligence");
+                            if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+                ) },
                 { id: "subsidiaries", col: "rail" as const, weight: subsidiariesCardWeight, movable: true, show: Boolean(hasSubsidiaries), node: () => (
                 <div className="company-grid-subsidiaries">
                   <LinkPanel
@@ -4586,9 +4629,15 @@ const CompanyDetail = () => {
               const productCards = cards
                 .filter((c) => productIds.includes(c.id))
                 .sort((x, y) => productIds.indexOf(x.id) - productIds.indexOf(y.id));
-              const eventsIdx = wide.findIndex((c) => c.id === "events");
-              const wideAbove = eventsIdx >= 0 ? wide.slice(0, eventsIdx) : wide;
-              const wideBelow = eventsIdx >= 0 ? wide.slice(eventsIdx) : [];
+              // Peers & Competitors always sits last in the main column, below Core Products and Events.
+              const peersCard = wide.find((c) => c.id === "peers");
+              const wideNoPeers = wide.filter((c) => c.id !== "peers");
+              const eventsIdx = wideNoPeers.findIndex((c) => c.id === "events");
+              const wideAbove = eventsIdx >= 0 ? wideNoPeers.slice(0, eventsIdx) : wideNoPeers;
+              const wideBelow = [
+                ...(eventsIdx >= 0 ? wideNoPeers.slice(eventsIdx) : []),
+                ...(peersCard ? [peersCard] : []),
+              ];
               const pair = cards
                 .filter((c) => c.col === "pair" && !productIds.includes(c.id))
                 .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
