@@ -1046,26 +1046,31 @@ const CorporateEventDetail = ({
     },
   };
 
-  const wideColumnSpan = hasInsights ? "1 / span 2" : "1 / -1";
+  // I&A card takes half of the first wide card's row, the other wide cards span the full width
+  const insightsGridRow = hasInsights
+    ? counterpartiesGridRow || advisorsGridRow || previousEventsGridRow || relatedTransactionsGridRow
+    : 0;
+  const wideColumnSpan = (row: number) =>
+    insightsGridRow && row === insightsGridRow ? "1 / span 3" : "1 / -1";
 
   const responsiveCss = `
     .corporate-event-detail-page { overflow-x: hidden; }
     .responsiveGrid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 12px;
       max-width: 100%;
       align-items: stretch;
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; }
-    .ce-grid-overview { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-description { grid-column: 2 / span ${hasEventComps ? 1 : 2}; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-comps { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
-    .ce-grid-counterparties { grid-column: ${wideColumnSpan}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-advisors { grid-column: ${wideColumnSpan}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-previous { grid-column: ${wideColumnSpan}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-related { grid-column: ${wideColumnSpan}; grid-row: ${relatedTransactionsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
-    .ce-grid-insights { grid-column: 3; grid-row: 2 / ${gridRow}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; gap: 12px; }
+    .ce-grid-overview { grid-column: 1 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-description { grid-column: 3 / span ${hasEventComps ? 2 : 4}; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-comps { grid-column: 5 / span 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+    .ce-grid-counterparties { grid-column: ${wideColumnSpan(counterpartiesGridRow)}; grid-row: ${counterpartiesGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-advisors { grid-column: ${wideColumnSpan(advisorsGridRow)}; grid-row: ${advisorsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-previous { grid-column: ${wideColumnSpan(previousEventsGridRow)}; grid-row: ${previousEventsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-related { grid-column: ${wideColumnSpan(relatedTransactionsGridRow)}; grid-row: ${relatedTransactionsGridRow || "auto"}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; overflow: hidden; max-width: 100%; }
+    .ce-grid-insights { grid-column: ${insightsGridRow ? "4 / span 3" : "1 / -1"}; grid-row: ${insightsGridRow || 2}; display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
     .ce-grid-counterparties > *,
     .ce-grid-advisors > *,
     .ce-grid-previous > *,
@@ -1258,20 +1263,14 @@ const CorporateEventDetail = ({
 
             {hasInsights ? (
               <div className="ce-grid-insights">
-                {hasEventInsights ? (
-                  <CorporateEventInsightsPanel
-                    title="Insights & Analysis"
-                    insights={insightsForEvent}
-                    fillGridCell
-                  />
-                ) : null}
-                {hasSectorInsights ? (
-                  <CorporateEventInsightsPanel
-                    title="Sector Insights & Analysis"
-                    insights={relatedInsights}
-                    fillGridCell
-                  />
-                ) : null}
+                <CorporateEventInsightsPanel
+                  eventInsights={insightsForEvent}
+                  sectorInsights={relatedInsights}
+                  primarySectorIds={primarySectors
+                    .map((s) => s.id)
+                    .filter((id): id is number => typeof id === "number")}
+                  fillGridCell
+                />
               </div>
             ) : null}
           </div>

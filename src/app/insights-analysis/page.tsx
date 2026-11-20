@@ -194,6 +194,15 @@ function InsightsAnalysisPageContent() {
     }
     return "";
   }, [searchParams]);
+  // `?primary_sectors_ids=1,2` pre-filters by primary sector (Browse all on corporate event pages)
+  const primarySectorIdsFromUrl = useMemo(
+    () =>
+      (searchParams.get("primary_sectors_ids") || "")
+        .split(",")
+        .map((value) => Number(value))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    [searchParams]
+  );
 
   // State for filters
   const [filters, setFilters] = useState<InsightsAnalysisFilters>({
@@ -201,6 +210,7 @@ function InsightsAnalysisPageContent() {
     company_id: companyIdFromUrl,
     Content_Type: contentTypeFromUrl || undefined,
     content_type: contentTypeFromUrl || undefined,
+    primary_sectors_ids: primarySectorIdsFromUrl,
   });
   const [companyFilterLabel, setCompanyFilterLabel] = useState(companyNameFromUrl);
 
@@ -387,6 +397,7 @@ function InsightsAnalysisPageContent() {
         Per_page: perPage,
         Content_Type: contentTypeFromUrl || undefined,
         content_type: contentTypeFromUrl || undefined,
+        primary_sectors_ids: primarySectorIdsFromUrl,
       };
       setFilters(initialFilters);
       fetchInsightsAnalysis(initialFilters);
@@ -517,6 +528,7 @@ function InsightsAnalysisPageContent() {
     const updatedFilters: InsightsAnalysisFilters = { ...DEFAULT_FILTERS };
     setFilters(updatedFilters);
     fetchInsightsAnalysis(updatedFilters);
+    if (primarySectorIdsFromUrl.length > 0) router.replace("/insights-analysis");
   };
 
   const activeContentType = (filters.Content_Type || filters.content_type || "").trim();
