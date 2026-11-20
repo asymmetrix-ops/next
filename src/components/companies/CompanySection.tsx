@@ -337,48 +337,6 @@ const toPlainText = (value: unknown): string => {
   return String(value);
 };
 
-// Ownership chip — dot + pill, matching the design system's lp-chip families.
-const OWNERSHIP_CHIP_STYLES: Record<
-  string,
-  { bg: string; fg: string; dot: string }
-> = {
-  public: { bg: "#F1EBFC", fg: "#523793", dot: "#7A5BD0" },
-  "private equity": { bg: "#F1F4FE", fg: "#1F35C4", dot: "#3D5BF3" },
-  "venture capital": { bg: "#E4F5EC", fg: "#0F7040", dot: "#17A05C" },
-  private: { bg: "#FEF6E0", fg: "#7A5605", dot: "#E0A32E" },
-  subsidiary: { bg: "#E2E8FD", fg: "#182A9B", dot: "#5C77F2" },
-  acquired: { bg: "#FCEAE7", fg: "#A62E22", dot: "#D24534" },
-};
-// Fallback tone matches the "Other" ownership tab dot (#8A93A8) for consistency
-// with the ownership quick-filter tabs above the table.
-const OWNERSHIP_CHIP_FALLBACK = { bg: "#EEF0F4", fg: "#4A5468", dot: "#8A93A8" };
-
-export const OwnershipChip = ({ value }: { value: string }) => {
-  const label = value.trim();
-  if (!label || label === "-") return <>-</>;
-  const tone =
-    OWNERSHIP_CHIP_STYLES[label.toLowerCase()] ?? OWNERSHIP_CHIP_FALLBACK;
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        height: 24,
-        padding: "0 10px",
-        borderRadius: 999,
-        background: tone.bg,
-        color: tone.fg,
-        fontSize: 12,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-    </span>
-  );
-};
-
 const readCompanyValue = (company: Company, aliases: string[]): unknown => {
   const rec = company as unknown as Record<string, unknown>;
   for (const alias of aliases) {
@@ -612,7 +570,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
           const raw = readCompanyValue(company, [
             ...getFieldAliasesForColumn("ownership"),
           ]);
-          return <OwnershipChip value={toPlainText(raw)} />;
+          return toPlainText(raw);
         },
       },
       makeTextColumn("linkedin_members", "LinkedIn Members", "Default", {

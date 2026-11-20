@@ -556,6 +556,7 @@ export const CorporateEventsSearchSection = ({
             amountCurrency={platformCurrency}
             evMillions={event.ev_data?.enterprise_value_m}
             evCurrency={platformCurrency}
+            plainDealType
           />
         );
       case "deal_type":
