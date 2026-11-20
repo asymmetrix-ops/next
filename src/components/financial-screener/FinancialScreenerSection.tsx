@@ -593,7 +593,7 @@ export const FinancialScreenerSection = ({
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      onClick={() => router.push(`/new_company/${item.id}`)}
+                      onClick={() => router.push(`/company/${item.id}`)}
                       style={{ cursor: "pointer" }}
                     >
                       <td

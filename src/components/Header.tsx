@@ -58,8 +58,7 @@ const isNavItemActive = (pathname: string, item: string, href: string) => {
     case "Companies":
       return (
         pathname.startsWith("/companies") ||
-        pathname.startsWith("/company/") ||
-        pathname.startsWith("/new_company/")
+        pathname.startsWith("/company/")
       );
     case "Sectors":
       return (

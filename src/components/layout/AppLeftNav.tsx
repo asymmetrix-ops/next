@@ -89,8 +89,7 @@ const SECTIONS: NavSection[] = [
     icon: BuildingOfficeIcon,
     isActive: (p) =>
       p.startsWith("/companies") ||
-      p.startsWith("/company/") ||
-      p.startsWith("/new_company/"),
+      p.startsWith("/company/"),
   },
   {
     key: "financialIntelligence",
