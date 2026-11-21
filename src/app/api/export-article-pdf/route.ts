@@ -1,10 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest } from "next/server";
 import { ENTITY_TONES } from "@/lib/tagColors";
+import { requireAuthUser } from "@/lib/emailAlertsServer";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
+
+const MAX_BODY_BYTES = 2_000_000;
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // Only signed-in users may render PDFs (headless Chrome is expensive).
+  const auth = await requireAuthUser();
+  if (!auth.ok) return auth.response;
+
+  const declaredLength = Number(req.headers.get("content-length") ?? 0);
+  if (declaredLength > MAX_BODY_BYTES) {
+    return new Response(JSON.stringify({ error: "Payload too large" }), {
+      status: 413,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const article = (await req.json()) as {
       id?: number;
@@ -47,7 +63,6 @@ export async function POST(req: NextRequest) {
       "--disable-dev-shm-usage",
       "--disable-setuid-sandbox",
       "--no-sandbox",
-      "--disable-web-security",
     ];
 
     if (isVercel) {
@@ -186,6 +201,9 @@ export async function POST(req: NextRequest) {
       .replace(/&mdash;/g, "\u2014")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&");
+    // Untrusted HTML: strip scripts, event handlers, iframes etc. before it is
+    // rendered by headless Chrome.
+    const safeBodyContent = sanitizeHtml(bodyContent);
 
     // Primary and secondary sectors as two labelled groups, empty groups left out
     const sectorGroupHtml = (label: string, tagClass: string, items: any[]) => {
@@ -522,7 +540,7 @@ export async function POST(req: NextRequest) {
                     : ""
                 }
 
-                <div class="content">${bodyContent}</div>
+                <div class="content">${safeBodyContent}</div>
 
                 <div class="section-block">
                 <div class="section-title">Companies</div>
@@ -563,7 +581,19 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     console.log("[export-article-pdf] Setting page content...");
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    // Defence in depth: no scripts, and only our own origin / inline data may load.
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    const allowedOrigin = req.nextUrl.origin;
+    page.on("request", (r: any) => {
+      const u: string = r.url();
+      if (u.startsWith("data:") || u === "about:blank" || u.startsWith(allowedOrigin + "/icons/")) {
+        r.continue();
+      } else {
+        r.abort();
+      }
+    });
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 20000 });
     console.log("[export-article-pdf] Content set, generating PDF...");
 
     const pdf = await page.pdf({
@@ -588,15 +618,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[export-article-pdf] Error:", e);
-    const errorMessage =
-      e instanceof Error ? e.message : "Unknown error occurred";
-    const errorStack = e instanceof Error ? e.stack : "";
 
     return new Response(
       JSON.stringify({
         error: "Failed to generate PDF",
-        message: errorMessage,
-        stack: errorStack,
+        message: "Internal error",
         timestamp: new Date().toISOString(),
       }),
       {
