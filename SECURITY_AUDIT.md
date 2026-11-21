@@ -9,7 +9,7 @@
 |---|----------|---------|-----|
 | 1 | Critical (ИСПРАВЛЕНО) | Неавторизованный POST рендерит произвольный HTML в headless Chrome с `--disable-web-security --no-sandbox` (SSRF / чтение внутренних ресурсов, результат возвращается в PDF) | `src/app/api/export-article-pdf/route.ts:50,174,525,566` |
 | 2 | Critical | Зависимости: `next` (critical), `brace-expansion`, `picomatch`, `tar` + ~15 high (`follow-redirects`, `undici`, `nanoid`, `postcss`, `ip-address`, `basic-ftp`, `minimatch`, `uuid`) | `npm audit --omit=dev` |
-| 3 | High | `/api/upload` без аутентификации пишет любой файл в `public/uploads` (любое расширение, без лимита размера, перезапись по имени; HTML/SVG → stored XSS на нашем домене). Вызовов из кода нет — мёртвый эндпоинт | `src/app/api/upload/route.ts` |
+| 3 | High (ИСПРАВЛЕНО) | `/api/upload` без аутентификации пишет любой файл в `public/uploads` (любое расширение, без лимита размера, перезапись по имени; HTML/SVG → stored XSS на нашем домене). Вызовов из кода нет — мёртвый эндпоинт | `src/app/api/upload/route.ts` |
 | 4 | High | `.env.sentry-build-plugin` закоммичен в git (коммит `ddc70f5a`), `.gitignore` не помогает для уже отслеживаемых файлов. Обычно содержит Sentry auth token. Содержимое не читал | корень репо |
 | 5 | High | Админ-роуты `/api/admin/email-analytics/*`, `unsent-emails`, `user-email-engagement` проверяют только «залогинен» (`requireAuthUser`), но не роль. Любой Trial/MCP Guest/Client читает аналитику по всем пользователям, если роль не проверяется на стороне Fly | `src/lib/emailAlertsServer.ts`, `src/app/api/admin/**` |
 | 6 | High | Без аутентификации и лимитов проксируются платные/тяжёлые Fly-сервисы: `ia-writer/run-analysis`, `regenerate-section(+stream)`, `job-status`, `valuation-report`, `spell-check`, `stock/*`. Любой аноним запускает LLM-джобы за наш счёт; `job-status/[jobId]` — IDOR по job id | `src/app/api/ia-writer/*`, `valuation-report`, `spell-check` |
@@ -99,3 +99,22 @@
 4. SearXNG: bearer fail-closed, обязательный `SESSION_SECRET`, квоты и очередь для job-эндпоинтов.
 5. email_service: владелец алерта + проверенный user id от прокси, подпись вебхуков Postmark, раздельные ключи admin/user.
 6. Заменить общие Xano-логины на токены с минимальными правами.
+
+---
+
+# Приложение B — Xano (`~/Desktop/xano`, статический разбор .xs)
+
+Репо не под git (нет истории и отката), изменения нужно деплоить в Xano отдельно. Разбор по декларации `auth =` в каждом из 864 эндпоинтов; Xano middleware (`enforce_device_session`, `block_abusive_ips`) аутентификацию не добавляет. Эндпоинт без `auth =` может проверять права внутри stack, это нужно проверять по каждому.
+
+| # | Severity | Находка |
+|---|----------|---------|
+| B1 | Critical | 426 из 864 эндпоинтов без `auth =` (data_parser 59, companies 55, search_engine 36, authentication 28 (ожидаемо), sectors 19, home_page 19, email 18, content 18, …) |
+| B2 | Critical (ИСПРАВЛЕНО локально в Xano-репо, не задеплоено; кроме `user_email_alerts/{id}`) | `DELETE content/{content_id}` (`api/content/content/content_id_DELETE.xs`): без auth и без проверки, любой анонимный запрос удаляет запись Content. Аналогично `PATCH`/`POST content`, `DELETE`/`PATCH asymmetrix_researchers/{id}`, `DELETE`/`PATCH user_portfolio/{id}`, `DELETE`/`PATCH user_email_alerts/{id}` |
+| B3 | Critical (ИСПРАВЛЕНО локально в Xano-репо, не задеплоено: `auth = "user"` + Admin) | `GET all_users` (`api/user/all_users_GET.xs`): без auth, поиск по подстроке отдаёт `id`, `name`, `Company`, `email` пользователей |
+| B4 | High | `/admin/*` без auth: `user_activity`, `contact_gaps`, `get_user_email_engagement`, `wavecast_push_manual_POST`, `ceo_bulk_import_batch_1_POST`, `asymmetrix_researchers` (CRUD) |
+| B5 | High | `change_detection_hook`, `change_state_create`, `change_detection_v_2_push`, `postmark/email/analytics`, `wavecast stripe_webhook(_failed)` без `auth =`: проверить подпись/секрет внутри stack |
+| B6 | High (ИСПРАВЛЕНО в репо, не задеплоено) | Загрузка файлов без auth: `content/upload_mp_3_file_POST`, `content/new_file_POST`, `email/images_POST`; `upload_mp3_file` сохраняет с `access = "public"`. Добавлен `auth = "user"`. Все вызовы из CMS идут через `apiUpload` с токеном (`src/lib/api/client.js:134`), поэтому CMS не ломается |
+| B7 | Medium | `auth = "user"` проверяет только валидность токена. Для админских и CMS-эндпоинтов нужна проверка роли внутри stack (precondition по роли/статусу) |
+| B8 | Info | Для всех 426 эндпоинтов нужна матрица «эндпоинт × токен» в Фазе 2 (без токена, мусорный, Trial, MCP Guest, Client, чужая компания) на staging |
+
+Часть этих эндпоинтов публична намеренно (лендинг, публичные статьи, логин/OTP, magic link). Нужен явный allowlist публичных, остальное закрыть `auth = "user"` и ролями.
