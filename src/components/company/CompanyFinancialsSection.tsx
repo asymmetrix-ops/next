@@ -53,6 +53,7 @@ type Props = {
   incomeStatementRows?: NormalizedIncomeStatementRow[];
   /** Full fiscal-year history for the Financials tab income statement table. */
   incomeStatementHistoryRows?: NormalizedIncomeStatementRow[];
+  hideEmptyCards?: boolean;
 };
 
 function ExportButton({
@@ -369,6 +370,7 @@ export function CompanyFinancialsSection({
   companyName,
   incomeStatementRows = [],
   incomeStatementHistoryRows = [],
+  hideEmptyCards = false,
 }: Props) {
   const { currency: platformCurrency } = usePlatformCurrency();
   const [allowedSources, setAllowedSources] = useState<FiMetricSourceType[]>([
@@ -396,10 +398,21 @@ export function CompanyFinancialsSection({
     setCurrencyMode("preferred");
   }, [platformCurrency, rows, incomeStatementSourceRows]);
 
-  const model = useMemo(
+  const fullModel = useMemo(
     () => buildCompanyFinancialsViewModel(rows, platformCurrency),
     [rows, platformCurrency]
   );
+
+  // Metric tables show only when a metric has a value in some year
+  const model = useMemo(() => {
+    if (!hideEmptyCards) return fullModel;
+    const cards = fullModel.cards.filter((card) =>
+      card.metrics.some((metric) =>
+        Object.values(metric.cellsByYear).some((cell) => cell.display !== "-")
+      )
+    );
+    return { years: cards.length > 0 ? fullModel.years : [], cards };
+  }, [fullModel, hideEmptyCards]);
 
   const incomeStatementModel = useMemo(
     () =>

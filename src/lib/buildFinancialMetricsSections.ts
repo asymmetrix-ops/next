@@ -94,6 +94,14 @@ export type FinancialMetricsCardData = {
   other: FinancialMetricSection;
 };
 
+// A section has data when at least one row has a value
+export function financialSectionHasData(section: FinancialMetricSection): boolean {
+  return section.rows.some((row) => {
+    const value = row.value.trim();
+    return value !== "" && value !== "-";
+  });
+}
+
 type SourceResolver = (
   label?: string | null,
   code?: number | string | null

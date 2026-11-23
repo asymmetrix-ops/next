@@ -79,7 +79,7 @@ import {
   FinMetricsPrimaryCard,
   FinMetricsSecondaryCard,
 } from "@/components/redesign/FinMetricsIncomeCard";
-import { buildFinancialMetricsSections } from "@/lib/buildFinancialMetricsSections";
+import { buildFinancialMetricsSections, financialSectionHasData } from "@/lib/buildFinancialMetricsSections";
 import { useCurrencyMode } from "@/hooks/useCurrencyMode";
 import { resolveFxToggleConfig } from "@/lib/financialsCurrencyToggle";
 import { usePlatformCurrency } from "@/components/providers/PlatformCurrencyProvider";
@@ -2747,6 +2747,12 @@ const CompanyDetail = () => {
     getNumeric,
     periodDisplay: financialMetricsPeriodDisplay || undefined,
   });
+  // Financial cards show only when a tab has data
+  const showPrimaryFinCard =
+    financialSectionHasData(finMetricsData.primary) || hasIncomeStatementData;
+  const showSecondaryFinCard =
+    financialSectionHasData(finMetricsData.subscription) ||
+    financialSectionHasData(finMetricsData.other);
 
   // Determine if there are subsidiaries to display
   const hasSubsidiaries = Boolean(
@@ -3450,6 +3456,9 @@ const CompanyDetail = () => {
     .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
     /* Rail keeps natural card heights (no stretched chart cards); any leftover space stays bottom-right. */
     .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    /* No top financial card: the rail starts in row 1, beside Overview and Description; extra rail height goes to row 2 */
+    .responsiveGrid.company-grid--rail-top { grid-template-rows: auto 1fr; }
+    .company-zone-rail.company-zone-rail--top { grid-row: 1 / span 2; }
     .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
     .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
@@ -3721,6 +3730,7 @@ const CompanyDetail = () => {
       }
       .responsiveGrid { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; row-gap: 12px !important; max-width: 100% !important; }
       .responsiveGrid > * { grid-row: auto !important; grid-column: 1 / -1 !important; order: 0 !important; }
+      .responsiveGrid.company-grid--rail-top { grid-template-rows: none; }
       .company-grid-overview,
       .company-grid-description,
       .company-grid-finance-primary,
@@ -3874,6 +3884,7 @@ const CompanyDetail = () => {
               companyName={company.name?.trim() || "Company"}
               incomeStatementRows={normalizedIncomeStatements}
               incomeStatementHistoryRows={normalizedIncomeStatementHistory}
+              hideEmptyCards
             />
           ) : activeProfileTab === "Financial Intelligence" ? (
             <FinancialIntelligenceWorkspace
@@ -3886,7 +3897,7 @@ const CompanyDetail = () => {
           ) : (
           <>
           {/* Desktop grid */}
-          <div ref={profileGridRef} style={styles.responsiveGrid} className="responsiveGrid">
+          <div ref={profileGridRef} style={styles.responsiveGrid} className={`responsiveGrid${showPrimaryFinCard ? "" : " company-grid--rail-top"}`}>
 
             {/* ── Overview card (grid row 1, col 1) ── */}
             <div
@@ -4357,6 +4368,7 @@ const CompanyDetail = () => {
             {/* Mobile Financial Metrics — shown only below 768px, placed here so it
                 reads in the same left-to-right/top-to-bottom order as the desktop
                 right rail (Overview, Description, Financials) once columns collapse */}
+            {(showPrimaryFinCard || showSecondaryFinCard) && (
             <div
               id="profile-financials-mobile"
               ref={profileFinancialsMobileRef}
@@ -4365,6 +4377,7 @@ const CompanyDetail = () => {
             >
               <FinMetricsIncomeCard
                 fillGridCell={false}
+                hideEmptyTabs
                 data={finMetricsData}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
@@ -4374,8 +4387,10 @@ const CompanyDetail = () => {
                 onCurrencyModeChange={setFinMetricsCurrencyMode}
               />
             </div>
+            )}
 
             {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
+            {showPrimaryFinCard && (
             <div
               id="profile-financials"
               className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
@@ -4390,6 +4405,7 @@ const CompanyDetail = () => {
             >
               <FinMetricsPrimaryCard
                 fillGridCell
+                hideEmptyTabs
                 primary={finMetricsData.primary}
                 hasIncomeStatement={hasIncomeStatementData}
                 incomeStatementRows={normalizedIncomeStatements}
@@ -4399,6 +4415,7 @@ const CompanyDetail = () => {
                 onCurrencyModeChange={setFinMetricsCurrencyMode}
               />
             </div>
+            )}
 
             {/* Fixed zones below row 1: main column (cols 1–2) and right rail (col 3) keep a set card order so positions never shift between profiles. */}
             {(() => {
@@ -4594,7 +4611,7 @@ const CompanyDetail = () => {
                     />
                   </div>
                 ) },
-                { id: "fin2", col: "rail" as const, weight: 370, movable: false, show: Boolean(true), node: () => (
+                { id: "fin2", col: "rail" as const, weight: 370, movable: false, show: Boolean(showSecondaryFinCard), node: () => (
               <div
                 className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
                 style={{
@@ -4606,6 +4623,7 @@ const CompanyDetail = () => {
                 }}
               >
                 <FinMetricsSecondaryCard
+                  hideEmptyTabs
                   subscription={finMetricsData.subscription}
                   other={finMetricsData.other}
                 />
@@ -4739,8 +4757,10 @@ const CompanyDetail = () => {
               // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
               // AI sits level with Product type / Data Collection / Core Products. The shorter
               // top block simply leaves extra space under it (nothing is cut or stretched).
-              const aligned = Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
+              const aligned = showPrimaryFinCard && Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
               const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
+              // Without the top financial card the rail starts beside Overview, so it has that much more room
+              const railHeadroom = showPrimaryFinCard ? 0 : 300;
               // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
               // Only movable cards hop between the main column and the rail, and a taller
               // main column costs double, so any leftover gap prefers the bottom-left corner.
@@ -4748,7 +4768,7 @@ const CompanyDetail = () => {
                 mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
               // Heights compared when balancing; in aligned mode only the lower tier counts
               const leftH = (p: ZoneCard[]) => (aligned ? pairWeight(p) : mainH(p));
-              const rightH = (r: ZoneCard[]) => (aligned ? sum(r.filter((c) => c.id !== "fin2")) : sum(r));
+              const rightH = (r: ZoneCard[]) => (aligned ? sum(r.filter((c) => c.id !== "fin2")) : sum(r) - railHeadroom);
               // Movable cards hop whichever way closes the gap more (rail cards move left when the rail runs longer)
               for (let guard = 0; guard < 4; guard++) {
                 const current = cost(leftH(pairCards), rightH(railCards));
@@ -4809,7 +4829,7 @@ const CompanyDetail = () => {
                     {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                     {renderPair(pairCards)}
                   </div>
-                  <div className="company-zone-rail">
+                  <div className={`company-zone-rail${showPrimaryFinCard ? "" : " company-zone-rail--top"}`}>
                     {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                   </div>
                 </>

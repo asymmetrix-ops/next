@@ -5,7 +5,7 @@
  * 1. Financial Metrics · Income Statement
  * 2. Subscription Metrics · Other Metrics
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   LinkPanel,
   T,
@@ -27,10 +27,11 @@ import {
   IncomeStatementTable,
   type IncomeStatementRow,
 } from "./IncomeStatementSection";
-import type {
-  FinancialMetricRow,
-  FinancialMetricSection,
-  FinancialMetricsCardData,
+import {
+  financialSectionHasData,
+  type FinancialMetricRow,
+  type FinancialMetricSection,
+  type FinancialMetricsCardData,
 } from "@/lib/buildFinancialMetricsSections";
 import { FinancialsCurrencyToggle } from "@/components/company/FinancialsCurrencyToggle";
 import type { CurrencyDisplayMode, FxToggleConfig } from "@/lib/financialsCurrencyToggle";
@@ -285,6 +286,7 @@ function PrimaryFinCard({
   incomeStatementRows,
   incomeStatementCurrency,
   fillGridCell = false,
+  hideEmptyTabs = false,
   onViewMore,
   fxToggleConfig,
   currencyMode,
@@ -295,34 +297,37 @@ function PrimaryFinCard({
   incomeStatementRows: IncomeStatementRow[];
   incomeStatementCurrency: string;
   fillGridCell?: boolean;
+  hideEmptyTabs?: boolean;
   onViewMore?: () => void;
 } & CurrencyToggleProps) {
   const incomeTabLabel = "Income Statement";
+  const showMetricsTab = !hideEmptyTabs || financialSectionHasData(primary);
 
   const tabs = useMemo(() => {
-    const list: { id: PrimaryFinTab; label: string }[] = [
-      { id: "metrics", label: "Financial Metrics" },
-    ];
+    const list: { id: PrimaryFinTab; label: string }[] = [];
+    if (showMetricsTab) {
+      list.push({ id: "metrics", label: "Financial Metrics" });
+    }
     if (hasIncomeStatement) {
       list.push({ id: "income", label: incomeTabLabel });
     }
     return list;
-  }, [hasIncomeStatement, incomeTabLabel]);
+  }, [showMetricsTab, hasIncomeStatement, incomeTabLabel]);
 
-  const [activeTab, setActiveTab] = useState<PrimaryFinTab>("metrics");
+  const [selectedTab, setSelectedTab] = useState<PrimaryFinTab>("metrics");
+  // Fall back to the first tab with data when the chosen one is hidden
+  const activeTab = tabs.some((t) => t.id === selectedTab)
+    ? selectedTab
+    : tabs[0]?.id ?? "metrics";
 
-  useEffect(() => {
-    if (!tabs.some((t) => t.id === activeTab)) {
-      setActiveTab("metrics");
-    }
-  }, [tabs, activeTab]);
+  if (tabs.length === 0) return null;
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--primary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={setSelectedTab}
         onViewMore={onViewMore}
         fxToggleConfig={fxToggleConfig}
         currencyMode={currencyMode}
@@ -357,26 +362,37 @@ function SecondaryFinCard({
   subscription,
   other,
   fillGridCell = false,
+  hideEmptyTabs = false,
   onViewMore,
 }: {
   subscription: FinancialMetricSection;
   other: FinancialMetricSection;
   fillGridCell?: boolean;
+  hideEmptyTabs?: boolean;
   onViewMore?: () => void;
 }) {
-  const tabs: { id: SecondaryFinTab; label: string }[] = [
-    { id: "subscription", label: "Subscription Metrics" },
-    { id: "other", label: "Other Metrics" },
-  ];
+  // Tabs without data are left out when hideEmptyTabs is on
+  const tabs: { id: SecondaryFinTab; label: string }[] = [];
+  if (!hideEmptyTabs || financialSectionHasData(subscription)) {
+    tabs.push({ id: "subscription", label: "Subscription Metrics" });
+  }
+  if (!hideEmptyTabs || financialSectionHasData(other)) {
+    tabs.push({ id: "other", label: "Other Metrics" });
+  }
 
-  const [activeTab, setActiveTab] = useState<SecondaryFinTab>("subscription");
+  const [selectedTab, setSelectedTab] = useState<SecondaryFinTab>("subscription");
+  const activeTab = tabs.some((t) => t.id === selectedTab)
+    ? selectedTab
+    : tabs[0]?.id ?? "subscription";
+
+  if (tabs.length === 0) return null;
 
   return (
     <LinkPanel fillGridCell={fillGridCell} className="fin-metrics-card--secondary">
       <TabHeader
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={setSelectedTab}
         onViewMore={onViewMore}
       />
       <div
@@ -424,11 +440,19 @@ export function FinMetricsIncomeCard({
   incomeStatementRows = [],
   incomeStatementCurrency = "",
   fillGridCell = true,
+  hideEmptyTabs = false,
   onViewMore,
   fxToggleConfig,
   currencyMode,
   onCurrencyModeChange,
-}: Props & { onViewMore?: () => void } & CurrencyToggleProps) {
+}: Props & { hideEmptyTabs?: boolean; onViewMore?: () => void } & CurrencyToggleProps) {
+  const hasAnyData =
+    hasIncomeStatement ||
+    financialSectionHasData(data.primary) ||
+    financialSectionHasData(data.subscription) ||
+    financialSectionHasData(data.other);
+  if (hideEmptyTabs && !hasAnyData) return null;
+
   return (
     <div
       style={{
@@ -447,6 +471,7 @@ export function FinMetricsIncomeCard({
         hasIncomeStatement={hasIncomeStatement}
         incomeStatementRows={incomeStatementRows}
         incomeStatementCurrency={incomeStatementCurrency}
+        hideEmptyTabs={hideEmptyTabs}
         onViewMore={onViewMore}
         fxToggleConfig={fxToggleConfig}
         currencyMode={currencyMode}
@@ -455,6 +480,7 @@ export function FinMetricsIncomeCard({
       <SecondaryFinCard
         subscription={data.subscription}
         other={data.other}
+        hideEmptyTabs={hideEmptyTabs}
         onViewMore={onViewMore}
       />
     </div>
