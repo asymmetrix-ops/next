@@ -107,7 +107,11 @@ import {
   normalizeLinkedInProfileUrl,
 } from "@/lib/linkedinUrl";
 import { individualService } from "@/lib/individualService";
-import { AIRiskCard } from "@/components/redesign/AIRiskCard";
+import { DataTypeDefensibilityCard } from "@/components/redesign/DataTypeDefensibilityCard";
+import {
+  parseCompanyDataType,
+  type DataTypeCard,
+} from "@/lib/companyDataType";
 import { PeersTargetsCard } from "@/components/redesign/PeersTargetsCard";
 import {
   fetchCompanyPeersAndTargets,
@@ -615,6 +619,8 @@ interface CompanyResponse {
   /** Headcount history at API root (get_company_profile) */
   employees_deduped?: EmployeeCount[];
   product_and_users?: ProductAndUsersEntry[];
+  /** Approved data-type category from Get_new_company (`null` when unset). */
+  data_type?: DataTypeCard;
   Managmant_Roles_current?: ManagementRoleRecord[];
   Managmant_Roles_past?: ManagementRoleRecord[];
   have_subsidiaries_companies?: {
@@ -1282,6 +1288,7 @@ const CompanyDetail = () => {
   const [financialMetrics, setFinancialMetrics] =
     useState<CompanyFinancialMetrics | null>(null);
   const [aiRiskData, setAiRiskData] = useState<CompanyAiRiskData | null>(null);
+  const [companyDataType, setCompanyDataType] = useState<DataTypeCard>(null);
   const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   const [usersUseCasesData, setUsersUseCasesData] = useState<ProductUsersSection[] | null>(null);
   // New investors from company_investors API endpoint
@@ -1951,6 +1958,7 @@ const CompanyDetail = () => {
     const fetchCompanyData = async () => {
       setLoading(true);
       setError(null);
+      setCompanyDataType(null);
 
       try {
         let data: CompanyResponse;
@@ -2124,6 +2132,12 @@ const CompanyDetail = () => {
         } catch {}
 
         setCompany(enrichedCompany);
+        setCompanyDataType(
+          parseCompanyDataType(
+            (data as { data_type?: unknown }).data_type ??
+              (data.Company as { data_type?: unknown } | undefined)?.data_type
+          )
+        );
 
         const token = localStorage.getItem("asymmetrix_auth_token");
         const initialSubs =
@@ -4609,15 +4623,24 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "airisk", col: "rail" as const, weight: 520, movable: false, show: Boolean(aiRiskData != null && aiRiskData!.axes.length > 0), node: () => (
+                { id: "airisk", col: "rail" as const, weight: 520, movable: false, show: Boolean(
+                  companyDataType != null ||
+                    (aiRiskData != null && aiRiskData.axes.length > 0)
+                ), node: () => (
                 <div className="company-grid-ai-risk">
-                  <AIRiskCard
+                  <DataTypeDefensibilityCard
                     fillGridCell
-                    hideDetail
-                    axes={aiRiskData!.axes}
-                    avgDefensibility={aiRiskData!.avgDefensibility}
-                    tier={aiRiskData!.tier}
-                    defaultActiveKey="data_moat"
+                    dataType={companyDataType}
+                    aiRisk={
+                      aiRiskData != null && aiRiskData.axes.length > 0
+                        ? {
+                            axes: aiRiskData.axes,
+                            avgDefensibility: aiRiskData.avgDefensibility,
+                            tier: aiRiskData.tier,
+                            defaultActiveKey: "data_moat",
+                          }
+                        : null
+                    }
                   />
                 </div>
                 ) },

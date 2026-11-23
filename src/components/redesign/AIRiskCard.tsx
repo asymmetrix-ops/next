@@ -496,7 +496,7 @@ function RadarChart({
   );
 }
 
-type AIRiskCardProps = {
+export type AIRiskCardProps = {
   axes?: AIRiskAxis[];
   avgDefensibility?: number;
   tier?: string;
@@ -505,6 +505,10 @@ type AIRiskCardProps = {
   fillGridCell?: boolean;
   /** Hide the green detail box under the radar (text is shown in the tooltip). */
   hideDetail?: boolean;
+  /** Render inside a parent card shell (no outer border/hover). */
+  embedded?: boolean;
+  /** Top divider when stacked below another section in the same card. */
+  sectionDividerTop?: boolean;
 };
 
 export function AIRiskCard({
@@ -514,6 +518,8 @@ export function AIRiskCard({
   defaultActiveKey = "data_moat",
   fillGridCell = false,
   hideDetail = false,
+  embedded = false,
+  sectionDividerTop = false,
 }: AIRiskCardProps) {
   const axes = React.useMemo(
     () =>
@@ -525,6 +531,7 @@ export function AIRiskCard({
   const [tip, setTip] = useState<FactorTip | null>(null);
   const chartWrapRef = React.useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
+  const useShellHover = !embedded;
 
   // Dismiss a pinned (touch) tooltip when tapping anywhere else.
   React.useEffect(() => {
@@ -560,16 +567,23 @@ export function AIRiskCard({
 
   return (
     <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={useShellHover ? () => setHover(true) : undefined}
+      onMouseLeave={useShellHover ? () => setHover(false) : undefined}
       style={{
-        background: T.panel,
-        border: `1px solid ${hover ? "#C6D1FB" : T.divider}`,
-        borderRadius: T.rLg,
-        boxShadow: hover ? "0 4px 20px rgba(35,80,200,0.06)" : "none",
-        transition:
-          "box-shadow 160ms, border-color 160ms, transform 160ms",
-        transform: hover ? "translateY(-1px)" : "translateY(0)",
+        background: embedded ? "transparent" : T.panel,
+        border: embedded
+          ? "none"
+          : `1px solid ${hover ? "#C6D1FB" : T.divider}`,
+        borderRadius: embedded ? 0 : T.rLg,
+        boxShadow:
+          embedded || !hover
+            ? "none"
+            : "0 4px 20px rgba(35,80,200,0.06)",
+        transition: embedded
+          ? undefined
+          : "box-shadow 160ms, border-color 160ms, transform 160ms",
+        transform:
+          embedded || !hover ? "translateY(0)" : "translateY(-1px)",
         width: "100%",
         height: fillGridCell ? "100%" : undefined,
         minHeight: fillGridCell ? 0 : undefined,
@@ -585,6 +599,7 @@ export function AIRiskCard({
           justifyContent: "space-between",
           padding: "12px 14px 10px",
           borderBottom: `1px solid ${T.hair}`,
+          borderTop: sectionDividerTop ? `1px solid ${T.hair}` : undefined,
         }}
       >
         <div
