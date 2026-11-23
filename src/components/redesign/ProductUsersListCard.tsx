@@ -26,6 +26,8 @@ type Props = {
   sections?: ProductUsersSection[];
   useCaseSections?: ProductUsersSection[];
   fillGridCell?: boolean;
+  /** Left-hand column beside the lists (e.g. Product type, Revenue model, Data collection) */
+  aside?: React.ReactNode;
 };
 
 function ExpandableRow({
@@ -270,6 +272,7 @@ export function ProductUsersListCard({
   sections,
   useCaseSections = [],
   fillGridCell = true,
+  aside,
 }: Props) {
   const productSections: ProductUsersSection[] = useMemo(() => {
     if (Array.isArray(sections) && sections.length > 0) return sections;
@@ -294,31 +297,45 @@ export function ProductUsersListCard({
     }
   }, [activeTab, productSections.length, useCases.length]);
 
+  const lists = (
+    <div
+      style={{
+        paddingBottom: 4,
+        minWidth: 0,
+        flex: fillGridCell ? 1 : undefined,
+        minHeight: fillGridCell ? 0 : undefined,
+        display: fillGridCell ? "flex" : undefined,
+        flexDirection: fillGridCell ? "column" : undefined,
+        overflow: fillGridCell ? "auto" : undefined,
+      }}
+    >
+      {activeTab === "products" ? (
+        <SectionList
+          sections={productSections}
+          emptyMessage="No products or services listed."
+        />
+      ) : (
+        <SectionList
+          sections={useCases}
+          emptyMessage="No users or use cases listed."
+        />
+      )}
+    </div>
+  );
+
   return (
     <LinkPanel fillGridCell={fillGridCell}>
       <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-      <div
-        style={{
-          paddingBottom: 4,
-          flex: fillGridCell ? 1 : undefined,
-          minHeight: fillGridCell ? 0 : undefined,
-          display: fillGridCell ? "flex" : undefined,
-          flexDirection: fillGridCell ? "column" : undefined,
-          overflow: fillGridCell ? "auto" : undefined,
-        }}
-      >
-        {activeTab === "products" ? (
-          <SectionList
-            sections={productSections}
-            emptyMessage="No products or services listed."
-          />
-        ) : (
-          <SectionList
-            sections={useCases}
-            emptyMessage="No users or use cases listed."
-          />
-        )}
-      </div>
+      {aside ? (
+        <div style={{ containerType: "inline-size" }}>
+          <div className="product-users-split">
+            <div className="product-users-aside">{aside}</div>
+            {lists}
+          </div>
+        </div>
+      ) : (
+        lists
+      )}
     </LinkPanel>
   );
 }

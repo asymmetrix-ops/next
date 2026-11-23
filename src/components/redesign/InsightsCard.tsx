@@ -113,10 +113,13 @@ function ArticleRow({
   article,
   onViewSummary,
   isLast = false,
+  stacked = false,
 }: {
   article: ContentArticle;
   onViewSummary: (a: ContentArticle) => void;
   isLast?: boolean;
+  /** Tag and date on one line above the text, for narrow cards */
+  stacked?: boolean;
 }) {
   const isNews = isNewsArticle(article);
   const tag = article.Content_Type?.trim()
@@ -133,6 +136,7 @@ function ArticleRow({
     <div
       style={{
         ...insightsRowGridStyle(isLast),
+        ...(stacked ? { display: "block" } : {}),
         ...(isNews
           ? {
               borderLeft: `3px solid #e11d48`,
@@ -142,7 +146,13 @@ function ArticleRow({
           : {}),
       }}
     >
-      <div style={insightsMetaColStyle}>
+      <div
+        style={
+          stacked
+            ? { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }
+            : insightsMetaColStyle
+        }
+      >
         <Pill
           wrap
           style={{ ...insightTagPillStyle, ...typePillColours(article.Content_Type || "") }}
@@ -156,7 +166,7 @@ function ArticleRow({
               lineHeight: 1.5,
               color: T.muted,
               fontStyle: "italic",
-              marginTop: 8,
+              marginTop: stacked ? 0 : 8,
             }}
           >
             {byline}
@@ -167,7 +177,7 @@ function ArticleRow({
             fontSize: 13,
             color: T.muted,
             fontVariantNumeric: "tabular-nums",
-            marginTop: 8,
+            marginTop: stacked ? 0 : 8,
           }}
         >
           {date || "-"}
@@ -337,6 +347,8 @@ type Props = {
   previewCount?: number;
   /** When set, "Browse all" runs this (e.g. opens a profile tab) instead of linking away. */
   onBrowseAll?: () => void;
+  /** Rows with tag and date above the text, for narrow (1/3-width) cards */
+  stacked?: boolean;
 };
 
 export function InsightsCard({
@@ -357,6 +369,7 @@ export function InsightsCard({
   emptyMessage = "No insights available for this company.",
   previewCount = 2,
   onBrowseAll,
+  stacked = false,
 }: Props) {
   const isEmpty = !loading && totalCount === 0;
   const rangeLabel =
@@ -449,6 +462,7 @@ export function InsightsCard({
                     article={article}
                     onViewSummary={handleViewSummary}
                     isLast={isLastSlot}
+                    stacked={stacked}
                   />
                 );
               }

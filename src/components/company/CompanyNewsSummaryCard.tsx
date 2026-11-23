@@ -7,7 +7,7 @@ import { formatShortDate, type CompanyNewsSummary } from "@/lib/companyNews";
 import { dotPillStyleFromTone, getNewsSubtypeTone } from "@/lib/tagColors";
 import { trackCompanyNewsOpen } from "@/components/company/CompanyNewsTab";
 
-/** Summary tab: the 5 newest news articles for the company, "View all news" opens the News tab. */
+/** Summary tab: the 3 newest news articles for the company, "View all news" opens the News tab. */
 export default function CompanyNewsSummaryCard({
   summary,
   onViewAll,

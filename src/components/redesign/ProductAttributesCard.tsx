@@ -7,12 +7,105 @@
 import React, { useEffect, useState } from "react";
 import { ProductDataToggleCard } from "./ProductDataToggleCard";
 import { TabHeader } from "./ProductUsersListCard";
-import { LinkPanel, WeightChip, T, descriptionBodyStyle } from "./primitives";
+import { LinkPanel, LinkedH, Pill, WeightChip, T, descriptionBodyStyle } from "./primitives";
 import type { ProductBarRow } from "./ProductDataToggleCard";
 import type { RevenueModelRow } from "./RevenueModelCard";
 
 type DataMixRow = { label: string };
 type AttrTab = "product_type" | "revenue_model";
+type PillTone = NonNullable<React.ComponentProps<typeof Pill>["tone"]>;
+
+type ProductDetailsProps = {
+  productRows: ProductBarRow[];
+  revenueRows: RevenueModelRow[];
+  dataRows: DataMixRow[];
+  /** Groups side by side instead of stacked */
+  columns?: boolean;
+};
+
+// Product types follow the same colour order as the product mix bars
+const PRODUCT_TYPE_TONES: PillTone[] = ["azure", "lavender", "coral", "warn", "emerald", "neutral"];
+
+function revenueModelTone(weight?: string): PillTone {
+  const key = (weight || "").trim().toLowerCase();
+  if (key === "main" || key === "primary") return "azure";
+  if (key === "secondary") return "lavender";
+  return "neutral";
+}
+
+const groupLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: T.muted,
+  marginBottom: 6,
+};
+
+// Product type, Revenue model and Data collection method as labelled tag groups
+export function ProductDetailsPanel({ productRows, revenueRows, dataRows, columns = false }: ProductDetailsProps) {
+  const groups: { label: string; items: React.ReactNode[] }[] = [];
+  if (productRows.length > 0) {
+    groups.push({
+      label: "Product type",
+      items: productRows.map((p, i) => (
+        <Pill key={`${p.label}-${i}`} wrap tone={PRODUCT_TYPE_TONES[i % PRODUCT_TYPE_TONES.length]}>
+          {p.label}
+        </Pill>
+      )),
+    });
+  }
+  if (revenueRows.length > 0) {
+    groups.push({
+      label: "Revenue model",
+      items: revenueRows.map((r, i) => (
+        <Pill key={`${r.name}-${i}`} wrap tone={revenueModelTone(r.weight)}>
+          {r.name}
+        </Pill>
+      )),
+    });
+  }
+  if (dataRows.length > 0) {
+    groups.push({
+      label: "Data collection method",
+      items: dataRows.map((d, i) => (
+        <Pill key={`${d.label}-${i}`} wrap tone="ghost">
+          {d.label}
+        </Pill>
+      )),
+    });
+  }
+  if (groups.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        display: columns ? "grid" : "flex",
+        flexDirection: "column",
+        gridTemplateColumns: columns ? "repeat(auto-fit, minmax(200px, 1fr))" : undefined,
+        gap: columns ? 16 : 12,
+        padding: "12px 16px 14px",
+      }}
+    >
+      {groups.map((g) => (
+        <div key={g.label} style={{ minWidth: 0 }}>
+          <div style={groupLabelStyle}>{g.label}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{g.items}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Product details on their own, for companies without a Core Products list
+export function ProductDetailsCard(props: Omit<ProductDetailsProps, "columns">) {
+  return (
+    <LinkPanel>
+      <LinkedH>Product details</LinkedH>
+      <ProductDetailsPanel {...props} columns />
+    </LinkPanel>
+  );
+}
 
 type TypeRevenueProps = {
   productRows: ProductBarRow[];

@@ -58,6 +58,10 @@ export type OverviewCardProps = {
   /** Shown as the last row ("MCP: Implemented") only when true. */
   mcpImplemented?: boolean | null;
   fillGridCell?: boolean;
+  /** Right-hand column inside the card, beside the fields (e.g. the description) */
+  aside?: React.ReactNode;
+  /** Without an aside, spread the fields over two columns */
+  splitFields?: boolean;
 };
 
 const EM = EMPTY_DISPLAY;
@@ -190,6 +194,8 @@ export function OverviewCard({
   holdingPeriod,
   mcpImplemented = null,
   fillGridCell = false,
+  aside,
+  splitFields = false,
 }: OverviewCardProps) {
   const hasParent = Boolean(parentCompany?.name);
   const normalizedHoldingPeriodDisplay = normalizeHoldingPeriodDisplay(
@@ -340,6 +346,49 @@ export function OverviewCard({
   ];
 
   const visible = rows.filter((r) => r.show !== false);
+
+  const fieldList = (list: typeof visible) => (
+    <div className="company-overview-kv">
+      {list.map((row, i) => (
+        <KV
+          key={row.k}
+          k={row.k}
+          v={row.v}
+          last={i === list.length - 1}
+          style={OVERVIEW_KV_STYLE}
+        />
+      ))}
+    </div>
+  );
+
+  // Fields beside an aside column, or spread over two columns
+  if (aside || splitFields) {
+    const half = Math.ceil(visible.length / 2);
+    return (
+      <LinkPanel fillGridCell={fillGridCell}>
+        <LinkedH>Overview</LinkedH>
+        <div style={{ containerType: "inline-size" }}>
+          {aside ? (
+            <div className="overview-card-split">
+              <div style={{ padding: "2px 14px 8px", minWidth: 0 }}>
+                {transactionStatus ? <TransactionStatusHighlight label={transactionStatus} /> : null}
+                {fieldList(visible)}
+              </div>
+              <div className="overview-card-aside">{aside}</div>
+            </div>
+          ) : (
+            <div style={{ padding: "2px 14px 8px" }}>
+              {transactionStatus ? <TransactionStatusHighlight label={transactionStatus} /> : null}
+              <div className="overview-fields-split">
+                {fieldList(visible.slice(0, half))}
+                {fieldList(visible.slice(half))}
+              </div>
+            </div>
+          )}
+        </div>
+      </LinkPanel>
+    );
+  }
 
   return (
     <LinkPanel fillGridCell={fillGridCell}>

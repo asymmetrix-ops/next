@@ -108,7 +108,7 @@ export async function fetchCompanyTopStoriesSummary(
   total: number,
   signal?: AbortSignal
 ): Promise<CompanyNewsSummary> {
-  const page = await fetchCompanyNews({ companyId, filters: {}, topLimit: 5, recentLimit: 1, signal });
+  const page = await fetchCompanyNews({ companyId, filters: {}, topLimit: 3, recentLimit: 1, signal });
   const items: CompanyNewsSummaryItem[] = page.top.items.map((a) => ({
     id: a.id as number,
     headline: a.Headline as string,

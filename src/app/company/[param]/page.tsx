@@ -44,7 +44,8 @@ import type { CompanyHoldingPeriodResponse } from "@/lib/holdingPeriod";
 import { ManagementCard } from "@/components/redesign/ManagementCard";
 import { HeadcountCard } from "@/components/redesign/HeadcountCard";
 import { OverviewCard } from "@/components/redesign/OverviewCard";
-import { ProductTypeRevenueCard, DataCollectionCard } from "@/components/redesign/ProductAttributesCard";
+import { ProductDetailsCard, ProductDetailsPanel } from "@/components/redesign/ProductAttributesCard";
+import { OverviewDescription } from "@/components/redesign/OverviewDescription";
 import { InsightsCard } from "@/components/redesign/InsightsCard";
 import CompanyNewsTab from "@/components/company/CompanyNewsTab";
 import CompanyNewsSummaryCard from "@/components/company/CompanyNewsSummaryCard";
@@ -59,7 +60,6 @@ import {
   fetchCompanyInsights,
   type CompanyInsights,
 } from "@/lib/companyInsights";
-import { DescriptionCard } from "@/components/redesign/DescriptionCard";
 import {
   ProductUsersListCard,
   type ProductUsersSection,
@@ -779,7 +779,7 @@ const getNumeric = (value?: number | string | null): number | undefined => {
 /** Max sector pills before "+N" overflow (matches V3 template) */
 const OVERVIEW_TAG_CAP = 3;
 
-const INSIGHTS_PREVIEW_COUNT = 2;
+const INSIGHTS_PREVIEW_COUNT = 3;
 const CE_PREVIEW_COUNT = 2;
 
 // RANGE_DASH moved to InsightsCard component
@@ -3406,6 +3406,8 @@ const CompanyDetail = () => {
     showProductType ||
     showRevenueModel ||
     showDataCollection;
+  const companyDescription = (company.description ?? "").trim();
+  const hasCompanyDescription = !isEmptyDisplayValue(companyDescription);
 
   const responsiveCss = `
     .company-detail-page { overflow-x: hidden; min-width: 0; }
@@ -3428,57 +3430,48 @@ const CompanyDetail = () => {
       align-items: start;
     }
     .responsiveGrid > * { min-width: 0; min-height: 0; align-self: start; }
+    /* Two independent columns: Overview tops the main column (cols 1–2), the rail (col 3) is one stack from the top.
+       Extra rail height goes to row 2, so the Overview row never stretches. */
+    .responsiveGrid { grid-template-rows: auto 1fr; }
     .company-grid-overview {
-      grid-column: 1;
-      grid-row-start: 1;
-      min-height: 0;
-      align-self: stretch;
-      display: flex;
-      flex-direction: column;
-    }
-    .company-grid-description {
-      grid-column: 2;
-      grid-row-start: 1;
-      min-height: 0;
-      align-self: stretch;
-    }
-    .company-grid-finance-primary {
-      grid-column: 3;
-      grid-row-start: 1;
-      min-width: 0;
+      grid-column: 1 / span 2;
+      grid-row: 1;
       min-height: 0;
       display: flex;
       flex-direction: column;
-      align-self: stretch;
     }
-    /* Fixed zones below row 1: main column (cols 1–2) + right rail (col 3), each a stacked column in set order. */
-    /* Fixed zones: any leftover gap sits at the bottom-left (main column shorter than the rail). */
-    .company-zone-main { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    /* Rail keeps natural card heights (no stretched chart cards); any leftover space stays bottom-right. */
-    .company-zone-rail { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    /* No top financial card: the rail starts in row 1, beside Overview and Description; extra rail height goes to row 2 */
-    .responsiveGrid.company-grid--rail-top { grid-template-rows: auto 1fr; }
-    .company-zone-rail.company-zone-rail--top { grid-row: 1 / span 2; }
-    .company-zone-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
-    /* Aligned mode: two explicit rows so the lower tier starts level in both zones. */
-    .company-zone-top-left { grid-column: 1 / span 2; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
-    .company-zone-top-right { grid-column: 3; grid-row-start: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: stretch; }
-    /* The shorter top block grows so Insights and Financial Metrics end on the same line. */
-    .company-zone-top-left > :last-child,
-    .company-zone-top-right > :last-child { flex: 1 1 auto; }
-    .company-zone-low-left { grid-column: 1 / span 2; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-low-right { grid-column: 3; grid-row-start: 3; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-low-left:empty, .company-zone-low-right:empty { display: none; }
-    .company-zone-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
-    .company-zone-pair:empty { display: none; }
-    /* Product block: [Product type | Core products] over [Data collection | Management]; each row stretches to equal height. */
-    .company-grid-product-zone { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 12px; align-items: stretch; min-width: 0; }
-    .product-zone-cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-    /* Odd number of cards (e.g. News + 4 product cards): the last one spans the row so the grid has no hole. */
-    .product-zone-cell:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .company-col-main { grid-column: 1 / span 2; grid-row: 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    .company-col-main:empty { display: none; }
+    .company-col-rail { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; align-self: start; }
+    /* Nothing for the rail: the main column runs the full width */
+    .responsiveGrid:not(:has(> .company-col-rail)) > .company-grid-overview,
+    .responsiveGrid:not(:has(> .company-col-rail)) > .company-col-main { grid-column: 1 / -1; }
+    /* I&A and News side by side; News stays 1/3 of the page */
+    .company-insights-news-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; min-width: 0; }
+    .responsiveGrid:not(:has(> .company-col-rail)) .company-insights-news-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+    .company-insights-news-row--single { grid-template-columns: minmax(0, 1fr) !important; }
+    /* Rail cards that moved into the main column: one fills the width, two sit side by side */
+    .company-col-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .company-col-pair--single { grid-template-columns: minmax(0, 1fr); }
+    .company-col-pair-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    /* Overview card: fields beside the description (or over two columns), stacked when the card is narrow */
+    .overview-card-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .overview-card-aside { border-left: 1px solid ${T.hair}; min-width: 0; }
+    .overview-fields-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; }
+    @container (max-width: 640px) {
+      .overview-card-split, .overview-fields-split { grid-template-columns: minmax(0, 1fr); }
+      .overview-card-aside { border-left: none; border-top: 1px solid ${T.hair}; }
+    }
+    /* Core Products card: product details on the left, lists on the right */
+    .product-users-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+    .product-users-aside { border-right: 1px solid ${T.hair}; min-width: 0; }
+    @container (max-width: 560px) {
+      .product-users-split { grid-template-columns: minmax(0, 1fr); }
+      .product-users-aside { border-right: none; border-bottom: 1px solid ${T.hair}; }
+    }
+    .company-grid-finance-primary,
     .company-grid-finance-secondary,
     .company-grid-insights,
-    .company-grid-product-mix,
     .company-grid-product-users,
     .company-grid-ai-risk,
     .company-grid-headcount,
@@ -3730,31 +3723,24 @@ const CompanyDetail = () => {
       }
       .responsiveGrid { grid-template-columns: 1fr !important; grid-auto-rows: auto !important; row-gap: 12px !important; max-width: 100% !important; }
       .responsiveGrid > * { grid-row: auto !important; grid-column: 1 / -1 !important; order: 0 !important; }
-      .responsiveGrid.company-grid--rail-top { grid-template-rows: none; }
+      .responsiveGrid { grid-template-rows: none !important; }
       .company-grid-overview,
-      .company-grid-description,
       .company-grid-finance-primary,
       .company-grid-finance-secondary,
       .company-grid-insights,
-      .company-grid-product-mix,
       .company-grid-product-users,
       .company-grid-ai-risk,
       .company-grid-corporate-events,
       .company-grid-subsidiaries,
       .company-grid-headcount,
       .company-grid-management,
-      .company-zone-main,
-      .company-zone-rail,
-      .company-zone-top-left,
-      .company-zone-top-right,
-      .company-zone-low-left,
-      .company-zone-low-right,
-      .company-grid-product-zone {
+      .company-col-main,
+      .company-col-rail {
         grid-column: 1 / -1 !important;
         grid-row: auto !important;
         align-self: stretch !important;
       }
-      .company-grid-product-zone { grid-template-columns: 1fr !important; }
+      .company-col-pair { grid-template-columns: 1fr !important; }
       .desktop-financial-metrics { display: none !important; }
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
@@ -3763,7 +3749,6 @@ const CompanyDetail = () => {
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }
-      .company-zone-pair { grid-template-columns: 1fr !important; }
       .product-mix-users-row { grid-template-columns: 1fr !important; gap: 12px !important; }
     }
   `;
@@ -3897,9 +3882,9 @@ const CompanyDetail = () => {
           ) : (
           <>
           {/* Desktop grid */}
-          <div ref={profileGridRef} style={styles.responsiveGrid} className={`responsiveGrid${showPrimaryFinCard ? "" : " company-grid--rail-top"}`}>
+          <div ref={profileGridRef} style={styles.responsiveGrid} className="responsiveGrid">
 
-            {/* ── Overview card (grid row 1, col 1) ── */}
+            {/* ── Overview card with the description inside (top of the main column) ── */}
             <div
               style={{
                 minWidth: 0,
@@ -3911,7 +3896,17 @@ const CompanyDetail = () => {
               className="overview-card company-grid-overview"
             >
               <OverviewCard
-                fillGridCell
+                aside={
+                  hasCompanyDescription ? (
+                    <OverviewDescription
+                      text={companyDescription}
+                      expanded={isDescriptionExpanded}
+                      onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
+                      contentRef={descriptionRef}
+                    />
+                  ) : undefined
+                }
+                splitFields={!hasCompanyDescription}
                 transactionStatus={transactionStatusDisplayLabel}
                 primarySectors={augmentedPrimarySectors
                   .filter((s) => s?.sector_name)
@@ -4329,45 +4324,8 @@ const CompanyDetail = () => {
               </div>{/* end legacy hidden content */}
             </div>{/* end overview card wrapper */}
 
-            {/* ── Description card (grid row 1, col 2) ──
-                Collapsed: the card is absolutely positioned inside a stretched cell, so it
-                adds no height of its own — row 1 height comes from Overview / Financials. */}
-            <div
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                width: "100%",
-                position: "relative",
-                alignSelf: isDescriptionExpanded ? "start" : "stretch",
-                overflow: isDescriptionExpanded ? "visible" : "hidden",
-              }}
-              className="overview-description company-grid-description"
-            >
-              <div
-                style={
-                  isDescriptionExpanded
-                    ? { display: "flex", flexDirection: "column" }
-                    : {
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        flexDirection: "column",
-                      }
-                }
-              >
-                <DescriptionCard
-                  text={company.description ?? ""}
-                  expanded={isDescriptionExpanded}
-                  onToggleExpand={() => setIsDescriptionExpanded((e) => !e)}
-                  contentRef={descriptionRef}
-                  fillGridCell={!isDescriptionExpanded}
-                />
-              </div>
-            </div>
-
-            {/* Mobile Financial Metrics — shown only below 768px, placed here so it
-                reads in the same left-to-right/top-to-bottom order as the desktop
-                right rail (Overview, Description, Financials) once columns collapse */}
+            {/* Mobile Financial Metrics — shown only below 768px, placed here so the
+                financial cards follow the Overview once the columns collapse */}
             {(showPrimaryFinCard || showSecondaryFinCard) && (
             <div
               id="profile-financials-mobile"
@@ -4389,39 +4347,16 @@ const CompanyDetail = () => {
             </div>
             )}
 
-            {/* ══ Col 3 row 1: Primary financial metrics (aligned with Overview + Description) ══ */}
-            {showPrimaryFinCard && (
-            <div
-              id="profile-financials"
-              className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
-              style={{
-                minWidth: 0,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                scrollMarginTop: 24,
-              }}
-            >
-              <FinMetricsPrimaryCard
-                fillGridCell
-                hideEmptyTabs
-                primary={finMetricsData.primary}
-                hasIncomeStatement={hasIncomeStatementData}
-                incomeStatementRows={normalizedIncomeStatements}
-                incomeStatementCurrency={platformCurrency}
-                fxToggleConfig={finMetricsFxToggleConfig}
-                currencyMode={finMetricsCurrencyMode}
-                onCurrencyModeChange={setFinMetricsCurrencyMode}
-              />
-            </div>
-            )}
-
-            {/* Fixed zones below row 1: main column (cols 1–2) and right rail (col 3) keep a set card order so positions never shift between profiles. */}
+            {/* Main column (cols 1–2, under Overview) and right rail (col 3) stack independently, in a set card order */}
             {(() => {
               // Card matrix: cards hide when empty, and tall rail cards that would
               // leave a blank hole under the main column move over to balance heights.
-              type ZoneCard = { id: string; col: "main" | "pair" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
+              type ZoneCard = { id: string; col: "main" | "rail"; weight: number; movable: boolean; show: boolean; node: () => React.ReactNode };
+              const productDetailsProps = {
+                productRows: productTypeBarRows,
+                revenueRows: revenueModelRows.map((r) => ({ name: r.label, weight: r.value })),
+                dataRows: productDataToggleDataRows,
+              };
               const newsCardNode = (fillHeight = true) => (
                 <CompanyNewsSummaryCard
                   summary={topStories as CompanyNewsSummary}
@@ -4432,12 +4367,12 @@ const CompanyDetail = () => {
                   }}
                 />
               );
-              // News is always 1/3 width. Without an I&A card it leads the product grid, so Product type moves up beside it.
-              const newsLead = showNewsCard && !showInsights && !!topStories;
+              // News sits beside I&A in the main column, or in the rail when there's no I&A; always 1/3 of the page
+              const newsInMain = showNewsCard && showInsights && !!topStories;
+              const newsWeight = 110 + 95 * (topStories?.items.length ?? 0);
               const cards: ZoneCard[] = [
-                { id: "insights", col: "main" as const, weight: 330, movable: false, show: Boolean(showInsights), node: () => (
-                <div className="company-insights-news-row" style={{ display: "grid", gridTemplateColumns: showNewsCard && showInsights ? "1fr 1fr" : "1fr", gap: 12, alignItems: "start", minWidth: 0 }}>
-                {showNewsCard && topStories && newsCardNode(false)}
+                { id: "insights", col: "main" as const, weight: newsInMain ? Math.max(450, newsWeight) : 450, movable: false, show: Boolean(showInsights), node: () => (
+                <div className={`company-insights-news-row${newsInMain ? "" : " company-insights-news-row--single"}`}>
                 {showInsights && (
                 <div
                   className="insights-summary-card company-grid-insights"
@@ -4449,6 +4384,8 @@ const CompanyDetail = () => {
                 >
                   <InsightsCard
                     fillGridCell
+                    previewCount={INSIGHTS_PREVIEW_COUNT}
+                    stacked={newsInMain}
                     articles={
                       useOrderedInsights
                         ? insightsOrdered.slice((summaryInsightsPage - 1) * INSIGHTS_PREVIEW_COUNT, summaryInsightsPage * INSIGHTS_PREVIEW_COUNT)
@@ -4487,8 +4424,10 @@ const CompanyDetail = () => {
                   />
                 </div>
                 )}
+                {newsInMain && newsCardNode(false)}
                 </div>
                 ) },
+                { id: "newsrail", col: "rail" as const, weight: newsWeight, movable: false, show: Boolean(showNewsCard && !showInsights && topStories), node: () => newsCardNode(false) },
                 { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
                 <div className="company-grid-corporate-events">
                   <LinkPanel
@@ -4540,7 +4479,6 @@ const CompanyDetail = () => {
                   </LinkPanel>
                 </div>
                 ) },
-                // 1/3-width card, last in the right rail; moves left when the rail runs longer
                 { id: "peers", col: "main" as const, weight: 330, movable: false, show: Boolean(peersAndTargets && (peersAndTargets.peers.items.length > 0 || peersAndTargets.acquisition_targets.items.length > 0)), node: () => (
                 <div className="company-grid-peers">
                   <PeersTargetsCard
@@ -4601,17 +4539,34 @@ const CompanyDetail = () => {
                   />
                 </div>
                 ) },
-                { id: "management", col: "pair" as const, weight: 200, movable: true, show: Boolean(hasManagement), node: () => (
+                { id: "management", col: "rail" as const, weight: 200, movable: true, show: Boolean(hasManagement), node: () => (
                   <div className="company-grid-management">
                     <ManagementCard
-                      fillGridCell
                       current={managementCurrentPeople}
                       past={managementPastPeople}
                       maxVisible={4}
                     />
                   </div>
                 ) },
-                { id: "fin2", col: "rail" as const, weight: 370, movable: false, show: Boolean(showSecondaryFinCard), node: () => (
+                { id: "fin1", col: "rail" as const, weight: financialSectionHasData(finMetricsData.primary) ? 330 : 210, movable: false, show: Boolean(showPrimaryFinCard), node: () => (
+              <div
+                id="profile-financials"
+                className="company-grid-finance-primary desktop-financial-metrics v3-right-rail"
+                style={{ minWidth: 0, width: "100%", scrollMarginTop: 24 }}
+              >
+                <FinMetricsPrimaryCard
+                  hideEmptyTabs
+                  primary={finMetricsData.primary}
+                  hasIncomeStatement={hasIncomeStatementData}
+                  incomeStatementRows={normalizedIncomeStatements}
+                  incomeStatementCurrency={platformCurrency}
+                  fxToggleConfig={finMetricsFxToggleConfig}
+                  currencyMode={finMetricsCurrencyMode}
+                  onCurrencyModeChange={setFinMetricsCurrencyMode}
+                />
+              </div>
+                ) },
+                { id: "fin2", col: "rail" as const, weight: 420, movable: false, show: Boolean(showSecondaryFinCard), node: () => (
               <div
                 className="company-grid-finance-secondary desktop-financial-metrics v3-right-rail"
                 style={{
@@ -4629,16 +4584,19 @@ const CompanyDetail = () => {
                 />
               </div>
                 ) },
-                { id: "productmix", col: "pair" as const, weight: 440, movable: false, show: Boolean(showProductAttributes), node: () => null },
-                { id: "coreproducts", col: "pair" as const, weight: 170, movable: false, show: Boolean(showCoreProducts), node: () => (
-                <div
-                  className="company-grid-product-users"
-                >
-                  <ProductUsersListCard
-                    sections={coreProductsSections}
-                    useCaseSections={usersUseCaseSections}
-                    fillGridCell
-                  />
+                // Product type, Revenue model and Data collection sit inside Core Products, or on their own without a products list
+                { id: "products", col: "main" as const, weight: (showCoreProducts ? 60 + 46 * Math.max(coreProductsSections.length, usersUseCaseSections.length, 1) : 0) + (showProductAttributes ? 140 : 0), movable: false, show: Boolean(showCoreProducts || showProductAttributes), node: () => (
+                <div className="company-grid-product-users">
+                  {showCoreProducts ? (
+                    <ProductUsersListCard
+                      sections={coreProductsSections}
+                      useCaseSections={usersUseCaseSections}
+                      fillGridCell={false}
+                      aside={showProductAttributes ? <ProductDetailsPanel {...productDetailsProps} /> : undefined}
+                    />
+                  ) : (
+                    <ProductDetailsCard {...productDetailsProps} />
+                  )}
                 </div>
                 ) },
                 { id: "airisk", col: "rail" as const, weight: 520, movable: false, show: Boolean(
@@ -4647,7 +4605,6 @@ const CompanyDetail = () => {
                 ), node: () => (
                 <div className="company-grid-ai-risk">
                   <DataTypeDefensibilityCard
-                    fillGridCell
                     dataType={companyDataType}
                     aiRisk={
                       aiRiskData != null && aiRiskData.axes.length > 0
@@ -4663,82 +4620,18 @@ const CompanyDetail = () => {
                 </div>
                 ) },
               ].filter((c) => c.show);
-              const wide = cards.filter((c) => c.col === "main");
-              const pairOrder = ["headcount", "management", "subsidiaries"];
-              // Product cards (Product type / Core products) sit above Corporate Events.
-              const productIds = ["productmix", "coreproducts", "management"];
-              const productCards = cards
-                .filter((c) => productIds.includes(c.id))
-                .sort((x, y) => productIds.indexOf(x.id) - productIds.indexOf(y.id));
-              // Peers & Competitors always sits last in the main column, below Core Products and Events.
-              const peersCard = wide.find((c) => c.id === "peers");
-              const wideNoPeers = wide.filter((c) => c.id !== "peers");
-              const eventsIdx = wideNoPeers.findIndex((c) => c.id === "events");
-              const wideAbove = eventsIdx >= 0 ? wideNoPeers.slice(0, eventsIdx) : wideNoPeers;
-              const wideBelow = [
-                ...(eventsIdx >= 0 ? wideNoPeers.slice(eventsIdx) : []),
-                ...(peersCard ? [peersCard] : []),
-              ];
-              const pair = cards
-                .filter((c) => c.col === "pair" && !productIds.includes(c.id))
-                .sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
-              const railOrder = ["fin2", "airisk", "headcount", "subsidiaries"];
-              const rail = cards
+              // Set card order in each column (Peers above Corporate Events, as in the design)
+              const mainOrder = ["insights", "products", "peers", "events"];
+              const railOrder = ["fin1", "fin2", "newsrail", "airisk", "headcount", "management", "subsidiaries"];
+              const mainCards = cards
+                .filter((c) => c.col === "main")
+                .sort((x, y) => mainOrder.indexOf(x.id) - mainOrder.indexOf(y.id));
+              let railCards = cards
                 .filter((c) => c.col === "rail")
                 .sort((x, y) => railOrder.indexOf(x.id) - railOrder.indexOf(y.id));
+              let movedCards: ZoneCard[] = [];
               const sum = (a: ZoneCard[]) => a.reduce((s, c) => s + c.weight, 0);
-              // Product block is a fixed 2-col grid: [productmix | coreproducts] over [data collection | management].
-              // Its height is the taller column, not the sum of its cards.
-              const zoneW = (id: string) => productCards.find((c) => c.id === id)?.weight ?? 0;
-              const productZoneW = Math.max(zoneW("productmix"), zoneW("coreproducts") + zoneW("management"));
-              const renderProductZone = () =>
-                (productCards.length > 0 || newsLead) && (
-                  <div className="company-grid-product-zone">
-                    {newsLead && <div className="product-zone-cell">{newsCardNode()}</div>}
-                    {(showProductType || showRevenueModel) && (
-                      <div className="product-zone-cell">
-                        <ProductTypeRevenueCard
-                          fillGridCell
-                          productRows={productTypeBarRows}
-                          revenueRows={revenueModelRows.map((r) => ({
-                            name: r.label,
-                            weight: r.value,
-                          }))}
-                        />
-                      </div>
-                    )}
-                    {showCoreProducts && (
-                      <div className="product-zone-cell">
-                        <ProductUsersListCard
-                          sections={coreProductsSections}
-                          useCaseSections={usersUseCaseSections}
-                          fillGridCell
-                        />
-                      </div>
-                    )}
-                    {showDataCollection && (
-                      <div className="product-zone-cell">
-                        <DataCollectionCard
-                          fillGridCell
-                          productRows={productTypeBarRows}
-                          dataRows={productDataToggleDataRows}
-                        />
-                      </div>
-                    )}
-                    {hasManagement && (
-                      <div className="product-zone-cell">
-                        <ManagementCard
-                          fillGridCell
-                          current={managementCurrentPeople}
-                          past={managementPastPeople}
-                          maxVisible={4}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              // The lower-main area is two independent vertical stacks; each card goes
-              // into the shorter stack (ties -> left), so nothing is stretched.
+              // Rail cards moved under the main column: one fills the width, two share it
               const splitPair = (a: ZoneCard[]): [ZoneCard[], ZoneCard[]] => {
                 const left: ZoneCard[] = [];
                 const right: ZoneCard[] = [];
@@ -4746,92 +4639,51 @@ const CompanyDetail = () => {
                 return [left, right];
               };
               const pairWeight = (a: ZoneCard[]) => {
+                if (a.length <= 1) return sum(a);
                 const [l, r] = splitPair(a);
                 return Math.max(sum(l), sum(r));
               };
-              let pairCards = [...pair];
-              let railCards = [...rail];
-              const fin = rail.find((c) => c.id === "fin2");
-              const ai = rail.find((c) => c.id === "airisk");
-              // Aligned mode: when the AI card is shown and the top stack (Insights...) is about
-              // as tall as Financial Metrics, the lower tier starts on one line in both zones, so
-              // AI sits level with Product type / Data Collection / Core Products. The shorter
-              // top block simply leaves extra space under it (nothing is cut or stretched).
-              const aligned = showPrimaryFinCard && Boolean(fin && ai) && Math.abs(sum(wide) + productZoneW - (fin?.weight ?? 0)) <= 130;
-              const mainH = (p: ZoneCard[]) => sum(wide) + productZoneW + pairWeight(p);
-              // Without the top financial card the rail starts beside Overview, so it has that much more room
-              const railHeadroom = showPrimaryFinCard ? 0 : 300;
-              // Positions are fixed: product cards live in the main column, AI + financials in the right rail.
-              // Only movable cards hop between the main column and the rail, and a taller
-              // main column costs double, so any leftover gap prefers the bottom-left corner.
+              // The Overview card tops the main column; without a description its fields sit in two short columns
+              const overviewWeight = hasCompanyDescription ? 400 : 180;
+              const mainH = (moved: ZoneCard[]) => overviewWeight + sum(mainCards) + pairWeight(moved);
+              // A longer rail leaves space bottom left, so it costs double: spare space should end up bottom right
               const cost = (mainHeight: number, railHeight: number) =>
-                mainHeight > railHeight ? (mainHeight - railHeight) * 2 : railHeight - mainHeight;
-              // Heights compared when balancing; in aligned mode only the lower tier counts
-              const leftH = (p: ZoneCard[]) => (aligned ? pairWeight(p) : mainH(p));
-              const rightH = (r: ZoneCard[]) => (aligned ? sum(r.filter((c) => c.id !== "fin2")) : sum(r) - railHeadroom);
-              // Movable cards hop whichever way closes the gap more (rail cards move left when the rail runs longer)
-              for (let guard = 0; guard < 4; guard++) {
-                const current = cost(leftH(pairCards), rightH(railCards));
-                let best: { cost: number; card: ZoneCard; toRail: boolean } | null = null;
-                for (const c of pairCards) {
-                  if (!c.movable || aligned) continue;
-                  const k = cost(leftH(pairCards.filter((x) => x !== c)), rightH([...railCards, c]));
-                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c, toRail: true };
-                }
+                railHeight > mainHeight ? (railHeight - mainHeight) * 2 : mainHeight - railHeight;
+              // Movable rail cards (Management, Subsidiaries) move under the main column when that closes the gap
+              for (let guard = 0; guard < 3; guard++) {
+                const current = cost(mainH(movedCards), sum(railCards));
+                let best: { cost: number; card: ZoneCard } | null = null;
                 for (const c of railCards) {
-                  if (!c.movable) continue;
-                  const k = cost(leftH([...pairCards, c]), rightH(railCards.filter((x) => x !== c)));
-                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c, toRail: false };
+                  if (!c.movable || railCards.length <= 1) continue;
+                  const k = cost(mainH([...movedCards, c]), sum(railCards.filter((x) => x !== c)));
+                  if (k < current && (!best || k < best.cost)) best = { cost: k, card: c };
                 }
                 if (!best) break;
                 const moving = best.card;
-                if (best.toRail) {
-                  pairCards = pairCards.filter((x) => x !== moving);
-                  railCards = [...railCards, moving];
-                } else {
-                  railCards = railCards.filter((x) => x !== moving);
-                  pairCards = [...pairCards, moving].sort((x, y) => pairOrder.indexOf(x.id) - pairOrder.indexOf(y.id));
-                }
+                railCards = railCards.filter((x) => x !== moving);
+                movedCards = [...movedCards, moving].sort((x, y) => railOrder.indexOf(x.id) - railOrder.indexOf(y.id));
               }
-              const renderPair = (cardsIn: ZoneCard[]) =>
-                cardsIn.length > 0 && (
-                  <div className="company-zone-pair">
-                    {splitPair(cardsIn).map((col, i) => (
-                      <div key={i} className="company-zone-pair-col">
+              const renderMoved = () =>
+                movedCards.length > 0 && (
+                  <div className={`company-col-pair${movedCards.length === 1 ? " company-col-pair--single" : ""}`}>
+                    {(movedCards.length === 1 ? [movedCards] : splitPair(movedCards)).map((col, i) => (
+                      <div key={i} className="company-col-pair-col">
                         {col.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
                       </div>
                     ))}
                   </div>
                 );
-              if (aligned) {
-                return (
-                  <>
-                    <div className="company-zone-top-left">
-                      {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                      {renderProductZone()}
-                      {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    </div>
-                    <div className="company-zone-top-right">{fin?.node()}</div>
-                    <div className="company-zone-low-left">{renderPair(pairCards)}</div>
-                    <div className="company-zone-low-right">
-                      {railCards
-                        .filter((c) => c.id !== "fin2")
-                        .map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    </div>
-                  </>
-                );
-              }
               return (
                 <>
-                  <div className="company-zone-main">
-                    {wideAbove.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {renderProductZone()}
-                    {wideBelow.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                    {renderPair(pairCards)}
+                  <div className="company-col-main">
+                    {mainCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    {renderMoved()}
                   </div>
-                  <div className={`company-zone-rail${showPrimaryFinCard ? "" : " company-zone-rail--top"}`}>
-                    {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
-                  </div>
+                  {railCards.length > 0 && (
+                    <div className="company-col-rail">
+                      {railCards.map((c) => <React.Fragment key={c.id}>{c.node()}</React.Fragment>)}
+                    </div>
+                  )}
                 </>
               );
             })()}
