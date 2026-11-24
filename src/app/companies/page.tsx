@@ -7,8 +7,9 @@ import React, {
   useCallback,
   useMemo,
   useRef,
+  Suspense,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -460,5 +461,16 @@ function CompaniesPageInner() {
 }
 
 export default function CompaniesPage() {
-  return <CompaniesPageInner />;
+  return (
+    <Suspense fallback={null}>
+      <CompaniesPageKeyedByUrl />
+    </Suspense>
+  );
+}
+
+// A client-side <Link> from the AsymmIQ bot to /companies?f.… keeps this page mounted, and the URL
+// is only read on first render. Remount when the query string changes so the filters/sort apply.
+function CompaniesPageKeyedByUrl() {
+  const searchParams = useSearchParams();
+  return <CompaniesPageInner key={searchParams.toString()} />;
 }

@@ -367,7 +367,13 @@ function CorporateEventsPageInner() {
 export default function CorporateEventsPage() {
   return (
     <Suspense fallback={null}>
-      <CorporateEventsPageInner />
+      <CorporateEventsPageKeyedByUrl />
     </Suspense>
   );
+}
+
+// Remount on query change so AsymmIQ deep links (client-side <Link>) re-read f.<id> params and sort.
+function CorporateEventsPageKeyedByUrl() {
+  const searchParams = useSearchParams();
+  return <CorporateEventsPageInner key={searchParams.toString()} />;
 }
