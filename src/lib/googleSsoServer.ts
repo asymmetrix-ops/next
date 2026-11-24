@@ -175,6 +175,7 @@ export async function syncGoogleSsoWithXano(input: {
       name: input.name || "",
       provider_uid: input.providerUid || "",
       hosted_domain: input.hostedDomain || "",
+      sso_secret: process.env.SSO_SHARED_SECRET || "",
     }),
     cache: "no-store",
   });

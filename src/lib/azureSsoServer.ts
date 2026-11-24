@@ -171,6 +171,7 @@ export async function syncAzureSsoWithXano(input: {
       name: input.name || "",
       provider_uid: input.providerUid || "",
       hosted_domain: "",
+      sso_secret: process.env.SSO_SHARED_SECRET || "",
     }),
     cache: "no-store",
   });
