@@ -5,6 +5,7 @@ import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPart
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import { DEFAULT_TAG_CAP } from "@/components/redesign/primitives";
 import type { SearchMultiValueItem } from "@/components/search/searchMultiValueUtils";
+import { HoverTooltip } from "@/components/ui/HoverTooltip";
 
 const ENTITY_FLAG_SIZE_PX = COUNTRY_FLAG_INLINE_SIZE_PX * 1.5;
 
@@ -19,6 +20,8 @@ export type CappedMultiValueLinksProps = {
   overflowClassName?: string;
   showLessClassName?: string;
   emptyFallback?: React.ReactNode;
+  // +N shows the full list in a hover box instead of expanding the cell
+  overflowHover?: boolean;
 };
 
 function renderEntityLabel(item: SearchMultiValueItem, flagSize: number) {
@@ -79,6 +82,7 @@ export function CappedMultiValueLinks({
   overflowClassName = "search-multi-value-overflow",
   showLessClassName = "search-multi-value-show-less",
   emptyFallback = <span>-</span>,
+  overflowHover = false,
 }: CappedMultiValueLinksProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -90,20 +94,39 @@ export function CappedMultiValueLinks({
   const overflowCount = Math.max(0, validItems.length - max);
   const visibleItems = expanded ? validItems : validItems.slice(0, max);
 
+  const allNames = validItems.map((item) => item.name.trim());
+
   const overflowControl =
     !expanded && overflowCount > 0 ? (
-      <button
-        type="button"
-        className={overflowClassName}
-        aria-expanded={false}
-        aria-label={`Show ${overflowCount} more`}
-        onClick={(event) => {
-          event.stopPropagation();
-          setExpanded(true);
-        }}
-      >
-        +{overflowCount}
-      </button>
+      overflowHover ? (
+        <HoverTooltip content={allNames.join("\n")}>
+          <button
+            type="button"
+            className={overflowClassName}
+            aria-label={`${overflowCount} more, full list: ${allNames.join("; ")}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              // Touch screens have no hover: a tap focuses the pill, which opens the list
+              event.currentTarget.focus();
+            }}
+          >
+            +{overflowCount}
+          </button>
+        </HoverTooltip>
+      ) : (
+        <button
+          type="button"
+          className={overflowClassName}
+          aria-expanded={false}
+          aria-label={`Show ${overflowCount} more`}
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded(true);
+          }}
+        >
+          +{overflowCount}
+        </button>
+      )
     ) : null;
 
   if (layout === "stack") {

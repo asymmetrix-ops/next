@@ -54,6 +54,7 @@ import { CappedMultiValueLinks } from "@/components/search/CappedMultiValueLinks
 import {
   entityLinksToMultiValueItems,
   namesToMultiValueItems,
+  type SearchMultiValueItem,
 } from "@/components/search/searchMultiValueUtils";
 import { DEFAULT_TAG_CAP } from "@/components/redesign/primitives";
 // import { useRightClick } from "@/hooks/useRightClick";
@@ -727,6 +728,66 @@ function HomeUserPageContent() {
     return mapped || "Not Available";
   };
 
+  // Primary sectors of an event as link items, linked when the sector id is known
+  const getEventPrimarySectorItems = (
+    event: CorporateEvent
+  ): SearchMultiValueItem[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ev: any = event as any;
+    const primaryRefs = parseSectorRefs(ev.primary);
+    if (primaryRefs.length > 0) {
+      return primaryRefs.map((s, idx) => ({
+        key: `primary-${s.id}-${idx}`,
+        name: s.name,
+        href: `/sector/${s.id}`,
+      }));
+    }
+    const sectors = safeParseJson<{ Primary?: string[] }>(ev.sectors);
+    const primaryNewArr = Array.isArray(sectors?.Primary)
+      ? sectors!.Primary.filter(Boolean)
+      : [];
+    const names =
+      primaryNewArr.length > 0
+        ? primaryNewArr
+        : getEventPrimarySectors(event).split(",");
+    return names.flatMap((raw, idx) => {
+      const name = String(raw).trim();
+      if (!name || name.toLowerCase() === "not available") return [];
+      const sectorId = primarySectorNameToId[normalizeSectorName(name)];
+      return [
+        {
+          key: `primary-${idx}-${name}`,
+          name,
+          href: sectorId ? `/sector/${sectorId}` : undefined,
+        },
+      ];
+    });
+  };
+
+  // Sector links shared by the Corporate Events and Deal Radar cards
+  const sectorLinkClassName =
+    "text-blue-700 hover:text-blue-900 hover:underline text-xs";
+  const sectorOverflowClassName =
+    "inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0";
+  const renderSectorLinks = (
+    items: SearchMultiValueItem[],
+    layout: "inline" | "stack"
+  ): React.ReactNode => (
+    <CappedMultiValueLinks
+      layout={layout}
+      items={items}
+      max={DEFAULT_TAG_CAP}
+      linkClassName={sectorLinkClassName}
+      overflowClassName={sectorOverflowClassName}
+      overflowHover
+      emptyFallback={null}
+      onLinkClick={(e) => {
+        const href = e.currentTarget.getAttribute("href");
+        if (href) void router.push(href);
+      }}
+    />
+  );
+
   // Corporate Event navigation handler with graceful fallback to search
   const handleCorporateEventClick = useCallback(
     (eventId?: number, description?: string) => {
@@ -764,12 +825,9 @@ function HomeUserPageContent() {
   const [corporateEventsLoading, setCorporateEventsLoading] = useState(true);
   // Name -> id lookups so Corporate Events sector text (which the home
   // events endpoint often returns as plain names, unlike Deal Radar's
-  // already-linked sector refs) can still render as links to /sector and
-  // /sub-sector profiles.
+  // already-linked sector refs) can still render as links to /sector
+  // profiles.
   const [primarySectorNameToId, setPrimarySectorNameToId] = useState<
-    Record<string, number>
-  >({});
-  const [secondarySectorNameToId, setSecondarySectorNameToId] = useState<
     Record<string, number>
   >({});
   const [insightsArticlesLoading, setInsightsArticlesLoading] = useState(true);
@@ -1049,10 +1107,7 @@ function HomeUserPageContent() {
     let cancelled = false;
     (async () => {
       try {
-        const [primaries, secondaries] = await Promise.all([
-          locationsService.getPrimarySectors(),
-          locationsService.getAllSecondarySectorsWithPrimary(),
-        ]);
+        const primaries = await locationsService.getPrimarySectors();
         if (cancelled) return;
         const primaryMap: Record<string, number> = {};
         for (const p of primaries) {
@@ -1061,13 +1116,6 @@ function HomeUserPageContent() {
           }
         }
         setPrimarySectorNameToId(primaryMap);
-        const secondaryMap: Record<string, number> = {};
-        for (const s of secondaries) {
-          if (s?.sector_name && typeof s.id === "number") {
-            secondaryMap[normalizeSectorName(s.sector_name)] = s.id;
-          }
-        }
-        setSecondarySectorNameToId(secondaryMap);
       } catch {
         // Leave maps empty — sector text still renders, just without links.
       }
@@ -1313,8 +1361,8 @@ function HomeUserPageContent() {
                           <th className="text-left">
                             Company
                           </th>
-                          <th className="text-center">
-                            Sector
+                          <th className="text-left">
+                            Sectors
                           </th>
                           <th className="text-center">
                             <span className="inline-flex items-center gap-1.5">
@@ -1386,26 +1434,19 @@ function HomeUserPageContent() {
                                   )}
                                 </div>
                               </td>
-                              <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-center">
+                              <td className="pl-3 pr-2 py-3 min-w-0 text-xs text-gray-700 align-top text-left">
                                 {item.primarySectors.length > 0 ? (
-                                  <CappedMultiValueLinks
-                                    layout="stack"
-                                    items={item.primarySectors.map((sector, idx) => ({
+                                  renderSectorLinks(
+                                    item.primarySectors.map((sector, idx) => ({
                                       key: `${sector.id}-${sector.name}-${idx}`,
                                       name: sector.name,
                                       href:
                                         sector.id > 0
                                           ? `/sector/${sector.id}`
                                           : undefined,
-                                    }))}
-                                    linkClassName="text-blue-700 hover:text-blue-900 hover:underline text-xs"
-                                    overflowClassName="inline-flex items-center rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold px-1.5 py-0.5 cursor-pointer border-0"
-                                    showLessClassName="text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer border-0 bg-transparent p-0 mt-0.5"
-                                    onLinkClick={(e) => {
-                                      const href = e.currentTarget.getAttribute("href");
-                                      if (href) void router.push(href);
-                                    }}
-                                  />
+                                    })),
+                                    "stack"
+                                  )
                                 ) : (
                                   "—"
                                 )}
@@ -1763,69 +1804,39 @@ function HomeUserPageContent() {
                                 );
                               })()}
                             </div>
-                            <div>
-                              <strong>Type:</strong>{" "}
-                              {(() => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const ev: any = event as any;
-                                const details = safeParseJson<{
-                                  Type?: string;
-                                  Funding_Stage?: string;
-                                  Amount?: string;
-                                  Investment_Amount?: {
-                                    value?: number;
-                                    currency?: string;
-                                    formatted?: string;
-                                  };
-                                  Enterprise_Value?: {
-                                    value?: number;
-                                    currency?: string;
-                                    formatted?: string;
-                                  } | null;
-                                }>(ev.deal_details);
+                            {/* Deal type and stage */}
+                            {(() => {
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              const ev: any = event as any;
+                              const details = safeParseJson<{
+                                Type?: string;
+                                Funding_Stage?: string;
+                              }>(ev.deal_details);
 
-                                const dealType =
-                                  details?.Type || ev.deal_type || ev.type;
-                                return dealType || "Not Available";
-                              })()}
-                            </div>
-                            <div>
-                              <strong>Deal Stage:</strong>{" "}
-                              {(() => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const ev: any = event as any;
-                                const details = safeParseJson<{
-                                  Funding_Stage?: string;
-                                }>(ev.deal_details);
+                              const dealType =
+                                details?.Type || ev.deal_type || ev.type;
+                              const fundingStage = (
+                                (details?.Funding_Stage ||
+                                  ev.investment_data?.Funding_stage ||
+                                  ev.investment_data?.funding_stage ||
+                                  "") as string
+                              ).trim();
 
-                                const fundingStage = (
-                                  (details?.Funding_Stage ||
-                                    (event as {
-                                      investment_data?: {
-                                        Funding_stage?: string;
-                                        funding_stage?: string;
-                                      };
-                                    }).investment_data?.Funding_stage ||
-                                    (event as {
-                                      investment_data?: {
-                                        Funding_stage?: string;
-                                        funding_stage?: string;
-                                      };
-                                    }).investment_data?.funding_stage ||
-                                    "") as string
-                                ).trim();
-
-                                if (!fundingStage) return "Not Available";
-                                return (
-                                  <span
-                                    className="inline-block px-2 py-0.5 ml-1 text-[10px] font-semibold rounded-full"
-                                    style={tagColourStyle(getFundingStageTone(fundingStage))}
-                                  >
-                                    {fundingStage}
-                                  </span>
-                                );
-                              })()}
-                            </div>
+                              if (!dealType && !fundingStage) return null;
+                              return (
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {dealType && <span>{dealType}</span>}
+                                  {fundingStage && (
+                                    <span
+                                      className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full"
+                                      style={tagColourStyle(getFundingStageTone(fundingStage))}
+                                    >
+                                      {fundingStage}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <div>
                               <strong>Amount (m):</strong>{" "}
                               {(() => {
@@ -1970,163 +1981,16 @@ function HomeUserPageContent() {
                                 return valuation || "Not Available";
                               })()}
                             </div>
-                            <div>
-                              <strong>Primary:</strong>{" "}
-                              {(() => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const ev: any = event as any;
-                                const sectors = safeParseJson<{
-                                  Primary?: string[];
-                                  Secondary?: string[];
-                                }>(ev.sectors);
-
-                                const primaryNewArr = Array.isArray(sectors?.Primary)
-                                  ? (sectors!.Primary as string[]).filter(Boolean)
-                                  : [];
-
-                                const primaryRefs = parseSectorRefs(ev.primary);
-
-                                const primaryFromNew = primaryNewArr.join(", ");
-
-                                const primary =
-                                  primaryFromNew ||
-                                  (primaryRefs.length > 0
-                                    ? primaryRefs.map((s) => s.name).join(", ")
-                                    : "") ||
-                                  getEventPrimarySectors(event);
-
-                                if (!primary || primary === "Not Available") {
-                                  return "Not Available";
-                                }
-
-                                return primaryRefs.length > 0 ? (
-                                  <>
-                                    {primaryRefs.map((s, idx, arr) => (
-                                      <span key={`m-primary-${s.id}`}>
-                                        <a
-                                          href={`/sector/${s.id}`}
-                                          className="dash-ev-link"
-                                          style={{ fontWeight: "500" }}
-                                        >
-                                          {s.name}
-                                        </a>
-                                        {idx < arr.length - 1 && ", "}
-                                      </span>
-                                    ))}
-                                  </>
-                                ) : (
-                                  <>
-                                    {primary.split(",").map((name, idx, arr) => {
-                                      const trimmed = name.trim();
-                                      const sectorId =
-                                        primarySectorNameToId[
-                                          normalizeSectorName(trimmed)
-                                        ];
-                                      return (
-                                        <span key={`m-primary-str-${idx}`}>
-                                          {sectorId ? (
-                                            <a
-                                              href={`/sector/${sectorId}`}
-                                              className="dash-ev-link"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {trimmed}
-                                            </a>
-                                          ) : (
-                                            trimmed
-                                          )}
-                                          {idx < arr.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    })}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                            <div>
-                              <strong>Secondary:</strong>{" "}
-                              {(() => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const ev: any = event as any;
-                                const sectors = safeParseJson<{
-                                  Primary?: string[];
-                                  Secondary?: string[];
-                                }>(ev.sectors);
-
-                                const secondaryNewArr = Array.isArray(sectors?.Secondary)
-                                  ? (sectors!.Secondary as string[]).filter(Boolean)
-                                  : [];
-
-                                const secondaryRefs = parseSectorRefs(ev.secondary);
-
-                                const secondaryFromNew = secondaryNewArr.slice(0, 3);
-
-                                const list =
-                                  event.Target_Counterparty?.new_company
-                                    ?._sectors_objects?.sectors_id || [];
-                                const secondaryLegacy = list
-                                  .filter(
-                                    (sector) =>
-                                      sector &&
-                                      sector.Sector_importance !== "Primary"
-                                  )
-                                  .map((sector) => sector.sector_name)
-                                  .filter(Boolean)
-                                  .slice(0, 3);
-                                const secondary =
-                                  secondaryFromNew.length > 0
-                                    ? secondaryFromNew
-                                    : secondaryRefs.length > 0
-                                    ? secondaryRefs.slice(0, 3).map((s) => s.name)
-                                    : secondaryLegacy;
-
-                                if (secondary.length === 0) {
-                                  return "Not Available";
-                                }
-
-                                return secondaryRefs.length > 0 ? (
-                                  <>
-                                    {secondaryRefs.slice(0, 3).map((s, idx, arr) => (
-                                      <span key={`m-secondary-${s.id}`}>
-                                        <a
-                                          href={`/sub-sector/${s.id}`}
-                                          className="dash-ev-link"
-                                          style={{ fontWeight: "500" }}
-                                        >
-                                          {s.name}
-                                        </a>
-                                        {idx < arr.length - 1 && ", "}
-                                      </span>
-                                    ))}
-                                  </>
-                                ) : (
-                                  <>
-                                    {secondary.map((name, idx, arr) => {
-                                      const sectorId =
-                                        secondarySectorNameToId[
-                                          normalizeSectorName(name)
-                                        ];
-                                      return (
-                                        <span key={`m-secondary-str-${idx}`}>
-                                          {sectorId ? (
-                                            <a
-                                              href={`/sub-sector/${sectorId}`}
-                                              className="dash-ev-link"
-                                              style={{ fontWeight: "500" }}
-                                            >
-                                              {name}
-                                            </a>
-                                          ) : (
-                                            name
-                                          )}
-                                          {idx < arr.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    })}
-                                  </>
-                                );
-                              })()}
-                            </div>
+                            {(() => {
+                              const sectorItems = getEventPrimarySectorItems(event);
+                              if (sectorItems.length === 0) return null;
+                              return (
+                                <div>
+                                  <strong>Sectors:</strong>{" "}
+                                  {renderSectorLinks(sectorItems, "inline")}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       ))}
@@ -2493,26 +2357,24 @@ function HomeUserPageContent() {
 
                                   return (
                                     <div className="space-y-1.5">
-                                      {dealType && (
-                                        <div className="dash-ev-kv">
-                                          <strong>Type</strong>{" "}
-                                          <span
-                                            className="dash-chip-neutral"
-                                            style={tagColourStyle(DEAL_TYPE_TONE)}
-                                          >
-                                            {dealType}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {fundingStage && (
-                                        <div className="dash-ev-kv">
-                                          <strong>Stage</strong>{" "}
-                                          <span
-                                            className="dash-chip-pos"
-                                            style={tagColourStyle(getFundingStageTone(fundingStage))}
-                                          >
-                                            {fundingStage}
-                                          </span>
+                                      {(dealType || fundingStage) && (
+                                        <div className="dash-ev-kv flex flex-wrap items-center gap-1">
+                                          {dealType && (
+                                            <span
+                                              className="dash-chip-neutral"
+                                              style={tagColourStyle(DEAL_TYPE_TONE)}
+                                            >
+                                              {dealType}
+                                            </span>
+                                          )}
+                                          {fundingStage && (
+                                            <span
+                                              className="dash-chip-pos"
+                                              style={tagColourStyle(getFundingStageTone(fundingStage))}
+                                            >
+                                              {fundingStage}
+                                            </span>
+                                          )}
                                         </div>
                                       )}
                                       {amount && (
@@ -2538,131 +2400,7 @@ function HomeUserPageContent() {
                               {!leftNavOpen && (
                                 <td className="px-4 py-4">
                                   {/* Sectors column */}
-                                  {(() => {
-                                    const sectors = safeParseJson<{
-                                      Primary?: string[];
-                                      Secondary?: string[];
-                                    }>(ev.sectors);
-
-                                    const primaryNewArr = Array.isArray(sectors?.Primary)
-                                      ? (sectors!.Primary as string[]).filter(Boolean)
-                                      : [];
-                                    const secondaryNewArr = Array.isArray(sectors?.Secondary)
-                                      ? (sectors!.Secondary as string[]).filter(Boolean)
-                                      : [];
-
-                                    const primaryRefs = parseSectorRefs(ev.primary);
-                                    const secondaryRefs = parseSectorRefs(ev.secondary);
-
-                                    const primaryFromNew = primaryNewArr.join(", ");
-                                    const secondaryFromNew = secondaryNewArr.slice(0, 3);
-
-                                    const primary =
-                                      primaryFromNew ||
-                                      (primaryRefs.length > 0
-                                        ? primaryRefs.map((s) => s.name).join(", ")
-                                        : "") ||
-                                      getEventPrimarySectors(event);
-                                    const list =
-                                      event.Target_Counterparty?.new_company
-                                        ?._sectors_objects?.sectors_id || [];
-                                    const secondaryLegacy = list
-                                      .filter(
-                                        (sector) =>
-                                          sector &&
-                                          sector.Sector_importance !== "Primary"
-                                      )
-                                      .map((sector) => sector.sector_name)
-                                      .filter(Boolean)
-                                      .slice(0, 3);
-                                    const secondary =
-                                      secondaryFromNew.length > 0
-                                        ? secondaryFromNew
-                                        : secondaryRefs.length > 0
-                                        ? secondaryRefs.slice(0, 3).map((s) => s.name)
-                                        : secondaryLegacy;
-                                    return (
-                                      <div className="space-y-1">
-                                        {primary && primary !== "Not Available" && (
-                                          <div className="dash-ev-kv">
-                                            <strong>Primary:</strong>{" "}
-                                            {primaryRefs.length > 0
-                                              ? primaryRefs.map((s, idx, arr) => (
-                                                  <span key={`primary-${s.id}`}>
-                                                    <a
-                                                      href={`/sector/${s.id}`}
-                                                      className="dash-ev-link"
-                                                    >
-                                                      {s.name}
-                                                    </a>
-                                                    {idx < arr.length - 1 && ", "}
-                                                  </span>
-                                                ))
-                                              : primary.split(",").map((name, idx, arr) => {
-                                                  const trimmed = name.trim();
-                                                  const sectorId =
-                                                    primarySectorNameToId[
-                                                      normalizeSectorName(trimmed)
-                                                    ];
-                                                  return (
-                                                    <span key={`primary-${idx}`}>
-                                                      {sectorId ? (
-                                                        <a
-                                                          href={`/sector/${sectorId}`}
-                                                          className="dash-ev-link"
-                                                        >
-                                                          {trimmed}
-                                                        </a>
-                                                      ) : (
-                                                        trimmed
-                                                      )}
-                                                      {idx < arr.length - 1 && ", "}
-                                                    </span>
-                                                  );
-                                                })}
-                                          </div>
-                                        )}
-                                        {secondary.length > 0 && (
-                                          <div className="dash-ev-kv">
-                                            <strong>Secondary:</strong>{" "}
-                                            {secondaryRefs.length > 0
-                                              ? secondaryRefs.slice(0, 3).map((s, idx, arr) => (
-                                                  <span key={`secondary-${s.id}`}>
-                                                    <a
-                                                      href={`/sub-sector/${s.id}`}
-                                                      className="dash-ev-link"
-                                                    >
-                                                      {s.name}
-                                                    </a>
-                                                    {idx < arr.length - 1 && ", "}
-                                                  </span>
-                                                ))
-                                              : secondary.map((name, idx, arr) => {
-                                                  const sectorId =
-                                                    secondarySectorNameToId[
-                                                      normalizeSectorName(name)
-                                                    ];
-                                                  return (
-                                                    <span key={`secondary-${idx}`}>
-                                                      {sectorId ? (
-                                                        <a
-                                                          href={`/sub-sector/${sectorId}`}
-                                                          className="dash-ev-link"
-                                                        >
-                                                          {name}
-                                                        </a>
-                                                      ) : (
-                                                        name
-                                                      )}
-                                                      {idx < arr.length - 1 && ", "}
-                                                    </span>
-                                                  );
-                                                })}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })()}
+                                  {renderSectorLinks(getEventPrimarySectorItems(event), "stack")}
                                 </td>
                               )}
                             </tr>
