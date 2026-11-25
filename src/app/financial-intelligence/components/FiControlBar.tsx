@@ -646,6 +646,7 @@ export function FiControlBar({
 
           {targetPickerOpen && (
             <AnchoredPopover
+              dismissOnScroll
               anchorRef={targetPickerRef}
               onDismiss={() => setTargetPickerOpen(false)}
               width={300}
@@ -719,6 +720,7 @@ export function FiControlBar({
 
               {editingFilterId && editingFilter && editingDef && (
                 <AnchoredPopover
+              dismissOnScroll
                   anchorRef={editingAnchorRef}
                   onDismiss={() => setEditingFilterId(null)}
                   bare
@@ -843,6 +845,7 @@ export function FiControlBar({
 
               {addCompanyOpen && (
                 <AnchoredPopover
+              dismissOnScroll
                   anchorRef={addCompanyRef}
                   onDismiss={() => setAddCompanyOpen(false)}
                   width={300}

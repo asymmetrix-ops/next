@@ -31,6 +31,8 @@ export interface AnchoredPopoverProps {
   lockPosition?: boolean;
   /** Called once the popover is positioned (e.g. to autofocus a search field). */
   onPositioned?: () => void;
+  /** Dismiss when the page (or any ancestor scroller) scrolls, so a fixed popover never trails the viewport. */
+  dismissOnScroll?: boolean;
 }
 
 /** Prevent scroll chaining from inner filter lists to the page. */
@@ -60,6 +62,7 @@ export function AnchoredPopover({
   bare = false,
   lockPosition = true,
   onPositioned,
+  dismissOnScroll = false,
 }: AnchoredPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -158,6 +161,18 @@ export function AnchoredPopover({
       document.removeEventListener("keydown", onKey);
     };
   }, [onDismiss, anchorRef, boundaryRef]);
+
+  useEffect(() => {
+    if (!dismissOnScroll) return;
+    function onScroll(e: Event) {
+      const t = e.target as Node | null;
+      // Scrolling inside the popover itself (result lists) must not close it.
+      if (t && ref.current?.contains(t)) return;
+      onDismiss();
+    }
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [dismissOnScroll, onDismiss]);
 
   return (
     <div
