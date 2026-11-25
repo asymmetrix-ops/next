@@ -1,6 +1,5 @@
 import type { IncomeStatementApiEntry } from "@/lib/incomeStatement";
 import type { CompanyFinancialMetricsCardRow } from "@/lib/companyFinancialMetricsCard";
-import { resolveFinancialMetricSourceType } from "@/lib/financialIntelligence/sourceTypes";
 import {
   parseFinancialMetricFx,
   resolveCurrencyCode,
@@ -263,13 +262,8 @@ function applyCurrencyFallbacks(row: CompanyFinancialMetricsCardRow): void {
   }
 }
 
+/** The label is used exactly as the API returns it; null means no tag. */
 function resolveCardCellSourceLabel(cell: CardMetricValue): string | null {
-  const resolved = resolveFinancialMetricSourceType(
-    cell.source_label,
-    undefined,
-    cell.color
-  );
-  if (resolved) return resolved;
   return cell.source_label?.trim() || null;
 }
 

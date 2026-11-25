@@ -15,10 +15,8 @@ import {
 import {
   getTransactionStatusTone,
   getTransactionSignalDescription,
-  DEAL_TYPE_TONE,
-  TRANSACTION_SIGNAL_TONES,
-  type TagTone,
 } from "@/lib/tagColors";
+import { DataSourceTag } from "@/components/tags/DataSourceTag";
 import { TransactionStatusPill } from "@/components/tags/TransactionStatusPill";
 import { CompanyAvatar } from "@/components/CompanyAvatar";
 import {
@@ -69,13 +67,22 @@ interface AdvisorRef {
 }
 
 /** "Proprietary" | "Public" from Financial Metrics (x2_116.proprietary); null for legacy/empty. */
-type RevenueSourceType = "Proprietary" | "Public" | "Estimate" | null;
+type RevenueSourceType = string | null;
+
+/** Data source labels, exactly as the API returns them (also the values of `hidden_data_sources`). */
+const DATA_SOURCES = [
+  { label: "Proprietary", hint: "Asymmetrix research and primary data" },
+  { label: "Public", hint: "Public filings and disclosures" },
+  { label: "Estimate", hint: "Modelled / estimated figures" },
+] as const;
 
 interface ValSource {
   value: string | null;
   source: string | null;
   source_type?: RevenueSourceType;
   currency?: string | null;
+  /** Present (true) only when the Data source filter hid this figure. */
+  hidden_by_data_source?: boolean;
 }
 
 interface LinkedEvent {
@@ -368,38 +375,44 @@ function formatVal(val: ValSource): React.ReactNode {
   return appendMetricCurrency(plain, val.currency ?? undefined);
 }
 
-/** Same tones already used for "Proprietary Intel" (transaction signal) and "Trade" (buyer type). */
-const REVENUE_SOURCE_TONES: Record<"Proprietary" | "Public" | "Estimate", TagTone> = {
-  Estimate: { text: "#8A5A00", fill: "#FFF4DC", border: "#F3E0B0" },
-  Proprietary: TRANSACTION_SIGNAL_TONES["proprietary intel"],
-  Public: DEAL_TYPE_TONE,
-};
-
-/** Colored pill ("Proprietary" / "Public") marking where a Revenue/EV figure came from — identical markup/sizing to BuyerTypeCell's pills (e.g. "Trade"). */
-function SourceTypeTag({ type }: { type: RevenueSourceType | undefined }) {
-  if (type !== "Proprietary" && type !== "Public" && type !== "Estimate") return null;
-  const tone = REVENUE_SOURCE_TONES[type];
+/** Revenue / EV figure with its source tag below it. No value → "-" and no tag. */
+function formatValWithSourceTag(val: ValSource): React.ReactNode {
+  const formatted = formatVal(val);
+  if (formatted === EMPTY_DISPLAY || !val.source_type?.trim()) return formatted;
   return (
-    <span
-      className="inline-block rounded-full border text-[11px] font-medium px-2 py-0.5"
-      style={{ backgroundColor: tone.fill, color: tone.text, borderColor: tone.border }}
-    >
-      {type}
-    </span>
+    <div className="flex flex-col items-start gap-1">
+      <span>{formatted}</span>
+      <DataSourceTag label={val.source_type} />
+    </div>
   );
 }
 
-/** Revenue / EV value with its source-type tag alongside when available (Financial Metrics only). */
-function formatValWithSourceTag(val: ValSource): React.ReactNode {
-  const formatted = formatVal(val);
-  if (formatted === EMPTY_DISPLAY) return formatted;
-  if (val.source_type !== "Proprietary" && val.source_type !== "Public") {
-    return formatted;
-  }
+/** Data source filter: all ticked by default; unticked sources hide figures, never rows. */
+function DataSourceFilter({
+  hidden,
+  onChange,
+}: {
+  hidden: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const toggle = (label: string) =>
+    onChange(
+      hidden.includes(label) ? hidden.filter((h) => h !== label) : [...hidden, label]
+    );
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span>{formatted}</span>
-      <SourceTypeTag type={val.source_type} />
+    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-700">
+      <span className="font-medium text-gray-500">Data source</span>
+      {DATA_SOURCES.map(({ label, hint }) => (
+        <label key={label} className="inline-flex cursor-pointer items-center gap-1.5" title={hint}>
+          <input
+            type="checkbox"
+            checked={!hidden.includes(label)}
+            onChange={() => toggle(label)}
+          />
+          <span>{label}</span>
+          <span className="hidden text-gray-400 md:inline">· {hint}</span>
+        </label>
+      ))}
     </div>
   );
 }
@@ -446,7 +459,8 @@ function buildDashboardUrl(
   barFilters: DealRadarApiFilter[],
   sort: { key: SortKey | null; dir: SortDir } = { key: null, dir: "asc" },
   preferredCurrencyId?: number,
-  sectorId?: number
+  sectorId?: number,
+  hiddenSources: string[] = []
 ): URL {
   const url = new URL(`${API_BASE}/get_deal_radar_dashboard`);
   if (sectorId != null) url.searchParams.append("sector_ids[]", String(sectorId));
@@ -462,6 +476,8 @@ function buildDashboardUrl(
   if (barFilters.length > 0) {
     url.searchParams.set("filters_json", JSON.stringify(barFilters));
   }
+  // Unticked data sources: hides figures only, never rows (separate from filters_json).
+  hiddenSources.forEach((src) => url.searchParams.append("hidden_data_sources[]", src));
   if (sort.key) {
     url.searchParams.set("sort_by", sort.key);
     url.searchParams.set("sort_dir", sort.dir);
@@ -673,6 +689,9 @@ export default function DealRadarView({
   const [filterBarState, setFilterBarState] = useState<FilterBarState>(
     INITIAL_FILTER_BAR_STATE
   );
+  // Unticked sources. Resets to all ticked on reload (persistence unconfirmed).
+  const [hiddenSources, setHiddenSources] = useState<string[]>([]);
+  const hiddenKey = hiddenSources.join(",");
   const [statusBubbleId, setStatusBubbleId] = useState<number | null>(null);
   const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({
     key: null,
@@ -772,7 +791,7 @@ export default function DealRadarView({
           typeof window !== "undefined"
             ? localStorage.getItem("asymmetrix_auth_token")
             : null;
-        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState, preferredCurrencyId, fixedSectorId);
+        const url = buildDashboardUrl(offset, search, statusId, barFilters, sortState, preferredCurrencyId, fixedSectorId, hiddenSources);
 
         const res = await fetch(url.toString(), {
           headers: {
@@ -797,7 +816,7 @@ export default function DealRadarView({
         if (requestId === latestRequestRef.current) setLoading(false);
       }
     },
-    [preferredCurrencyId, fixedSectorId]
+    [preferredCurrencyId, fixedSectorId, hiddenSources]
   );
 
   // Filter-bar items -> API filters (labels back to ids where the endpoint filters by id)
@@ -860,7 +879,7 @@ export default function DealRadarView({
   // Back to page 1 whenever the filters change
   useEffect(() => {
     setPage(1);
-  }, [barFiltersKey, statusBubbleId, sort]);
+  }, [barFiltersKey, statusBubbleId, sort, hiddenKey]);
 
   // Re-fetch when the page, search or filters change
   useEffect(() => {
@@ -1021,6 +1040,7 @@ export default function DealRadarView({
               totalCount={pagination?.total_items ?? 0}
               entityLabel="transactions"
             />
+            <DataSourceFilter hidden={hiddenSources} onChange={setHiddenSources} />
           </div>
         </div>
 

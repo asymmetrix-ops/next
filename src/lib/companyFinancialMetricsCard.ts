@@ -142,6 +142,8 @@ export type FinancialsCellValue = {
   display: string;
   raw: number | null;
   sourceType: FiMetricSourceType | null;
+  /** Source label exactly as the API returned it (tag text); null = no tag. */
+  sourceLabel?: string | null;
   nativeDisplay?: string | null;
   nativeRaw?: number | null;
   fxTooltip?: string | null;
@@ -593,6 +595,18 @@ function resolveMetricCurrencyPair(
 }
 
 function formatMetricValue(
+  row: CompanyFinancialMetricsCardRow,
+  metric: FinancialsMetricDef,
+  platformCurrencyCode?: string | null
+): FinancialsCellValue {
+  const cell = formatMetricValueCore(row, metric, platformCurrencyCode);
+  const rawLabel = row[metric.sourceField];
+  cell.sourceLabel =
+    typeof rawLabel === "string" && rawLabel.trim() ? rawLabel.trim() : null;
+  return cell;
+}
+
+function formatMetricValueCore(
   row: CompanyFinancialMetricsCardRow,
   metric: FinancialsMetricDef,
   platformCurrencyCode?: string | null

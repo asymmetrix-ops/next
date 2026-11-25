@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSourceTag } from "@/components/tags/DataSourceTag";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import {
@@ -192,19 +193,30 @@ function MetricValueCell({
   const isEmpty = display === "-";
 
   return (
-    <span
+    <div
       style={{
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: isEmpty ? 600 : 700,
-        color: isEmpty ? T.faint : sourceTypeColor(cell.sourceType),
-        fontVariantNumeric: "tabular-nums",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
         minWidth: 0,
-        textAlign: "center",
       }}
     >
-      {display}
-    </span>
+      <span
+        style={{
+          fontFamily: T.sans,
+          fontSize: 13,
+          fontWeight: isEmpty ? 600 : 700,
+          color: isEmpty ? T.faint : sourceTypeColor(cell.sourceType),
+          fontVariantNumeric: "tabular-nums",
+          minWidth: 0,
+          textAlign: "center",
+        }}
+      >
+        {display}
+      </span>
+      {isEmpty ? null : <DataSourceTag label={cell.sourceLabel} />}
+    </div>
   );
 }
 
