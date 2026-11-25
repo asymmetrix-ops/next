@@ -23,10 +23,6 @@ export function PressMentionsList() {
             >
               Press Mentions
             </h2>
-            <p className="landing-text-secondary mt-3 text-base md:text-md">
-              Where Asymmetrix and our research are featured in the press and on
-              other websites.
-            </p>
           </Reveal>
           <ul className="flex flex-col gap-4">
             {PRESS_MENTIONS.map((mention, index) => (
