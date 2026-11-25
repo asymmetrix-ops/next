@@ -1,7 +1,6 @@
 import { Cta15 } from "../components/Cta15";
 import { Footer1 } from "../components/Footer1";
 import { Navbar1 } from "../components/Navbar1";
-import { PressReleasesHero } from "../components/PressReleasesHero";
 import { PressReleasesList } from "../components/PressReleasesList";
 import { PressMentionsList } from "../components/PressMentionsList";
 import { PRESS_MENTIONS } from "@/lib/pressMentions";
@@ -52,10 +51,7 @@ export default function PressReleasesPage() {
       />
       <Navbar1 />
       <main>
-        <PressReleasesHero
-          title="Press"
-          description="Announcements from Asymmetrix Intelligence and coverage of Asymmetrix in the press."
-        />
+        <h1 className="sr-only">Asymmetrix Press</h1>
         <PressReleasesList />
         <PressMentionsList />
         <Cta15 />
