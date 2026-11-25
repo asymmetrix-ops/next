@@ -150,7 +150,7 @@ export function Navbar1() {
             className={NAV_LINK_CLASS}
             onClick={closeMobileMenu}
           >
-            Press Releases
+            Press
           </Link>
           <a
             href={EVENTS_LONDON_2026_URL}

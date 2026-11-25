@@ -11,6 +11,9 @@ export function PressReleasesList() {
     <section className="landing-navy-bg px-[5%] pb-16 pt-16 md:pb-24 md:pt-20 lg:pb-28 lg:pt-24">
       <div className="container">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          <h2 className="text-3xl font-bold text-text-alternative md:text-4xl">
+            Press Releases
+          </h2>
           {PRESS_RELEASES.map((release, index) => (
             <Reveal key={release.slug} delay={index * 0.08}>
               <Link
