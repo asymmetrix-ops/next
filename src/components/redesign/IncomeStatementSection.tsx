@@ -1,5 +1,6 @@
 "use client";
 
+import { DataSourceTag } from "@/components/tags/DataSourceTag";
 import React from "react";
 import {
   LinkedH,
@@ -181,6 +182,11 @@ export function IncomeStatementTable({
                     style={incomeStatementValueStyle(display)}
                   >
                     {display}
+                    {display === "-" || display === "—" ? null : (
+                      <div style={{ marginTop: 3 }}>
+                        <DataSourceTag label="Public" />
+                      </div>
+                    )}
                   </td>
                 );
               })}

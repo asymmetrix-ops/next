@@ -6,6 +6,7 @@
  * 2. Subscription Metrics · Other Metrics
  */
 import React, { useMemo, useState } from "react";
+import { DataSourceTag } from "@/components/tags/DataSourceTag";
 import {
   LinkPanel,
   T,
@@ -75,6 +76,9 @@ function PeriodHeader({ period }: { period?: string }) {
 }
 
 function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
+  const isBlank = (v?: string) => !v || v.trim() === "" || v.trim() === "-" || v.trim() === "—";
+  const hasValue = !isBlank(row.value);
+  const hasSource = !isBlank(row.source);
   return (
     <div
       className="info-row"
@@ -98,7 +102,12 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
           color: finMetricValueColorForSource(row.source),
         }}
       >
-        {row.value}
+        <span>{row.value}</span>
+        {hasValue && hasSource ? (
+          <span style={{ display: "block", marginTop: 3 }}>
+            <DataSourceTag label={row.source} />
+          </span>
+        ) : null}
       </span>
       <span className="fin-metric-source-col" style={finMetricSourceColStyle}>
         {row.source}
