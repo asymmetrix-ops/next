@@ -78,7 +78,7 @@ export function Footer1() {
                     href={`${LANDING_HOME}/press-releases`}
                     className="landing-text-secondary flex items-center gap-3 hover:text-text-alternative"
                   >
-                    <span>Press Releases</span>
+                    <span>Press</span>
                   </a>
                 </li>
                 <li className="py-2 text-sm">
