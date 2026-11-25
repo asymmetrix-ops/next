@@ -16,11 +16,9 @@ import {
   FIN_METRIC_VALUE_CLASS,
   finMetricValueColStyle,
   finMetricValueColorForSource,
-  finMetricSourceColStyle,
-  finMetricPeriodSourceColStyle,
   finMetricsContentXPad,
   finMetricsPeriodHeaderStyle,
-  FIN_METRIC_GRID_COLS,
+  FIN_METRIC_COMPACT_LABEL_COL_WIDTH,
   FIN_METRICS_TAB_BAR_STYLE,
   FIN_METRICS_TAB_STYLE,
 } from "./primitives";
@@ -48,7 +46,8 @@ type Props = {
   fillGridCell?: boolean;
 };
 
-const GRID_COLS = FIN_METRIC_GRID_COLS;
+// Label | value (the source tag sits under the figure, so no separate Source column).
+const GRID_COLS = `${FIN_METRIC_COMPACT_LABEL_COL_WIDTH}px 1fr`;
 
 function PeriodHeader({ period }: { period?: string }) {
   if (!period) return null;
@@ -68,9 +67,6 @@ function PeriodHeader({ period }: { period?: string }) {
     >
       <span />
       <span className="fin-metric-period-col" style={finMetricPeriodColStyle}>{period}</span>
-      <span className="fin-metric-period-source-col" style={finMetricPeriodSourceColStyle}>
-        Source
-      </span>
     </div>
   );
 }
@@ -84,6 +80,7 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
       className="info-row"
       style={{
         ...finMetricRowStyle,
+        gridTemplateColumns: GRID_COLS,
         borderBottom: last ? "none" : finMetricRowStyle.borderBottom,
       }}
     >
@@ -108,9 +105,6 @@ function MetricRow({ row, last }: { row: FinancialMetricRow; last?: boolean }) {
             <DataSourceTag label={row.source} />
           </span>
         ) : null}
-      </span>
-      <span className="fin-metric-source-col" style={finMetricSourceColStyle}>
-        {row.source}
       </span>
     </div>
   );
