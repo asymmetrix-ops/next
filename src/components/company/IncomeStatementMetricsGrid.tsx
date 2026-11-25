@@ -7,6 +7,7 @@ import {
   tableColHeaderBarStyle,
 } from "@/components/redesign/primitives";
 import { buildFinancialsTableGridTemplate } from "@/lib/companyFinancialMetricsCard";
+import { DataSourceTag } from "@/components/tags/DataSourceTag";
 import { sourceTypeColor } from "@/lib/financialIntelligence/sourceTypes";
 import type {
   IncomeStatementCellValue,
@@ -110,18 +111,28 @@ function ValueCell({
   const isEmpty = display === "-";
 
   return (
-    <span
+    <div
       style={{
-        fontFamily: T.sans,
-        fontSize: 13,
-        fontWeight: isEmpty ? 600 : 700,
-        color: isEmpty ? T.faint : sourceTypeColor(sourceType),
-        fontVariantNumeric: "tabular-nums",
-        textAlign: "center",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
       }}
     >
-      {display}
-    </span>
+      <span
+        style={{
+          fontFamily: T.sans,
+          fontSize: 13,
+          fontWeight: isEmpty ? 600 : 700,
+          color: isEmpty ? T.faint : sourceTypeColor(sourceType),
+          fontVariantNumeric: "tabular-nums",
+          textAlign: "center",
+        }}
+      >
+        {display}
+      </span>
+      {isEmpty ? null : <DataSourceTag label={sourceType} />}
+    </div>
   );
 }
 

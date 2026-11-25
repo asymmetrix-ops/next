@@ -37,6 +37,7 @@ import { exportFinancialMetricsView } from "@/lib/companyFinancialsExport";
 import {
   buildIncomeStatementFinancialsViewModel,
   remapIncomeStatementToTableYears,
+  resolveIncomeStatementCellDisplay,
 } from "@/lib/incomeStatementFinancials";
 import type { NormalizedIncomeStatementRow } from "@/lib/incomeStatement";
 import { IncomeStatementFinancialsCard } from "@/components/company/IncomeStatementFinancialsCard";
@@ -114,8 +115,7 @@ function SourceLegend({
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         {FI_SOURCE_TYPES_UI_ORDER.map((type) => {
           const checked = allowedSources.includes(type);
-          const isDisabled =
-            disabled || (checked && allowedSources.length <= 1);
+          const isDisabled = disabled;
           return (
             <label
               key={type}
@@ -376,6 +376,8 @@ function FinancialsMetricsCard({
   );
 }
 
+const ALLOWED_SOURCES_STORAGE_KEY = "asx.financials.allowedSources";
+
 export function CompanyFinancialsSection({
   rows,
   loading,
@@ -390,6 +392,36 @@ export function CompanyFinancialsSection({
   ]);
   const [currencyMode, setCurrencyMode] =
     useState<CurrencyDisplayMode>("preferred");
+
+  // Remember the Data source selection across companies (read after mount to avoid a hydration mismatch).
+  const [sourcesLoaded, setSourcesLoaded] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(ALLOWED_SOURCES_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as unknown;
+        if (Array.isArray(saved)) {
+          setAllowedSources(
+            FI_SOURCE_TYPES.filter((type) => saved.includes(type))
+          );
+        }
+      }
+    } catch {
+      /* storage unavailable: keep the default */
+    }
+    setSourcesLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!sourcesLoaded) return;
+    try {
+      window.localStorage.setItem(
+        ALLOWED_SOURCES_STORAGE_KEY,
+        JSON.stringify(allowedSources)
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [allowedSources, sourcesLoaded]);
 
   const incomeStatementSourceRows =
     incomeStatementHistoryRows.length > 0
@@ -476,7 +508,6 @@ export function CompanyFinancialsSection({
     setAllowedSources((prev) => {
       const nextSet = new Set(prev);
       if (nextSet.has(type)) {
-        if (nextSet.size <= 1) return prev;
         nextSet.delete(type);
       } else {
         nextSet.add(type);
@@ -502,6 +533,47 @@ export function CompanyFinancialsSection({
   ]);
 
   const hasIncomeStatement = alignedIncomeStatementModel != null;
+
+  // With a source unticked: hide rows with no visible figure, then cards with no rows.
+  const filterActive = allowedSources.length < FI_SOURCE_TYPES.length;
+
+  const visibleCards = useMemo(() => {
+    if (!filterActive) return model.cards;
+    return model.cards
+      .map((card) => ({
+        ...card,
+        metrics: card.metrics.filter((metric) =>
+          tableYears.some((year) => {
+            const cell = metric.cellsByYear[year];
+            return (
+              cell != null &&
+              getVisibleFinancialsCellDisplay(cell, allowedSources, currencyMode) !==
+                "-"
+            );
+          })
+        ),
+      }))
+      .filter((card) => card.metrics.length > 0);
+  }, [model.cards, filterActive, tableYears, allowedSources, currencyMode]);
+
+  const visibleIncomeStatementModel = useMemo(() => {
+    if (!alignedIncomeStatementModel) return null;
+    if (!filterActive) return alignedIncomeStatementModel;
+    if (!allowedSources.includes(alignedIncomeStatementModel.sourceType)) {
+      return null;
+    }
+    const metrics = alignedIncomeStatementModel.metrics.filter((metric) =>
+      metric.cells.some(
+        (cell) => resolveIncomeStatementCellDisplay(cell, currencyMode) !== "-"
+      )
+    );
+    return metrics.length > 0
+      ? { ...alignedIncomeStatementModel, metrics }
+      : null;
+  }, [alignedIncomeStatementModel, filterActive, allowedSources, currencyMode]);
+
+  const nothingVisible =
+    visibleCards.length === 0 && visibleIncomeStatementModel == null;
 
   if (loading && !hasMetrics && !hasIncomeStatement) {
     return (
@@ -575,9 +647,23 @@ export function CompanyFinancialsSection({
         </div>
       ) : null}
 
-      {hasIncomeStatement && alignedIncomeStatementModel ? (
+      {nothingVisible ? (
+        <div
+          style={{
+            padding: "32px 0",
+            textAlign: "center",
+            color: T.muted,
+            fontFamily: T.sans,
+            fontSize: 14,
+          }}
+        >
+          No figures match the selected data sources.
+        </div>
+      ) : null}
+
+      {visibleIncomeStatementModel && alignedIncomeStatementModel ? (
         <IncomeStatementFinancialsCard
-          model={alignedIncomeStatementModel}
+          model={visibleIncomeStatementModel}
           showYoyColumn={incomeStatementShowYoy}
           reserveYoyColumn={
             !incomeStatementUsesHistory && showTableYoyColumn
@@ -595,7 +681,7 @@ export function CompanyFinancialsSection({
 
       {!hasMetrics
         ? null
-        : model.cards.map((card) => (
+        : visibleCards.map((card) => (
             <FinancialsMetricsCard
               key={card.id}
               card={card}

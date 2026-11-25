@@ -23,6 +23,8 @@ const FINANCIALS_TEMPLATE_PATH = "/exports/financials-export-template.xlsx";
 const COL_YEAR_START = 3;
 const COL_METRICS_YOY = 5;
 const COL_SOURCE = 6;
+/** Per-figure source columns, one per year column, to the right of the template (G+). */
+const COL_SOURCE_YEAR_START = 7;
 
 const CENTER_ALIGN: Partial<import("exceljs").Alignment> = {
   horizontal: "center",
@@ -194,6 +196,37 @@ function setYearHeaders(
   }
 
   setCenteredCell(worksheet, headerRow, COL_SOURCE, "Source");
+
+  const headerStyle = worksheet.getCell(headerRow, COL_SOURCE).style;
+  for (let index = 0; index < yearCount; index += 1) {
+    const year = exportYears[index];
+    const cell = worksheet.getCell(headerRow, COL_SOURCE_YEAR_START + index);
+    cell.style = { ...headerStyle };
+    cell.value = Number.isFinite(year)
+      ? `${formatFiscalYearHeader(year)} Source`
+      : "";
+    cell.alignment = CENTER_ALIGN;
+    worksheet.getColumn(COL_SOURCE_YEAR_START + index).width = 16;
+  }
+}
+
+/** Source label next to each year figure; blank when the figure is hidden or missing. */
+function writeYearSourceLabels(
+  worksheet: import("exceljs").Worksheet,
+  row: number,
+  labels: Array<string | null>,
+  yearCount: number
+): void {
+  const padded = labels.slice(-yearCount);
+  while (padded.length < yearCount) padded.unshift(null);
+  for (let index = 0; index < yearCount; index += 1) {
+    setCenteredCell(
+      worksheet,
+      row,
+      COL_SOURCE_YEAR_START + index,
+      padded[index] ?? ""
+    );
+  }
 }
 
 function writeYearNumericValues(
@@ -258,6 +291,18 @@ function fillCardMetricRow(
     yearValues,
     FINANCIALS_DISPLAY_YEAR_COUNT,
     numFmt
+  );
+
+  writeYearSourceLabels(
+    worksheet,
+    row,
+    years.map((year) => {
+      const cell = metric.cellsByYear[year];
+      if (!cell) return null;
+      if (getVisibleFinancialsCellDisplay(cell, allowedSources) === "-") return null;
+      return cell.sourceLabel?.trim() || cell.sourceType || null;
+    }),
+    FINANCIALS_DISPLAY_YEAR_COUNT
   );
 
   const yoy = getVisibleYoyValue(metric, years, allowedSources);
@@ -341,6 +386,12 @@ function fillIncomeStatementSection(
       exportValues,
       FINANCIALS_TABLE_MAX_YEAR_COLUMNS,
       numFmt
+    );
+    writeYearSourceLabels(
+      worksheet,
+      row,
+      exportValues.map((value) => (value == null ? null : model.sourceType)),
+      FINANCIALS_TABLE_MAX_YEAR_COLUMNS
     );
   }
 
