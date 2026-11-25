@@ -36,8 +36,9 @@ export function PressMentionsList() {
                     href={mention.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="landing-panel landing-press-card group block rounded-xl px-6 py-5 md:px-8 md:py-6"
+                    className="landing-panel landing-press-card group block overflow-hidden rounded-xl"
                   >
+                    <div className="px-6 py-6 md:px-8 md:py-7">
                     <span className="landing-eyebrow-chip rounded-full px-3 py-1 text-xs font-semibold">
                       {mention.source}
                     </span>
@@ -51,6 +52,7 @@ export function PressMentionsList() {
                       Read on {mention.source}
                       <RxArrowTopRight className="size-4" />
                     </span>
+                    </div>
                   </a>
                 </Reveal>
               </li>
