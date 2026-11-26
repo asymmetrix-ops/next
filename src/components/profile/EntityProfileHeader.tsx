@@ -5,7 +5,7 @@
  * logo tile · name + flag · subtitle on the left, action buttons on the right,
  * underline tabs below.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { resolveCompanyLogoSrc } from "@/lib/companyLogo";
 import { T } from "@/components/redesign/primitives";
 import ProfileSubnav, { type ProfileSubnavTab } from "@/components/ProfileSubnav";
@@ -136,6 +136,8 @@ type Props = {
   tabs?: readonly ProfileSubnavTab[];
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  /** Pin the whole header (logo, actions, tabs) to the top of the scroll container. */
+  sticky?: boolean;
 };
 
 export function EntityProfileHeader({
@@ -147,14 +149,38 @@ export function EntityProfileHeader({
   tabs,
   activeTab,
   onTabChange,
+  sticky = false,
 }: Props) {
   const showTabs = tabs && tabs.length > 0;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (!sticky) return;
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [sticky]);
   return (
+    <>
+      {sticky ? <div ref={sentinelRef} aria-hidden style={{ height: 1, marginBottom: -1 }} /> : null}
     <div
       className="entity-profile-header"
       style={{
         backgroundColor: "var(--t-panel)",
         padding: "0 24px",
+        ...(sticky
+          ? {
+              position: "sticky",
+              top: 0,
+              zIndex: 40,
+              boxShadow: stuck ? "0 4px 10px -4px rgba(16, 28, 70, 0.14)" : "none",
+              transition: "box-shadow 120ms",
+            }
+          : {}),
       }}
     >
       <div
@@ -223,5 +249,6 @@ export function EntityProfileHeader({
         </div>
       ) : null}
     </div>
+    </>
   );
 }

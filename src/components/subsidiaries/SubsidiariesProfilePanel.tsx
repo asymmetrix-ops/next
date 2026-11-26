@@ -99,7 +99,7 @@ export function growthPctToSpark(pct: number): number[] {
 }
 
 /** Rows shown before "View all". */
-export const SUBSIDIARIES_PREVIEW_COUNT = 5;
+export const SUBSIDIARIES_PREVIEW_COUNT = 3;
 
 type SubsidiariesProfilePanelProps = {
   tokens: SubsidiariesProfileTokens;

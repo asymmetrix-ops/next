@@ -779,7 +779,7 @@ const getNumeric = (value?: number | string | null): number | undefined => {
 /** Max sector pills before "+N" overflow (matches V3 template) */
 const OVERVIEW_TAG_CAP = 3;
 
-const INSIGHTS_PREVIEW_COUNT = 3;
+const INSIGHTS_PREVIEW_COUNT = 2;
 const CE_PREVIEW_COUNT = 2;
 
 // RANGE_DASH moved to InsightsCard component
@@ -2260,6 +2260,11 @@ const CompanyDetail = () => {
     }));
   }, [showFinancialsTab, financialMetricsCardRows, showNews, newsSummary, showInsightsTab, insightsTabTotal]);
 
+  const openProfileTab = useCallback((tab: "Financials" | "Financial Intelligence") => {
+    setActiveProfileTab(tab);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   useEffect(() => {
     if (
       activeProfileTab === "Financial Intelligence" &&
@@ -2760,7 +2765,7 @@ const CompanyDetail = () => {
       company.have_subsidiaries_companies?.Subsidiaries_companies &&
       company.have_subsidiaries_companies.Subsidiaries_companies.length > 0
   );
-  // Rough card height for the layout: header, up to 5 rows, footer when there are more
+  // Rough card height for the layout: header, up to 3 rows, footer when there are more
   const subsidiariesCount =
     company.have_subsidiaries_companies?.Subsidiaries_companies?.length ?? 0;
   const subsidiariesCardWeight =
@@ -3761,6 +3766,7 @@ const CompanyDetail = () => {
       style={styles.container}
     >
       <EntityProfileHeader
+        sticky
         logo={
           <EntityLogoTile
             logos={[
@@ -4484,6 +4490,11 @@ const CompanyDetail = () => {
                   <PeersTargetsCard
                     peers={peersAndTargets?.peers.items ?? []}
                     targets={peersAndTargets?.acquisition_targets.items ?? []}
+                    onOpenSection={
+                      hasFinancialMetricsCardData(financialMetricsCardRows)
+                        ? () => openProfileTab("Financial Intelligence")
+                        : undefined
+                    }
                     onBenchmark={
                       hasFinancialMetricsCardData(financialMetricsCardRows)
                         ? () => {
@@ -4560,6 +4571,7 @@ const CompanyDetail = () => {
                   hasIncomeStatement={hasIncomeStatementData}
                   incomeStatementRows={normalizedIncomeStatements}
                   incomeStatementCurrency={platformCurrency}
+                  onViewMore={showFinancialsTab ? () => openProfileTab("Financials") : undefined}
                   fxToggleConfig={finMetricsFxToggleConfig}
                   currencyMode={finMetricsCurrencyMode}
                   onCurrencyModeChange={setFinMetricsCurrencyMode}
@@ -4581,6 +4593,7 @@ const CompanyDetail = () => {
                   hideEmptyTabs
                   subscription={finMetricsData.subscription}
                   other={finMetricsData.other}
+                  onViewMore={showFinancialsTab ? () => openProfileTab("Financials") : undefined}
                 />
               </div>
                 ) },
@@ -4592,6 +4605,7 @@ const CompanyDetail = () => {
                       sections={coreProductsSections}
                       useCaseSections={usersUseCaseSections}
                       fillGridCell={false}
+                      splitCards
                       aside={showProductAttributes ? <ProductDetailsPanel {...productDetailsProps} /> : undefined}
                     />
                   ) : (

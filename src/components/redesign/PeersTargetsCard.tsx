@@ -30,6 +30,8 @@ type Props = {
   peers: PeerTargetItem[];
   targets: PeerTargetItem[];
   onBenchmark?: () => void;
+  /** Opens the Financial Intelligence tab (title + top-right arrow). */
+  onOpenSection?: () => void;
 };
 
 const headCell: React.CSSProperties = {
@@ -140,7 +142,7 @@ function Row({ item, isLast }: { item: PeerTargetItem; isLast: boolean }) {
   );
 }
 
-export function PeersTargetsCard({ peers, targets, onBenchmark }: Props) {
+export function PeersTargetsCard({ peers, targets, onBenchmark, onOpenSection }: Props) {
   const sortedPeers = useMemo(() => sortByRevenueDesc(peers), [peers]);
   const sortedTargets = useMemo(() => sortByRevenueDesc(targets), [targets]);
 
@@ -195,6 +197,16 @@ export function PeersTargetsCard({ peers, targets, onBenchmark }: Props) {
             </button>
           ))}
         </div>
+        {onOpenSection && (
+          <button
+            type="button"
+            onClick={onOpenSection}
+            aria-label="Open Financial Intelligence"
+            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: T.azure, lineHeight: 1, padding: "2px 4px" }}
+          >
+            →
+          </button>
+        )}
         {canBenchmark && (
           <button
             type="button"

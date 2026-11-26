@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   LinkPanel,
+  LinkedH,
   T,
   FIN_METRICS_TAB_BAR_STYLE,
   FIN_METRICS_TAB_STYLE,
@@ -28,6 +29,8 @@ type Props = {
   fillGridCell?: boolean;
   /** Left-hand column beside the lists (e.g. Product type, Revenue model, Data collection) */
   aside?: React.ReactNode;
+  /** Without an aside: render Products and Users & Use Cases as two side-by-side cards (no tabs). */
+  splitCards?: boolean;
 };
 
 function ExpandableRow({
@@ -273,6 +276,7 @@ export function ProductUsersListCard({
   useCaseSections = [],
   fillGridCell = true,
   aside,
+  splitCards = false,
 }: Props) {
   const productSections: ProductUsersSection[] = useMemo(() => {
     if (Array.isArray(sections) && sections.length > 0) return sections;
@@ -323,18 +327,49 @@ export function ProductUsersListCard({
     </div>
   );
 
+  if (!aside && splitCards) {
+    const panels = [
+      { key: "products", title: "Core Products & Services", list: productSections, empty: "No products or services listed." },
+      { key: "useCases", title: "Users & Use Cases", list: useCases, empty: "No users or use cases listed." },
+    ].filter((p) => p.list.length > 0);
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(auto-fit, minmax(${panels.length > 1 ? 260 : 0}px, 1fr))`,
+          gap: 16,
+          alignItems: "start",
+          minWidth: 0,
+        }}
+      >
+        {panels.map((p) => (
+          <LinkPanel key={p.key}>
+            <LinkedH>{p.title}</LinkedH>
+            <SectionList sections={p.list} emptyMessage={p.empty} />
+          </LinkPanel>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <LinkPanel fillGridCell={fillGridCell}>
-      <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
       {aside ? (
         <div style={{ containerType: "inline-size" }}>
           <div className="product-users-split">
             <div className="product-users-aside">{aside}</div>
-            {lists}
+            {/* Tabs sit over the list they switch, not over the left column */}
+            <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+              {lists}
+            </div>
           </div>
         </div>
       ) : (
-        lists
+        <>
+          <TabHeader tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          {lists}
+        </>
       )}
     </LinkPanel>
   );

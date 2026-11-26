@@ -418,7 +418,12 @@ export function InsightsCard({
       />
     )}
     <LinkPanel fillGridCell={fillGridCell}>
-      <LinkedH>{title}</LinkedH>
+      <LinkedH
+        onNavigate={onBrowseAll}
+        navigateLabel="Open Insights & Analysis"
+      >
+        {title}
+      </LinkedH>
 
       <div
         style={{

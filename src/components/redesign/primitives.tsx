@@ -380,11 +380,16 @@ export function LinkedH({
   right,
   showArrow = false,
   leftSlot,
+  onNavigate,
+  navigateLabel,
 }: {
   children: React.ReactNode;
   right?: React.ReactNode;
   showArrow?: boolean;
   leftSlot?: React.ReactNode;
+  /** Makes the title and a small top-right arrow link to the card's full section. */
+  onNavigate?: () => void;
+  navigateLabel?: string;
 }) {
   return (
     <div style={CARD_HEADER_BAR_STYLE}>
@@ -400,7 +405,27 @@ export function LinkedH({
         }}
       >
         {leftSlot}
-        {children}
+        {onNavigate ? (
+          <button
+            type="button"
+            onClick={onNavigate}
+            aria-label={navigateLabel}
+            style={{
+              all: "unset",
+              cursor: "pointer",
+              font: "inherit",
+              color: "inherit",
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {children}
+          </button>
+        ) : (
+          children
+        )}
       </div>
       <div
         style={{
@@ -411,9 +436,15 @@ export function LinkedH({
         }}
       >
         {right && <div style={{ fontSize: 11.5, color: T.muted }}>{right}</div>}
-        {showArrow && (
-          <div
+        {onNavigate ? (
+          <button
+            type="button"
+            onClick={onNavigate}
+            aria-label={navigateLabel ?? "Open full section"}
             style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
               fontSize: 14,
               color: T.azure,
               fontWeight: 500,
@@ -422,7 +453,21 @@ export function LinkedH({
             }}
           >
             →
-          </div>
+          </button>
+        ) : (
+          showArrow && (
+            <div
+              style={{
+                fontSize: 14,
+                color: T.azure,
+                fontWeight: 500,
+                lineHeight: 1,
+                padding: "2px 4px",
+              }}
+            >
+              →
+            </div>
+          )
         )}
       </div>
     </div>

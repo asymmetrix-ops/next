@@ -35,9 +35,25 @@ export default function CompanyNewsSummaryCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.ink }}>News</h3>
-        <span style={{ fontSize: 12.5, color: T.muted }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.ink }}>
+          <button
+            type="button"
+            onClick={onViewAll}
+            style={{ all: "unset", cursor: "pointer", font: "inherit", color: "inherit" }}
+          >
+            News
+          </button>
+        </h3>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: T.muted }}>
           {summary.total.toLocaleString()} {summary.total === 1 ? "article" : "articles"}
+          <button
+            type="button"
+            onClick={onViewAll}
+            aria-label="Open News"
+            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: T.azure, lineHeight: 1, padding: "2px 4px" }}
+          >
+            →
+          </button>
         </span>
       </div>
 
