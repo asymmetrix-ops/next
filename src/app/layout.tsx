@@ -7,6 +7,8 @@ import "./globals.css";
 import { AnalyticsProvider } from "@/components/providers/AnalyticsProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PlatformCurrencyProvider } from "@/components/providers/PlatformCurrencyProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { PortfolioHydrator } from "@/components/providers/PortfolioHydrator";
 import { GlobalSearchProvider } from "@/components/search/GlobalSearchProvider";
 import { GlobalSearchModal } from "@/components/search/GlobalSearchModal";
@@ -98,8 +100,9 @@ export default function RootLayout({
   const showTestBanner =
     branch === "develop" || process.env.NEXT_PUBLIC_TEST_BANNER === "1";
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
         <link
           rel="shortcut icon"
@@ -140,6 +143,7 @@ export default function RootLayout({
       </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`}>
         <AuthProvider>
+          <ThemeProvider>
           <PlatformCurrencyProvider>
             <PortfolioHydrator />
             <AnalyticsProvider>
@@ -166,9 +170,19 @@ export default function RootLayout({
                   </div>
                 </div>
               )}
-              <Toaster position="top-right" />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: "var(--t-panel)",
+                    color: "var(--c-fg-363636)",
+                    outline: "1px solid var(--toast-outline)",
+                  },
+                }}
+              />
             </AnalyticsProvider>
           </PlatformCurrencyProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

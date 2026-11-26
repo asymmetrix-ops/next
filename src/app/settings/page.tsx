@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/providers/AuthProvider";
 import { PlatformCurrencySettings } from "@/components/settings/PlatformCurrencySettings";
+import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { EmailPreferencesSection } from "@/components/settings/EmailPreferencesSection";
 import { DevicesSection } from "@/components/settings/DevicesSection";
 import AppShell from "@/components/layout/AppShell";
@@ -36,6 +37,8 @@ export default function SettingsPage() {
         </div>
 
         <PlatformCurrencySettings />
+
+        <ThemeSettings />
 
         {Number.isFinite(userId) && <EmailPreferencesSection userId={userId} />}
 

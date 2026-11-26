@@ -22,8 +22,11 @@ import {
   NewspaperIcon,
   ScaleIcon,
   ArrowRightOnRectangleIcon,
+  MoonIcon,
+  SunIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import { dashboardApiService } from "@/lib/dashboardApi";
 import { trackLogout } from "@/lib/tracking";
 import { getInitials } from "@/lib/userDisplay";
@@ -182,6 +185,8 @@ export default function AppLeftNav({
   const pathname = usePathname() || "";
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { resolvedTheme, setPreference } = useTheme();
+  const isDark = resolvedTheme === "dark";
   // Shared via context (not local state) so page content — e.g. the
   // Insights & Analysis grid — can read open/collapsed too, and so it
   // persists across navigations instead of resetting on every page mount.
@@ -407,7 +412,7 @@ export default function AppLeftNav({
 
       <nav
         className="min-h-0 min-w-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 pb-1 pt-1"
-        style={{ scrollbarWidth: "thin", scrollbarColor: "#d1d5db transparent" }}
+        style={{ scrollbarWidth: "thin", scrollbarColor: "rgb(var(--palette-text-gray-300)) transparent" }}
       >
         <NavRow
           open={open}
@@ -457,6 +462,19 @@ export default function AppLeftNav({
         >
           <Cog6ToothIcon className="h-[17px] w-[17px]" />
         </Link>
+        <button
+          type="button"
+          onClick={() => setPreference(isDark ? "light" : "dark")}
+          title={isDark ? "Light mode" : "Dark mode"}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+        >
+          {isDark ? (
+            <SunIcon className="h-[17px] w-[17px]" />
+          ) : (
+            <MoonIcon className="h-[17px] w-[17px]" />
+          )}
+        </button>
         <Link
           href="/my-info"
           title="Your info"
@@ -572,10 +590,10 @@ function NavRow({
         {badge && (
           // Same soft-blue pill as the dashboard eyebrow ("Live", "Weekly") and the landing chips.
           <span
-            className={`inline-flex h-4 shrink-0 items-center rounded-full border px-1.5 text-[9px] font-extrabold uppercase leading-none tracking-[0.06em] text-[#2a46ea] ${
+            className={`inline-flex h-4 shrink-0 items-center rounded-full border px-1.5 text-[9px] font-extrabold uppercase leading-none tracking-[0.06em] text-[var(--t-azure)] ${
               active
-                ? "border-[#c9d3fb] bg-white"
-                : "border-[#e2e8fd] bg-[#f1f4fe] group-hover:border-[#c9d3fb] group-hover:bg-white"
+                ? "border-[var(--c-line-c9d3fb)] bg-white"
+                : "border-[var(--c-line-e2e8fd)] bg-[var(--t-azure-soft)] group-hover:border-[var(--c-line-c9d3fb)] group-hover:bg-white"
             }`}
           >
             {badge}

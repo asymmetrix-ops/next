@@ -16,38 +16,38 @@ export const DEFAULT_TAG_CAP = 3;
 // ── Design tokens (mirrors page.tsx T and redesign/tokens.jsx) ──────────────
 // Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
 // "--lp-*"), the authoritative source for this redesign.
+// Light and dark values live in app/theme.css
 export const T = {
-  paper:        "#F5F7FD",
-  panel:        "#FFFFFF",
-  inset:        "#EFF2F8",
-  divider:      "#E4E8F2",
-  hair:         "#EFF2F8",
-  ink:          "#0A0E1A",
+  paper:        "var(--t-paper)",
+  panel:        "var(--t-panel)",
+  inset:        "var(--t-inset)",
+  divider:      "var(--t-divider)",
+  hair:         "var(--t-hair)",
+  ink:          "var(--t-ink)",
   /** Financials table metric names (CompanyFinancials.html `.mt td.m`). */
-  ink2:         "#1E2536",
-  body:         "#566078",
-  muted:        "#6B7488",
-  faint:        "#8A93A8",
-  azure:        "#2A46EA",
-  azureSoft:    "#F1F4FE",
-  emerald:      "#0F7040",
-  emeraldSoft:  "#E4F5EC",
-  coral:        "#A62E22",
-  coralSoft:    "#FCEAE7",
-  lavender:     "#523793",
-  lavenderSoft: "#F1EBFC",
-  up:           "#0F7040",
-  down:         "#A62E22",
-  warn:         "#7A5605",
-  warnSoft:     "#FEF6E0",
+  ink2:         "var(--t-ink2)",
+  body:         "var(--t-body)",
+  muted:        "var(--t-muted)",
+  faint:        "var(--t-faint)",
+  azure:        "var(--t-azure)",
+  azureSoft:    "var(--t-azure-soft)",
+  emerald:      "var(--t-emerald)",
+  emeraldSoft:  "var(--t-emerald-soft)",
+  coral:        "var(--t-coral)",
+  coralSoft:    "var(--t-coral-soft)",
+  lavender:     "var(--t-lavender)",
+  lavenderSoft: "var(--t-lavender-soft)",
+  up:           "var(--t-emerald)",
+  down:         "var(--t-coral)",
+  warn:         "var(--t-warn)",
+  warnSoft:     "var(--t-warn-soft)",
   r:            8,
   rLg:          16,
   sans:         "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   mono:         'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   /** Card hover — blue highlight without heavy inset ring */
-  cardHoverBorder: "#C6D1FB",
-  cardHoverShadow:
-    "0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10)",
+  cardHoverBorder: "var(--t-card-hover-border)",
+  cardHoverShadow: "var(--t-card-hover-shadow)",
 } as const;
 
 /** Card header title — matches LinkedH / Overview / Description.

@@ -1,3 +1,5 @@
+const { fillColors, textColors, paletteVariables } = require("./tailwind.theme");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
@@ -17,7 +19,9 @@ module.exports = {
       },
     },
     extend: {
+      textColor: textColors,
       colors: {
+        ...fillColors,
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -86,5 +90,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), paletteVariables],
 };
