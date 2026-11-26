@@ -341,7 +341,7 @@ export function CustomCompanyTableModal({
                     <tr>
                       <th
                         className="company-table-select-cell"
-                        style={{ minWidth: 44, width: 44, textAlign: "center", background: "#F5F7FD" }}
+                        style={{ minWidth: 44, width: 44, textAlign: "center", background: "var(--t-paper)" }}
                       >
                         <input
                           type="checkbox"
@@ -426,7 +426,7 @@ export function CustomCompanyTableModal({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="company-website-link"
-                                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                                    style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
                                   >
                                     {formatWebsiteLabel(value)}
                                   </a>

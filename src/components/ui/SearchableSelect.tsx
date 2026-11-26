@@ -135,11 +135,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           style={{
             width: "100%",
             padding: "12px 16px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid rgb(var(--palette-slate-200))",
             borderRadius: "6px",
             fontSize: "14px",
-            backgroundColor: disabled ? "#f7fafc" : "white",
-            color: disabled ? "#a0aec0" : "#4a5568",
+            backgroundColor: disabled ? "var(--c-bg-f7fafc)" : "var(--t-panel)",
+            color: disabled ? "var(--c-fg-a0aec0)" : "var(--c-fg-4a5568)",
             cursor: disabled ? "not-allowed" : "text",
             outline: "none",
           }}
@@ -162,7 +162,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           >
             <path
               d="M3 4.5L6 7.5L9 4.5"
-              stroke="#4a5568"
+              stroke="var(--c-fg-4a5568)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -178,8 +178,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             top: "100%",
             left: 0,
             right: 0,
-            backgroundColor: "white",
-            border: "1px solid #e2e8f0",
+            backgroundColor: "var(--t-panel)",
+            border: "1px solid rgb(var(--palette-slate-200))",
             borderRadius: "6px",
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
             zIndex: 1000,
@@ -191,7 +191,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             <div
               style={{
                 padding: "12px 16px",
-                color: "#a0aec0",
+                color: "var(--c-fg-a0aec0)",
                 fontSize: "14px",
               }}
             >
@@ -201,7 +201,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             <div
               style={{
                 padding: "12px 16px",
-                color: "#a0aec0",
+                color: "var(--c-fg-a0aec0)",
                 fontSize: "14px",
               }}
             >
@@ -218,14 +218,14 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   fontSize: "14px",
                   backgroundColor:
                     index === highlightedIndex
-                      ? "#f7fafc"
+                      ? "var(--c-bg-f7fafc)"
                       : option.value === value
-                      ? "#ebf8ff"
+                      ? "var(--c-bg-ebf8ff)"
                       : "transparent",
-                  color: "#4a5568",
+                  color: "var(--c-fg-4a5568)",
                   borderBottom:
                     index < filteredOptions.length - 1
-                      ? "1px solid #f7fafc"
+                      ? "1px solid var(--c-line-f7fafc)"
                       : "none",
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}

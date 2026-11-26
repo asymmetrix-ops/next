@@ -12,9 +12,9 @@ export const DEAL_TYPE_BADGE_COLORS: DealTypeBadgeColors = {
 
 /** @deprecated single flat colour — kept for legacy callers. Use fundingStageBadgeStyle(value) for the real per-stage ramp. */
 export const FUNDING_STAGE_BADGE_COLORS: DealTypeBadgeColors = {
-  bg: "#d1fae5",
-  fg: "#065f46",
-  bd: "#6ee7b7",
+  bg: "rgb(var(--palette-emerald-100))",
+  fg: "rgb(var(--palette-text-emerald-800))",
+  bd: "rgb(var(--palette-emerald-300))",
 };
 
 function badgeStyleFromColors({ bg, fg, bd }: DealTypeBadgeColors): CSSProperties {

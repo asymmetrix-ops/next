@@ -29,7 +29,7 @@ export function LinkedInProfileButton({
         justifyContent: "center",
         width: size,
         height: size,
-        backgroundColor: T.azure,
+        backgroundColor: "var(--t-azure-fill)",
         borderRadius: 4,
         color: "#fff",
         textDecoration: "none",

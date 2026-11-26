@@ -32,7 +32,7 @@ function EntityLogo({
   if (src && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <img className="logo-tile"
         src={src}
         alt=""
         onError={() => setFailed(true)}
@@ -41,7 +41,7 @@ function EntityLogo({
           height: 40,
           objectFit: "contain",
           borderRadius: 8,
-          background: "#fff",
+          background: "var(--t-panel)",
           border: "1px solid rgba(0, 11, 41, 0.08)",
           flexShrink: 0,
         }}
@@ -57,7 +57,7 @@ function EntityLogo({
         width: 40,
         height: 40,
         borderRadius: 8,
-        background: "var(--ax-cyan-700, #0075df)",
+        background: "var(--bg-brand)",
         color: "white",
         display: "inline-flex",
         alignItems: "center",

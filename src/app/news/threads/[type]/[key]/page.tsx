@@ -52,7 +52,7 @@ export default function NewsThreadPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen" style={{ width: "100%", background: "#F5F7FD" }}>
+      <div className="min-h-screen" style={{ width: "100%", background: "var(--t-paper)" }}>
         <div className="nw-shell">
           <div className="nw-head">
             <div>

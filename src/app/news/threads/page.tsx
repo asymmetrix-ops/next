@@ -79,7 +79,7 @@ export default function NewsThreadsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen" style={{ width: "100%", background: "#F5F7FD" }}>
+      <div className="min-h-screen" style={{ width: "100%", background: "var(--t-paper)" }}>
         <div className="nw-shell">
           <div className="nw-head">
             <div>
@@ -117,7 +117,7 @@ export default function NewsThreadsPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${THREAD_TYPE_LABEL[type].toLowerCase()} threads`}
               aria-label="Search threads"
-              style={{ flex: "1 1 240px", maxWidth: 360, padding: "8px 12px", border: "1px solid #e4e8f2", borderRadius: 8, fontSize: 14, background: "#fff" }}
+              style={{ flex: "1 1 240px", maxWidth: 360, padding: "8px 12px", border: "1px solid var(--t-divider)", borderRadius: 8, fontSize: 14, background: "var(--t-panel)" }}
             />
           </div>
 
@@ -148,12 +148,12 @@ export default function NewsThreadsPage() {
                     style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, textDecoration: "none", color: "inherit" }}
                   >
                     <span style={{ fontSize: 16, fontWeight: 700 }}>{thread.name}</span>
-                    <span style={{ fontSize: 12, color: "#566078" }}>
+                    <span style={{ fontSize: 12, color: "var(--t-body)" }}>
                       {thread.article_count} {thread.article_count === 1 ? "article" : "articles"}
                       {thread.latest_date ? ` · latest ${formatDate(thread.latest_date)}` : ""}
                     </span>
                     {thread.latest_headline ? (
-                      <span style={{ fontSize: 13, color: "#0a0e1a" }}>{thread.latest_headline}</span>
+                      <span style={{ fontSize: 13, color: "var(--t-ink)" }}>{thread.latest_headline}</span>
                     ) : null}
                   </Link>
                 ))}

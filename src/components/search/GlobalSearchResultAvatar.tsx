@@ -11,14 +11,14 @@ import { getInitials } from "@/lib/userDisplay";
 import type { GlobalSearchResult } from "@/lib/globalSearch";
 
 const AVATAR_COLORS = [
-  { bg: "#FEE2E2", fg: "#DC2626" },
-  { bg: "#DBEAFE", fg: "#1D4ED8" },
-  { bg: "#EDE9FE", fg: "#7C3AED" },
-  { bg: "#D1FAE5", fg: "#059669" },
-  { bg: "#FEF3C7", fg: "#B45309" },
-  { bg: "#E0E7FF", fg: "#4338CA" },
-  { bg: "#FCE7F3", fg: "#DB2777" },
-  { bg: "#CCFBF1", fg: "#0D9488" },
+  { bg: "rgb(var(--palette-red-100))", fg: "rgb(var(--palette-text-red-600))" },
+  { bg: "rgb(var(--palette-blue-100))", fg: "rgb(var(--palette-text-blue-700))" },
+  { bg: "rgb(var(--palette-violet-100))", fg: "rgb(var(--palette-text-violet-600))" },
+  { bg: "rgb(var(--palette-emerald-100))", fg: "rgb(var(--palette-text-emerald-600))" },
+  { bg: "rgb(var(--palette-amber-100))", fg: "rgb(var(--palette-text-amber-700))" },
+  { bg: "rgb(var(--palette-indigo-100))", fg: "rgb(var(--palette-text-indigo-700))" },
+  { bg: "rgb(var(--palette-pink-100))", fg: "rgb(var(--palette-text-pink-600))" },
+  { bg: "rgb(var(--palette-teal-100))", fg: "rgb(var(--palette-text-teal-600))" },
 ];
 
 function colorForTitle(title: string): { bg: string; fg: string } {
@@ -63,7 +63,7 @@ export function GlobalSearchResultAvatar({ result, size = "md" }: Props) {
   if (logoSrc) {
     return (
       <span
-        className={`flex shrink-0 items-center justify-center overflow-hidden border border-gray-100 bg-white ${boxClass}`}
+        className={`logo-tile flex shrink-0 items-center justify-center overflow-hidden border border-gray-100 bg-white ${boxClass}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URIs */}
         <img src={logoSrc} alt="" className="h-full w-full object-contain" />

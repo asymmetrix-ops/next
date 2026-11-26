@@ -218,11 +218,11 @@ const SORTABLE_HEADER_HOVER_STYLES = `
     transition: color 0.12s, background-color 0.12s;
   }
   .company-table thead th.company-table-th-sortable:hover {
-    color: #2A46EA;
-    background: #E8EDFB;
+    color: var(--t-azure);
+    background: var(--c-bg-e8edfb);
   }
   .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
-    color: #2A46EA;
+    color: var(--t-azure);
   }
 `;
 
@@ -505,14 +505,14 @@ const DEAL_RADAR_STYLES = `
   .deal-radar-link,
   .deal-radar-link-plain,
   .search-multi-value-link {
-    color: #0075df;
+    color: var(--c-fg-0075df);
     text-decoration: none;
     cursor: pointer;
   }
   .deal-radar-link:hover,
   .deal-radar-link-plain:hover,
   .search-multi-value-link:hover {
-    color: #005bb5;
+    color: var(--c-fg-005bb5);
     text-decoration: underline;
   }
   .deal-radar-table .search-multi-value-cell {
@@ -944,7 +944,7 @@ export default function DealRadarView({
         count: f.totalsKey === "" ? (statusCounts[""] ?? 0) : (statusCounts[f.totalsKey] ?? 0),
         dot:
           f.statusId === null
-            ? "#8A93A8"
+            ? "var(--c-bg-8a93a8)"
             : getStatusStyle(
                 TRANSACTION_STATUS_OPTIONS.find((o) => o.id === f.statusId)?.label ?? ""
               ).dot,
@@ -976,7 +976,7 @@ export default function DealRadarView({
                 left: 0,
                 zIndex: 7,
                 boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
-                background: "#F5F7FD",
+                background: "var(--t-paper)",
               }
             : null),
         }}
@@ -1111,7 +1111,7 @@ export default function DealRadarView({
                                   left: 0,
                                   zIndex: 3,
                                   boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
-                                  background: "#fff",
+                                  background: "var(--t-panel)",
                                 }}
                               >
                                 <div className="company-table-entity-name-cell">

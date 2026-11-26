@@ -21,7 +21,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
       {/* Overview Section */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--t-panel)",
           padding: "24px",
           borderRadius: "8px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -62,7 +62,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
                 href={Investor.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#3b82f6", textDecoration: "none" }}
+                style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
               >
                 {Investor.url}
               </a>
@@ -82,7 +82,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
       {/* Invested D&A Sectors Section */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--t-panel)",
           padding: "24px",
           borderRadius: "8px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -104,7 +104,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
                 <span key={sector.id}>
                   <a
                     href={`/sector/${sector.id}`}
-                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                    style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
                   >
                     {sector.sector_name}
                   </a>
@@ -118,7 +118,7 @@ const InvestorOverview: React.FC<InvestorOverviewProps> = ({
       {/* Description Section */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--t-panel)",
           padding: "24px",
           borderRadius: "8px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",

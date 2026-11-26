@@ -190,7 +190,7 @@ function FilterChip({
           padding: 0,
           border: "none",
           borderRadius: "50%",
-          background: hover ? "var(--ax-cyan-700)" : "rgba(42, 70, 234, 0.12)",
+          background: hover ? "var(--bg-brand)" : "rgba(42, 70, 234, 0.12)",
           cursor: "pointer",
           color: hover ? "#fff" : "var(--ax-cyan-700)",
           transition: "background 120ms, color 120ms",
@@ -579,7 +579,7 @@ export function FiControlBar({
       <style>{FILTER_BAR_CSS}</style>
       <div
         style={{
-          background: "white",
+          background: "var(--t-panel)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
           padding: 12,
@@ -605,7 +605,7 @@ export function FiControlBar({
               alignItems: "center",
               gap: 8,
               padding: "5px 12px 5px 6px",
-              background: targetId ? "var(--ax-cyan-50)" : "white",
+              background: targetId ? "var(--ax-cyan-50)" : "var(--t-panel)",
               border: `1px solid ${targetId ? "var(--border-brand)" : "var(--border-2)"}`,
               borderRadius: 999,
               cursor: loading ? "default" : "pointer",
@@ -652,7 +652,7 @@ export function FiControlBar({
               width={300}
               offset={6}
               style={{
-                background: "white",
+                background: "var(--t-panel)",
                 border: "1px solid var(--border-1)",
                 borderRadius: "var(--r-lg)",
                 boxShadow: "var(--shadow-popover)",
@@ -756,7 +756,7 @@ export function FiControlBar({
                   alignItems: "center",
                   gap: 6,
                   padding: "0 15px",
-                  background: addFilterOpen ? "var(--ax-cyan-50)" : "white",
+                  background: addFilterOpen ? "var(--ax-cyan-50)" : "var(--t-panel)",
                   border: `1px dashed ${addFilterOpen ? "var(--border-brand)" : "var(--border-2)"}`,
                   borderRadius: 999,
                   cursor: "pointer",
@@ -851,7 +851,7 @@ export function FiControlBar({
                   width={300}
                   offset={6}
                   style={{
-                    background: "white",
+                    background: "var(--t-panel)",
                     border: "1px solid var(--border-1)",
                     borderRadius: "var(--r-lg)",
                     boxShadow: "var(--shadow-popover)",
@@ -896,7 +896,7 @@ export function FiControlBar({
                       onClick={() => onPeerAggregateModeChange(mode)}
                       style={{
                         border: "none",
-                        background: active ? "white" : "transparent",
+                        background: active ? "var(--t-panel)" : "transparent",
                         color: active ? "var(--fg-1)" : "var(--fg-3)",
                         fontSize: "var(--fs-12)",
                         fontWeight: 700,
@@ -983,7 +983,7 @@ export function FiControlBar({
                         borderRadius: "var(--r-lg)",
                         border: "1px solid var(--border-1)",
                         boxShadow: "var(--shadow-sm)",
-                        background: "white",
+                        background: "var(--t-panel)",
                         cursor: disabled ? "default" : "pointer",
                         opacity: !checked ? 0.55 : 1,
                         minWidth: 200,

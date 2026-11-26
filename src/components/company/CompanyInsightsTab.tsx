@@ -70,7 +70,7 @@ function Section({
           <button
             type="button"
             onClick={() => setShown((n) => n + COMPANY_INSIGHTS_PAGE)}
-            style={{ border: `1px solid ${T.divider}`, background: "#fff", borderRadius: 999, padding: "8px 18px", fontWeight: 600, fontSize: 13, color: T.ink, cursor: "pointer", fontFamily: T.sans }}
+            style={{ border: `1px solid ${T.divider}`, background: "var(--t-panel)", borderRadius: 999, padding: "8px 18px", fontWeight: 600, fontSize: 13, color: T.ink, cursor: "pointer", fontFamily: T.sans }}
           >
             Show more
           </button>
@@ -112,7 +112,7 @@ export default function CompanyInsightsTab({
   }, [insights, type, range]);
 
   const none = filtered.company.length + filtered.related.length + filtered.sector.length === 0;
-  const selectStyle = { border: `1px solid ${T.divider}`, borderRadius: 999, padding: "8px 14px", fontSize: 13, background: "#fff", color: T.ink, fontFamily: T.sans } as const;
+  const selectStyle = { border: `1px solid ${T.divider}`, borderRadius: 999, padding: "8px 14px", fontSize: 13, background: "var(--t-panel)", color: T.ink, fontFamily: T.sans } as const;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "20px 0 40px", fontFamily: T.sans }}>

@@ -24,12 +24,12 @@ import { toast } from "react-hot-toast";
 // (the "Claude Design CompanyProfile" reference) so this button matches the
 // pill-shaped Follow/Unfollow/Following states used there.
 const FOLLOW_TOKENS = {
-  azure: "#2A46EA",
-  azureSoft: "#F1F4FE",
-  azureBorder: "#C6D1FB",
-  coral: "#A62E22",
-  coralSoft: "#FCEAE7",
-  coralBorder: "#F0C4BC",
+  azure: "var(--t-azure)",
+  azureSoft: "var(--t-azure-soft)",
+  azureBorder: "var(--t-card-hover-border)",
+  coral: "var(--t-coral)",
+  coralSoft: "var(--t-coral-soft)",
+  coralBorder: "var(--c-line-f0c4bc)",
   sans:
     "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 } as const;
@@ -273,15 +273,15 @@ export function FollowButton({
             title="Add to portfolio"
             style={{
               padding: "8px 10px",
-              backgroundColor: "#f3f4f6",
-              border: "1px solid #d1d5db",
+              backgroundColor: "rgb(var(--palette-gray-100))",
+              border: "1px solid rgb(var(--palette-gray-300))",
               borderRadius: "6px",
               cursor: "pointer",
               fontSize: "12px",
               display: "inline-flex",
               alignItems: "center",
               gap: "4px",
-              color: "#374151",
+              color: "rgb(var(--palette-text-gray-700))",
               fontWeight: 500,
             }}
           >
@@ -302,8 +302,8 @@ export function FollowButton({
                 top: "calc(100% + 6px)",
                 left: 0,
                 zIndex: 9999,
-                backgroundColor: "white",
-                border: "1px solid #e5e7eb",
+                backgroundColor: "var(--t-panel)",
+                border: "1px solid rgb(var(--palette-gray-200))",
                 borderRadius: "8px",
                 boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                 minWidth: "200px",
@@ -316,7 +316,7 @@ export function FollowButton({
                   padding: "8px 12px 4px",
                   fontSize: "11px",
                   fontWeight: 600,
-                  color: "#6b7280",
+                  color: "rgb(var(--palette-text-gray-500))",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                 }}
@@ -325,17 +325,17 @@ export function FollowButton({
               </div>
 
               {namedPortfolios.length === 0 ? (
-                <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>
+                <div style={{ padding: "10px 12px", fontSize: "13px", color: "rgb(var(--palette-text-gray-400))" }}>
                   No lists yet.{" "}
                   <a
                     href="/my-portfolio"
-                    style={{ color: "#7c3aed", textDecoration: "underline" }}
+                    style={{ color: "rgb(var(--palette-text-violet-600))", textDecoration: "underline" }}
                   >
                     Create one
                   </a>
                 </div>
               ) : membershipLoading && Object.keys(membershipMap).length === 0 ? (
-                <div style={{ padding: "10px 12px", fontSize: "13px", color: "#9ca3af" }}>
+                <div style={{ padding: "10px 12px", fontSize: "13px", color: "rgb(var(--palette-text-gray-400))" }}>
                   Loading lists…
                 </div>
               ) : (
@@ -352,8 +352,8 @@ export function FollowButton({
                         padding: "8px 12px",
                         cursor: isToggling ? "wait" : "pointer",
                         fontSize: "13px",
-                        color: "#111827",
-                        backgroundColor: inList ? "#faf5ff" : "transparent",
+                        color: "rgb(var(--palette-text-gray-900))",
+                        backgroundColor: inList ? "rgb(var(--palette-purple-50))" : "transparent",
                         transition: "background 0.12s",
                         opacity: isToggling ? 0.6 : 1,
                       }}
@@ -369,7 +369,7 @@ export function FollowButton({
                             inList
                           )
                         }
-                        style={{ accentColor: "#7c3aed", width: "15px", height: "15px" }}
+                        style={{ accentColor: "rgb(var(--palette-text-violet-600))", width: "15px", height: "15px" }}
                       />
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {getPortfolioDisplayLabel(p)}

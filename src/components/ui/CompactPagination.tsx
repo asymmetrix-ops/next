@@ -77,7 +77,7 @@ const CompactPagination: React.FC<CompactPaginationProps> = ({
         gap: 6,
         fontFamily: "inherit",
         fontSize: 14,
-        color: "#555",
+        color: "var(--c-fg-555555)",
         userSelect: "none",
       }}
     >
@@ -96,8 +96,8 @@ const CompactPagination: React.FC<CompactPaginationProps> = ({
           height: 28,
           border: "1px solid rgba(0, 11, 41, 0.1)",
           borderRadius: 999,
-          background: isFirst || disabled ? "#f7f8fc" : "#fff",
-          color: isFirst || disabled ? "#8791a8" : "#313a54",
+          background: isFirst || disabled ? "var(--c-bg-f7f8fc)" : "var(--t-panel)",
+          color: isFirst || disabled ? "var(--c-fg-8791a8)" : "var(--c-fg-313a54)",
           cursor: isFirst || disabled ? "not-allowed" : "pointer",
           padding: 0,
           lineHeight: 1,
@@ -115,7 +115,7 @@ const CompactPagination: React.FC<CompactPaginationProps> = ({
           gap: 5,
           whiteSpace: "nowrap",
           fontSize: 14,
-          color: "#374151",
+          color: "rgb(var(--palette-text-gray-700))",
         }}
       >
         Page
@@ -138,15 +138,15 @@ const CompactPagination: React.FC<CompactPaginationProps> = ({
             borderRadius: 8,
             fontSize: 14,
             fontFamily: "inherit",
-            color: error ? "#ef4444" : "#111827",
-            background: disabled ? "#f3f4f6" : "#fff",
+            color: error ? "rgb(var(--palette-text-red-500))" : "rgb(var(--palette-text-gray-900))",
+            background: disabled ? "rgb(var(--palette-gray-100))" : "var(--t-panel)",
             outline: "none",
             padding: "0 4px",
             transition: "border-color 0.15s",
             boxSizing: "border-box",
           }}
         />
-        <span style={{ color: "#6b7280" }}>of {pageTotal}</span>
+        <span style={{ color: "rgb(var(--palette-text-gray-500))" }}>of {pageTotal}</span>
       </span>
 
       {/* Right arrow */}
@@ -164,8 +164,8 @@ const CompactPagination: React.FC<CompactPaginationProps> = ({
           height: 28,
           border: "1px solid rgba(0, 11, 41, 0.1)",
           borderRadius: 999,
-          background: isLast || disabled ? "#f7f8fc" : "#fff",
-          color: isLast || disabled ? "#8791a8" : "#313a54",
+          background: isLast || disabled ? "var(--c-bg-f7f8fc)" : "var(--t-panel)",
+          color: isLast || disabled ? "var(--c-fg-8791a8)" : "var(--c-fg-313a54)",
           cursor: isLast || disabled ? "not-allowed" : "pointer",
           padding: 0,
           lineHeight: 1,

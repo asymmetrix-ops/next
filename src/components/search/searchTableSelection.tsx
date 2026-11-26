@@ -72,7 +72,7 @@ export function SearchTableSelectCell({
         minWidth: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
         width: SEARCH_TABLE_SELECT_COLUMN_WIDTH,
         textAlign: "center",
-        background: selected ? "#EFF6FF" : undefined,
+        background: selected ? "rgb(var(--palette-blue-50))" : undefined,
       }}
     >
       <input

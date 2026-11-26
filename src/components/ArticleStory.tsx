@@ -38,9 +38,9 @@ export function ArticleFollowOnLine({ followOn }: { followOn?: ArticleFollowOn |
   if (!followOn?.original || !followOn.parent) return null;
   const { original } = followOn;
   return (
-    <p style={{ margin: "0 0 8px", fontSize: 14, color: "#4b5563" }}>
+    <p style={{ margin: "0 0 8px", fontSize: 14, color: "rgb(var(--palette-text-gray-600))" }}>
       Follow-on from:{" "}
-      <Link href={`/article/${original.id}`} style={{ color: "#2563eb", textDecoration: "underline" }}>
+      <Link href={`/article/${original.id}`} style={{ color: "rgb(var(--palette-text-blue-600))", textDecoration: "underline" }}>
         {original.headline}
       </Link>
     </p>
@@ -54,28 +54,28 @@ export function ArticleStoryBox({ story }: { story?: ArticleStory | null }) {
     <nav
       aria-label="Story"
       style={{
-        border: "1px solid #dbeafe",
-        background: "#f5f9ff",
+        border: "1px solid rgb(var(--palette-blue-100))",
+        background: "var(--c-bg-f5f9ff)",
         borderRadius: 12,
         padding: "14px 18px",
         margin: "0 0 20px",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#1d4ed8", marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgb(var(--palette-text-blue-700))", marginBottom: 8 }}>
         Story
       </div>
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
         {story.parts.map((part) => (
           <li key={part.id} style={{ fontSize: 14, display: "flex", gap: 10, alignItems: "baseline" }}>
-            <span style={{ flex: "0 0 92px", fontSize: 12, color: "#6b7280" }}>
+            <span style={{ flex: "0 0 92px", fontSize: 12, color: "rgb(var(--palette-text-gray-500))" }}>
               {formatStoryDate(part.publication_date)}
             </span>
             {part.is_current ? (
-              <span aria-current="page" style={{ fontWeight: 700, color: "#111827" }}>
+              <span aria-current="page" style={{ fontWeight: 700, color: "rgb(var(--palette-text-gray-900))" }}>
                 {part.headline}
               </span>
             ) : (
-              <Link href={`/article/${part.id}`} style={{ color: "#2563eb", textDecoration: "underline" }}>
+              <Link href={`/article/${part.id}`} style={{ color: "rgb(var(--palette-text-blue-600))", textDecoration: "underline" }}>
                 {part.headline}
               </Link>
             )}

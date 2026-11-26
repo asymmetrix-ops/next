@@ -101,10 +101,10 @@ export function Sparkline({ data, width = 56, height = 18, color = 'var(--ax-cya
 // ── Ownership pill ───────────────────────────────────────────────────────────
 
 const OWNERSHIP_STYLES: Record<string, { bg: string; fg: string }> = {
-  'Public':               { bg: '#F1EBFC', fg: '#523793' },
+  'Public':               { bg: 'var(--t-lavender-soft)', fg: 'var(--t-lavender)' },
   'PE-owned':             { bg: 'var(--ax-cyan-50)',         fg: 'var(--ax-cyan-700)' },
   'VC-owned':             { bg: 'var(--ax-positive-bg)',     fg: 'var(--ax-positive)' },
-  'Private':              { bg: 'var(--ax-warning-bg)',      fg: '#7A5605' },
+  'Private':              { bg: 'var(--ax-warning-bg)',      fg: 'var(--t-warn)' },
   'Founder-led':          { bg: 'var(--ax-gray-100)',        fg: 'var(--fg-2)' },
   'Corporate subsidiary': { bg: 'var(--ax-gray-100)',        fg: 'var(--fg-2)' },
 };
@@ -418,7 +418,7 @@ export function FinancialsTable({
         tweaks.chromeless
           ? { overflow: "hidden" }
           : {
-              background: "white",
+              background: "var(--t-panel)",
               border: "1px solid var(--border-1)",
               borderRadius: "var(--r-lg)",
               overflow: "hidden",
@@ -478,7 +478,7 @@ export function FinancialsTable({
                   {c.id === 'company' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {!tweaks.hideCompanyAvatars && (
-                        <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--ax-cyan-700)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
+                        <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--bg-brand)', color: 'white', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>Σ</span>
                       )}
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ax-cyan-800)' }}>{aggregateRowLabel}</div>

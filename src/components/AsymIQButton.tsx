@@ -241,7 +241,7 @@ export default function AsymIQButton({
         aria-label="Open AsymIQ research assistant"
         className={
           className ||
-          "group relative inline-flex h-12 items-center gap-2.5 rounded-full bg-[var(--ax-cyan-600)] pl-4 pr-5 text-[14px] font-bold text-white shadow-[var(--shadow-brand-glow)] ring-4 ring-white transition-all hover:-translate-y-0.5 hover:bg-[var(--ax-cyan-700)] focus:outline-none focus:ring-[var(--ax-cyan-300)] disabled:cursor-not-allowed disabled:opacity-50"
+          "group relative inline-flex h-12 items-center gap-2.5 rounded-full bg-[var(--t-azure-fill)] pl-4 pr-5 text-[14px] font-bold text-white shadow-[var(--shadow-brand-glow)] ring-4 ring-white transition-all hover:-translate-y-0.5 hover:bg-[var(--bg-brand)] focus:outline-none focus:ring-[var(--ax-cyan-300)] disabled:cursor-not-allowed disabled:opacity-50"
         }
       >
         <span
@@ -265,7 +265,7 @@ export default function AsymIQButton({
               className="pointer-events-auto flex h-[min(760px,100dvh)] w-full flex-col overflow-hidden rounded-t-xl border border-[var(--ax-cyan-300)] bg-white shadow-[0_24px_64px_rgba(16,28,70,0.28),0_4px_12px_rgba(16,28,70,0.12)] sm:h-[min(760px,calc(100dvh-2rem))] sm:w-[min(480px,calc(100vw-2rem))] sm:rounded-xl"
               style={{ fontFamily: "var(--font-sans)" }}
             >
-              <div className="flex items-center gap-2.5 bg-[var(--ax-cyan-600)] px-4 py-3.5 text-white">
+              <div className="flex items-center gap-2.5 bg-[var(--t-azure-fill)] px-4 py-3.5 text-white">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
                   <SparklesIcon size={18} />
                 </span>
@@ -304,7 +304,7 @@ export default function AsymIQButton({
                   if (message.role === "user") {
                     return (
                       <div key={message.id} className="flex justify-end">
-                        <div className="max-w-[85%] rounded-xl rounded-br-sm bg-[var(--ax-cyan-600)] px-3 py-2 text-[13px] leading-[1.5] text-white shadow-[var(--shadow-xs)]">
+                        <div className="max-w-[85%] rounded-xl rounded-br-sm bg-[var(--t-azure-fill)] px-3 py-2 text-[13px] leading-[1.5] text-white shadow-[var(--shadow-xs)]">
                           {message.content}
                         </div>
                       </div>
@@ -360,7 +360,7 @@ export default function AsymIQButton({
                     type="submit"
                     disabled={!input.trim() || isLoading}
                     aria-label="Send"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-lg bg-[var(--ax-cyan-600)] text-white shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-lg bg-[var(--t-azure-fill)] text-white shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--bg-brand)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

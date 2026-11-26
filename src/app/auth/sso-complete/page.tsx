@@ -51,7 +51,7 @@ function SsoCompleteContent() {
 
   if (phase === "refused" || phase === "failed") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFC] px-6">
+      <div className="flex items-center justify-center min-h-screen bg-[var(--c-bg-f9fafc)] px-6">
         <div className="p-8 w-full max-w-md text-center bg-white rounded-xl border border-gray-200 shadow-sm">
           <h1 className="text-xl font-semibold text-gray-900">
             Sign-in unavailable
@@ -71,7 +71,7 @@ function SsoCompleteContent() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#F9FAFC]">
+    <div className="flex items-center justify-center min-h-screen bg-[var(--c-bg-f9fafc)]">
       <p className="text-gray-600">Completing sign-in...</p>
     </div>
   );
@@ -81,7 +81,7 @@ export default function SsoCompletePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen bg-[#F9FAFC]">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--c-bg-f9fafc)]">
           <p className="text-gray-600">Completing sign-in...</p>
         </div>
       }

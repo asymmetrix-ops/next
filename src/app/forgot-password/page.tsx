@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFC]">
+    <div className="min-h-screen bg-[var(--c-bg-f9fafc)]">
       <header className="flex justify-between items-center px-4 py-3 bg-white border-b border-gray-200 sm:px-6">
         <Link
           href="/"

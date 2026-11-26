@@ -55,11 +55,11 @@ export function NewsArticleCard({
       onClick={handleClick}
       style={{
         display: "block",
-        background: "linear-gradient(180deg, #ffffff 0%, #fffafb 100%)",
+        background: "linear-gradient(180deg, var(--t-panel) 0%, var(--c-bg-fffafb) 100%)",
         borderRadius: 8,
         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
         padding: "14px 16px 14px 18px",
-        border: "1px solid #fecdd3",
+        border: "1px solid rgb(var(--palette-rose-200))",
         borderLeft: "4px solid #e11d48",
         cursor: "pointer",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
@@ -81,7 +81,7 @@ export function NewsArticleCard({
           <p
             style={{
               fontSize: 13,
-              color: "#6b7280",
+              color: "rgb(var(--palette-text-gray-500))",
               margin: "8px 0 0 0",
               fontStyle: "italic",
             }}
@@ -95,7 +95,7 @@ export function NewsArticleCard({
         style={{
           fontSize: 17,
           fontWeight: 700,
-          color: "#1a202c",
+          color: "var(--c-fg-1a202c)",
           margin: "0 0 8px 0",
           lineHeight: 1.35,
         }}
@@ -107,7 +107,7 @@ export function NewsArticleCard({
         <p
           style={{
             fontSize: 14,
-            color: "#374151",
+            color: "rgb(var(--palette-text-gray-700))",
             lineHeight: 1.5,
             margin: "0 0 8px 0",
             fontWeight: 500,
@@ -120,7 +120,7 @@ export function NewsArticleCard({
       <p
         style={{
           fontSize: 13,
-          color: "#6b7280",
+          color: "rgb(var(--palette-text-gray-500))",
           margin: strapline ? "0 0 8px 0" : "0 0 8px 0",
           fontWeight: 500,
         }}
@@ -138,7 +138,7 @@ export function NewsArticleCard({
             display: "inline-block",
             fontSize: 13,
             fontWeight: 600,
-            color: "#0075df",
+            color: "var(--c-fg-0075df)",
             textDecoration: "underline",
           }}
         >
@@ -154,10 +154,10 @@ export function NewsArticleCard({
             }}
             style={{
               background: "none",
-              border: "1px solid #d1d5db",
+              border: "1px solid rgb(var(--palette-gray-300))",
               borderRadius: 4,
               cursor: "pointer",
-              color: "#374151",
+              color: "rgb(var(--palette-text-gray-700))",
               fontSize: 11.5,
               fontWeight: 500,
               padding: "2px 8px",

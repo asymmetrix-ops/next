@@ -64,20 +64,21 @@ import {
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
 // (same convention as src/app/sectors/page.tsx)
-const LINE = "#E4E8F2";
-const LINE_2 = "#EFF2F8";
-const INK = "#0A0E1A";
-const INK_2 = "#1E2536";
-const INK_3 = "#3D4657";
-const BODY = "#566078";
-const MUTED = "#6B7488";
-const MUTED_SOFT = "#8A93A8";
-const EMPTY = "#6B7488";
-const TINT = "#F5F7FD";
-const BLUE_50 = "#F1F4FE";
-const BLUE_200 = "#C6D1FB";
-const BLUE_600 = "#2A46EA";
-const BLUE_700 = "#1F35C4";
+const LINE = "var(--t-divider)";
+const LINE_2 = "var(--t-hair)";
+const INK = "var(--t-ink)";
+const INK_2 = "var(--t-ink2)";
+const INK_3 = "var(--ax-gray-700)";
+const BODY = "var(--t-body)";
+const MUTED = "var(--t-muted)";
+const MUTED_SOFT = "var(--t-faint)";
+const EMPTY = "var(--t-muted)";
+const TINT = "var(--t-paper)";
+const BLUE_50 = "var(--t-azure-soft)";
+const BLUE_200 = "var(--t-card-hover-border)";
+const BLUE_600 = "var(--t-azure)";
+const BLUE_600_FILL = "var(--c-bg-2a46ea)";
+const BLUE_700 = "var(--ax-cyan-700)";
 const R_LG = 16;
 const R_SM = 8;
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
@@ -529,7 +530,7 @@ function TabNavigation({
   hasTransactionComps: boolean;
 }) {
   return (
-    <div style={{ padding: "0 20px", background: "#fff" }}>
+    <div style={{ padding: "0 20px", background: "var(--t-panel)" }}>
       <ProfileSubnav
         sticky
         tabs={TABS.filter((tab) => tab.id !== "transaction_comps" || hasTransactionComps).map((tab) => ({
@@ -612,7 +613,7 @@ function RecentInsightsCard({
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${LINE}`,
         borderRadius: R_LG,
         boxShadow: SH_SM,
@@ -754,13 +755,13 @@ function MostActiveTableCard({
 }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   const isInvestorTable = title.toLowerCase().includes("private equity");
-  const countBg = accent === "purple" ? "#F1EBFC" : BLUE_50;
-  const countFg = accent === "purple" ? "#523793" : BLUE_700;
+  const countBg = accent === "purple" ? "var(--t-lavender-soft)" : BLUE_50;
+  const countFg = accent === "purple" ? "var(--t-lavender)" : BLUE_700;
 
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${LINE}`,
         borderRadius: R_LG,
         boxShadow: SH_SM,
@@ -891,7 +892,7 @@ function MostActiveTableCard({
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {it.logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <img className="logo-tile"
                             src={it.logoUrl}
                             alt={it.name}
                             style={{ width: 30, height: 30, borderRadius: R_SM, border: `1px solid ${LINE}`, objectFit: "contain" }}
@@ -1013,7 +1014,7 @@ function RecentTransactionCompsCard({ sectorId }: { sectorId: number }) {
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${LINE}`,
         borderRadius: R_LG,
         boxShadow: SH_SM,
@@ -1173,7 +1174,7 @@ function SectorDealRadarOrEventsCard({
   if (items !== null && items.length === 0) return <>{fallback}</>;
 
   const cardStyle: React.CSSProperties = {
-    background: "#fff",
+    background: "var(--t-panel)",
     border: `1px solid ${LINE}`,
     borderRadius: R_LG,
     boxShadow: SH_SM,
@@ -1325,7 +1326,7 @@ function RecentTransactionsCard({
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${LINE}`,
         borderRadius: R_LG,
         boxShadow: SH_SM,
@@ -1418,7 +1419,7 @@ function RecentTransactionsCard({
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {t.targetLogoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <img className="logo-tile"
                             src={t.targetLogoUrl}
                             alt={t.target}
                             style={{ width: 30, height: 30, borderRadius: R_SM, border: `1px solid ${LINE}`, objectFit: "contain", flexShrink: 0 }}
@@ -1602,7 +1603,7 @@ function MarketMapGrid({
           <div
             key={type}
             style={{
-              background: "#fff",
+              background: "var(--t-panel)",
               border: `1px solid ${LINE}`,
               borderRadius: R_LG,
               boxShadow: SH_SM,
@@ -1708,7 +1709,7 @@ function MarketMapGrid({
                     >
                       {company.logo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <img className="logo-tile"
                           src={company.logo_url}
                           alt={company.name}
                           style={{ width: 22, height: 22, borderRadius: 5, border: `1px solid ${LINE}`, objectFit: "contain", flexShrink: 0 }}
@@ -2241,7 +2242,7 @@ const SectorDetailPage = ({
       <AppShell>
       <div className="min-h-screen">
         <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ fontSize: "18px", color: "#e53e3e" }}>
+          <div style={{ fontSize: "18px", color: "var(--c-fg-e53e3e)" }}>
             {error === "Authentication required" ? (
               <div>
                 <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
@@ -2253,7 +2254,7 @@ const SectorDetailPage = ({
                 <a
                   href="/login"
                   style={{
-                    color: "#2A46EA",
+                    color: "var(--t-azure)",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2273,7 +2274,7 @@ const SectorDetailPage = ({
                 <a
                   href="/sectors"
                   style={{
-                    color: "#2A46EA",
+                    color: "var(--t-azure)",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2290,7 +2291,7 @@ const SectorDetailPage = ({
                 <a
                   href="/sectors"
                   style={{
-                    color: "#2A46EA",
+                    color: "var(--t-azure)",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2467,7 +2468,7 @@ const SectorDetailPage = ({
         {/* Search + content-type filter */}
         <div
           style={{
-            background: "#fff",
+            background: "var(--t-panel)",
             border: `1px solid ${LINE}`,
             borderRadius: R_LG,
             boxShadow: SH_SM,
@@ -2513,7 +2514,7 @@ const SectorDetailPage = ({
               padding: "0 14px",
               borderRadius: 999,
               border: `1px solid ${LINE}`,
-              background: "#fff",
+              background: "var(--t-panel)",
               fontSize: 13,
               fontWeight: 600,
               color: INK_3,
@@ -2534,7 +2535,7 @@ const SectorDetailPage = ({
               padding: "0 20px",
               borderRadius: 999,
               border: "none",
-              background: BLUE_600,
+              background: BLUE_600_FILL,
               color: "#fff",
               fontSize: 13,
               fontWeight: 700,
@@ -2544,7 +2545,7 @@ const SectorDetailPage = ({
             {loading ? "Searching…" : "Search"}
           </button>
           {error && (
-            <span style={{ fontSize: 12.5, color: "#A62E22" }}>{error}</span>
+            <span style={{ fontSize: 12.5, color: "var(--t-coral)" }}>{error}</span>
           )}
         </div>
 
@@ -2576,7 +2577,7 @@ const SectorDetailPage = ({
                     padding: "0 14px",
                     borderRadius: 999,
                     border: `1px solid ${on ? INK : LINE}`,
-                    background: on ? INK : "#fff",
+                    background: on ? INK : "var(--t-panel)",
                     color: on ? "#fff" : INK_3,
                     fontSize: 13,
                     fontWeight: 600,
@@ -2676,7 +2677,7 @@ const SectorDetailPage = ({
         background: TINT,
       }}
     >
-      <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
+      <div style={{ background: "var(--t-panel)", borderBottom: `1px solid ${LINE}`, padding: "18px 20px 16px" }}>
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>
           <a href="/sectors" style={{ fontWeight: 600, color: BLUE_600, textDecoration: "none" }}>
             Sectors
@@ -2721,7 +2722,7 @@ const SectorDetailPage = ({
                   padding: "0 10px 0 14px",
                   borderRadius: 999,
                   border: `1px solid ${LINE}`,
-                  background: "#fff",
+                  background: "var(--t-panel)",
                 }}
               >
                 <InlineFollowButton
@@ -2774,7 +2775,7 @@ const SectorDetailPage = ({
               ) : (
                 <div
                   style={{
-                    background: "#fff",
+                    background: "var(--t-panel)",
                     border: `1px solid ${LINE}`,
                     borderRadius: R_LG,
                     boxShadow: SH_SM,
@@ -2820,7 +2821,7 @@ const SectorDetailPage = ({
             ) : (
               <div
                 style={{
-                  background: "#fff",
+                  background: "var(--t-panel)",
                   border: `1px solid ${LINE}`,
                   borderRadius: R_LG,
                   boxShadow: SH_SM,
@@ -2858,7 +2859,7 @@ const SectorDetailPage = ({
               ) : (
                 <div
                   style={{
-                    background: "#fff",
+                    background: "var(--t-panel)",
                     border: `1px solid ${LINE}`,
                     borderRadius: R_LG,
                     boxShadow: SH_SM,
@@ -2886,7 +2887,7 @@ const SectorDetailPage = ({
               ) : (
                 <div
                   style={{
-                    background: "#fff",
+                    background: "var(--t-panel)",
                     border: `1px solid ${LINE}`,
                     borderRadius: R_LG,
                     boxShadow: SH_SM,
@@ -2995,7 +2996,7 @@ const SectorDetailPage = ({
                 Loading secondary sectors…
               </div>
             ) : subSectorsError ? (
-              <div style={{ padding: "16px 0", textAlign: "center", color: "#A62E22", fontSize: 13 }}>
+              <div style={{ padding: "16px 0", textAlign: "center", color: "var(--t-coral)", fontSize: 13 }}>
                 {subSectorsError}
               </div>
             ) : subSectors.length === 0 ? (
@@ -3034,7 +3035,7 @@ const SectorDetailPage = ({
                         key={s.id}
                         href={`/sub-sector/${s.id}`}
                         style={{
-                          background: "#fff",
+                          background: "var(--t-panel)",
                           border: `1px solid ${LINE}`,
                           borderRadius: R_LG,
                           boxShadow: SH_XS,
@@ -3106,7 +3107,7 @@ const SectorDetailPage = ({
               alignItems: "center",
               justifyContent: "center",
               height: 260,
-              background: "#fff",
+              background: "var(--t-panel)",
               border: `1px solid ${LINE}`,
               borderRadius: R_LG,
             }}

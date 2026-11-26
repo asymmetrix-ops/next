@@ -56,7 +56,7 @@ export const CorporateEventsSection: React.FC<CorporateEventsSectionProps> = ({
           ? {
               marginTop: "16px",
               paddingTop: "16px",
-              borderTop: "1px solid #e2e8f0",
+              borderTop: "1px solid rgb(var(--palette-slate-200))",
             }
           : null),
         ...containerStyle,

@@ -21,11 +21,11 @@ const SORTABLE_HEADER_HOVER_STYLES = `
     transition: color 0.12s, background-color 0.12s;
   }
   .company-table thead th.company-table-th-sortable:hover {
-    color: #2A46EA;
-    background: #E8EDFB;
+    color: var(--t-azure);
+    background: var(--c-bg-e8edfb);
   }
   .company-table thead th.company-table-th-sortable:hover .company-table-sort-indicator {
-    color: #2A46EA;
+    color: var(--t-azure);
   }
 `;
 
@@ -105,7 +105,7 @@ export function TransactionCompsTable({
           left: SELECT_COL_WIDTH,
           zIndex: header ? 7 : 3,
           boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
-          background: header ? "#F5F7FD" : selected ? "#EFF6FF" : "#fff",
+          background: header ? "var(--t-paper)" : selected ? "rgb(var(--palette-blue-50))" : "var(--t-panel)",
         }
       : undefined;
 
@@ -174,7 +174,7 @@ export function TransactionCompsTable({
                       minWidth: SELECT_COL_WIDTH,
                       width: SELECT_COL_WIDTH,
                       textAlign: "center",
-                      background: selected ? "#EFF6FF" : "#fff",
+                      background: selected ? "rgb(var(--palette-blue-50))" : "var(--t-panel)",
                     }}
                   >
                     <input
@@ -209,14 +209,14 @@ export function TransactionCompsTable({
             })}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "#6B7488" }}>
+                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "var(--t-muted)" }}>
                   No transactions match your filters.
                 </td>
               </tr>
             )}
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "#6B7488" }}>
+                <td colSpan={columnKeys.length + 1} style={{ textAlign: "center", padding: 48, color: "var(--t-muted)" }}>
                   Loading transaction comps…
                 </td>
               </tr>
@@ -246,12 +246,12 @@ export function TransactionCompsTable({
           </div>
         ))}
         {!loading && rows.length === 0 && (
-          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>
+          <div style={{ textAlign: "center", padding: 32, color: "var(--t-muted)" }}>
             No transactions match your filters.
           </div>
         )}
         {loading && rows.length === 0 && (
-          <div style={{ textAlign: "center", padding: 32, color: "#6B7488" }}>Loading transaction comps…</div>
+          <div style={{ textAlign: "center", padding: 32, color: "var(--t-muted)" }}>Loading transaction comps…</div>
         )}
       </div>
     </>

@@ -538,6 +538,9 @@ export async function openArticlePdfWindow(
 
   await ensureHtml2Pdf();
   const host = document.createElement("div");
+  // PDFs always use the light colours, whatever the platform theme
+  host.className = "theme-light";
+  host.style.color = "hsl(var(--foreground))";
   host.style.position = "fixed";
   host.style.left = "-10000px";
   host.style.top = "0";

@@ -468,7 +468,7 @@ export function InvestorPortfolioTab({
 
   if (idsLoading) {
     return (
-      <div style={{ padding: "32px 0", textAlign: "center", color: "#6B7488" }}>
+      <div style={{ padding: "32px 0", textAlign: "center", color: "var(--t-muted)" }}>
         Loading portfolio…
       </div>
     );
@@ -476,7 +476,7 @@ export function InvestorPortfolioTab({
 
   if (idsError || !portfolioIds) {
     return (
-      <div style={{ padding: "32px 0", textAlign: "center", color: "#6B7488" }}>
+      <div style={{ padding: "32px 0", textAlign: "center", color: "var(--t-muted)" }}>
         {idsError ?? "Portfolio unavailable."}
       </div>
     );
@@ -498,9 +498,9 @@ export function InvestorPortfolioTab({
       <div
         className="overflow-hidden px-5"
         style={{
-          background: "#fff",
+          background: "var(--t-panel)",
           borderRadius: 16,
-          border: "1px solid #E4E8F2",
+          border: "1px solid var(--t-divider)",
           boxShadow:
             "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
         }}

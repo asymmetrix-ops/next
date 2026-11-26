@@ -141,7 +141,7 @@ function ArticleRow({
           ? {
               borderLeft: `3px solid #e11d48`,
               paddingLeft: 13,
-              background: "linear-gradient(90deg, #fffafb 0%, transparent 100%)",
+              background: "linear-gradient(90deg, var(--c-bg-fffafb) 0%, transparent 100%)",
             }
           : {}),
       }}

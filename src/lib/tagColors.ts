@@ -24,30 +24,30 @@ export type TagTone = {
 
 /** Deal type is always the neutral grey, whatever the value. */
 export const DEAL_TYPE_TONE: TagTone = {
-  text: "#343C46",
-  fill: "#ECEFF3",
-  border: "#DDE2E8",
+  text: "var(--c-fg-343c46)",
+  fill: "var(--c-bg-eceff3)",
+  border: "var(--c-line-dde2e8)",
 };
 
 /** Funding-stage ramp — stepping darker as the stage advances. */
 // Same text colour across each group
 export const FUNDING_STAGE_TONES: Record<string, TagTone> = {
-  "pre-seed": { text: "#143E96", fill: "#EEF3FC", border: "#DCE6F6" },
-  seed: { text: "#143E96", fill: "#E4ECFA", border: "#CCDBF3" },
-  "series a": { text: "#143E96", fill: "#D7E2F4", border: "#B8CAEA" },
-  "series b": { text: "#032D20", fill: "#E7F7EF", border: "#C8EAD9" },
-  "series c": { text: "#032D20", fill: "#DEF3E7", border: "#BBE2CE" },
-  "series d": { text: "#032D20", fill: "#D5EFDF", border: "#AED8C3" },
-  "series e": { text: "#032D20", fill: "#CCEAD6", border: "#9DCEB7" },
-  "series f": { text: "#032D20", fill: "#C3E6CD", border: "#8FC4AB" },
-  "series g": { text: "#032D20", fill: "#BBE2C5", border: "#80B89D" },
-  growth: { text: "#032D20", fill: "#B2DDBC", border: "#6FAE91" },
-  buyout: { text: "#4D2D7C", fill: "#EFE6F7", border: "#DDD0EC" },
-  "take private": { text: "#4D2D7C", fill: "#E1D4EF", border: "#C5B0DE" },
-  "credit facility": { text: "#5E4204", fill: "#FFF2D2", border: "#F2DEA1" },
-  debt: { text: "#5E4204", fill: "#F5E2B6", border: "#E2C880" },
-  grant: { text: "#5E4204", fill: "#ECD68F", border: "#CDAE5B" },
-  closing: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1" },
+  "pre-seed": { text: "var(--c-fg-143e96)", fill: "var(--c-bg-eef3fc)", border: "var(--c-line-dce6f6)" },
+  seed: { text: "var(--c-fg-143e96)", fill: "var(--c-bg-e4ecfa)", border: "var(--c-line-ccdbf3)" },
+  "series a": { text: "var(--c-fg-143e96)", fill: "var(--c-bg-d7e2f4)", border: "var(--c-line-b8caea)" },
+  "series b": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-e7f7ef)", border: "var(--c-line-c8ead9)" },
+  "series c": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-def3e7)", border: "var(--c-line-bbe2ce)" },
+  "series d": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-d5efdf)", border: "var(--c-line-aed8c3)" },
+  "series e": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-ccead6)", border: "var(--c-line-9dceb7)" },
+  "series f": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-c3e6cd)", border: "var(--c-line-8fc4ab)" },
+  "series g": { text: "var(--c-fg-032d20)", fill: "var(--c-bg-bbe2c5)", border: "var(--c-line-80b89d)" },
+  growth: { text: "var(--c-fg-032d20)", fill: "var(--c-bg-b2ddbc)", border: "var(--c-line-6fae91)" },
+  buyout: { text: "var(--c-fg-4d2d7c)", fill: "var(--c-bg-efe6f7)", border: "var(--c-line-ddd0ec)" },
+  "take private": { text: "var(--c-fg-4d2d7c)", fill: "var(--c-bg-e1d4ef)", border: "var(--c-line-c5b0de)" },
+  "credit facility": { text: "var(--c-fg-5e4204)", fill: "var(--c-bg-fff2d2)", border: "var(--c-line-f2dea1)" },
+  debt: { text: "var(--c-fg-5e4204)", fill: "var(--c-bg-f5e2b6)", border: "var(--c-line-e2c880)" },
+  grant: { text: "var(--c-fg-5e4204)", fill: "var(--c-bg-ecd68f)", border: "var(--c-line-cdae5b)" },
+  closing: { text: "var(--c-fg-93400f)", fill: "var(--c-bg-fce3d2)", border: "var(--c-line-f4ccb1)" },
 };
 
 export function getFundingStageTone(value: string): TagTone {
@@ -61,42 +61,42 @@ export function getFundingStageTone(value: string): TagTone {
 
 export const TRANSACTION_STATUS_TONES: Record<string, TagTone> = {
   "reported in market": {
-    text: "#0F7040",
-    fill: "#E4F5EC",
+    text: "var(--t-emerald)",
+    fill: "var(--t-emerald-soft)",
     dot: "#17A05C",
-    border: "#C3E7D3",
+    border: "var(--c-line-c3e7d3)",
   },
   "rumoured in market": {
-    text: "#7A5605",
-    fill: "#FEF6E0",
+    text: "var(--t-warn)",
+    fill: "var(--t-warn-soft)",
     dot: "#E0A32E",
-    border: "#F6E3B4",
+    border: "var(--c-line-f6e3b4)",
   },
   "anticipated within 6 months": {
-    text: "#182A9B",
-    fill: "#E2E8FD",
+    text: "var(--c-fg-182a9b)",
+    fill: "var(--ax-cyan-100)",
     dot: "#2A46EA",
-    border: "#BFCBF8",
+    border: "var(--c-line-bfcbf8)",
   },
   "anticipated within 18 months": {
-    text: "#1F35C4",
-    fill: "#F1F4FE",
+    text: "var(--ax-cyan-700)",
+    fill: "var(--t-azure-soft)",
     dot: "#3D5BF3",
-    border: "#C6D1FB",
+    border: "var(--t-card-hover-border)",
   },
   "process on hold": {
-    text: "#3D4657",
-    fill: "#F5F7FD",
+    text: "var(--ax-gray-700)",
+    fill: "var(--t-paper)",
     dot: "#8A93A8",
-    border: "#E4E8F2",
+    border: "var(--t-divider)",
   },
 };
 
 /** Neutral email-safe rendering — see tags.txt §2 note on mail clients. */
 export const TRANSACTION_STATUS_EMAIL_TONE: TagTone = {
-  text: "#1F252E",
-  fill: "#E1E4E9",
-  border: "#CBD0D8",
+  text: "var(--c-fg-1f252e)",
+  fill: "var(--c-bg-e1e4e9)",
+  border: "var(--c-line-cbd0d8)",
 };
 
 export function getTransactionStatusTone(status: string): TagTone {
@@ -139,22 +139,22 @@ export function formatTransactionStatusLabel(status: string): string {
  * ---------------------------------------------------------------------- */
 
 export const INSIGHTS_TYPE_TONES: Record<string, TagTone> = {
-  "company analysis": { text: "#1E7A50", fill: "#E7F6EE", border: "#BFE4D0" },
-  "company update": { text: "#1E7A50", fill: "#E7F6EE", border: "#BFE4D0" },
-  "market commentary": { text: "#8A5A06", fill: "#FBF1DE", border: "#EBCE94" },
-  "deal analysis": { text: "#8A5A06", fill: "#FBF1DE", border: "#EBCE94" },
-  "deal perspective": { text: "#8A5A06", fill: "#FBF1DE", border: "#EBCE94" },
-  "hot take": { text: "#8A5A06", fill: "#FBF1DE", border: "#EBCE94" },
-  "sector analysis": { text: "#4F3DB0", fill: "#EEEBFA", border: "#D4CCEE" },
-  "investor analysis": { text: "#0370AA", fill: "#E8F8FF", border: "#8DDAFF" },
-  "company brief": { text: "#02527D", fill: "#E8F8FF", border: "#8DDAFF" },
-  "executive interview": { text: "#1E7A50", fill: "#E7F6EE", border: "#BFE4D0" },
+  "company analysis": { text: "var(--c-fg-1e7a50)", fill: "var(--c-bg-e7f6ee)", border: "var(--c-line-bfe4d0)" },
+  "company update": { text: "var(--c-fg-1e7a50)", fill: "var(--c-bg-e7f6ee)", border: "var(--c-line-bfe4d0)" },
+  "market commentary": { text: "var(--c-fg-8a5a06)", fill: "var(--c-bg-fbf1de)", border: "var(--c-line-ebce94)" },
+  "deal analysis": { text: "var(--c-fg-8a5a06)", fill: "var(--c-bg-fbf1de)", border: "var(--c-line-ebce94)" },
+  "deal perspective": { text: "var(--c-fg-8a5a06)", fill: "var(--c-bg-fbf1de)", border: "var(--c-line-ebce94)" },
+  "hot take": { text: "var(--c-fg-8a5a06)", fill: "var(--c-bg-fbf1de)", border: "var(--c-line-ebce94)" },
+  "sector analysis": { text: "var(--c-fg-4f3db0)", fill: "var(--c-bg-eeebfa)", border: "var(--c-line-d4ccee)" },
+  "investor analysis": { text: "var(--c-fg-0370aa)", fill: "var(--c-bg-e8f8ff)", border: "var(--c-line-8ddaff)" },
+  "company brief": { text: "var(--c-fg-02527d)", fill: "var(--c-bg-e8f8ff)", border: "var(--c-line-8ddaff)" },
+  "executive interview": { text: "var(--c-fg-1e7a50)", fill: "var(--c-bg-e7f6ee)", border: "var(--c-line-bfe4d0)" },
   "there's a data provider for that": {
-    text: "#4F3DB0",
-    fill: "#EEEBFA",
-    border: "#D4CCEE",
+    text: "var(--c-fg-4f3db0)",
+    fill: "var(--c-bg-eeebfa)",
+    border: "var(--c-line-d4ccee)",
   },
-  news: { text: "#A62E22", fill: "#FCEAE7", border: "#F5CFC8", dot: "#D24534" },
+  news: { text: "var(--t-coral)", fill: "var(--t-coral-soft)", border: "var(--c-line-f5cfc8)", dot: "#D24534" },
 };
 
 export function getInsightsTypeTone(contentType: string): TagTone {
@@ -173,7 +173,7 @@ export function getInsightsTypeTone(contentType: string): TagTone {
   ) {
     return INSIGHTS_TYPE_TONES["market commentary"];
   }
-  return { text: "#6B7488", fill: "#EFF2F8", border: "#E4E8F2" };
+  return { text: "var(--t-muted)", fill: "var(--t-inset)", border: "var(--t-divider)" };
 }
 
 /* -------------------------------------------------------------------------
@@ -181,14 +181,14 @@ export function getInsightsTypeTone(contentType: string): TagTone {
  * ---------------------------------------------------------------------- */
 
 export const NEWS_SUBTYPE_TONES: Record<string, TagTone> = {
-  fundraise: { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB", dot: "#3D5BF3" },
+  fundraise: { text: "var(--ax-cyan-700)", fill: "var(--t-azure-soft)", border: "var(--t-card-hover-border)", dot: "#3D5BF3" },
   // Raspberry: scoops should feel livelier than the old mustard, and it doesn't clash with
   // the other News sub-types (blue, green, teal, purple, grey) or the process-stage tones.
-  "sale process": { text: "#B0154F", fill: "#FDECF2", border: "#F7C5D6", dot: "#E23B7B" },
-  "deal close": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", dot: "#17A05C" },
-  "carve-out": { text: "#0A5E75", fill: "#E1F3F8", border: "#BCE2EC", dot: "#1898B8" },
-  ipo: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", dot: "#7A5BD0" },
-  leadership: { text: "#3D4657", fill: "#F5F7FD", border: "#E4E8F2", dot: "#8A93A8" },
+  "sale process": { text: "var(--c-fg-b0154f)", fill: "var(--c-bg-fdecf2)", border: "var(--c-line-f7c5d6)", dot: "#E23B7B" },
+  "deal close": { text: "var(--t-emerald)", fill: "var(--t-emerald-soft)", border: "var(--c-line-c3e7d3)", dot: "#17A05C" },
+  "carve-out": { text: "var(--c-fg-0a5e75)", fill: "var(--c-bg-e1f3f8)", border: "var(--c-line-bce2ec)", dot: "#1898B8" },
+  ipo: { text: "var(--t-lavender)", fill: "var(--t-lavender-soft)", border: "var(--c-line-ddcef7)", dot: "#7A5BD0" },
+  leadership: { text: "var(--ax-gray-700)", fill: "var(--t-paper)", border: "var(--t-divider)", dot: "#8A93A8" },
 };
 
 export function getNewsSubtypeTone(subtype: string): TagTone {
@@ -201,11 +201,11 @@ export function getNewsSubtypeTone(subtype: string): TagTone {
  * ---------------------------------------------------------------------- */
 
 export const PROCESS_STAGE_TONES: Record<string, TagTone> = {
-  "strategic review": { text: "#0370AA", fill: "#E8F8FF", border: "#8DDAFF" },
-  "banker pitches": { text: "#0A5E75", fill: "#E1F3F8", border: "#BCE2EC" },
-  "deal prep": { text: "#4F3DB0", fill: "#EEEBFA", border: "#D4CCEE" },
-  "in market": { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1" },
-  "in exclusivity": { text: "#372A78", fill: "#E4E0F6", border: "#CBC3EA" },
+  "strategic review": { text: "var(--c-fg-0370aa)", fill: "var(--c-bg-e8f8ff)", border: "var(--c-line-8ddaff)" },
+  "banker pitches": { text: "var(--c-fg-0a5e75)", fill: "var(--c-bg-e1f3f8)", border: "var(--c-line-bce2ec)" },
+  "deal prep": { text: "var(--c-fg-4f3db0)", fill: "var(--c-bg-eeebfa)", border: "var(--c-line-d4ccee)" },
+  "in market": { text: "var(--c-fg-93400f)", fill: "var(--c-bg-fce3d2)", border: "var(--c-line-f4ccb1)" },
+  "in exclusivity": { text: "var(--c-fg-372a78)", fill: "var(--c-bg-e4e0f6)", border: "var(--c-line-cbc3ea)" },
 };
 
 export function getProcessStageTone(value: string): TagTone {
@@ -219,10 +219,10 @@ export function getProcessStageTone(value: string): TagTone {
 
 export const INTERMEDIARY_TONES = {
   // Same orange as the advisor entity tag
-  namedAdvisor: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1" } as TagTone,
-  notYetHired: { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4" } as TagTone,
-  noIntermediary: { text: "#3D4657", fill: "#F5F7FD", border: "#E4E8F2" } as TagTone,
-  unknown: { text: "#6B7488", fill: "#FFFFFF", border: "#D8DEEB" } as TagTone, // dashed
+  namedAdvisor: { text: "var(--c-fg-93400f)", fill: "var(--c-bg-fce3d2)", border: "var(--c-line-f4ccb1)" } as TagTone,
+  notYetHired: { text: "var(--t-warn)", fill: "var(--t-warn-soft)", border: "var(--c-line-f6e3b4)" } as TagTone,
+  noIntermediary: { text: "var(--ax-gray-700)", fill: "var(--t-paper)", border: "var(--t-divider)" } as TagTone,
+  unknown: { text: "var(--t-muted)", fill: "var(--t-panel)", border: "var(--c-line-d8deeb)" } as TagTone, // dashed
 };
 
 export function getIntermediaryTone(value?: string | null): TagTone & { dashed?: boolean } {
@@ -239,8 +239,8 @@ export function getIntermediaryTone(value?: string | null): TagTone & { dashed?:
 
 export const BUYER_TYPE_TONES: Record<string, TagTone> = {
   trade: DEAL_TYPE_TONE,
-  sponsor: { text: "#7A52AE", fill: "#EFE6F7", border: "#DDD0EC" },
-  "growth equity": { text: "#0B6346", fill: "#E7F7EF", border: "#C8EAD9" },
+  sponsor: { text: "var(--c-fg-7a52ae)", fill: "var(--c-bg-efe6f7)", border: "var(--c-line-ddd0ec)" },
+  "growth equity": { text: "var(--c-fg-0b6346)", fill: "var(--c-bg-e7f7ef)", border: "var(--c-line-c8ead9)" },
 };
 
 export function getBuyerTypeTone(value: string): TagTone {
@@ -253,9 +253,9 @@ export function getBuyerTypeTone(value: string): TagTone {
  * ---------------------------------------------------------------------- */
 
 export const TRANSACTION_SIGNAL_TONES: Record<string, TagTone> = {
-  "asymmetrix assessment": { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB" },
-  "proprietary intel": { text: "#02527D", fill: "#E8F8FF", border: "#8DDAFF" },
-  "long hold": { text: "#3D4657", fill: "#F5F7FD", border: "#E4E8F2" },
+  "asymmetrix assessment": { text: "var(--ax-cyan-700)", fill: "var(--t-azure-soft)", border: "var(--t-card-hover-border)" },
+  "proprietary intel": { text: "var(--c-fg-02527d)", fill: "var(--c-bg-e8f8ff)", border: "var(--c-line-8ddaff)" },
+  "long hold": { text: "var(--ax-gray-700)", fill: "var(--t-paper)", border: "var(--t-divider)" },
 };
 
 /** User-facing copy for Deal Radar transaction-signal tooltips (tags.txt §8). */
@@ -283,8 +283,8 @@ export function getTransactionSignalDescription(value: string): string {
  * ---------------------------------------------------------------------- */
 
 export const NUMERIC_VALUE_TONES = {
-  disclosed: { text: "#2A46EA", fill: "#FFFFFF", border: "#C6D1FB" } as TagTone,
-  undisclosed: { text: "#6B7488", fill: "#FFFFFF", border: "#E4E8F2" } as TagTone,
+  disclosed: { text: "var(--t-azure)", fill: "var(--t-panel)", border: "var(--t-card-hover-border)" } as TagTone,
+  undisclosed: { text: "var(--t-muted)", fill: "var(--t-panel)", border: "var(--t-divider)" } as TagTone,
 };
 
 /* -------------------------------------------------------------------------
@@ -292,12 +292,12 @@ export const NUMERIC_VALUE_TONES = {
  * ---------------------------------------------------------------------- */
 
 export const ENTITY_TONES = {
-  company: { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3", hoverFill: "#D3EEE0" },
-  investor: { text: "#0370AA", fill: "#E8F8FF", border: "#8DDAFF", hoverFill: "#D5F1FE" },
-  advisor: { text: "#93400F", fill: "#FCE3D2", border: "#F4CCB1", hoverFill: "#F8D4BC" },
-  individual: { text: "#372A78", fill: "#E4E0F6", border: "#CBC3EA", hoverFill: "#D5CFF0" },
-  sector: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7", hoverFill: "#E5DAF9" },
-  subsector: { text: "#5E4AA8", fill: "#FBF9FE", border: "#D8CDF0", hoverFill: "#F2ECFC" },
+  company: { text: "var(--t-emerald)", fill: "var(--t-emerald-soft)", border: "var(--c-line-c3e7d3)", hoverFill: "var(--c-bg-d3eee0)" },
+  investor: { text: "var(--c-fg-0370aa)", fill: "var(--c-bg-e8f8ff)", border: "var(--c-line-8ddaff)", hoverFill: "var(--c-bg-d5f1fe)" },
+  advisor: { text: "var(--c-fg-93400f)", fill: "var(--c-bg-fce3d2)", border: "var(--c-line-f4ccb1)", hoverFill: "var(--c-bg-f8d4bc)" },
+  individual: { text: "var(--c-fg-372a78)", fill: "var(--c-bg-e4e0f6)", border: "var(--c-line-cbc3ea)", hoverFill: "var(--c-bg-d5cff0)" },
+  sector: { text: "var(--t-lavender)", fill: "var(--t-lavender-soft)", border: "var(--c-line-ddcef7)", hoverFill: "var(--c-bg-e5daf9)" },
+  subsector: { text: "var(--c-fg-5e4aa8)", fill: "var(--c-bg-fbf9fe)", border: "var(--c-line-d8cdf0)", hoverFill: "var(--c-bg-f2ecfc)" },
 } as const;
 
 export type EntityKind = keyof typeof ENTITY_TONES;
@@ -307,15 +307,15 @@ export type EntityKind = keyof typeof ENTITY_TONES;
  * ---------------------------------------------------------------------- */
 
 export const OWNERSHIP_TONES: Record<string, TagTone> = {
-  public: { text: "#523793", fill: "#F1EBFC", border: "#DDCEF7" },
-  "private equity": { text: "#1F35C4", fill: "#F1F4FE", border: "#C6D1FB" },
-  "venture capital": { text: "#0F7040", fill: "#E4F5EC", border: "#C3E7D3" },
-  private: { text: "#7A5605", fill: "#FEF6E0", border: "#F6E3B4" },
-  subsidiary: { text: "#182A9B", fill: "#E2E8FD", border: "#BFCBF8" },
-  acquired: { text: "#A62E22", fill: "#FCEAE7", border: "#F5CFC8" },
+  public: { text: "var(--t-lavender)", fill: "var(--t-lavender-soft)", border: "var(--c-line-ddcef7)" },
+  "private equity": { text: "var(--ax-cyan-700)", fill: "var(--t-azure-soft)", border: "var(--t-card-hover-border)" },
+  "venture capital": { text: "var(--t-emerald)", fill: "var(--t-emerald-soft)", border: "var(--c-line-c3e7d3)" },
+  private: { text: "var(--t-warn)", fill: "var(--t-warn-soft)", border: "var(--c-line-f6e3b4)" },
+  subsidiary: { text: "var(--c-fg-182a9b)", fill: "var(--ax-cyan-100)", border: "var(--c-line-bfcbf8)" },
+  acquired: { text: "var(--t-coral)", fill: "var(--t-coral-soft)", border: "var(--c-line-f5cfc8)" },
 };
 
-const OWNERSHIP_FALLBACK_TONE: TagTone = { text: "#4A5468", fill: "#EEF0F4", border: "#DDE2E8" };
+const OWNERSHIP_FALLBACK_TONE: TagTone = { text: "var(--c-fg-4a5468)", fill: "var(--c-bg-eef0f4)", border: "var(--c-line-dde2e8)" };
 
 export function getOwnershipTone(value: string): TagTone {
   const key = String(value || "").trim().toLowerCase();

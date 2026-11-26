@@ -406,8 +406,8 @@ export const CorporateEventsDashboard = ({
   return (
     <div
       style={{
-        background: embedded ? "#fff" : "#f8fafc",
-        borderBottom: embedded ? "none" : "1px solid #e2e8f0",
+        background: embedded ? "var(--t-panel)" : "rgb(var(--palette-slate-50))",
+        borderBottom: embedded ? "none" : "1px solid rgb(var(--palette-slate-200))",
       }}
     >
       <div style={{ width: "100%", padding: `${topPad} ${horizontalPad} 0` }}>
@@ -480,9 +480,9 @@ export const CorporateEventsDashboard = ({
       {!hideFilterBar && (
       <div
         style={{
-          background: "#fff",
-          borderTop: "1px solid #e2e8f0",
-          borderBottom: "1px solid #e2e8f0",
+          background: "var(--t-panel)",
+          borderTop: "1px solid rgb(var(--palette-slate-200))",
+          borderBottom: "1px solid rgb(var(--palette-slate-200))",
         }}
       >
         <div style={{ width: "100%", padding: `8px ${horizontalPad} 8px` }}>

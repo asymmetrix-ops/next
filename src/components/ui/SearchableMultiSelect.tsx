@@ -140,11 +140,11 @@ const SearchableMultiSelect = <T extends string | number>({
           style={{
             width: "100%",
             padding: "12px 16px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid rgb(var(--palette-slate-200))",
             borderRadius: "6px",
             fontSize: "14px",
-            backgroundColor: disabled ? "#f7fafc" : "white",
-            color: disabled ? "#a0aec0" : "#4a5568",
+            backgroundColor: disabled ? "var(--c-bg-f7fafc)" : "var(--t-panel)",
+            color: disabled ? "var(--c-fg-a0aec0)" : "var(--c-fg-4a5568)",
             cursor: disabled ? "not-allowed" : "text",
             outline: "none",
           }}
@@ -167,7 +167,7 @@ const SearchableMultiSelect = <T extends string | number>({
           >
             <path
               d="M3 4.5L6 7.5L9 4.5"
-              stroke={disabled ? "#a0aec0" : "#4a5568"}
+              stroke={disabled ? "var(--c-bg-a0aec0)" : "var(--c-fg-4a5568)"}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -192,8 +192,8 @@ const SearchableMultiSelect = <T extends string | number>({
               <span
                 key={value}
                 style={{
-                  backgroundColor: "#e3f2fd",
-                  color: "#1976d2",
+                  backgroundColor: "var(--c-bg-e3f2fd)",
+                  color: "var(--c-fg-1976d2)",
                   padding: "4px 8px",
                   borderRadius: "4px",
                   fontSize: "12px",
@@ -211,7 +211,7 @@ const SearchableMultiSelect = <T extends string | number>({
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#1976d2",
+                    color: "var(--c-fg-1976d2)",
                     cursor: "pointer",
                     fontWeight: "bold",
                     fontSize: "14px",
@@ -232,8 +232,8 @@ const SearchableMultiSelect = <T extends string | number>({
             top: "100%",
             left: 0,
             right: 0,
-            backgroundColor: "white",
-            border: "1px solid #e2e8f0",
+            backgroundColor: "var(--t-panel)",
+            border: "1px solid rgb(var(--palette-slate-200))",
             borderRadius: "6px",
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
             zIndex: 1000,
@@ -245,7 +245,7 @@ const SearchableMultiSelect = <T extends string | number>({
             <div
               style={{
                 padding: "12px 16px",
-                color: "#a0aec0",
+                color: "var(--c-fg-a0aec0)",
                 fontSize: "14px",
               }}
             >
@@ -261,11 +261,11 @@ const SearchableMultiSelect = <T extends string | number>({
                   cursor: "pointer",
                   fontSize: "14px",
                   backgroundColor:
-                    index === highlightedIndex ? "#f7fafc" : "transparent",
-                  color: "#4a5568",
+                    index === highlightedIndex ? "var(--c-bg-f7fafc)" : "transparent",
+                  color: "var(--c-fg-4a5568)",
                   borderBottom:
                     index < filteredOptions.length - 1
-                      ? "1px solid #f7fafc"
+                      ? "1px solid var(--c-line-f7fafc)"
                       : "none",
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}

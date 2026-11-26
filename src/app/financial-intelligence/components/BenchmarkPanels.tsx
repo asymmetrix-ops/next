@@ -271,7 +271,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
                 bottom: 0,
                 width: `${fill}%`,
                 borderRadius: 4,
-                background: isTarget ? "var(--ax-cyan-600)" : "var(--ax-cyan-300)",
+                background: isTarget ? "var(--t-azure-fill)" : "var(--ax-cyan-300)",
               }}
             />
           </span>
@@ -317,7 +317,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
           style={{
             display: "flex",
             flexDirection: "column",
-            background: "#fff",
+            background: "var(--t-panel)",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-md)",
             padding: "4px 14px",
@@ -467,7 +467,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
                 width: "min(20rem, calc(100vw - 1.5rem))",
                 borderRadius: "var(--r-md)",
                 border: "1px solid var(--border-1)",
-                background: "white",
+                background: "var(--t-panel)",
                 boxShadow: "var(--shadow-lg)",
                 padding: "12px 14px",
                 fontFamily: FONT,
@@ -640,7 +640,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
             <div
               key={metric.key}
               style={{
-                background: "white",
+                background: "var(--t-panel)",
                 border: "1px solid var(--border-1)",
                 borderRadius: "var(--r-lg)",
                 padding: "14px 16px",
@@ -927,7 +927,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
     return (
       <div
         style={{
-          background: "white",
+          background: "var(--t-panel)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
           overflowX: "auto",
@@ -1049,7 +1049,7 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                background: "white",
+                background: "var(--t-panel)",
                 border: "2.5px solid var(--ax-cyan-600)",
                 boxShadow: "var(--shadow-xs)",
               }}
@@ -1092,14 +1092,14 @@ import { CompanyAvatar } from "@/components/CompanyAvatar";
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, fontFamily: FONT }}>
         <CompositeHero compositePercentile={compositePercentile} />
         <div style={{ gridColumn: "span 2", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ background: "white", border: "1px solid var(--border-1)", borderRadius: "var(--r-lg)", padding: 16 }}>
+          <div style={{ background: "var(--t-panel)", border: "1px solid var(--border-1)", borderRadius: "var(--r-lg)", padding: 16 }}>
             <div style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 700 }}>PEERS</div>
             <div style={{ fontSize: 28, fontWeight: 800 }}>{peerCount}</div>
             <div style={{ fontSize: 12, color: "var(--fg-3)" }}>
               {isDefaultMode ? "Default peer set" : "Filtered peer set"}
             </div>
           </div>
-          <div style={{ background: "white", border: "1px solid var(--border-1)", borderRadius: "var(--r-lg)", padding: 16 }}>
+          <div style={{ background: "var(--t-panel)", border: "1px solid var(--border-1)", borderRadius: "var(--r-lg)", padding: 16 }}>
             <div style={{ fontSize: 10, color: "var(--fg-3)", fontWeight: 700 }}>TARGET FY</div>
             <div style={{ fontSize: 28, fontWeight: 800 }}>
               {targetFinancialYear ? `FY${targetFinancialYear}` : "—"}

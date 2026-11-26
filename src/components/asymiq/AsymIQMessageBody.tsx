@@ -225,7 +225,7 @@ export default function AsymIQMessageBody({
               {l.rejected.length > 0 ? (
                 <div
                   className="mt-2 rounded-md px-2.5 py-1.5 text-[11.5px] leading-snug"
-                  style={{ background: "#FBF1DE", color: "#8A5A06" }}
+                  style={{ background: "var(--c-bg-fbf1de)", color: "var(--c-fg-8a5a06)" }}
                 >
                   Could not apply:{" "}
                   {l.rejected
@@ -245,7 +245,7 @@ export default function AsymIQMessageBody({
               ) : null}
               <Link
                 href={l.url}
-                className="flex h-9 w-full items-center justify-center rounded-lg bg-[var(--ax-cyan-600)] px-3 text-center text-[13px] font-semibold text-white no-underline shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--ax-cyan-700)]"
+                className="flex h-9 w-full items-center justify-center rounded-lg bg-[var(--t-azure-fill)] px-3 text-center text-[13px] font-semibold text-white no-underline shadow-[var(--shadow-xs)] transition-colors hover:bg-[var(--bg-brand)]"
               >
                 {l.label}
               </Link>
@@ -310,7 +310,7 @@ export default function AsymIQMessageBody({
                 type="button"
                 disabled={disabled}
                 onClick={() => onSuggest(s)}
-                className="rounded-full border border-[var(--ax-cyan-300)] bg-[var(--ax-cyan-100)] px-3 py-1 text-left text-[12px] font-semibold text-[var(--ax-cyan-700)] transition-colors hover:border-[var(--ax-cyan-600)] hover:bg-[var(--ax-cyan-600)] hover:text-white disabled:opacity-50"
+                className="rounded-full border border-[var(--ax-cyan-300)] bg-[var(--ax-cyan-100)] px-3 py-1 text-left text-[12px] font-semibold text-[var(--ax-cyan-700)] transition-colors hover:border-[var(--t-azure-fill)] hover:bg-[var(--t-azure-fill)] hover:text-white disabled:opacity-50"
               >
                 {s}
               </button>

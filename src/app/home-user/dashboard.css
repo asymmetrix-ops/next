@@ -5,21 +5,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 .dash {
-  --dash-blue-50: #f1f4fe;
-  --dash-blue-100: #e2e8fd;
-  --dash-blue-200: #c6d1fb;
+  --dash-blue-50: var(--t-azure-soft);
+  --dash-blue-100: var(--c-line-e2e8fd);
+  --dash-blue-200: var(--t-card-hover-border);
   --dash-blue-400: #5c77f2;
   --dash-blue-500: #3d5bf3;
-  --dash-blue-600: #2a46ea;
-  --dash-blue-700: #1f35c4;
-  --dash-tint: #f5f7fd;
-  --dash-ink: #0a0e1a;
-  --dash-ink-2: #1e2536;
-  --dash-ink-3: #3d4657;
-  --dash-muted: #6b7488;
-  --dash-faint: #8a93a8;
-  --dash-line: #e4e8f2;
-  --dash-line-2: #eff2f8;
+  --dash-blue-600: var(--t-azure);
+  --dash-blue-700: var(--ax-cyan-700);
+  --dash-tint: var(--t-paper);
+  --dash-ink: var(--t-ink);
+  --dash-ink-2: var(--t-ink2);
+  --dash-ink-3: var(--ax-gray-700);
+  --dash-muted: var(--t-muted);
+  --dash-faint: var(--t-faint);
+  --dash-line: var(--t-divider);
+  --dash-line-2: var(--t-hair);
   --dash-r-lg: 16px;
   --dash-r-md: 12px;
   --dash-r-sm: 8px;
@@ -59,7 +59,7 @@
 
 /* ---------------- stat strip ---------------- */
 .dash-stats {
-  background: #fff;
+  background: var(--t-panel);
   border: 1px solid var(--dash-line);
   border-radius: var(--dash-r-lg);
   box-shadow: var(--dash-sh-sm);
@@ -100,7 +100,7 @@
 
 /* ---------------- cards ---------------- */
 .dash-card {
-  background: #fff;
+  background: var(--t-panel);
   border: 1px solid var(--dash-line);
   border-radius: var(--dash-r-lg);
   box-shadow: var(--dash-sh-sm);
@@ -148,8 +148,8 @@
 }
 
 .dash-card-icon.is-purple {
-  background: #f1ebfc;
-  color: #523793;
+  background: var(--t-lavender-soft);
+  color: var(--t-lavender);
 }
 
 .dash-card-title {
@@ -181,7 +181,7 @@
 
 .dash-view-all {
   border: 1px solid var(--dash-blue-200);
-  background: #fff;
+  background: var(--t-panel);
   color: var(--dash-blue-600);
   border-radius: var(--dash-r-pill);
   font-weight: 600;
@@ -364,8 +364,8 @@
   height: 21px;
   padding: 0 9px;
   border-radius: var(--dash-r-pill);
-  background: #e4f5ec;
-  color: #0f7040;
+  background: var(--t-emerald-soft);
+  color: var(--t-emerald);
   font-size: 11px;
   font-weight: 700;
 }
@@ -410,7 +410,7 @@
 }
 
 .dash-news-tabs button.on {
-  background: #fff;
+  background: var(--t-panel);
   color: var(--dash-ink);
   box-shadow: var(--dash-sh-sm);
 }

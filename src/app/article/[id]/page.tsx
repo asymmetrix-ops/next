@@ -281,7 +281,7 @@ interface CompanyCompetitorsResponse {
 // Shared styles object
 const styles = {
   container: {
-    backgroundColor: "#F5F7FD",
+    backgroundColor: "var(--t-paper)",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   },
@@ -292,7 +292,7 @@ const styles = {
     gap: "24px",
   },
   card: {
-    backgroundColor: "white",
+    backgroundColor: "var(--t-panel)",
     borderRadius: `${REDESIGN_T.rLg}px`,
     border: `1px solid ${REDESIGN_T.divider}`,
     boxShadow:
@@ -303,7 +303,7 @@ const styles = {
   heading: {
     fontSize: "30px",
     fontWeight: "800",
-    color: "#0A0E1A",
+    color: "var(--t-ink)",
     marginBottom: "12px",
     marginTop: "0px",
     lineHeight: "1.2",
@@ -311,20 +311,20 @@ const styles = {
   },
   date: {
     fontSize: "16px",
-    color: "#6B7488",
+    color: "var(--t-muted)",
     marginBottom: "24px",
     fontWeight: "500",
   },
   strapline: {
     fontSize: "16px",
-    color: "#3D4657",
+    color: "var(--ax-gray-700)",
     lineHeight: "1.55",
     marginBottom: "32px",
     fontStyle: "italic",
   },
   body: {
     fontSize: "14px",
-    color: "#3D4657",
+    color: "var(--ax-gray-700)",
     lineHeight: "1.72",
     marginBottom: "32px",
   },
@@ -336,11 +336,11 @@ const styles = {
   sectionTitle: {
     fontSize: "19px",
     fontWeight: "800",
-    color: "#0A0E1A",
+    color: "var(--t-ink)",
     marginTop: "26px",
     marginBottom: "16px",
     paddingBottom: "9px",
-    borderBottom: "2px solid #0A0E1A",
+    borderBottom: "2px solid var(--t-ink)",
     letterSpacing: "-0.02em",
   },
   // Sidebar card headers ("Published", "Company overview", "Companies",
@@ -350,7 +350,7 @@ const styles = {
   cardSectionTitle: {
     fontSize: "14.5px",
     fontWeight: "700",
-    color: "#0A0E1A",
+    color: "var(--t-ink)",
     marginBottom: "16px",
     letterSpacing: "-0.014em",
   },
@@ -364,9 +364,9 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     height: "24px",
-    backgroundColor: "#F1F4FE",
-    border: "1px solid #E2E8FD",
-    color: "#1F35C4",
+    backgroundColor: "var(--t-azure-soft)",
+    border: "1px solid var(--c-line-e2e8fd)",
+    color: "var(--ax-cyan-700)",
     padding: "0 10px",
     borderRadius: "999px",
     fontSize: "12px",
@@ -378,9 +378,9 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     height: "24px",
-    backgroundColor: "#EFF2F8",
-    border: "1px solid #E4E8F2",
-    color: "#566078",
+    backgroundColor: "var(--t-inset)",
+    border: "1px solid var(--t-divider)",
+    color: "var(--t-body)",
     padding: "0 10px",
     borderRadius: "999px",
     fontSize: "12px",
@@ -392,8 +392,8 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     height: "24px",
-    backgroundColor: "#F1EBFC",
-    color: "#523793",
+    backgroundColor: "var(--t-lavender-soft)",
+    color: "var(--t-lavender)",
     padding: "0 10px",
     borderRadius: "999px",
     fontSize: "12px",
@@ -411,22 +411,22 @@ const styles = {
     display: "inline-block",
     fontSize: "12px",
     lineHeight: 1,
-    color: "#1F35C4",
-    backgroundColor: "#F1F4FE",
+    color: "var(--ax-cyan-700)",
+    backgroundColor: "var(--t-azure-soft)",
     padding: "6px 10px",
     borderRadius: "9999px",
-    border: "1px solid #C6D1FB",
+    border: "1px solid var(--t-card-hover-border)",
     fontWeight: 600,
   },
   newsSubTypeBadge: {
     display: "inline-block",
     fontSize: "12px",
     lineHeight: 1,
-    color: "#3D4657",
-    backgroundColor: "#F5F7FD",
+    color: "var(--ax-gray-700)",
+    backgroundColor: "var(--t-paper)",
     padding: "6px 10px",
     borderRadius: "9999px",
-    border: "1px solid #E4E8F2",
+    border: "1px solid var(--t-divider)",
     fontWeight: 600,
   },
   transactionStatusBadge: {
@@ -439,8 +439,8 @@ const styles = {
     fontWeight: 700,
     letterSpacing: "0.03em",
     textTransform: "uppercase" as const,
-    backgroundColor: "#E4F5EC",
-    color: "#0F7040",
+    backgroundColor: "var(--t-emerald-soft)",
+    color: "var(--t-emerald)",
     border: "1.5px solid #17A05C",
     whiteSpace: "nowrap" as const,
   },
@@ -448,23 +448,23 @@ const styles = {
   loading: {
     textAlign: "center" as const,
     padding: "40px",
-    color: "#666",
+    color: "var(--c-fg-666666)",
     fontSize: "16px",
   },
   error: {
     textAlign: "center" as const,
     padding: "40px",
-    color: "#A62E22",
+    color: "var(--t-coral)",
     fontSize: "16px",
   },
   backButton: {
-    backgroundColor: "#fff",
-    color: "#3D4657",
+    backgroundColor: "var(--t-panel)",
+    color: "var(--ax-gray-700)",
     fontWeight: "600" as const,
     padding: "0 14px 0 11px",
     height: "30px",
     borderRadius: "999px",
-    border: "1px solid #E4E8F2",
+    border: "1px solid var(--t-divider)",
     boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
     cursor: "pointer",
     fontSize: "12.5px",
@@ -1746,7 +1746,7 @@ const ArticleDetailPage = () => {
               <p
                 style={{
                   fontSize: 16,
-                  color: "#6B7488",
+                  color: "var(--t-muted)",
                   marginTop: -16,
                   marginBottom: 24,
                   fontStyle: "italic",
@@ -1959,7 +1959,7 @@ const ArticleDetailPage = () => {
                     style={{
                       fontSize: 12.5,
                       fontWeight: 600,
-                      color: "#7A5605",
+                      color: "var(--t-warn)",
                     }}
                   >
                     Updated {formatCorrectionTimestamp(latestCorrection.updated_at)}
@@ -2467,7 +2467,7 @@ const ArticleDetailPage = () => {
                   <h2>{peersTitle}</h2>
                 </header>
                 {competitorsLoading ? (
-                  <div style={{ color: "#6B7488", fontSize: 14, padding: "14px 16px" }}>
+                  <div style={{ color: "var(--t-muted)", fontSize: 14, padding: "14px 16px" }}>
                     Loading...
                   </div>
                 ) : (
@@ -2491,7 +2491,7 @@ const ArticleDetailPage = () => {
                           style={{
                             fontSize: 11,
                             fontWeight: 700,
-                            color: "#6B7488",
+                            color: "var(--t-muted)",
                             padding: "10px 16px 0",
                           }}
                         >
@@ -2516,7 +2516,7 @@ const ArticleDetailPage = () => {
                           style={{
                             fontSize: 11,
                             fontWeight: 700,
-                            color: "#6B7488",
+                            color: "var(--t-muted)",
                             padding: "10px 16px 0",
                           }}
                         >
@@ -2606,7 +2606,7 @@ const ArticleDetailPage = () => {
                         style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          color: "#6B7488",
+                          color: "var(--t-muted)",
                           padding: "10px 16px 0",
                         }}
                       >
@@ -2697,8 +2697,8 @@ const ArticleDetailPage = () => {
           @media (max-width: 1024px) { .article-layout { grid-template-columns: 1fr; } }
           /* Summary accordion */
           .article-summary {
-            border: 1px solid #E2E8FD;
-            background: #F1F4FE;
+            border: 1px solid var(--c-line-e2e8fd);
+            background: var(--t-azure-soft);
             border-radius: 12px;
             padding: 15px 18px;
             margin-bottom: 24px;
@@ -2718,14 +2718,14 @@ const ArticleDetailPage = () => {
           .summary-title {
             font-size: 11px;
             font-weight: 800;
-            color: #1F35C4;
+            color: var(--ax-cyan-700);
             letter-spacing: 1.1px;
             text-transform: uppercase;
           }
           .summary-chevron {
             display: inline-flex;
             flex-shrink: 0;
-            color: #1F35C4;
+            color: var(--ax-cyan-700);
             transition: transform 0.2s ease;
           }
           .summary-chevron.open {
@@ -2734,7 +2734,7 @@ const ArticleDetailPage = () => {
           .summary-list {
             margin: 10px 0 0 0;
             padding-left: 22px;
-            color: #3D4657;
+            color: var(--ax-gray-700);
             list-style: disc !important;
             list-style-position: outside;
           }
@@ -2748,7 +2748,7 @@ const ArticleDetailPage = () => {
           .summary-list .asymmetrix-highlight,
           .article-body mark,
           .summary-list mark {
-            background: #fff3bf;
+            background: var(--c-bg-fff3bf);
             border-radius: 3px;
             padding: 0 2px;
             display: inline;
@@ -2757,7 +2757,7 @@ const ArticleDetailPage = () => {
           }
           .article-body .asymmetrix-key-point,
           .summary-list .asymmetrix-key-point {
-            background: #fff3bf;
+            background: var(--c-bg-fff3bf);
             border-radius: 3px;
             padding: 0 2px 0 4px;
             display: inline;
@@ -2767,7 +2767,7 @@ const ArticleDetailPage = () => {
             -webkit-box-decoration-break: clone;
           }
           .article-body .asymmetrix-highlight-section {
-            background: #fff3bf;
+            background: var(--c-bg-fff3bf);
             border-radius: 3px;
             padding: 12px 14px;
             margin: 1rem 0;
@@ -2778,21 +2778,21 @@ const ArticleDetailPage = () => {
           .article-body ol { list-style: decimal; margin: 0 0 1rem 1.25rem; padding-left: 1.25rem; }
           .article-body li { margin-bottom: 0.5rem; }
           .article-body h1, .article-body h2, .article-body h3, .article-body h4, .article-body h5, .article-body h6 { margin: 1.25rem 0 0.75rem; font-weight: 700; }
-          .article-body h2 { font-size: 19px; font-weight: 800; color: #0A0E1A; letter-spacing: -0.02em; margin: 26px 0 16px; padding-bottom: 9px; border-bottom: 2px solid #0A0E1A; }
-          .article-body h3 { font-size: 15px; font-weight: 700; color: #0A0E1A; margin: 22px 0 10px; }
-          .article-body h4 { font-size: 11px; font-weight: 800; color: #6B7488; letter-spacing: 0.06em; text-transform: uppercase; margin: 18px 0 8px; }
+          .article-body h2 { font-size: 19px; font-weight: 800; color: var(--t-ink); letter-spacing: -0.02em; margin: 26px 0 16px; padding-bottom: 9px; border-bottom: 2px solid var(--t-ink); }
+          .article-body h3 { font-size: 15px; font-weight: 700; color: var(--t-ink); margin: 22px 0 10px; }
+          .article-body h4 { font-size: 11px; font-weight: 800; color: var(--t-muted); letter-spacing: 0.06em; text-transform: uppercase; margin: 18px 0 8px; }
           .article-body dl { margin: 0 0 1rem; }
-          .article-body dt { float: left; clear: left; width: 214px; font-weight: 700; color: #0A0E1A; padding: 8px 12px 8px 0; }
-          .article-body dd { margin-left: 214px; padding: 8px 0; border-top: 1px solid #EFF2F8; color: #3D4657; }
+          .article-body dt { float: left; clear: left; width: 214px; font-weight: 700; color: var(--t-ink); padding: 8px 12px 8px 0; }
+          .article-body dd { margin-left: 214px; padding: 8px 0; border-top: 1px solid var(--t-hair); color: var(--ax-gray-700); }
           .article-body dd:first-of-type { border-top: none; }
-          .article-body a { color: #2A46EA; text-decoration: underline; }
-          .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid #E4E8F2; color: #3D4657; }
+          .article-body a { color: var(--t-azure); text-decoration: underline; }
+          .article-body blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid var(--t-divider); color: var(--ax-gray-700); }
           .article-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-          .article-body th, .article-body td { border: 1px solid #E4E8F2; padding: 8px; text-align: left; }
+          .article-body th, .article-body td { border: 1px solid var(--t-divider); padding: 8px; text-align: left; }
           /* Images inside article body */
           .article-body img { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
           .article-body figure { margin: 1rem 0; }
-          .article-body figcaption { text-align: center; font-size: 0.875rem; color: #6B7488; margin-top: 0.5rem; }
+          .article-body figcaption { text-align: center; font-size: 0.875rem; color: var(--t-muted); margin-top: 0.5rem; }
           .article-inline-image { margin: 1.25rem 0; }
           /* Embedded PDF viewer (vertical slider) shown in place of an empty body */
           .article-body a.article-pdf-embed-download,
@@ -2808,8 +2808,8 @@ const ArticleDetailPage = () => {
             line-height: 1;
             padding: 9px 16px;
             border-radius: 8px;
-            border: 1px solid #2A46EA;
-            background: #2A46EA;
+            border: 1px solid var(--c-line-2a46ea);
+            background: var(--c-bg-2a46ea);
             color: #fff !important;
             font-family: inherit;
             font-size: 13px;
@@ -2827,8 +2827,8 @@ const ArticleDetailPage = () => {
           }
           .article-body a.article-pdf-embed-download:hover,
           .article-pdf-embed-download:hover {
-            background: #1F35C2;
-            border-color: #1F35C2;
+            background: var(--c-bg-1f35c2);
+            border-color: var(--c-line-1f35c2);
             box-shadow: 0 4px 12px rgba(10, 14, 26, 0.24);
           }
           .article-body a.article-pdf-embed-download:visited,
@@ -2841,19 +2841,19 @@ const ArticleDetailPage = () => {
           }
           .article-pdf-embed-status {
             margin: 0 0 16px;
-            color: #6B7488;
+            color: var(--t-muted);
             font-size: 14px;
           }
           .article-pdf-embed-error {
             margin: 0 0 16px;
-            color: #B42318;
+            color: var(--c-fg-b42318);
             font-size: 14px;
           }
           .article-pdf-embed-viewport {
             position: relative;
-            border: 1px solid #E4E8F2;
+            border: 1px solid var(--t-divider);
             border-radius: 8px;
-            background: #F7F8FC;
+            background: var(--c-bg-f7f8fc);
             overflow: hidden;
           }
           .article-pdf-embed-pages {
@@ -2882,7 +2882,7 @@ const ArticleDetailPage = () => {
             display: block;
             box-shadow: 0 1px 6px rgba(10, 14, 26, 0.1);
             border-radius: 2px;
-            background: #fff;
+            background: var(--t-panel);
           }
           .article-pdf-embed-nav {
             position: absolute;
@@ -2890,9 +2890,9 @@ const ArticleDetailPage = () => {
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            border: 1px solid #E4E8F2;
-            background: rgba(255, 255, 255, 0.92);
-            color: #0A0E1A;
+            border: 1px solid var(--t-divider);
+            background: color-mix(in srgb, var(--t-panel) 92%, transparent);
+            color: var(--t-ink);
             font-size: 13px;
             cursor: pointer;
             display: flex;
@@ -2901,7 +2901,7 @@ const ArticleDetailPage = () => {
             box-shadow: 0 1px 4px rgba(10, 14, 26, 0.12);
           }
           .article-pdf-embed-nav:hover:not(:disabled) {
-            background: #fff;
+            background: var(--t-panel);
           }
           .article-pdf-embed-nav:disabled {
             opacity: 0.35;
@@ -2929,8 +2929,8 @@ const ArticleDetailPage = () => {
           /* ---- Sidebar rail: card shell + rows/tabs/chips (verbatim from
              New Design/ReportDetail.html's right-rail handoff) ---- */
           .article-meta .card {
-            background: #fff;
-            border: 1px solid #E4E8F2;
+            background: var(--t-panel);
+            border: 1px solid var(--t-divider);
             border-radius: 16px;
             box-shadow: 0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04);
             overflow: hidden;
@@ -2940,14 +2940,14 @@ const ArticleDetailPage = () => {
             align-items: center;
             gap: 12px;
             padding: 13px 16px;
-            border-bottom: 1px solid #EFF2F8;
+            border-bottom: 1px solid var(--t-hair);
           }
           .article-meta .card > header h2 {
             margin: 0;
             font-size: 14.5px;
             font-weight: 700;
             letter-spacing: -0.014em;
-            color: #0A0E1A;
+            color: var(--t-ink);
           }
           .article-meta .card > header .r {
             margin-left: auto;
@@ -2965,12 +2965,12 @@ const ArticleDetailPage = () => {
             font-weight: 800;
             letter-spacing: 0.09em;
             text-transform: uppercase;
-            color: #6B7488;
+            color: var(--t-muted);
           }
           .article-meta .pub .v {
             font-size: 13.5px;
             font-weight: 700;
-            color: #0A0E1A;
+            color: var(--t-ink);
             font-variant-numeric: tabular-nums;
           }
           .article-meta .pub .b {
@@ -2986,14 +2986,14 @@ const ArticleDetailPage = () => {
             align-items: center;
             gap: 14px;
             padding: 9px 16px;
-            border-top: 1px solid #EFF2F8;
+            border-top: 1px solid var(--t-hair);
             font-size: 12.5px;
           }
           .article-meta .rows .r:first-child {
             border-top: none;
           }
           .article-meta .rows .k {
-            color: #6B7488;
+            color: var(--t-muted);
             font-weight: 500;
             flex-shrink: 0;
           }
@@ -3001,15 +3001,15 @@ const ArticleDetailPage = () => {
             margin-left: auto;
             text-align: right;
             font-weight: 700;
-            color: #1E2536;
+            color: var(--t-ink2);
             font-variant-numeric: tabular-nums;
           }
           .article-meta .rows .v.none {
-            color: #6B7488;
+            color: var(--t-muted);
             font-weight: 500;
           }
           .article-meta .rows .r:hover {
-            background: #F1F4FE;
+            background: var(--t-azure-soft);
           }
           /* Financial snapshot: 3-column rows with a Source column */
           .article-meta .rows.src .r {
@@ -3017,7 +3017,7 @@ const ArticleDetailPage = () => {
             grid-template-columns: 1fr auto 84px;
             gap: 0 14px;
             align-items: baseline;
-            border-top: 1px solid #EFF2F8;
+            border-top: 1px solid var(--t-hair);
           }
           .article-meta .rows.src .v {
             margin-left: 0;
@@ -3027,13 +3027,13 @@ const ArticleDetailPage = () => {
             text-align: right;
             font-size: 11px;
             font-weight: 500;
-            color: #6B7488;
+            color: var(--t-muted);
             white-space: nowrap;
           }
           .article-meta .rows.src .hd {
             padding: 8px 16px;
-            background: #F5F7FD;
-            border-bottom: 1px solid #E4E8F2;
+            background: var(--t-paper);
+            border-bottom: 1px solid var(--t-divider);
             border-top: none;
           }
           .article-meta .rows.src .hd span {
@@ -3041,10 +3041,10 @@ const ArticleDetailPage = () => {
             font-weight: 800;
             letter-spacing: 0.09em;
             text-transform: uppercase;
-            color: #6B7488;
+            color: var(--t-muted);
           }
           .article-meta .rows.src .hd:hover {
-            background: #F5F7FD;
+            background: var(--t-paper);
           }
           /* In-card tab strip (Financial Overview / Transaction comps) */
           .article-meta .tabhead {
@@ -3052,7 +3052,7 @@ const ArticleDetailPage = () => {
             align-items: center;
             gap: 10px;
             padding: 11px 16px;
-            border-bottom: 1px solid #EFF2F8;
+            border-bottom: 1px solid var(--t-hair);
             flex-wrap: wrap;
           }
           .article-meta .ctabs {
@@ -3067,17 +3067,17 @@ const ArticleDetailPage = () => {
             font-family: inherit;
             font-size: 14.5px;
             font-weight: 600;
-            color: #6B7488;
+            color: var(--t-muted);
             cursor: pointer;
             border-bottom: 2px solid transparent;
           }
           .article-meta .ctab:hover {
-            color: #3D4657;
+            color: var(--ax-gray-700);
           }
           .article-meta .ctab.on {
-            color: #0A0E1A;
+            color: var(--t-ink);
             font-weight: 700;
-            border-bottom-color: #2A46EA;
+            border-bottom-color: var(--c-line-2a46ea);
           }
           /* Chip sets (Companies, Sectors, Related Corporate Event) */
           .article-meta .chipset {
@@ -3095,26 +3095,26 @@ const ArticleDetailPage = () => {
             font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
-            background: #F1F4FE;
-            color: #1F35C4;
+            background: var(--t-azure-soft);
+            color: var(--ax-cyan-700);
             text-decoration: none;
           }
           .article-meta .lp-chip-neutral {
-            background: #F5F7FD;
-            border: 1px solid #E4E8F2;
-            color: #3D4657;
+            background: var(--t-paper);
+            border: 1px solid var(--t-divider);
+            color: var(--ax-gray-700);
           }
           .article-meta .side-pill-btn {
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            background: #fff;
-            color: #2A46EA;
+            background: var(--t-panel);
+            color: var(--t-azure);
             font-weight: 700;
             font-size: 13px;
             padding: 7px 14px;
             border-radius: 999px;
-            border: 1px solid #C6D1FB;
+            border: 1px solid var(--t-card-hover-border);
             box-shadow: 0 1px 2px rgba(16, 28, 70, 0.05);
             cursor: pointer;
             white-space: nowrap;

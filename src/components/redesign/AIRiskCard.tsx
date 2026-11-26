@@ -37,9 +37,9 @@ function resolveFactorDescription(axis: AIRiskAxis): string | undefined {
 }
 
 const DEFENSIBILITY_TONE = {
-  fg: "#0F7040",
+  fg: "var(--t-emerald)",
   fill: "#17A05C",
-  bg: "#E4F5EC",
+  bg: "var(--t-emerald-soft)",
   ring: "#17A05C",
 } as const;
 
@@ -266,7 +266,7 @@ function RadarChart({
         points={pts}
         fill={s === maxScore ? T.azureSoft : "transparent"}
         fillOpacity={s === maxScore ? 0.45 : 0}
-        stroke={s === maxScore ? "#C6D1FB" : T.hair}
+        stroke={s === maxScore ? "var(--ax-cyan-200)" : T.hair}
         strokeWidth={1}
         strokeDasharray={s === maxScore ? "0" : "2 3"}
       />
@@ -323,7 +323,7 @@ function RadarChart({
           cy={y}
           r={isActive ? 4.5 : 3.6}
           fill={DEFENSIBILITY_TONE.fill}
-          stroke="#fff"
+          stroke="var(--t-panel)"
           strokeWidth="1.6"
         />
       </g>
@@ -457,7 +457,7 @@ function RadarChart({
           cx={ix}
           cy={firstY}
           r={6.5}
-          fill="#fff"
+          fill="var(--t-panel)"
           stroke={isOpen ? T.ink : T.muted}
           strokeWidth={1.2}
         />
@@ -573,7 +573,7 @@ export function AIRiskCard({
         background: embedded ? "transparent" : T.panel,
         border: embedded
           ? "none"
-          : `1px solid ${hover ? "#C6D1FB" : T.divider}`,
+          : `1px solid ${hover ? "var(--t-card-hover-border)" : T.divider}`,
         borderRadius: embedded ? 0 : T.rLg,
         boxShadow:
           embedded || !hover

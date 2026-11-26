@@ -357,7 +357,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                   textTransform: "uppercase" as const,
                   color: T.lavender,
                   background: T.lavenderSoft,
-                  border: `1px solid ${T.lavender}33`,
+                  border: `1px solid color-mix(in srgb, ${T.lavender} 20%, transparent)`,
                   borderRadius: 999,
                   padding: "4px 8px",
                   whiteSpace: "nowrap",
@@ -373,7 +373,7 @@ export const InsightsAnalysisCard: React.FC<InsightsAnalysisCardProps> = ({
                           height: 5,
                           borderRadius: 999,
                           background:
-                            idx === activeIndex ? T.lavender : "#E2E8FD",
+                            idx === activeIndex ? T.lavender : "var(--ax-cyan-100)",
                         }}
                       />
                     ))}
@@ -566,7 +566,7 @@ function seriesArrowStyle(enabled: boolean): React.CSSProperties {
     width: 22,
     height: 22,
     borderRadius: 999,
-    border: `1px solid ${T.lavender}55`,
+    border: `1px solid color-mix(in srgb, ${T.lavender} 33.3%, transparent)`,
     background: T.panel,
     color: T.lavender,
     fontSize: 14,

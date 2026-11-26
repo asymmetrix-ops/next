@@ -351,7 +351,7 @@ export const IndividualSection = ({
           <a
             href={href}
             className="company-website-link"
-            style={{ color: "#3b82f6", textDecoration: "none" }}
+            style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
             onClick={(e) => {
               if (
                 e.defaultPrevented ||

@@ -19,8 +19,8 @@ const titleLinkStyle = (color: string): React.CSSProperties => ({
   fontWeight: 500,
 });
 
-const PARTY_LABEL_COLOR = "#64748b";
-const PARTY_LINK_COLOR = "#2563eb";
+const PARTY_LABEL_COLOR = "rgb(var(--palette-text-slate-500))";
+const PARTY_LINK_COLOR = "rgb(var(--palette-text-blue-600))";
 
 const partyLabelStyle: React.CSSProperties = {
   fontSize: 11,

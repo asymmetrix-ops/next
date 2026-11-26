@@ -605,7 +605,7 @@ export function AdvisorDealsProfilePanel({
                   padding: "6px 12px",
                   borderRadius: 6,
                   border: "none",
-                  background: exportingDeals ? T.faint : T.emerald,
+                  background: exportingDeals ? "var(--t-faint-fill)" : "var(--t-emerald-fill)",
                   color: "#fff",
                   fontSize: 12,
                   fontWeight: 600,

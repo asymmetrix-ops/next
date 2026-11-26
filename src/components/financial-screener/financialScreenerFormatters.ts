@@ -139,16 +139,16 @@ export function getOwnershipPillStyle(ownership: string | undefined): {
 } {
   const normalized = ownership?.toLowerCase() ?? "";
   if (normalized.includes("public")) {
-    return { background: "#ede9fe", color: "#6d28d9" };
+    return { background: "rgb(var(--palette-violet-100))", color: "rgb(var(--palette-text-violet-700))" };
   }
   if (normalized.includes("private equity") || normalized === "pe-owned") {
-    return { background: "#e0f2fe", color: "#0369a1" };
+    return { background: "rgb(var(--palette-sky-100))", color: "rgb(var(--palette-text-sky-700))" };
   }
   if (normalized.includes("venture")) {
-    return { background: "#fef3c7", color: "#b45309" };
+    return { background: "rgb(var(--palette-amber-100))", color: "rgb(var(--palette-text-amber-700))" };
   }
   if (normalized.includes("private")) {
-    return { background: "#f1f5f9", color: "#475569" };
+    return { background: "rgb(var(--palette-slate-100))", color: "rgb(var(--palette-text-slate-600))" };
   }
-  return { background: "#f1f5f9", color: "#475569" };
+  return { background: "rgb(var(--palette-slate-100))", color: "rgb(var(--palette-text-slate-600))" };
 }

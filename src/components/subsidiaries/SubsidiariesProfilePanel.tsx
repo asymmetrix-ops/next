@@ -278,7 +278,7 @@ function LogoLetter({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name} width={24} height={24} style={{ objectFit: "cover", display: "block" }} />
+        <img className="logo-tile" src={src} alt={name} width={24} height={24} style={{ objectFit: "cover", display: "block" }} />
       ) : (
         letter
       )}

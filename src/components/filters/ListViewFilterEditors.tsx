@@ -80,7 +80,7 @@ function EditorShell({
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         width,
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         boxShadow:
@@ -161,7 +161,7 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "var(--fs-13)",
   fontWeight: 600,
   fontFamily: "inherit",
-  background: "var(--ax-cyan-700)",
+  background: "var(--bg-brand)",
   color: "white",
   border: "none",
   borderRadius: "var(--r-md)",
@@ -251,7 +251,7 @@ function NumberInput({
         width: compact ? 76 : undefined,
         flex: compact ? "0 0 76px" : 1,
         padding: compact ? "4px 6px" : "6px 8px",
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-md)",
       }}
@@ -568,9 +568,9 @@ export function ListViewEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  background: on ? "var(--bg-brand)" : "transparent",
                   border: on
-                    ? "1px solid var(--ax-cyan-700)"
+                    ? "1px solid var(--bg-brand)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -720,9 +720,9 @@ export function ListViewIdEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  background: on ? "var(--bg-brand)" : "transparent",
                   border: on
-                    ? "1px solid var(--ax-cyan-700)"
+                    ? "1px solid var(--bg-brand)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1002,9 +1002,9 @@ export function ListViewCityEnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  background: on ? "var(--bg-brand)" : "transparent",
                   border: on
-                    ? "1px solid var(--ax-cyan-700)"
+                    ? "1px solid var(--bg-brand)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",

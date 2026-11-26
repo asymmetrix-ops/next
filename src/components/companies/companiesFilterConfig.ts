@@ -366,7 +366,7 @@ export const OWNERSHIP_OTHER_TOOLTIP_STYLES = `
     min-width: 220px;
     max-width: 300px;
     padding: 10px 12px;
-    background: #1e293b;
+    background: rgb(var(--palette-slate-800));
     color: #f8fafc;
     border-radius: 8px;
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);

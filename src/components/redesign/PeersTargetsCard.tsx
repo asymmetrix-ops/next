@@ -289,7 +289,7 @@ export function PeersTargetsCard({ peers, targets, onBenchmark }: Props) {
                 bottom: "calc(100% + 6px)",
                 left: 0,
                 width: 260,
-                background: T.ink,
+                background: "var(--t-ink-fill)",
                 color: "#fff",
                 fontSize: 12,
                 lineHeight: 1.4,

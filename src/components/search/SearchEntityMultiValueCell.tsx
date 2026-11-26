@@ -43,7 +43,7 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     max-width: 320px;
   }
   .search-multi-value-link {
-    color: #0075df;
+    color: var(--c-fg-0075df);
     text-decoration: underline;
     font-weight: 500;
     cursor: pointer;
@@ -55,7 +55,7 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     vertical-align: middle;
   }
   .search-multi-value-link:hover {
-    color: #005bb5;
+    color: var(--c-fg-005bb5);
   }
   .search-multi-value-overflow {
     display: inline-flex;
@@ -64,8 +64,8 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     margin: 0;
     border: none;
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #475569;
+    background: rgb(var(--palette-slate-100));
+    color: rgb(var(--palette-text-slate-600));
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
@@ -79,7 +79,7 @@ export const SEARCH_MULTI_VALUE_STYLES = `
     padding: 0;
     border: none;
     background: none;
-    color: #2A46EA;
+    color: var(--t-azure);
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;

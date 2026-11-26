@@ -24,7 +24,7 @@ const CompanyDescription: React.FC<CompanyDescriptionProps> = ({
           style={{
             background: "none",
             border: "none",
-            color: "#3b82f6",
+            color: "rgb(var(--palette-text-blue-500))",
             cursor: "pointer",
             fontSize: "12px",
             marginLeft: "8px",

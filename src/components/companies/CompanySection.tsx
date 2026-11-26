@@ -473,7 +473,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               target="_blank"
               rel="noopener noreferrer"
               className="company-website-link"
-              style={{ color: "#3b82f6", textDecoration: "none" }}
+              style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
               {formatWebsiteLabel(href)}
@@ -604,7 +604,7 @@ const COMPANY_COLUMN_GROUPS: Array<{ group: string; cols: CompanyColumnDefinitio
               target="_blank"
               rel="noopener noreferrer"
               className="company-website-link"
-              style={{ color: "#3b82f6", textDecoration: "none" }}
+              style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
               onClick={(e) => e.stopPropagation()}
             >
               {formatWebsiteLabel(href)}
@@ -868,7 +868,7 @@ const CompanyCardBase = ({
             ? {
                 style: {
                   textDecoration: "none",
-                  color: "#0075df",
+                  color: "var(--c-fg-0075df)",
                   background: "none",
                   border: "none",
                   padding: 0,
@@ -879,7 +879,7 @@ const CompanyCardBase = ({
               }
             : {
                 href: `/company/${company.id}`,
-                style: { textDecoration: "none", color: "#0075df" },
+                style: { textDecoration: "none", color: "var(--c-fg-0075df)" },
                 onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
                   if (
                     e.defaultPrevented ||
@@ -1522,7 +1522,7 @@ export const CompanySection = ({
         left,
         zIndex: header ? 7 : 3,
         minWidth,
-        background: header ? "#f8fafc" : selected ? "#EFF6FF" : "#fff",
+        background: header ? "rgb(var(--palette-slate-50))" : selected ? "rgb(var(--palette-blue-50))" : "var(--t-panel)",
         boxShadow: "2px 0 4px rgba(15, 23, 42, 0.06)",
       };
     },
@@ -1692,7 +1692,7 @@ export const CompanySection = ({
                 minWidth: 44,
                 width: 44,
                 textAlign: "center",
-                background: isRowSelected ? "#EFF6FF" : "#fff",
+                background: isRowSelected ? "rgb(var(--palette-blue-50))" : "var(--t-panel)",
               }}
             >
               {!readOnlyGuestMode && (
@@ -1994,7 +1994,7 @@ export const CompanySection = ({
               alignItems: "center",
               gap: "8px",
               padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid rgb(var(--palette-slate-200))",
             },
           },
           React.createElement(
@@ -2002,7 +2002,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "14px",
-                color: "#4a5568",
+                color: "var(--c-fg-4a5568)",
                 fontWeight: "500",
               },
             },
@@ -2013,7 +2013,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "16px",
-                color: "#000",
+                color: "var(--c-fg-000000)",
                 fontWeight: "600",
               },
             },
@@ -2028,7 +2028,7 @@ export const CompanySection = ({
               alignItems: "center",
               gap: "8px",
               padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid rgb(var(--palette-slate-200))",
             },
           },
           React.createElement(
@@ -2036,7 +2036,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "14px",
-                color: "#4a5568",
+                color: "var(--c-fg-4a5568)",
                 fontWeight: "500",
               },
             },
@@ -2047,7 +2047,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "16px",
-                color: "#000",
+                color: "var(--c-fg-000000)",
                 fontWeight: "600",
               },
             },
@@ -2062,7 +2062,7 @@ export const CompanySection = ({
               alignItems: "center",
               gap: "8px",
               padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid rgb(var(--palette-slate-200))",
             },
           },
           React.createElement(
@@ -2070,7 +2070,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "14px",
-                color: "#4a5568",
+                color: "var(--c-fg-4a5568)",
                 fontWeight: "500",
               },
             },
@@ -2081,7 +2081,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "16px",
-                color: "#000",
+                color: "var(--c-fg-000000)",
                 fontWeight: "600",
               },
             },
@@ -2096,7 +2096,7 @@ export const CompanySection = ({
               alignItems: "center",
               gap: "8px",
               padding: "6px 0",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid rgb(var(--palette-slate-200))",
             },
           },
           React.createElement(
@@ -2104,7 +2104,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "14px",
-                color: "#4a5568",
+                color: "var(--c-fg-4a5568)",
                 fontWeight: "500",
               },
             },
@@ -2115,7 +2115,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "16px",
-                color: "#000",
+                color: "var(--c-fg-000000)",
                 fontWeight: "600",
               },
             },
@@ -2138,7 +2138,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "14px",
-                color: "#4a5568",
+                color: "var(--c-fg-4a5568)",
                 fontWeight: "500",
               },
             },
@@ -2149,7 +2149,7 @@ export const CompanySection = ({
             {
               style: {
                 fontSize: "16px",
-                color: "#000",
+                color: "var(--c-fg-000000)",
                 fontWeight: "600",
               },
             },
@@ -2380,9 +2380,9 @@ export const CompanySection = ({
             overflowX: "auto",
             overflowY: "hidden",
             zIndex: 50,
-            background: "rgba(255,255,255,0.95)",
+            background: "color-mix(in srgb, var(--t-panel) 95%, transparent)",
             boxShadow: "0 -1px 6px rgba(0,0,0,0.10)",
-            borderTop: "1px solid #e2e8f0",
+            borderTop: "1px solid rgb(var(--palette-slate-200))",
           },
         },
         React.createElement("div", {

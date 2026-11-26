@@ -301,8 +301,8 @@ export function ScopedCorporateEventsPanel({
       style={
         embedded
           ? {
-              background: "#fff",
-              border: "1px solid #E4E8F2",
+              background: "var(--t-panel)",
+              border: "1px solid var(--t-divider)",
               borderRadius: 16,
               boxShadow:
                 "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",

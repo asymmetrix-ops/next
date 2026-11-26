@@ -31,13 +31,13 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
               fontSize: "14px",
               marginBottom: "12px",
               fontWeight: 600,
-              color: "#4a5568",
+              color: "var(--c-fg-4a5568)",
             }}
           >
             {title}
           </h4>
         )}
-        <div style={{ color: "#6b7280", fontSize: "14px" }}>{emptyMessage}</div>
+        <div style={{ color: "rgb(var(--palette-text-gray-500))", fontSize: "14px" }}>{emptyMessage}</div>
       </div>
     );
   }
@@ -50,7 +50,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
             fontSize: "14px",
             marginBottom: "12px",
             fontWeight: 600,
-            color: "#4a5568",
+            color: "var(--c-fg-4a5568)",
           }}
         >
           {title}
@@ -78,9 +78,9 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
               key={person.id || person.individualId || index}
               style={{
                 padding: "12px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid rgb(var(--palette-slate-200))",
                 borderRadius: "8px",
-                backgroundColor: "#f9fafb",
+                backgroundColor: "rgb(var(--palette-gray-50))",
                 transition: "all 0.2s ease",
                 cursor: person.individualId || person.onClick ? "pointer" : "default",
               }}
@@ -91,7 +91,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                 style={{
                   fontSize: "14px",
                   fontWeight: 600,
-                  color: "#0075df",
+                  color: "var(--c-fg-0075df)",
                   marginBottom: "4px",
                 }}
               >
@@ -99,7 +99,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
                   <Link
                     href={`/individual/${person.individualId}`}
                     style={{
-                      color: "#0075df",
+                      color: "var(--c-fg-0075df)",
                       textDecoration: "underline",
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -113,7 +113,7 @@ const IndividualCards: React.FC<IndividualCardsProps> = ({
               <div
                 style={{
                   fontSize: "13px",
-                  color: "#4a5568",
+                  color: "var(--c-fg-4a5568)",
                   lineHeight: "1.4",
                 }}
               >

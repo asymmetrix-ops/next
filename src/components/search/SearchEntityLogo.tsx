@@ -26,7 +26,7 @@ export function SearchEntityLogo({
           alt={`${name} logo`}
           width={60}
           height={40}
-          className="company-logo"
+          className="company-logo logo-tile"
           style={{ objectFit: "contain" }}
           onError={() => setFailed(true)}
         />

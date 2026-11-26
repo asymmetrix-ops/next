@@ -95,7 +95,7 @@ function StatTile({
       style={{
         flex: "1 1 0",
         minWidth: 180,
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${T.divider}`,
         borderRadius: T.rLg,
         boxShadow:
@@ -188,7 +188,7 @@ export function PortfolioHeadstatsRow({
         style={{
           flex: "1 1 0",
           minWidth: 180,
-          background: "#fff",
+          background: "var(--t-panel)",
           border: `1px solid ${T.divider}`,
           borderRadius: T.rLg,
           boxShadow:

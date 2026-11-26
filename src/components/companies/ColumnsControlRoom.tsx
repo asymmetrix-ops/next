@@ -11,29 +11,29 @@ import {
 import { FILTER_PINNED_TOOLTIP } from "./companiesColumnFilterMap";
 
 const AX = {
-  gray25: "#F9FAFB",
+  gray25: "rgb(var(--palette-gray-50))",
   gray50: "#F3F4F6",
-  gray100: "#E5E7EB",
-  gray200: "#D1D5DB",
-  gray300: "#9CA3AF",
+  gray100: "rgb(var(--palette-gray-200))",
+  gray200: "rgb(var(--palette-gray-300))",
+  gray300: "rgb(var(--palette-gray-400))",
   gray400: "#6B7280",
   gray600: "#4B5563",
   gray900: "#111827",
-  cyan50: "#ECFEFF",
-  cyan100: "#CFFAFE",
+  cyan50: "rgb(var(--palette-cyan-50))",
+  cyan100: "rgb(var(--palette-cyan-100))",
   cyan400: "#22D3EE",
   cyan700: "#0370AA",
   positive: "#15803D",
-  positiveBg: "#ECFDF5",
-  fg1: "#111827",
-  fg2: "#374151",
-  fg3: "#6B7280",
-  fg4: "#9CA3AF",
-  fgLink: "#0370AA",
-  bg1: "#FFFFFF",
-  bg2: "#F9FAFB",
-  border1: "#E5E7EB",
-  border2: "#D1D5DB",
+  positiveBg: "rgb(var(--palette-emerald-50))",
+  fg1: "rgb(var(--palette-text-gray-900))",
+  fg2: "rgb(var(--palette-text-gray-700))",
+  fg3: "rgb(var(--palette-text-gray-500))",
+  fg4: "rgb(var(--palette-text-gray-400))",
+  fgLink: "var(--c-fg-0370aa)",
+  bg1: "var(--t-panel)",
+  bg2: "rgb(var(--palette-gray-50))",
+  border1: "rgb(var(--palette-gray-200))",
+  border2: "rgb(var(--palette-gray-300))",
   fontSans:
     'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
 };
@@ -124,7 +124,7 @@ function Toggle({
       <span style={{
         position: "absolute", top: 2, left: on ? 16 : 2,
         width: 16, height: 16, borderRadius: "50%",
-        background: "white",
+        background: "var(--t-panel)",
         boxShadow: "0 1px 2px rgba(17,22,29,0.18)",
         transition: "left 150ms ease-out",
       }} />
@@ -178,7 +178,7 @@ function ColumnRow({
           display: "inline-flex", alignItems: "center",
           padding: "2px 6px", fontSize: 10, fontWeight: 700,
           letterSpacing: "0.04em", textTransform: "uppercase",
-          color: AX.cyan700, background: AX.cyan50,
+          color: AX.fgLink, background: AX.cyan50,
           border: `1px solid ${AX.cyan100}`, borderRadius: 4,
         }}>
           {column.badge}
@@ -224,8 +224,8 @@ function ReorderRow({
       style={{
         display: "flex", alignItems: "center", gap: 8,
         padding: "7px 6px 7px 8px", borderRadius: 7,
-        background: isDragging ? "#F8FAFC" : isDragOver ? "#EFF6FF" : isSelected ? "#EFF6FF" : hover ? AX.gray25 : "transparent",
-        border: isDragOver ? "1.5px solid #93C5FD" : isSelected ? "1.5px solid #BFDBFE" : "1.5px solid transparent",
+        background: isDragging ? "rgb(var(--palette-slate-50))" : isDragOver ? "rgb(var(--palette-blue-50))" : isSelected ? "rgb(var(--palette-blue-50))" : hover ? AX.gray25 : "transparent",
+        border: isDragOver ? "1.5px solid rgb(var(--palette-blue-300))" : isSelected ? "1.5px solid rgb(var(--palette-blue-200))" : "1.5px solid transparent",
         cursor: "grab", opacity: isDragging ? 0.55 : 1,
         transition: "background 100ms ease-out, border-color 100ms ease-out",
         userSelect: "none",
@@ -235,13 +235,13 @@ function ReorderRow({
         <DragHandleIcon />
       </span>
       <span style={{
-        fontSize: 11, fontWeight: 600, color: isSelected ? "#1D4ED8" : AX.fg4,
+        fontSize: 11, fontWeight: 600, color: isSelected ? "rgb(var(--palette-text-blue-700))" : AX.fg4,
         fontVariantNumeric: "tabular-nums", minWidth: 18, textAlign: "right", flexShrink: 0,
       }}>
         {position}
       </span>
       <span style={{
-        fontSize: 13, fontWeight: 500, color: isSelected ? "#1E40AF" : AX.fg1,
+        fontSize: 13, fontWeight: 500, color: isSelected ? "rgb(var(--palette-text-blue-800))" : AX.fg1,
         flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
         {column.label}
@@ -250,7 +250,7 @@ function ReorderRow({
         <span style={{
           display: "inline-flex", alignItems: "center", padding: "2px 5px",
           fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
-          color: AX.cyan700, background: AX.cyan50, border: `1px solid ${AX.cyan100}`,
+          color: AX.fgLink, background: AX.cyan50, border: `1px solid ${AX.cyan100}`,
           borderRadius: 4, flexShrink: 0,
         }}>
           {column.badge}
@@ -271,14 +271,14 @@ function FrozenColumnRow({
     <li style={{
       display: "flex", alignItems: "center", gap: 8,
       padding: "7px 6px 7px 8px", borderRadius: 7,
-      background: "#FFFBEB", border: "1.5px solid #F3E8C8",
+      background: "rgb(var(--palette-amber-50))", border: "1.5px solid var(--c-line-f3e8c8)",
       marginBottom: 3, userSelect: "none",
     }}>
       <span style={{ color: AX.fg4, display: "inline-flex", flexShrink: 0 }} aria-hidden="true">
         <DragHandleIcon />
       </span>
       <span style={{
-        fontSize: 11, fontWeight: 600, color: "#D97706",
+        fontSize: 11, fontWeight: 600, color: "rgb(var(--palette-text-amber-600))",
         fontVariantNumeric: "tabular-nums", minWidth: 18, textAlign: "right", flexShrink: 0,
       }}>
         {position}
@@ -842,8 +842,8 @@ const panelStyles: Record<string, React.CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
   },
   tabBadgeActive: {
-    background: "#DBEAFE",
-    color: "#1D4ED8",
+    background: "rgb(var(--palette-blue-100))",
+    color: "rgb(var(--palette-text-blue-700))",
   },
   content: {
     flex: 1,
@@ -903,24 +903,24 @@ const panelStyles: Record<string, React.CSSProperties> = {
   keyboardHint: {
     margin: "10px 0 4px",
     padding: "8px 10px",
-    background: "#EFF6FF",
-    border: "1px solid #BFDBFE",
+    background: "rgb(var(--palette-blue-50))",
+    border: "1px solid rgb(var(--palette-blue-200))",
     borderRadius: 7,
     display: "flex",
     alignItems: "center",
     gap: 8,
     fontSize: 12,
-    color: "#1D4ED8",
+    color: "rgb(var(--palette-text-blue-700))",
   },
   kbd: {
     display: "inline-block",
     padding: "1px 4px",
     fontSize: 11,
     fontFamily: "inherit",
-    background: "white",
-    border: "1px solid #93C5FD",
+    background: "var(--t-panel)",
+    border: "1px solid rgb(var(--palette-blue-300))",
     borderRadius: 4,
-    color: "#1D4ED8",
+    color: "rgb(var(--palette-text-blue-700))",
     fontWeight: 600,
   },
   footer: {
@@ -943,7 +943,7 @@ const panelStyles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontFamily: "inherit",
     color: AX.fg2,
-    background: "white",
+    background: "var(--t-panel)",
     border: `1px solid ${AX.border2}`,
     borderRadius: 7,
     cursor: "pointer",

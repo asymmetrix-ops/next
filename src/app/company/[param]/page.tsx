@@ -2424,10 +2424,10 @@ const CompanyDetail = () => {
       <AppShell>
       <div className="min-h-screen">
         <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ fontSize: "18px", color: "#666" }}>
+          <div style={{ fontSize: "18px", color: "var(--c-fg-666666)" }}>
             Loading company data...
           </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: "#8A93A8" }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: "var(--t-faint)" }}>
             If this takes more than a few seconds, please refresh.
           </div>
         </div>
@@ -2442,7 +2442,7 @@ const CompanyDetail = () => {
       <AppShell>
       <div className="min-h-screen">
         <div style={{ padding: "40px", textAlign: "center" }}>
-          <div style={{ fontSize: "18px", color: "#e53e3e" }}>
+          <div style={{ fontSize: "18px", color: "var(--c-fg-e53e3e)" }}>
             {error === "Company not found" ? (
               <div>
                 <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
@@ -2455,7 +2455,7 @@ const CompanyDetail = () => {
                 <a
                   href="/companies"
                   style={{
-                    color: "#2A46EA",
+                    color: "var(--t-azure)",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2472,7 +2472,7 @@ const CompanyDetail = () => {
                 <a
                   href="/companies"
                   style={{
-                    color: "#2A46EA",
+                    color: "var(--t-azure)",
                     textDecoration: "underline",
                     fontSize: "16px",
                   }}
@@ -2872,26 +2872,26 @@ const CompanyDetail = () => {
 
   // ── Design tokens (exact values from ui_kits/landing/landing.css "--lp-*") ──
   const T = {
-    paper:   "#F5F7FD",
-    panel:   "#FFFFFF",
-    inset:   "#EFF2F8",
-    divider: "#E4E8F2",
-    hair:    "#EFF2F8",
-    ink:     "#0A0E1A",
-    ink2:    "#1E2536",
-    body:    "#566078",
-    muted:   "#6B7488",
-    faint:   "#8A93A8",
-    azure:   "#2A46EA",
-    azureSoft: "#F1F4FE",
-    emerald: "#0F7040",
-    emeraldSoft: "#E4F5EC",
-    coral:   "#A62E22",
-    coralSoft: "#FCEAE7",
-    lavender: "#523793",
-    lavenderSoft: "#F1EBFC",
-    up:      "#0F7040",
-    down:    "#A62E22",
+    paper:   "var(--t-paper)",
+    panel:   "var(--t-panel)",
+    inset:   "var(--t-inset)",
+    divider: "var(--t-divider)",
+    hair:    "var(--t-hair)",
+    ink:     "var(--t-ink)",
+    ink2:    "var(--t-ink2)",
+    body:    "var(--t-body)",
+    muted:   "var(--t-muted)",
+    faint:   "var(--t-faint)",
+    azure:   "var(--t-azure)",
+    azureSoft: "var(--t-azure-soft)",
+    emerald: "var(--t-emerald)",
+    emeraldSoft: "var(--t-emerald-soft)",
+    coral:   "var(--t-coral)",
+    coralSoft: "var(--t-coral-soft)",
+    lavender: "var(--t-lavender)",
+    lavenderSoft: "var(--t-lavender-soft)",
+    up:      "var(--t-emerald)",
+    down:    "var(--t-coral)",
     r:       8,
     rLg:     16,
     sans:    "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -2960,7 +2960,7 @@ const CompanyDetail = () => {
       border: `1px solid ${T.divider}`,
     },
     reportButton: {
-      backgroundColor: T.emerald,
+      backgroundColor: "var(--t-emerald-fill)",
       color: "white",
       border: "none",
       padding: "7px 14px",
@@ -3496,7 +3496,7 @@ const CompanyDetail = () => {
     .card:hover,
     .v3-finance-tabbed-card:hover,
     .management-v3-card:hover {
-      border-color: #C6D1FB;
+      border-color: var(--t-card-hover-border);
       box-shadow: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10);
       z-index: 1;
     }
@@ -3694,17 +3694,17 @@ const CompanyDetail = () => {
       font-variant-numeric: tabular-nums !important;
     }
     /* Corporate Events styles (mirrors corporate-events list page) */
-    .corporate-event-table { width: 100%; background: #fff; padding: 20px 24px; box-shadow: 0px 1px 3px 0px rgba(227, 228, 230, 1); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
-    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #E4E8F2; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
-    .corporate-event-table th { font-weight: 600; color: #0A0E1A; background: #F5F7FD; border-bottom: 2px solid #E4E8F2; }
-    .corporate-event-name { color: #2A46EA; text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
-    .corporate-event-name:hover { color: #1F35C4; }
-    .link-blue { color: #2A46EA; text-decoration: underline; cursor: pointer; font-weight: 500; }
-    .link-blue:hover { color: #1F35C4; }
-    .muted-row { font-size: 12px; color: #566078; margin: 4px 0; }
+    .corporate-event-table { width: 100%; background: var(--t-panel); padding: 20px 24px; box-shadow: 0px 1px 3px 0px var(--c-line-e3e4e6); border-radius: 16px; border-collapse: collapse; table-layout: fixed; }
+    .corporate-event-table th, .corporate-event-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--t-divider); word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }
+    .corporate-event-table th { font-weight: 600; color: var(--t-ink); background: var(--t-paper); border-bottom: 2px solid var(--t-divider); }
+    .corporate-event-name { color: var(--t-azure); text-decoration: underline; cursor: pointer; font-weight: 500; transition: color 0.2s; }
+    .corporate-event-name:hover { color: var(--ax-cyan-700); }
+    .link-blue { color: var(--t-azure); text-decoration: underline; cursor: pointer; font-weight: 500; }
+    .link-blue:hover { color: var(--ax-cyan-700); }
+    .muted-row { font-size: 12px; color: var(--t-body); margin: 4px 0; }
     .pill { display: inline-block; padding: 2px 8px; font-size: 12px; border-radius: 999px; font-weight: 600; }
-    .pill-blue { background-color: #F1F4FE; color: #1F35C4; }
-    .pill-green { background-color: #E4F5EC; color: #0F7040; }
+    .pill-blue { background-color: var(--t-azure-soft); color: var(--ax-cyan-700); }
+    .pill-green { background-color: var(--t-emerald-soft); color: var(--t-emerald); }
     .management-profile-row:hover {
       background-color: ${T.inset};
     }
@@ -3745,7 +3745,7 @@ const CompanyDetail = () => {
       .mobile-financial-metrics { display: block !important; }
       .desktop-linkedin-section { display: none !important; }
       .overview-card .info-row { padding: 8px 0 !important; display: block !important; }
-      .overview-card .info-label { font-size: 12px !important; color: #6B7488 !important; margin-bottom: 2px !important; }
+      .overview-card .info-label { font-size: 12px !important; color: var(--t-muted) !important; margin-bottom: 2px !important; }
       .overview-card .info-value { font-size: 13px !important; line-height: 1.35 !important; display: block !important; margin-left: 0 !important; word-break: break-word !important; overflow-wrap: break-word !important; }
       .overview-card { padding: 14px 8px !important; }
       .overview-grid { grid-template-columns: 1fr !important; }

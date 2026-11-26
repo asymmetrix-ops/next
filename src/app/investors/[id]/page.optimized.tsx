@@ -375,7 +375,7 @@ const InvestorDetailPage = () => {
             {/* Portfolio Section */}
             <div
               style={{
-                backgroundColor: "white",
+                backgroundColor: "var(--t-panel)",
                 padding: "24px",
                 borderRadius: "8px",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -387,7 +387,7 @@ const InvestorDetailPage = () => {
                   style={{
                     display: "flex",
                     gap: "8px",
-                    borderBottom: "1px solid #e2e8f0",
+                    borderBottom: "1px solid rgb(var(--palette-slate-200))",
                   }}
                 >
                   {(["current", "past", "corporate"] as const).map((tab) => (
@@ -400,7 +400,7 @@ const InvestorDetailPage = () => {
                           activePortfolioTab === tab
                             ? "#3b82f6"
                             : "transparent",
-                        color: activePortfolioTab === tab ? "white" : "#64748b",
+                        color: activePortfolioTab === tab ? "white" : "rgb(var(--palette-text-slate-500))",
                         border: "none",
                         cursor: "pointer",
                         fontSize: "14px",
@@ -480,7 +480,7 @@ const PortfolioTable = React.memo<{
       <div
         style={{
           overflowX: "auto",
-          border: "1px solid #e2e8f0",
+          border: "1px solid rgb(var(--palette-slate-200))",
           borderRadius: "8px",
         }}
       >
@@ -492,12 +492,12 @@ const PortfolioTable = React.memo<{
           }}
         >
           <thead>
-            <tr style={{ backgroundColor: "#f8fafc" }}>
+            <tr style={{ backgroundColor: "rgb(var(--palette-slate-50))" }}>
               <th
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Logo
@@ -506,7 +506,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Name
@@ -515,7 +515,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Sectors
@@ -524,7 +524,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Description
@@ -533,7 +533,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Related Individuals
@@ -542,7 +542,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 LinkedIn Members
@@ -551,7 +551,7 @@ const PortfolioTable = React.memo<{
                 style={{
                   padding: "12px",
                   textAlign: "left",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                 }}
               >
                 Country
@@ -563,7 +563,7 @@ const PortfolioTable = React.memo<{
               companies.map((company) => (
                 <tr
                   key={company.id}
-                  style={{ borderBottom: "1px solid #e2e8f0" }}
+                  style={{ borderBottom: "1px solid rgb(var(--palette-slate-200))" }}
                 >
                   <td style={{ padding: "12px" }}>
                     <CompanyLogo
@@ -574,7 +574,7 @@ const PortfolioTable = React.memo<{
                   <td style={{ padding: "12px" }}>
                     <span
                       style={{
-                        color: "#3b82f6",
+                        color: "rgb(var(--palette-text-blue-500))",
                         textDecoration: "none",
                         fontWeight: "500",
                         cursor: "pointer",
@@ -597,7 +597,7 @@ const PortfolioTable = React.memo<{
                     <CompanyDescription description={company.description} />
                   </td>
                   <td style={{ padding: "12px" }}>
-                    <span style={{ color: "#64748b" }}>-</span>
+                    <span style={{ color: "rgb(var(--palette-text-slate-500))" }}>-</span>
                   </td>
                   <td style={{ padding: "12px" }}>
                     {formatNumber(
@@ -616,7 +616,7 @@ const PortfolioTable = React.memo<{
                   style={{
                     padding: "24px",
                     textAlign: "center",
-                    color: "#64748b",
+                    color: "rgb(var(--palette-text-slate-500))",
                   }}
                 >
                   No portfolio companies found
@@ -650,7 +650,7 @@ const CorporateEventsTable = React.memo<{
     <div
       style={{
         overflowX: "auto",
-        border: "1px solid #e2e8f0",
+        border: "1px solid rgb(var(--palette-slate-200))",
         borderRadius: "8px",
       }}
     >
@@ -663,12 +663,12 @@ const CorporateEventsTable = React.memo<{
         }}
       >
         <thead>
-          <tr style={{ backgroundColor: "#f8fafc" }}>
+          <tr style={{ backgroundColor: "rgb(var(--palette-slate-50))" }}>
             <th
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Description
@@ -677,7 +677,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Date Announced
@@ -686,7 +686,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Type
@@ -695,7 +695,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Counterparty Status
@@ -704,7 +704,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Other Counterparties
@@ -713,7 +713,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Enterprise Value
@@ -722,7 +722,7 @@ const CorporateEventsTable = React.memo<{
               style={{
                 padding: "12px",
                 textAlign: "left",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid rgb(var(--palette-slate-200))",
               }}
             >
               Advisors
@@ -732,12 +732,12 @@ const CorporateEventsTable = React.memo<{
         <tbody>
           {events.length > 0 ? (
             events.map((event, index) => (
-              <tr key={index} style={{ borderBottom: "1px solid #e2e8f0" }}>
+              <tr key={index} style={{ borderBottom: "1px solid rgb(var(--palette-slate-200))" }}>
                 <td style={{ padding: "12px" }}>
                   <div style={{ maxWidth: "200px" }}>
                     <span
                       style={{
-                        color: "#3b82f6",
+                        color: "rgb(var(--palette-text-blue-500))",
                         textDecoration: "none",
                         fontWeight: "500",
                         cursor: "pointer",
@@ -764,7 +764,7 @@ const CorporateEventsTable = React.memo<{
                             <span key={idx}>
                               <span
                                 style={{
-                                  color: "#3b82f6",
+                                  color: "rgb(var(--palette-text-blue-500))",
                                   textDecoration: "none",
                                   fontWeight: "500",
                                   cursor: "pointer",
@@ -791,7 +791,7 @@ const CorporateEventsTable = React.memo<{
                             <span key={idx}>
                               <span
                                 style={{
-                                  color: "#3b82f6",
+                                  color: "rgb(var(--palette-text-blue-500))",
                                   textDecoration: "none",
                                   fontWeight: "500",
                                   cursor: "pointer",
@@ -816,7 +816,7 @@ const CorporateEventsTable = React.memo<{
                 style={{
                   padding: "24px",
                   textAlign: "center",
-                  color: "#64748b",
+                  color: "rgb(var(--palette-text-slate-500))",
                 }}
               >
                 No corporate events found

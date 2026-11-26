@@ -95,7 +95,7 @@ function ConfirmDeviceContent() {
   }, []);
 
   return (
-    <div className="flex justify-center items-center px-6 min-h-screen bg-[#F9FAFC]">
+    <div className="flex justify-center items-center px-6 min-h-screen bg-[var(--c-bg-f9fafc)]">
       <div className="p-8 w-full max-w-md bg-white rounded-xl border border-gray-200 shadow-sm">
         {status === "loading" && (
           <p className="text-center text-gray-600">Confirming your device...</p>
@@ -194,7 +194,7 @@ function ConfirmDeviceContent() {
 
 export default function ConfirmDevicePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F9FAFC]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--c-bg-f9fafc)]" />}>
       <ConfirmDeviceContent />
     </Suspense>
   );

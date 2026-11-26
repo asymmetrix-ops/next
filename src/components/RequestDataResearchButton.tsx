@@ -66,7 +66,7 @@ function LinkIcon() {
       height="16"
       viewBox="0 0 16 16"
       fill="none"
-      style={{ display: "block", flexShrink: 0, color: "#94a3b8" }}
+      style={{ display: "block", flexShrink: 0, color: "rgb(var(--palette-text-slate-400))" }}
     >
       <path
         d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5L7.5 3.5"
@@ -93,7 +93,7 @@ function ClockIcon() {
       height="14"
       viewBox="0 0 16 16"
       fill="none"
-      style={{ display: "block", flexShrink: 0, color: "#64748b" }}
+      style={{ display: "block", flexShrink: 0, color: "rgb(var(--palette-text-slate-500))" }}
     >
       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
       <path
@@ -268,7 +268,7 @@ export default function RequestDataResearchButton({
             style={{
               width: "100%",
               maxWidth: "580px",
-              backgroundColor: "#fff",
+              backgroundColor: "var(--t-panel)",
               borderRadius: "14px",
               boxShadow: "0 20px 48px rgba(15, 23, 42, 0.22)",
               position: "relative",
@@ -287,10 +287,10 @@ export default function RequestDataResearchButton({
                 right: "14px",
                 width: "28px",
                 height: "28px",
-                border: "1px solid #e2e8f0",
+                border: "1px solid rgb(var(--palette-slate-200))",
                 borderRadius: "50%",
-                backgroundColor: "#f8fafc",
-                color: "#64748b",
+                backgroundColor: "rgb(var(--palette-slate-50))",
+                color: "rgb(var(--palette-text-slate-500))",
                 cursor: isSubmitting ? "not-allowed" : "pointer",
                 fontSize: "16px",
                 lineHeight: "1",
@@ -310,7 +310,7 @@ export default function RequestDataResearchButton({
                   margin: "0 0 4px",
                   fontSize: "18px",
                   fontWeight: 700,
-                  color: "#0f172a",
+                  color: "rgb(var(--palette-text-slate-900))",
                   paddingRight: "36px",
                   lineHeight: 1.3,
                 }}
@@ -320,7 +320,7 @@ export default function RequestDataResearchButton({
               <p
                 style={{
                   margin: "0 0 20px",
-                  color: "#64748b",
+                  color: "rgb(var(--palette-text-slate-500))",
                   fontSize: "13px",
                   lineHeight: 1.5,
                 }}
@@ -333,7 +333,7 @@ export default function RequestDataResearchButton({
               <div
                 style={{
                   display: "flex",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid rgb(var(--palette-slate-200))",
                   marginBottom: "0",
                 }}
               >
@@ -368,7 +368,7 @@ export default function RequestDataResearchButton({
                         style={{
                           fontSize: "14px",
                           fontWeight: active ? 600 : 500,
-                          color: active ? "#0f172a" : "#64748b",
+                          color: active ? "rgb(var(--palette-text-slate-900))" : "rgb(var(--palette-text-slate-500))",
                           lineHeight: 1.2,
                           marginBottom: "2px",
                         }}
@@ -378,7 +378,7 @@ export default function RequestDataResearchButton({
                       <div
                         style={{
                           fontSize: "12px",
-                          color: active ? "#475569" : "#94a3b8",
+                          color: active ? "rgb(var(--palette-text-slate-600))" : "rgb(var(--palette-text-slate-400))",
                           lineHeight: 1.2,
                         }}
                       >
@@ -398,7 +398,7 @@ export default function RequestDataResearchButton({
                     margin: "0 0 10px",
                     fontSize: "16px",
                     fontWeight: 700,
-                    color: "#0f172a",
+                    color: "rgb(var(--palette-text-slate-900))",
                   }}
                 >
                   Request submitted
@@ -406,7 +406,7 @@ export default function RequestDataResearchButton({
                 <p
                   style={{
                     margin: 0,
-                    color: "#475569",
+                    color: "rgb(var(--palette-text-slate-600))",
                     fontSize: "14px",
                     lineHeight: 1.6,
                   }}
@@ -472,7 +472,7 @@ export default function RequestDataResearchButton({
                       ) : (
                         <span
                           style={{
-                            color: "#94a3b8",
+                            color: "rgb(var(--palette-text-slate-400))",
                             fontWeight: 400,
                             marginLeft: "4px",
                           }}
@@ -481,7 +481,7 @@ export default function RequestDataResearchButton({
                         </span>
                       )}
                     </label>
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    <span style={{ fontSize: "12px", color: "rgb(var(--palette-text-slate-400))" }}>
                       {isData ? DATA_URL_HINT : RESEARCH_URL_HINT}
                     </span>
                   </div>
@@ -490,10 +490,10 @@ export default function RequestDataResearchButton({
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid rgb(var(--palette-slate-300))",
                       borderRadius: "8px",
                       padding: "9px 12px",
-                      backgroundColor: "#fff",
+                      backgroundColor: "var(--t-panel)",
                     }}
                   >
                     <LinkIcon />
@@ -514,7 +514,7 @@ export default function RequestDataResearchButton({
                         border: "none",
                         outline: "none",
                         fontSize: "14px",
-                        color: "#0f172a",
+                        color: "rgb(var(--palette-text-slate-900))",
                         backgroundColor: "transparent",
                         minWidth: 0,
                       }}
@@ -535,7 +535,7 @@ export default function RequestDataResearchButton({
                     <label htmlFor="rdr-details" style={labelStyle}>
                       Request details <RequiredMark />
                     </label>
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    <span style={{ fontSize: "12px", color: "rgb(var(--palette-text-slate-400))" }}>
                       Name + why it fits D&amp;A coverage
                     </span>
                   </div>
@@ -555,11 +555,11 @@ export default function RequestDataResearchButton({
                     }
                     style={{
                       width: "100%",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid rgb(var(--palette-slate-300))",
                       borderRadius: "8px",
                       padding: "10px 12px",
                       fontSize: "14px",
-                      color: "#0f172a",
+                      color: "rgb(var(--palette-text-slate-900))",
                       resize: "vertical",
                       minHeight: "110px",
                       lineHeight: 1.5,
@@ -573,7 +573,7 @@ export default function RequestDataResearchButton({
                     role="alert"
                     style={{
                       margin: "10px 0 0",
-                      color: "#dc2626",
+                      color: "rgb(var(--palette-text-red-600))",
                       fontSize: "13px",
                     }}
                   >
@@ -597,7 +597,7 @@ export default function RequestDataResearchButton({
                         alignItems: "center",
                         gap: "5px",
                         fontSize: "12px",
-                        color: "#64748b",
+                        color: "rgb(var(--palette-text-slate-500))",
                       }}
                     >
                       <ClockIcon />
@@ -613,9 +613,9 @@ export default function RequestDataResearchButton({
                       style={{
                         padding: "9px 18px",
                         borderRadius: "8px",
-                        border: "1px solid #e2e8f0",
-                        backgroundColor: "#fff",
-                        color: "#334155",
+                        border: "1px solid rgb(var(--palette-slate-200))",
+                        backgroundColor: "var(--t-panel)",
+                        color: "rgb(var(--palette-text-slate-700))",
                         fontWeight: 500,
                         fontSize: "14px",
                         cursor: isSubmitting ? "not-allowed" : "pointer",
@@ -653,7 +653,7 @@ export default function RequestDataResearchButton({
 
 function RequiredMark() {
   return (
-    <span style={{ color: "#dc2626", marginLeft: "2px" }} aria-hidden="true">
+    <span style={{ color: "rgb(var(--palette-text-red-600))", marginLeft: "2px" }} aria-hidden="true">
       *
     </span>
   );
@@ -663,19 +663,19 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "13px",
   fontWeight: 600,
-  color: "#334155",
+  color: "rgb(var(--palette-text-slate-700))",
   lineHeight: 1,
   margin: "0 0 6px",
 };
 
 const selectStyle: React.CSSProperties = {
   width: "100%",
-  border: "1px solid #cbd5e1",
+  border: "1px solid rgb(var(--palette-slate-300))",
   borderRadius: "8px",
   padding: "9px 12px",
   fontSize: "14px",
-  color: "#0f172a",
-  backgroundColor: "#fff",
+  color: "rgb(var(--palette-text-slate-900))",
+  backgroundColor: "var(--t-panel)",
   appearance: "auto",
   margin: 0,
 };

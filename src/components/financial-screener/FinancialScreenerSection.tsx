@@ -396,7 +396,7 @@ export const FinancialScreenerSection = ({
       const num = value != null ? Number(value) : null;
       const isPositive = num != null && num > 0;
       return (
-        <span style={{ color: isPositive ? "#15803d" : "#0f172a", fontWeight: 500 }}>
+        <span style={{ color: isPositive ? "rgb(var(--palette-text-green-700))" : "rgb(var(--palette-text-slate-900))", fontWeight: 500 }}>
           {num != null && num > 0
             ? `+${num}%`
             : getScreenerCellValue(item, columnKey, platformCurrency)}
@@ -414,7 +414,7 @@ export const FinancialScreenerSection = ({
   );
 
   return (
-    <div style={{ background: "#fff" }}>
+    <div style={{ background: "var(--t-panel)" }}>
       <style>{`
         .financial-screener-table-scroll {
           overflow-x: auto;
@@ -430,14 +430,14 @@ export const FinancialScreenerSection = ({
         .financial-screener-table th,
         .financial-screener-table td {
           padding: 8px 12px;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid rgb(var(--palette-slate-200));
           white-space: nowrap;
           vertical-align: middle;
           text-align: left;
         }
         .financial-screener-table th {
-          background: #f8fafc;
-          color: #64748b;
+          background: rgb(var(--palette-slate-50));
+          color: rgb(var(--palette-text-slate-500));
           font-size: 11px;
           font-weight: 700;
           letter-spacing: 0.06em;
@@ -451,13 +451,13 @@ export const FinancialScreenerSection = ({
           user-select: none;
         }
         .financial-screener-table-th-sortable:hover {
-          color: #0f172a;
+          color: rgb(var(--palette-text-slate-900));
         }
         .financial-screener-table-row:hover td {
-          background: #f8fafc;
+          background: rgb(var(--palette-slate-50));
         }
         .financial-screener-table-row-selected td {
-          background: #eff6ff !important;
+          background: rgb(var(--palette-blue-50)) !important;
         }
         .financial-screener-table th.align-center,
         .financial-screener-table td.align-center {
@@ -502,7 +502,7 @@ export const FinancialScreenerSection = ({
 
       <div style={{ padding: "0 28px 28px" }}>
         {error ? (
-          <div style={{ padding: "24px 0", color: "#dc2626" }}>{error}</div>
+          <div style={{ padding: "24px 0", color: "rgb(var(--palette-text-red-600))" }}>{error}</div>
         ) : null}
 
         {selectedCompanyIds.size > 0 && onClearSelection && (
@@ -567,7 +567,7 @@ export const FinancialScreenerSection = ({
                 <tr>
                   <td
                     colSpan={activeColumns.length + 1}
-                    style={{ padding: 32, textAlign: "center", color: "#64748b" }}
+                    style={{ padding: 32, textAlign: "center", color: "rgb(var(--palette-text-slate-500))" }}
                   >
                     Loading companies…
                   </td>
@@ -576,7 +576,7 @@ export const FinancialScreenerSection = ({
                 <tr>
                   <td
                     colSpan={activeColumns.length + 1}
-                    style={{ padding: 32, textAlign: "center", color: "#64748b" }}
+                    style={{ padding: 32, textAlign: "center", color: "rgb(var(--palette-text-slate-500))" }}
                   >
                     No companies match your filters.
                   </td>

@@ -27,9 +27,9 @@ export function ArticleCorrectionNotice({
         marginBottom: isBanner ? 24 : 0,
         padding: isBanner ? "12px 14px" : "8px 10px",
         borderRadius: 8,
-        border: "1px solid #fcd34d",
-        backgroundColor: "#fffbeb",
-        color: "#92400e",
+        border: "1px solid rgb(var(--palette-amber-300))",
+        backgroundColor: "rgb(var(--palette-amber-50))",
+        color: "rgb(var(--palette-text-amber-800))",
       }}
       role="note"
       aria-label="Article correction"
@@ -66,7 +66,7 @@ export function ArticleCorrectionNotice({
                   style={{
                     fontSize: isBanner ? 14 : 12,
                     lineHeight: 1.5,
-                    color: "#78350f",
+                    color: "rgb(var(--palette-text-amber-900))",
                   }}
                 >
                   {correction.note}

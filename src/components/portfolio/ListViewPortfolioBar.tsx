@@ -197,8 +197,8 @@ export function ListViewPortfolioBar({
           fontSize: "var(--fs-13)",
           fontWeight: 600,
           color: menuOpen ? "var(--ax-cyan-700)" : "var(--fg-2)",
-          background: menuOpen ? "var(--ax-cyan-50)" : "white",
-          border: `1px dashed ${menuOpen ? "var(--ax-cyan-300)" : "var(--ax-gray-300, #94a3b8)"}`,
+          background: menuOpen ? "var(--ax-cyan-50)" : "var(--t-panel)",
+          border: `1px dashed ${menuOpen ? "var(--ax-cyan-300)" : "var(--ax-gray-300, rgb(var(--palette-slate-400)))"}`,
           borderRadius: 999,
           cursor: "pointer",
           transition: "all 120ms",
@@ -229,7 +229,7 @@ export function ListViewPortfolioBar({
               maxHeight: 460,
               display: "flex",
               flexDirection: "column",
-              background: "white",
+              background: "var(--t-panel)",
               border: "1px solid var(--border-1)",
               borderRadius: "var(--r-lg)",
               boxShadow:
@@ -414,7 +414,7 @@ export function ListViewPortfolioBar({
                   fontSize: "var(--fs-13)",
                   fontWeight: 600,
                   color: hasFilters ? "var(--fg-link)" : "var(--fg-4)",
-                  background: "white",
+                  background: "var(--t-panel)",
                   border: "1px solid var(--border-1)",
                   borderRadius: 999,
                   cursor: hasFilters ? "pointer" : "not-allowed",
@@ -642,7 +642,7 @@ function SavedFilterRow({
             Update
           </button>
         )}
-        <button type="button" onClick={onDelete} style={action("#dc2626")}>
+        <button type="button" onClick={onDelete} style={action("rgb(var(--palette-text-red-600))")}>
           Delete
         </button>
       </span>

@@ -43,11 +43,11 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
         alt={`${name} logo`}
         width={w}
         height={h}
-        className={className}
+        className={`logo-tile ${className}`}
         style={{
           objectFit: "contain",
           borderRadius,
-          border: "1px solid #e2e8f0",
+          border: "1px solid rgb(var(--palette-slate-200))",
           flexShrink: 0,
           ...style,
         }}
@@ -62,13 +62,13 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
         style={{
           width: w,
           height: h,
-          backgroundColor: "#f7fafc",
+          backgroundColor: "var(--c-bg-f7fafc)",
           borderRadius,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: 12,
-          color: "#718096",
+          color: "var(--c-fg-718096)",
           flexShrink: 0,
           ...style,
         }}
@@ -83,15 +83,15 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
       style={{
         width: w,
         height: h,
-        backgroundColor: "#f7fafc",
+        backgroundColor: "var(--c-bg-f7fafc)",
         borderRadius,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontSize: Math.max(10, Math.min(12, Math.round(w * 0.3))),
         fontWeight: 600,
-        color: "#64748b",
-        border: "1px solid #e2e8f0",
+        color: "rgb(var(--palette-text-slate-500))",
+        border: "1px solid rgb(var(--palette-slate-200))",
         flexShrink: 0,
         ...style,
       }}

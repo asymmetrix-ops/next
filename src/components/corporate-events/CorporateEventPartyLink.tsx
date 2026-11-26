@@ -83,7 +83,7 @@ export const CountryFlagImg: React.FC<CountryFlagImgProps> = ({
             marginBottom: 4,
             padding: "2px 6px",
             borderRadius: 4,
-            background: "#111827",
+            background: "rgb(var(--palette-gray-900))",
             color: "#fff",
             fontSize: 11,
             lineHeight: 1.3,

@@ -47,7 +47,7 @@ export default function AdvisorsSection({ advisors, createClickableElement }: {
                       <img
                         src={advisor.logo}
                         alt={advisor.name}
-                        className="w-10 h-10 rounded object-contain bg-slate-50 p-1"
+                        className="logo-tile w-10 h-10 rounded object-contain bg-slate-50 p-1"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">

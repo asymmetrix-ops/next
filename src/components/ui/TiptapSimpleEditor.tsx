@@ -550,7 +550,7 @@ export default function TiptapSimpleEditor({
           "[&_table]:border-collapse [&_table]:w-full [&_table]:my-2",
           "[&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1.5 [&_th]:bg-gray-100 [&_th]:font-semibold [&_th]:text-left",
           "[&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top",
-          "[&_.asymmetrix-highlight]:bg-[#fff3bf] [&_.asymmetrix-highlight]:rounded-sm [&_.asymmetrix-highlight]:px-0.5",
+          "[&_.asymmetrix-highlight]:bg-[var(--c-bg-fff3bf)] [&_.asymmetrix-highlight]:rounded-sm [&_.asymmetrix-highlight]:px-0.5",
         ].join(" "),
         style: `min-height: ${minHeightPx}px;`,
       },

@@ -117,7 +117,7 @@ export default function NpsModal({ isOpen, onClose }: NpsModalProps) {
                     className={`mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:max-w-11 sm:text-sm ${
                       isSelected
                         ? "border-[#0075df] bg-[#0075df] text-white"
-                        : "border-gray-300 bg-white text-gray-700 hover:border-[#0075df] hover:text-[#0075df]"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-[#0075df] hover:text-[var(--c-fg-0075df)]"
                     }`}
                   >
                     {value}

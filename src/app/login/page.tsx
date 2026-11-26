@@ -138,7 +138,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFC]">
+    <div className="min-h-screen bg-[var(--c-bg-f9fafc)]">
       {/* Header (white variant of home header) */}
       <header className="flex relative justify-between items-center px-4 py-3 bg-white border-b border-gray-200 sm:px-6">
         <div className="flex gap-3 items-center">
@@ -192,15 +192,15 @@ export default function LoginPage() {
         >
           <span
             className="inline-block relative"
-            style={{ width: 18, height: 2, background: "#111" }}
+            style={{ width: 18, height: 2, background: "var(--c-fg-111111)" }}
           >
             <span
               className="absolute left-0 right-0 -top-1.5"
-              style={{ height: 2, background: "#111" }}
+              style={{ height: 2, background: "var(--c-fg-111111)" }}
             />
             <span
               className="absolute left-0 right-0 top-1.5"
-              style={{ height: 2, background: "#111" }}
+              style={{ height: 2, background: "var(--c-fg-111111)" }}
             />
           </span>
         </button>

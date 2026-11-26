@@ -70,7 +70,7 @@ export function FiBenchmarkSkeleton() {
           <div
             key={i}
             style={{
-              background: "white",
+              background: "var(--t-panel)",
               border: "1px solid var(--border-1)",
               borderRadius: "var(--r-lg)",
               padding: "14px 16px",
@@ -99,7 +99,7 @@ export function FiBenchmarkSkeleton() {
       >
         <div
           style={{
-            background: "white",
+            background: "var(--t-panel)",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-lg)",
             overflow: "hidden",
@@ -142,7 +142,7 @@ export function FiBenchmarkSkeleton() {
 
         <div
           style={{
-            background: "white",
+            background: "var(--t-panel)",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-lg)",
             padding: 16,
@@ -172,7 +172,7 @@ export function FiBenchmarkSkeleton() {
       <Sk width={160} height={16} style={{ marginBottom: 8 }} />
       <div
         style={{
-          background: "white",
+          background: "var(--t-panel)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
           padding: 16,
@@ -228,7 +228,7 @@ export function FiBenchmarkRefreshing({
           style={{
             height: "100%",
             width: "35%",
-            background: "var(--ax-cyan-600)",
+            background: "var(--t-azure-fill)",
             animation: "fi-refresh-bar 1.1s ease-in-out infinite",
           }}
         />

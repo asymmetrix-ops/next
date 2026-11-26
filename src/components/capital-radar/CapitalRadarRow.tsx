@@ -32,7 +32,7 @@ export function CapitalRadarRow({
       <td style={{ ...cellStyle, textAlign: "left" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           {logoSrc ? (
-            <img
+            <img className="logo-tile"
               src={logoSrc}
               alt=""
               width={16}

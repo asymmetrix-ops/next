@@ -55,7 +55,7 @@ export function DroppedPeersBar({
             alignItems: "center",
             gap: 5,
             padding: "3px 8px",
-            background: "white",
+            background: "var(--t-panel)",
             border: "1px dashed var(--border-2)",
             borderRadius: "var(--r-md)",
             fontSize: 12,

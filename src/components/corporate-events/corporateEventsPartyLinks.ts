@@ -10,7 +10,7 @@ export type EntityLink = {
 };
 
 export const SEARCH_ENTITY_LINK_STYLE: CSSProperties = {
-  color: "#0075df",
+  color: "var(--c-fg-0075df)",
   textDecoration: "underline",
   fontWeight: 500,
   cursor: "pointer",

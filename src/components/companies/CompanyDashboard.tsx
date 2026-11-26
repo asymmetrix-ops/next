@@ -531,8 +531,8 @@ export const CompanyDashboard = ({
   return (
     <div
       style={{
-        background: embedded ? "#fff" : "#F5F7FD",
-        borderBottom: embedded ? "none" : "1px solid #E4E8F2",
+        background: embedded ? "var(--t-panel)" : "var(--t-paper)",
+        borderBottom: embedded ? "none" : "1px solid var(--t-divider)",
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: OWNERSHIP_OTHER_TOOLTIP_STYLES }} />
@@ -606,7 +606,7 @@ export const CompanyDashboard = ({
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 height: 36, padding: "0 18px",
-                background: selectedCount > 0 ? "#2A46EA" : "#C6D1FB",
+                background: selectedCount > 0 ? "var(--c-bg-2a46ea)" : "var(--ax-cyan-200)",
                 color: "#fff",
                 border: "none", borderRadius: 999,
                 fontSize: 13, fontWeight: 700,
@@ -690,9 +690,9 @@ export const CompanyDashboard = ({
       /* ── Filter bar card ── */
       <div
         style={{
-          background: "#fff",
-          borderTop: embedded ? "none" : "1px solid #E4E8F2",
-          borderBottom: "1px solid #E4E8F2",
+          background: "var(--t-panel)",
+          borderTop: embedded ? "none" : "1px solid var(--t-divider)",
+          borderBottom: "1px solid var(--t-divider)",
         }}
       >
         <div style={{ width: "100%", padding: `8px ${horizontalPad} 8px` }}>

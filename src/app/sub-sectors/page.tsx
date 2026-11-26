@@ -65,17 +65,18 @@ interface SecondarySectorsApiResponse {
 const API_BASE = "https://xdil-abvj-o7rq.e2.xano.io/api:xCPLTQnV:develop";
 
 // ── Design tokens — exact values from ui_kits/landing/landing.css "--lp-*" ──
-const LINE = "#E4E8F2";
-const LINE_2 = "#EFF2F8";
-const INK = "#0A0E1A";
-const INK_2 = "#1E2536";
-const MUTED = "#6B7488";
-const EMPTY = "#6B7488";
-const BLUE_100 = "#E2E8FD";
-const BLUE_600 = "#2A46EA";
-const GREEN_50 = "#ECFDF5";
-const GREEN_200 = "#A7F3D0";
-const GREEN_700 = "#047857";
+const LINE = "var(--t-divider)";
+const LINE_2 = "var(--t-hair)";
+const INK = "var(--t-ink)";
+const INK_2 = "var(--t-ink2)";
+const MUTED = "var(--t-muted)";
+const EMPTY = "var(--t-muted)";
+const BLUE_100 = "var(--c-line-e2e8fd)";
+const BLUE_600 = "var(--t-azure)";
+const BLUE_600_FILL = "var(--c-bg-2a46ea)";
+const GREEN_50 = "rgb(var(--palette-emerald-50))";
+const GREEN_200 = "rgb(var(--palette-emerald-200))";
+const GREEN_700 = "rgb(var(--palette-text-emerald-700))";
 const R_LG = 16;
 const SH_SM = "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)";
 const SH_CARD = "0 2px 6px rgba(16, 28, 70, 0.05), 0 12px 32px rgba(16, 28, 70, 0.07)";
@@ -150,7 +151,7 @@ const SubSectorCard = ({
       onMouseLeave={() => setHover(false)}
       onClick={onClick}
       style={{
-        background: "#fff",
+        background: "var(--t-panel)",
         border: `1px solid ${hover ? BLUE_100 : LINE}`,
         borderRadius: R_LG,
         boxShadow: hover ? SH_CARD : SH_SM,
@@ -189,7 +190,7 @@ const SubSectorCard = ({
           aria-label={`Open ${subSector.sector_name || "secondary sector"} profile`}
           style={{
             marginLeft: "auto",
-            color: hover ? BLUE_600 : "#8A93A8",
+            color: hover ? BLUE_600 : "var(--t-faint)",
             flexShrink: 0,
             marginTop: 2,
             transition: "color 180ms",
@@ -249,7 +250,7 @@ const SubSectorCard = ({
               />
               <span
                 style={{
-                  color: isZero ? EMPTY : "#3D4657",
+                  color: isZero ? EMPTY : "var(--ax-gray-700)",
                   fontWeight: 500,
                 }}
               >
@@ -420,7 +421,7 @@ const SubSectorsSection = () => {
       box-sizing: border-box;
     }
     .sub-sectors-section {
-      background: #F5F7FD;
+      background: var(--t-paper);
       width: 100%;
       box-sizing: border-box;
       overflow-x: hidden;
@@ -452,13 +453,13 @@ const SubSectorsSection = () => {
     .error {
       text-align: center;
       padding: 20px;
-      color: #A62E22;
-      background-color: #FCEAE7;
+      color: var(--t-coral);
+      background-color: var(--t-coral-soft);
       border-radius: 12px;
       margin-bottom: 16px;
     }
     .sub-sectors-search-input::placeholder {
-      color: #8A93A8;
+      color: var(--t-faint);
     }
     .sub-sectors-search-input:focus,
     .sub-sectors-sort-select:focus {
@@ -517,7 +518,7 @@ const SubSectorsSection = () => {
       {/* Controls card */}
       <div
         style={{
-          background: "#fff",
+          background: "var(--t-panel)",
           border: `1px solid ${LINE}`,
           borderRadius: R_LG,
           boxShadow: SH_SM,
@@ -536,7 +537,7 @@ const SubSectorsSection = () => {
               left: 14,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#8A93A8",
+              color: "var(--t-faint)",
               pointerEvents: "none",
               display: "flex",
             }}
@@ -558,7 +559,7 @@ const SubSectorsSection = () => {
               padding: "0 14px 0 38px",
               borderRadius: 999,
               border: `1px solid ${LINE}`,
-              background: "#fff",
+              background: "var(--t-panel)",
               fontSize: 13,
               color: INK,
             }}
@@ -573,7 +574,7 @@ const SubSectorsSection = () => {
             padding: "0 20px",
             borderRadius: 999,
             border: "none",
-            background: BLUE_600,
+            background: BLUE_600_FILL,
             color: "#fff",
             fontSize: 13,
             fontWeight: 700,
@@ -601,10 +602,10 @@ const SubSectorsSection = () => {
               height: 38,
               border: `1px solid ${LINE}`,
               borderRadius: 999,
-              background: "#fff",
+              background: "var(--t-panel)",
               fontSize: 13,
               fontWeight: 600,
-              color: "#3D4657",
+              color: "var(--ax-gray-700)",
               padding: "0 14px",
               cursor: "pointer",
             }}
@@ -629,10 +630,10 @@ const SubSectorsSection = () => {
             padding: "0 14px",
             borderRadius: 999,
             border: `1px solid ${LINE}`,
-            background: "#fff",
+            background: "var(--t-panel)",
             fontSize: 13,
             fontWeight: 600,
-            color: "#3D4657",
+            color: "var(--ax-gray-700)",
             cursor: "pointer",
           }}
         >

@@ -47,7 +47,7 @@ const RECENT_SECTOR_TRANSACTIONS_PDF_LIMIT = 5;
 /** Matches sector I&A fetch `slice(0, 5)` on this page. */
 const SECTOR_INSIGHTS_PDF_LIMIT = 5;
 const RELATED_PARTY_LINK_STYLE: React.CSSProperties = {
-  color: "#2563eb",
+  color: "rgb(var(--palette-text-blue-600))",
   textDecoration: "underline",
 };
 
@@ -1138,7 +1138,7 @@ const CorporateEventDetail = ({
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: "#fff",
-                backgroundColor: isExportingPdf ? T.faint : "#475569",
+                backgroundColor: isExportingPdf ? "var(--t-faint-fill)" : "#475569",
                 border: "none",
                 borderRadius: 6,
                 padding: "8px 14px",
@@ -1160,7 +1160,7 @@ const CorporateEventDetail = ({
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: "#fff",
-                backgroundColor: T.emerald,
+                backgroundColor: "var(--t-emerald-fill)",
                 borderRadius: 6,
                 padding: "8px 14px",
                 textDecoration: "none",

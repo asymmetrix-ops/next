@@ -110,7 +110,7 @@ export function HoverTooltip({ content, children, maxWidth = 260 }: Props) {
                 maxWidth,
                 padding: "6px 10px",
                 borderRadius: 6,
-                background: T.ink,
+                background: "var(--t-ink-fill)",
                 color: "#fff",
                 fontSize: 11,
                 lineHeight: 1.45,

@@ -64,7 +64,7 @@ function CompanyLogo({ name, logo }: { name: string; logo?: string | null }) {
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <img className="logo-tile"
           src={src}
           alt={name}
           width={24}

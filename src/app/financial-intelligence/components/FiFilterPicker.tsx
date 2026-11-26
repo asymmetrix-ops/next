@@ -166,7 +166,7 @@ export function FiFilterEditorShell({
         maxHeight: 460,
         display: "flex",
         flexDirection: "column",
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         boxShadow:
@@ -286,7 +286,7 @@ export function FiFilterPicker({
   const kbdStyle: React.CSSProperties = {
     display: "inline-block",
     padding: "0 4px",
-    background: "white",
+    background: "var(--t-panel)",
     border: "1px solid var(--border-1)",
     borderRadius: 3,
     fontFamily: "var(--font-mono)",
@@ -325,7 +325,7 @@ export function FiFilterPicker({
           maxHeight: 460,
           display: "flex",
           flexDirection: "column",
-          background: "white",
+          background: "var(--t-panel)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
           boxShadow:

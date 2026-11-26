@@ -1306,7 +1306,7 @@ const InvestorDetailPage = () => {
               onClick={fetchInvestorData}
               style={{
                 padding: "8px 16px",
-                backgroundColor: T.azure,
+                backgroundColor: "var(--t-azure-fill)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 6,

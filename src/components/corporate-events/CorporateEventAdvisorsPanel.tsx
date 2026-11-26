@@ -106,7 +106,7 @@ function AdvisorLogo({ logo, name }: { logo?: string; name: string }) {
   if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <img className="logo-tile"
         src={src}
         alt={`${name} logo`}
         width={18}

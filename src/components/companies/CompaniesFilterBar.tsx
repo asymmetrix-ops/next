@@ -222,25 +222,8 @@ export interface CompaniesFilterBarProps {
 const FILTER_BAR_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   .cfb-root {
-    --ax-cyan-700: #1F35C4;
-    --ax-cyan-400: #5C77F2;
-    --ax-cyan-50:  #F1F4FE;
-    --ax-cyan-200: #C6D1FB;
-    --ax-cyan-100: #E2E8FD;
-    --ax-cyan-300: #93A6F7;
-    --border-1:    #E4E8F2;
-    --fg-1:  #0A0E1A;
-    --fg-2:  #3D4657;
-    --fg-3:  #6B7488;
-    --fg-4:  #8A93A8;
-    --fg-link: #2A46EA;
-    --ax-gray-25:  #FAFBFE;
-    --ax-gray-50:  #F5F7FD;
-    --ax-gray-100: #EFF2F8;
-    --ax-gray-200: #E4E8F2;
-    --ax-gray-300: #8A93A8;
-    --ax-gray-500: #6B7488;
-    --ax-gray-900: #0A0E1A;
+    --fg-link: var(--t-azure);
+    --ax-gray-300: var(--ax-gray-400);
     --r-lg:  16px;
     --r-md:  10px;
     --r-sm:  8px;
@@ -249,11 +232,9 @@ const FILTER_BAR_CSS = `
     --fs-12: 12px;
     --fs-13: 13px;
     --fs-14: 14px;
-    --ax-positive:    #0F7040;
-    --ax-positive-bg: #E4F5EC;
-    --ax-negative:    #A62E22;
-    --ax-warning-bg:  #FEF6E0;
-    --ax-accent-amber:#7A5605;
+    --ax-positive-bg: var(--t-emerald-soft);
+    --ax-warning-bg:  var(--t-warn-soft);
+    --ax-accent-amber: var(--t-warn);
   }
   .cfb-root { font-family: var(--font-sans); }
   .cfb-root .ax-eyebrow {
@@ -474,7 +455,7 @@ function Chip({
     border = "var(--ax-cyan-200)";
     valueFg = "var(--fg-1)";
   } else if (chipStyle === "outlined") {
-    bg = "white";
+    bg = "var(--t-panel)";
     fg = "var(--fg-2)";
     border = "var(--ax-cyan-300)";
     valueFg = "var(--fg-1)";
@@ -541,7 +522,7 @@ function Chip({
           cursor: "pointer",
           color: "var(--ax-cyan-700)",
           transition: "background 120ms, color 120ms",
-          ...(hover ? { background: "var(--ax-cyan-700)", color: "#fff" } : {}),
+          ...(hover ? { background: "var(--bg-brand)", color: "#fff" } : {}),
         }}
       >
         <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
@@ -808,7 +789,7 @@ function AddFilterPicker({
   const kbdStyle: React.CSSProperties = {
     display: "inline-block",
     padding: "0 4px",
-    background: "white",
+    background: "var(--t-panel)",
     border: "1px solid var(--border-1)",
     borderRadius: 3,
     fontFamily: "var(--font-mono)",
@@ -823,7 +804,7 @@ function AddFilterPicker({
         maxHeight: 460,
         display: "flex",
         flexDirection: "column",
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         boxShadow:
@@ -1058,8 +1039,8 @@ function AddFilterButton({
           fontSize: "var(--fs-13)",
           fontWeight: 600,
           color: open ? "var(--ax-cyan-700)" : "var(--fg-2)",
-          background: open ? "var(--ax-cyan-50)" : "white",
-          border: `1px dashed ${open ? "var(--ax-cyan-300)" : "var(--ax-gray-300, #94a3b8)"}`,
+          background: open ? "var(--ax-cyan-50)" : "var(--t-panel)",
+          border: `1px dashed ${open ? "var(--ax-cyan-300)" : "var(--ax-gray-300, rgb(var(--palette-slate-400)))"}`,
           borderRadius: 999,
           cursor: "pointer",
           transition: "all 120ms",
@@ -1122,7 +1103,7 @@ function EditorShell({
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         width,
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         boxShadow:
@@ -1204,7 +1185,7 @@ const btnPrimary: React.CSSProperties = {
   fontSize: "var(--fs-13)",
   fontWeight: 600,
   fontFamily: "inherit",
-  background: "var(--ax-cyan-700)",
+  background: "var(--bg-brand)",
   color: "white",
   border: "none",
   borderRadius: "var(--r-md)",
@@ -1437,9 +1418,9 @@ function EnumEditor({
                   height: 14,
                   borderRadius: 4,
                   flexShrink: 0,
-                  background: on ? "var(--ax-cyan-700)" : "transparent",
+                  background: on ? "var(--bg-brand)" : "transparent",
                   border: on
-                    ? "1px solid var(--ax-cyan-700)"
+                    ? "1px solid var(--bg-brand)"
                     : "1px solid var(--ax-gray-300)",
                   display: "inline-flex",
                   alignItems: "center",
@@ -1796,7 +1777,7 @@ function DateRangeEditor({
             alignItems: "center",
             flex: 1,
             padding: "4px 6px",
-            background: "white",
+            background: "var(--t-panel)",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-md)",
           }}
@@ -1832,7 +1813,7 @@ function DateRangeEditor({
             alignItems: "center",
             flex: 1,
             padding: "4px 6px",
-            background: "white",
+            background: "var(--t-panel)",
             border: "1px solid var(--border-1)",
             borderRadius: "var(--r-md)",
           }}
@@ -1882,7 +1863,7 @@ function NumberInput({
         width: compact ? 76 : undefined,
         flex: compact ? "0 0 76px" : 1,
         padding: compact ? "4px 6px" : "6px 8px",
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-md)",
       }}
@@ -2007,7 +1988,7 @@ function SegmentedEditor({
                 fontFamily: "inherit",
                 fontSize: "var(--fs-13)",
                 fontWeight: on ? 600 : 500,
-                background: on ? "white" : "transparent",
+                background: on ? "var(--t-panel)" : "transparent",
                 color: reserved ? "var(--fg-4)" : on ? "var(--fg-1)" : "var(--fg-2)",
                 border: "none",
                 borderRadius: 5,
@@ -2425,7 +2406,7 @@ function FilterLogicToggle({
                 fontSize: 11,
                 fontWeight: active ? 700 : 600,
                 letterSpacing: "0.04em",
-                background: active ? "white" : "transparent",
+                background: active ? "var(--t-panel)" : "transparent",
                 color: active ? "var(--ax-cyan-700)" : "var(--fg-3)",
                 border: "none",
                 borderRadius: 4,
@@ -2656,7 +2637,7 @@ export function CompaniesFilterBar({
       <style>{FILTER_BAR_CSS}</style>
       <div
         style={{
-          background: "white",
+          background: "var(--t-panel)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--r-lg)",
           padding: "8px 12px",
@@ -2682,7 +2663,7 @@ export function CompaniesFilterBar({
               alignItems: "center",
               gap: 8,
               padding: "0 12px",
-              background: "#fff",
+              background: "var(--t-panel)",
               border: "1px solid var(--border-1)",
               borderRadius: 999,
               minWidth: 220,

@@ -66,12 +66,12 @@ export default function FollowNewsButton() {
             aria-modal="true"
             aria-labelledby="nw-unfollow-title"
             onClick={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 14, boxShadow: "0 20px 48px rgba(15,23,42,0.22)", padding: 24 }}
+            style={{ width: "100%", maxWidth: 400, background: "var(--t-panel)", borderRadius: 14, boxShadow: "0 20px 48px rgba(15,23,42,0.22)", padding: 24 }}
           >
-            <h2 id="nw-unfollow-title" style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
+            <h2 id="nw-unfollow-title" style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 700, color: "rgb(var(--palette-text-slate-900))" }}>
               Stop receiving news emails?
             </h2>
-            <p style={{ margin: "0 0 20px", fontSize: 13.5, lineHeight: 1.5, color: "#64748b" }}>
+            <p style={{ margin: "0 0 20px", fontSize: 13.5, lineHeight: 1.5, color: "rgb(var(--palette-text-slate-500))" }}>
               You will no longer get an email when we publish a news article. You can follow again at any time.
             </p>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>

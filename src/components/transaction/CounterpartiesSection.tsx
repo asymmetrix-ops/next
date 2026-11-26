@@ -45,7 +45,7 @@ export default function CounterpartiesSection({ counterparties, createClickableE
                       <img
                         src={company.logo}
                         alt={company.name}
-                        className="w-10 h-10 rounded object-contain bg-slate-50 p-1"
+                        className="logo-tile w-10 h-10 rounded object-contain bg-slate-50 p-1"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">

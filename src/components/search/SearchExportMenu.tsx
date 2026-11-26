@@ -17,8 +17,8 @@ const MENU_STYLES = `
     top: calc(100% + 6px);
     right: 0;
     min-width: 220px;
-    background: #fff;
-    border: 1px solid #E4E8F2;
+    background: var(--t-panel);
+    border: 1px solid var(--t-divider);
     border-radius: 12px;
     box-shadow: 0 4px 10px rgba(16, 28, 70, 0.07), 0 20px 48px rgba(16, 28, 70, 0.10);
     padding: 6px;
@@ -34,11 +34,11 @@ const MENU_STYLES = `
     padding: 10px 12px;
     font-size: 13px;
     font-weight: 500;
-    color: #3D4657;
+    color: var(--ax-gray-700);
     cursor: pointer;
   }
   .search-export-menu-item:hover:not(:disabled) {
-    background: #F1F4FE;
+    background: var(--t-azure-soft);
   }
   .search-export-menu-item:disabled {
     opacity: 0.6;
@@ -49,7 +49,7 @@ const MENU_STYLES = `
     margin-top: 2px;
     font-size: 11px;
     font-weight: 400;
-    color: #6B7488;
+    color: var(--t-muted);
   }
 `;
 

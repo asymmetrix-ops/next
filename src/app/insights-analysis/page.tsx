@@ -551,8 +551,8 @@ function InsightsAnalysisPageContent() {
       height: 22px;
       padding: 0 10px;
       border-radius: 999px;
-      background: #F1F4FE;
-      border: 1px solid #E2E8FD;
+      background: var(--t-azure-soft);
+      border: 1px solid var(--c-line-e2e8fd);
       font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.09em;
@@ -604,19 +604,19 @@ function InsightsAnalysisPageContent() {
       transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
     }
     .pill-btn-primary {
-      background: ${T.azure};
+      background: var(--t-azure-fill);
       color: #fff;
-      border: 1px solid ${T.azure};
+      border: 1px solid var(--t-azure-fill);
     }
-    .pill-btn-primary:hover { background: #2038c9; }
+    .pill-btn-primary:hover { background: var(--c-bg-2038c9); }
     .pill-btn-outline {
-      background: #fff;
+      background: var(--t-panel);
       color: ${T.ink};
       border: 1px solid ${T.divider};
     }
     .pill-btn-outline:hover { background: ${T.inset}; }
     .ia-controls-card {
-      background: #fff;
+      background: var(--t-panel);
       border: 1px solid ${T.divider};
       border-radius: ${T.rLg}px;
       box-shadow: ${SH_SM};
@@ -676,7 +676,7 @@ function InsightsAnalysisPageContent() {
       border-radius: 999px;
       font-size: 13.5px;
       color: ${T.ink};
-      background: #fff;
+      background: var(--t-panel);
       cursor: pointer;
       outline: none;
     }
@@ -713,13 +713,13 @@ function InsightsAnalysisPageContent() {
       font-size: 13px;
       font-weight: 600;
       border: 1px solid ${T.divider};
-      background: #fff;
+      background: var(--t-panel);
       color: ${T.body};
       cursor: pointer;
     }
     .ia-type-pill.active {
       background: ${T.azureSoft};
-      border-color: #C6D1FB;
+      border-color: var(--t-card-hover-border);
       color: ${T.azure};
     }
     .ia-type-dot {
@@ -735,13 +735,13 @@ function InsightsAnalysisPageContent() {
       gap: 12px;
       flex-wrap: wrap;
       padding: 12px 16px;
-      border: 1px solid #C6D1FB;
+      border: 1px solid var(--t-card-hover-border);
       border-radius: 999px;
       background: ${T.azureSoft};
-      color: #182A9B;
+      color: var(--c-fg-182a9b);
       font-size: 13.5px;
     }
-    .ia-company-banner strong { color: #1F35C4; }
+    .ia-company-banner strong { color: var(--ax-cyan-700); }
     .ia-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

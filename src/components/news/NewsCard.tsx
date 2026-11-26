@@ -38,7 +38,7 @@ type Props = {
   onOpen?: () => void;
 };
 
-const NEUTRAL_TONE = { text: "#566078", fill: "#EFF2F8", border: "#E4E8F2" };
+const NEUTRAL_TONE = { text: "var(--t-body)", fill: "var(--t-inset)", border: "var(--t-divider)" };
 
 /** Content Series: "Part N of M" with prev/next, swapping the card's headline link and date. */
 function PartsNav({ series, activeIndex, onChange }: { series: ArticleSeries; activeIndex: number; onChange: (i: number) => void }) {

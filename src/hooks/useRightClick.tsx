@@ -17,7 +17,7 @@ export const useRightClick = () => {
           className={className}
           style={{
             textDecoration: "underline",
-            color: "#0075df",
+            color: "var(--c-fg-0075df)",
             ...style,
           }}
           onClick={(e) => {

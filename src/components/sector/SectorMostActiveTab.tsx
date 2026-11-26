@@ -56,10 +56,10 @@ interface AdvisorEntity {
   logoUrl?: string;
 }
 
-const LINE = "#E4E8F2";
-const INK = "#0A0E1A";
+const LINE = "var(--t-divider)";
+const INK = "var(--t-ink)";
 const AZURE = "oklch(54% 0.22 258)";
-const MUTED = "#6B7488";
+const MUTED = "var(--t-muted)";
 const R_LG = 16;
 function MostActiveSubTabNav({
   active,
@@ -760,7 +760,7 @@ export function SectorMostActiveTab({
 
       <div
         style={{
-          background: "#fff",
+          background: "var(--t-panel)",
           border: `1px solid ${LINE}`,
           borderRadius: R_LG,
           boxShadow: "0 1px 3px rgba(16, 28, 70, 0.06), 0 1px 2px rgba(16, 28, 70, 0.04)",
@@ -773,7 +773,7 @@ export function SectorMostActiveTab({
             alignItems: "center",
             gap: 10,
             padding: "13px 16px",
-            borderBottom: "1px solid #EFF2F8",
+            borderBottom: "1px solid var(--t-hair)",
           }}
         >
           <div>
@@ -792,7 +792,7 @@ export function SectorMostActiveTab({
                 fontSize: 12.5,
                 fontWeight: 700,
                 color: MUTED,
-                background: "#F5F7FD",
+                background: "var(--t-paper)",
                 borderRadius: 999,
                 padding: "2px 8px",
                 flexShrink: 0,

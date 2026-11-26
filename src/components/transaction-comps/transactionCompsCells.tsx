@@ -73,7 +73,7 @@ export function renderTransactionCompCell(row: TransactionCompRow, key: string):
                   targetId: row.company_id,
                 })
               }
-              style={{ color: "#0A0E1A" }}
+              style={{ color: "var(--t-ink)" }}
             >
               {row.company_name}
             </Link>

@@ -980,7 +980,7 @@ export function FinancialIntelligenceWorkspace({
                   padding: "0 14px",
                   borderRadius: 999,
                   border: "none",
-                  background: "var(--ax-cyan-600)",
+                  background: "var(--t-azure-fill)",
                   color: "white",
                   fontWeight: 700,
                   fontSize: 12,
@@ -1143,7 +1143,7 @@ export function FinancialIntelligenceWorkspace({
             <div
               style={{
                 minWidth: 0,
-                background: "white",
+                background: "var(--t-panel)",
                 border: "1px solid var(--border-1)",
                 borderRadius: "var(--r-lg)",
                 overflow: "hidden",

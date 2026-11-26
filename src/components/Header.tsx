@@ -145,8 +145,8 @@ const Header = () => {
 
   const styles = {
     header: {
-      backgroundColor: "white",
-      borderBottom: "1px solid #e5e7eb",
+      backgroundColor: "var(--t-panel)",
+      borderBottom: "1px solid rgb(var(--palette-gray-200))",
       padding: "16.5px 0px",
       position: "relative" as const,
       overflowX: "hidden" as const,
@@ -197,8 +197,8 @@ const Header = () => {
       top: "100%",
       left: 0,
       right: 0,
-      backgroundColor: "white",
-      borderBottom: "1px solid #e5e7eb",
+      backgroundColor: "var(--t-panel)",
+      borderBottom: "1px solid rgb(var(--palette-gray-200))",
       padding: "16px 24px",
       flexDirection: "column" as const,
       gap: "16px",
@@ -210,8 +210,8 @@ const Header = () => {
       top: "100%",
       left: 0,
       right: 0,
-      backgroundColor: "white",
-      borderBottom: "1px solid #e5e7eb",
+      backgroundColor: "var(--t-panel)",
+      borderBottom: "1px solid rgb(var(--palette-gray-200))",
       padding: "16px 24px",
       flexDirection: "column" as const,
       gap: "16px",
@@ -232,17 +232,17 @@ const Header = () => {
       textDecoration: "none",
       transition: "color 0.2s",
       padding: "12px 0",
-      borderBottom: "1px solid #f3f4f6",
+      borderBottom: "1px solid rgb(var(--palette-gray-100))",
     },
     activeLink: {
-      color: "#111827",
+      color: "rgb(var(--palette-text-gray-900))",
       fontWeight: "600",
       borderBottom: `2px solid ${ASYMMETRIX_BLUE}`,
       paddingBottom: "12px",
       marginBottom: "-1px",
     },
     inactiveLink: {
-      color: "#6b7280",
+      color: "rgb(var(--palette-text-gray-500))",
     },
     rightSection: {
       display: "flex",
@@ -251,7 +251,7 @@ const Header = () => {
     },
     logoutButton: {
       fontSize: "14px",
-      color: "#595959",
+      color: "var(--c-fg-595959)",
       background: "none",
       border: "none",
       cursor: "pointer",
@@ -364,12 +364,12 @@ const Header = () => {
                     }}
                     onMouseOver={(e) => {
                       if (!isActive) {
-                        (e.target as HTMLElement).style.color = "#111827";
+                        (e.target as HTMLElement).style.color = "rgb(var(--palette-text-gray-900))";
                       }
                     }}
                     onMouseOut={(e) => {
                       if (!isActive) {
-                        (e.target as HTMLElement).style.color = "#6b7280";
+                        (e.target as HTMLElement).style.color = "rgb(var(--palette-text-gray-500))";
                       }
                     }}
                   >
@@ -386,10 +386,10 @@ const Header = () => {
               style={styles.logoutButton}
               onClick={handleLogout}
               onMouseOver={(e) =>
-                ((e.target as HTMLElement).style.color = "#111827")
+                ((e.target as HTMLElement).style.color = "rgb(var(--palette-text-gray-900))")
               }
               onMouseOut={(e) =>
-                ((e.target as HTMLElement).style.color = "#6b7280")
+                ((e.target as HTMLElement).style.color = "rgb(var(--palette-text-gray-500))")
               }
             >
               Log out
@@ -445,11 +445,11 @@ const Header = () => {
                   ...styles.navLinkMobile,
                   ...(isActive
                     ? {
-                        color: "#111827",
+                        color: "rgb(var(--palette-text-gray-900))",
                         fontWeight: "600",
                         borderBottom: `2px solid ${ASYMMETRIX_BLUE}`,
                       }
-                    : { color: "#6b7280" }),
+                    : { color: "rgb(var(--palette-text-gray-500))" }),
                 }}
                 onClick={(e) => {
                   if (isDisabled) {

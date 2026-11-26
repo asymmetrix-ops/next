@@ -246,7 +246,7 @@ export default function NewsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen" style={{ width: "100%", background: "#F5F7FD" }}>
+      <div className="min-h-screen" style={{ width: "100%", background: "var(--t-paper)" }}>
         <div className="nw-shell">
           <div className="nw-head">
             <div>
@@ -386,7 +386,7 @@ export default function NewsPage() {
                       {filters.followedOnly && followedCount === 0 ? (
                         <>
                           You&apos;re not following any companies yet. Add companies to{" "}
-                          <Link href="/my-portfolio" style={{ color: "#2a46ea", fontWeight: 600, textDecoration: "underline" }}>
+                          <Link href="/my-portfolio" style={{ color: "var(--t-azure)", fontWeight: 600, textDecoration: "underline" }}>
                             My Portfolio
                           </Link>{" "}
                           to see their news here.

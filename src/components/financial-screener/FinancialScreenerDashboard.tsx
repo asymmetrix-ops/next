@@ -228,7 +228,7 @@ export const FinancialScreenerDashboard = ({
   const universeTotal = totalUniverseCount ?? ownershipCounts.totalCount;
 
   return (
-    <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+    <div style={{ background: "rgb(var(--palette-slate-50))", borderBottom: "1px solid rgb(var(--palette-slate-200))" }}>
       <div style={{ width: "100%", padding: "20px 28px 0" }}>
         <div
           style={{
@@ -247,7 +247,7 @@ export const FinancialScreenerDashboard = ({
                 fontWeight: 700,
                 letterSpacing: "0.09em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
+                color: "rgb(var(--palette-text-slate-400))",
                 marginBottom: 5,
               }}
             >
@@ -258,7 +258,7 @@ export const FinancialScreenerDashboard = ({
                 margin: 0,
                 fontSize: 26,
                 fontWeight: 700,
-                color: "#0f172a",
+                color: "rgb(var(--palette-text-slate-900))",
                 display: "flex",
                 alignItems: "baseline",
                 gap: 10,
@@ -266,7 +266,7 @@ export const FinancialScreenerDashboard = ({
               }}
             >
               Financial screener
-              <span style={{ fontSize: 16, fontWeight: 400, color: "#94a3b8" }}>
+              <span style={{ fontSize: 16, fontWeight: 400, color: "rgb(var(--palette-text-slate-400))" }}>
                 {matchCount.toLocaleString()}{" "}
                 {matchCount === 1 ? "company" : "companies"}
               </span>
@@ -275,7 +275,7 @@ export const FinancialScreenerDashboard = ({
               style={{
                 margin: "6px 0 0",
                 fontSize: 14,
-                color: "#64748b",
+                color: "rgb(var(--palette-text-slate-500))",
                 maxWidth: 560,
               }}
             >
@@ -300,12 +300,12 @@ export const FinancialScreenerDashboard = ({
                 gap: 6,
                 height: 36,
                 padding: "0 14px",
-                background: columnsActive ? "#0f172a" : "#fff",
-                border: columnsActive ? "1px solid #0f172a" : "1px solid #e2e8f0",
+                background: columnsActive ? "rgb(var(--palette-slate-900))" : "var(--t-panel)",
+                border: columnsActive ? "1px solid rgb(var(--palette-slate-900))" : "1px solid rgb(var(--palette-slate-200))",
                 borderRadius: 8,
                 fontSize: 13,
                 fontWeight: 500,
-                color: columnsActive ? "#fff" : "#374151",
+                color: columnsActive ? "#fff" : "rgb(var(--palette-text-gray-700))",
                 cursor: "pointer",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
               }}
@@ -335,7 +335,7 @@ export const FinancialScreenerDashboard = ({
                 gap: 6,
                 height: 36,
                 padding: "0 16px",
-                background: selectedCount > 0 ? "#0f172a" : "#94a3b8",
+                background: selectedCount > 0 ? "rgb(var(--palette-slate-900))" : "rgb(var(--palette-slate-400))",
                 color: "#fff",
                 border: "none",
                 borderRadius: 8,
@@ -364,10 +364,10 @@ export const FinancialScreenerDashboard = ({
                   gap: 6,
                   height: 34,
                   padding: "0 14px",
-                  background: active ? "#0f172a" : "transparent",
-                  color: active ? "#fff" : "#64748b",
+                  background: active ? "rgb(var(--palette-slate-900))" : "transparent",
+                  color: active ? "#fff" : "rgb(var(--palette-text-slate-500))",
                   border: "1px solid",
-                  borderColor: active ? "#0f172a" : "transparent",
+                  borderColor: active ? "rgb(var(--palette-slate-900))" : "transparent",
                   borderBottom: "none",
                   borderRadius: "8px 8px 0 0",
                   fontSize: 13,
@@ -397,9 +397,9 @@ export const FinancialScreenerDashboard = ({
 
       <div
         style={{
-          background: "#fff",
-          borderTop: "1px solid #e2e8f0",
-          borderBottom: "1px solid #e2e8f0",
+          background: "var(--t-panel)",
+          borderTop: "1px solid rgb(var(--palette-slate-200))",
+          borderBottom: "1px solid rgb(var(--palette-slate-200))",
         }}
       >
         <div style={{ width: "100%", padding: "10px 28px 12px" }}>

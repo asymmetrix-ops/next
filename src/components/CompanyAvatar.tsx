@@ -7,7 +7,7 @@ export function CompanyAvatar({
   name,
   logo,
   size = 22,
-  fallbackColor = "var(--ax-cyan-700)",
+  fallbackColor = "var(--bg-brand)",
 }: {
   name: string;
   logo?: string | null;
@@ -24,7 +24,7 @@ export function CompanyAvatar({
   if (src && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <img className="logo-tile"
         src={src}
         alt=""
         onError={() => setFailed(true)}

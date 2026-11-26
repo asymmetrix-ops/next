@@ -142,7 +142,7 @@ export function InlineFollowButton({
           height="18"
           viewBox="0 0 24 24"
           fill={isFollowed ? "#f59e0b" : "none"}
-          stroke={isFollowed ? "#f59e0b" : "#9ca3af"}
+          stroke={isFollowed ? "#f59e0b" : "rgb(var(--palette-gray-400))"}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -156,7 +156,7 @@ export function InlineFollowButton({
           height="18"
           viewBox="0 0 24 24"
           fill={isFollowed ? "#ef4444" : "none"}
-          stroke={isFollowed ? "#ef4444" : "#9ca3af"}
+          stroke={isFollowed ? "#ef4444" : "rgb(var(--palette-gray-400))"}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -169,7 +169,7 @@ export function InlineFollowButton({
         <span
           style={{
             fontSize: "12px",
-            color: isFollowed ? (icon === "star" ? "#f59e0b" : "#ef4444") : "#6b7280",
+            color: isFollowed ? (icon === "star" ? "rgb(var(--palette-text-amber-500))" : "rgb(var(--palette-text-red-500))") : "rgb(var(--palette-text-gray-500))",
             fontWeight: 500,
           }}
         >

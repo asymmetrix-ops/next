@@ -304,7 +304,7 @@ export const AdvisorDashboard = ({
   return (
     <div
       style={{
-        background: embedded ? "#fff" : undefined,
+        background: embedded ? "var(--t-panel)" : undefined,
         borderBottom: embedded ? "none" : undefined,
       }}
     >

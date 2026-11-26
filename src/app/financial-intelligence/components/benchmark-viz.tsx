@@ -130,7 +130,7 @@ export function DistBar({
             transform: "translate(-50%,-50%)",
             borderRadius: "50%",
             background: dotColor,
-            border: "2.5px solid white",
+            border: "2.5px solid var(--t-panel)",
             boxShadow: `0 0 0 1px ${dotColor}`,
           }}
           title={fmt(target)}
@@ -211,7 +211,7 @@ export function PercentileBar({
                 height: knobD,
                 transform: "translate(-50%, -50%)",
                 borderRadius: "50%",
-                background: "white",
+                background: "var(--t-panel)",
                 border: "2.5px solid var(--ax-cyan-600)",
                 boxShadow: "var(--shadow-xs)",
               }}

@@ -13,7 +13,7 @@ const InvestmentTeam: React.FC<InvestmentTeamProps> = ({
   return (
     <div
       style={{
-        backgroundColor: "white",
+        backgroundColor: "var(--t-panel)",
         padding: "24px",
         borderRadius: "8px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
@@ -55,7 +55,7 @@ const InvestmentTeam: React.FC<InvestmentTeamProps> = ({
                     href={member.current_employer_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                    style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
                   >
                     {member.Individual_text}
                   </a>
@@ -97,7 +97,7 @@ const InvestmentTeam: React.FC<InvestmentTeamProps> = ({
                     href={member.current_employer_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                    style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
                   >
                     {member.Individual_text}
                   </a>

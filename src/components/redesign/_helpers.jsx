@@ -127,7 +127,7 @@ export function TagRow({ items, tone = 'neutral', max = 3 }) {
           {hover && (
             <span style={{
               position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-              background: T.ink, color: '#fff',
+              background: 'var(--t-ink-fill)', color: '#fff',
               fontFamily: T.sans, fontSize: 11.5,
               padding: '6px 10px', borderRadius: 6,
               boxShadow: '0 4px 18px rgba(0,0,0,0.18)',
@@ -136,7 +136,7 @@ export function TagRow({ items, tone = 'neutral', max = 3 }) {
               {hidden.map(h => (<div key={h}>{h}</div>))}
               <span style={{
                 position: 'absolute', top: -4, right: 14,
-                width: 8, height: 8, background: T.ink,
+                width: 8, height: 8, background: 'var(--t-ink-fill)',
                 transform: 'rotate(45deg)',
               }} />
             </span>

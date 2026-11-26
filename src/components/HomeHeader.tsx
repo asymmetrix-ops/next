@@ -98,7 +98,7 @@ export default function HomeHeader() {
             style={{
               width: 18,
               height: 2,
-              background: "#fff",
+              background: "var(--t-panel)",
               position: "relative",
               display: "inline-block",
             }}
@@ -110,7 +110,7 @@ export default function HomeHeader() {
                 right: 0,
                 top: -6,
                 height: 2,
-                background: "#fff",
+                background: "var(--t-panel)",
               }}
             />
             <span
@@ -120,7 +120,7 @@ export default function HomeHeader() {
                 right: 0,
                 bottom: -6,
                 height: 2,
-                background: "#fff",
+                background: "var(--t-panel)",
               }}
             />
           </span>

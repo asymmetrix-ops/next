@@ -235,7 +235,7 @@ function renderInvestorCell(
           target="_blank"
           rel="noopener noreferrer"
           className="company-website-link"
-          style={{ color: "#3b82f6", textDecoration: "none" }}
+          style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
           onClick={(e) => e.stopPropagation()}
         >
           {formatWebsiteLabel(href)}
@@ -252,7 +252,7 @@ function renderInvestorCell(
           target="_blank"
           rel="noopener noreferrer"
           className="company-website-link"
-          style={{ color: "#3b82f6", textDecoration: "none" }}
+          style={{ color: "rgb(var(--palette-text-blue-500))", textDecoration: "none" }}
           onClick={(e) => e.stopPropagation()}
         >
           {formatWebsiteLabel(href)}

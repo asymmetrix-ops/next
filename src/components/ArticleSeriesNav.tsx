@@ -74,8 +74,8 @@ export function ArticleSeriesNav({
       </ol>
       <style jsx>{`
         .article-series-nav {
-          border: 1px solid #ddd6fe;
-          background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
+          border: 1px solid rgb(var(--palette-violet-200));
+          background: linear-gradient(180deg, rgb(var(--palette-purple-50)) 0%, rgb(var(--palette-violet-50)) 100%);
           border-radius: 12px;
           padding: 16px 18px;
           margin-bottom: 24px;
@@ -97,14 +97,14 @@ export function ArticleSeriesNav({
           font-weight: 700;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: #5b21b6;
+          color: rgb(var(--palette-text-violet-800));
         }
         .article-series-nav__count {
           font-size: 13px;
           font-weight: 600;
-          color: #6d28d9;
-          background: #ede9fe;
-          border: 1px solid #c4b5fd;
+          color: rgb(var(--palette-text-violet-700));
+          background: rgb(var(--palette-violet-100));
+          border: 1px solid rgb(var(--palette-violet-300));
           border-radius: 9999px;
           padding: 4px 10px;
           white-space: nowrap;
@@ -124,7 +124,7 @@ export function ArticleSeriesNav({
           display: block;
           font-size: 14px;
           line-height: 1.45;
-          color: #4338ca;
+          color: rgb(var(--palette-text-indigo-700));
           text-decoration: none;
           padding: 8px 12px;
           border-radius: 8px;
@@ -132,14 +132,14 @@ export function ArticleSeriesNav({
           transition: background-color 0.15s ease, border-color 0.15s ease;
         }
         .article-series-nav__link:hover {
-          background: #ede9fe;
-          border-color: #c4b5fd;
+          background: rgb(var(--palette-violet-100));
+          border-color: rgb(var(--palette-violet-300));
           text-decoration: underline;
         }
         .article-series-nav__link--active {
           font-weight: 700;
-          color: #4c1d95;
-          background: #ffffff;
+          color: rgb(var(--palette-text-violet-900));
+          background: var(--t-panel);
           border-color: #a78bfa;
           box-shadow: 0 1px 2px rgba(91, 33, 182, 0.08);
         }

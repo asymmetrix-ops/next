@@ -28,8 +28,8 @@ const Pagination: React.FC<PaginationProps> = ({
         disabled={!pagination.prevPage}
         style={{
           padding: "8px 12px",
-          backgroundColor: pagination.prevPage ? "#3b82f6" : "#e2e8f0",
-          color: pagination.prevPage ? "white" : "#64748b",
+          backgroundColor: pagination.prevPage ? "#3b82f6" : "rgb(var(--palette-slate-200))",
+          color: pagination.prevPage ? "white" : "rgb(var(--palette-text-slate-500))",
           border: "none",
           borderRadius: "4px",
           cursor: pagination.prevPage ? "pointer" : "not-allowed",
@@ -39,7 +39,7 @@ const Pagination: React.FC<PaginationProps> = ({
         Previous
       </button>
 
-      <span style={{ fontSize: "14px", color: "#64748b" }}>
+      <span style={{ fontSize: "14px", color: "rgb(var(--palette-text-slate-500))" }}>
         Page {pagination.curPage} of {pagination.pageTotal}
       </span>
 
@@ -48,8 +48,8 @@ const Pagination: React.FC<PaginationProps> = ({
         disabled={!pagination.nextPage}
         style={{
           padding: "8px 12px",
-          backgroundColor: pagination.nextPage ? "#3b82f6" : "#e2e8f0",
-          color: pagination.nextPage ? "white" : "#64748b",
+          backgroundColor: pagination.nextPage ? "#3b82f6" : "rgb(var(--palette-slate-200))",
+          color: pagination.nextPage ? "white" : "rgb(var(--palette-text-slate-500))",
           border: "none",
           borderRadius: "4px",
           cursor: pagination.nextPage ? "pointer" : "not-allowed",

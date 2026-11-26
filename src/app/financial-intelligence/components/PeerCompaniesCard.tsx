@@ -46,7 +46,7 @@ export function PeerCompaniesCard({
   return (
     <div
       style={{
-        background: "white",
+        background: "var(--t-panel)",
         border: "1px solid var(--border-1)",
         borderRadius: "var(--r-lg)",
         overflow: "hidden",

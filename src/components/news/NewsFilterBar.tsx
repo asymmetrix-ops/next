@@ -147,7 +147,7 @@ function DateRangeFilter({
             value={dateFrom ?? ""}
             onChange={(e) => onChange({ dateFrom: e.target.value || undefined, dateTo })}
           />
-          <span style={{ color: "#8a93a8", fontSize: 13 }}>–</span>
+          <span style={{ color: "var(--t-faint)", fontSize: 13 }}>–</span>
           <input
             type="date"
             className="nw-select"

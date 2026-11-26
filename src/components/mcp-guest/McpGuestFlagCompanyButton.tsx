@@ -231,7 +231,7 @@ export default function McpGuestFlagCompanyButton({
             style={{
               width: "100%",
               maxWidth: 580,
-              backgroundColor: "#fff",
+              backgroundColor: "var(--t-panel)",
               borderRadius: 14,
               boxShadow: "0 20px 48px rgba(15, 23, 42, 0.22)",
               position: "relative",
@@ -249,10 +249,10 @@ export default function McpGuestFlagCompanyButton({
                 right: 14,
                 width: 28,
                 height: 28,
-                border: "1px solid #e2e8f0",
+                border: "1px solid rgb(var(--palette-slate-200))",
                 borderRadius: "50%",
-                backgroundColor: "#f8fafc",
-                color: "#64748b",
+                backgroundColor: "rgb(var(--palette-slate-50))",
+                color: "rgb(var(--palette-text-slate-500))",
                 cursor:
                   isSubmitting || isUploadingImage ? "not-allowed" : "pointer",
                 fontSize: 16,
@@ -273,7 +273,7 @@ export default function McpGuestFlagCompanyButton({
                   margin: "0 0 4px",
                   fontSize: 18,
                   fontWeight: 700,
-                  color: "#0f172a",
+                  color: "rgb(var(--palette-text-slate-900))",
                   paddingRight: 36,
                   lineHeight: 1.3,
                 }}
@@ -283,7 +283,7 @@ export default function McpGuestFlagCompanyButton({
               <p
                 style={{
                   margin: "0 0 20px",
-                  color: "#64748b",
+                  color: "rgb(var(--palette-text-slate-500))",
                   fontSize: 13,
                   lineHeight: 1.5,
                 }}
@@ -300,7 +300,7 @@ export default function McpGuestFlagCompanyButton({
                     margin: "0 0 10px",
                     fontSize: 16,
                     fontWeight: 700,
-                    color: "#0f172a",
+                    color: "rgb(var(--palette-text-slate-900))",
                   }}
                 >
                   Submission received
@@ -308,7 +308,7 @@ export default function McpGuestFlagCompanyButton({
                 <p
                   style={{
                     margin: 0,
-                    color: "#475569",
+                    color: "rgb(var(--palette-text-slate-600))",
                     fontSize: 14,
                     lineHeight: 1.6,
                   }}
@@ -357,7 +357,7 @@ export default function McpGuestFlagCompanyButton({
                   <p
                     style={{
                       margin: "0 0 8px",
-                      color: "#64748b",
+                      color: "rgb(var(--palette-text-slate-500))",
                       fontSize: 12,
                       lineHeight: 1.5,
                     }}
@@ -391,10 +391,10 @@ export default function McpGuestFlagCompanyButton({
                     style={{
                       width: "100%",
                       padding: "10px 12px",
-                      border: "1px dashed #cbd5e1",
+                      border: "1px dashed rgb(var(--palette-slate-300))",
                       borderRadius: 8,
-                      backgroundColor: "#f8fafc",
-                      color: "#334155",
+                      backgroundColor: "rgb(var(--palette-slate-50))",
+                      color: "rgb(var(--palette-text-slate-700))",
                       fontSize: 14,
                       fontWeight: 500,
                       cursor:
@@ -416,7 +416,7 @@ export default function McpGuestFlagCompanyButton({
                     role="alert"
                     style={{
                       margin: "12px 0 0",
-                      color: "#dc2626",
+                      color: "rgb(var(--palette-text-red-600))",
                       fontSize: 13,
                     }}
                   >
@@ -459,7 +459,7 @@ export default function McpGuestFlagCompanyButton({
 
 function RequiredMark() {
   return (
-    <span style={{ color: "#dc2626", marginLeft: 2 }} aria-hidden="true">
+    <span style={{ color: "rgb(var(--palette-text-red-600))", marginLeft: 2 }} aria-hidden="true">
       *
     </span>
   );
@@ -469,27 +469,27 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 13,
   fontWeight: 600,
-  color: "#334155",
+  color: "rgb(var(--palette-text-slate-700))",
   lineHeight: 1,
   margin: "0 0 6px",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  border: "1px solid #cbd5e1",
+  border: "1px solid rgb(var(--palette-slate-300))",
   borderRadius: 8,
   padding: "10px 12px",
   fontSize: 14,
-  color: "#0f172a",
+  color: "rgb(var(--palette-text-slate-900))",
   boxSizing: "border-box",
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
   padding: "9px 18px",
   borderRadius: 8,
-  border: "1px solid #e2e8f0",
-  backgroundColor: "#fff",
-  color: "#334155",
+  border: "1px solid rgb(var(--palette-slate-200))",
+  backgroundColor: "var(--t-panel)",
+  color: "rgb(var(--palette-text-slate-700))",
   fontWeight: 500,
   fontSize: 14,
   cursor: "pointer",

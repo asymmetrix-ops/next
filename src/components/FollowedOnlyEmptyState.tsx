@@ -44,13 +44,13 @@ export function FollowedOnlyEmptyState({
           margin: 0,
           fontSize: "15px",
           lineHeight: 1.6,
-          color: "#4a5568",
+          color: "var(--c-fg-4a5568)",
         }}
       >
         {`This section displays Insights and Analysis on ${noun} you follow. You're not following any yet—add ${noun} to `}
         <Link
           href="/my-portfolio"
-          style={{ color: "#0075df", fontWeight: 600, textDecoration: "underline" }}
+          style={{ color: "var(--c-fg-0075df)", fontWeight: 600, textDecoration: "underline" }}
         >
           My Portfolio
         </Link>

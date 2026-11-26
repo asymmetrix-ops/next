@@ -126,13 +126,13 @@ function TransactionStatusHighlight({ label }: { label: string }) {
         alignItems: "center",
         gap: 10,
         backgroundColor: T.azureSoft,
-        border: `1px solid #E2E8FD`,
+        border: `1px solid var(--c-line-e2e8fd)`,
         borderRadius: 12,
         padding: "11px 13px",
         margin: "0 0 12px",
         fontSize: 12.5,
         fontWeight: 600,
-        color: "#3D4657",
+        color: "var(--ax-gray-700)",
       }}
     >
       Transaction status

@@ -51,7 +51,7 @@ export function parseCompanyDataType(raw: unknown): DataTypeCard {
   };
 }
 
-export const DATA_TYPE_BADGE_FALLBACK_COLOR = "#9CA3AF";
+export const DATA_TYPE_BADGE_FALLBACK_COLOR = "rgb(var(--palette-text-gray-400))";
 
 /** Light badge background from a hex color; falls back to inset gray. */
 export function dataTypeBadgeBackground(color: string | null): string {
@@ -62,5 +62,5 @@ export function dataTypeBadgeBackground(color: string | null): string {
   if (/^[0-9a-fA-F]{6}$/.test(hex)) {
     return `#${hex}22`;
   }
-  return "#EFF2F8";
+  return "var(--t-inset)";
 }

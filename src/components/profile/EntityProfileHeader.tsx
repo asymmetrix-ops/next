@@ -18,7 +18,7 @@ export const profileHeaderOutlineButtonStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   color: T.ink2,
-  backgroundColor: "#fff",
+  backgroundColor: "var(--t-panel)",
   border: `1px solid ${T.divider}`,
   borderRadius: 999,
   height: 36,
@@ -37,7 +37,7 @@ export const profileHeaderPrimaryButtonStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   color: "#fff",
-  backgroundColor: T.azure,
+  backgroundColor: "var(--t-azure-fill)",
   border: "none",
   borderRadius: 999,
   height: 36,
@@ -78,7 +78,7 @@ export function EntityLogoTile({
     height: TILE_SIZE,
     borderRadius: round ? "50%" : 14,
     border: `1px solid ${T.divider}`,
-    background: "#fff",
+    background: "var(--t-panel)",
     boxShadow: "0 1px 2px rgba(16, 28, 70, 0.05)",
     display: "flex",
     alignItems: "center",
@@ -91,7 +91,7 @@ export function EntityLogoTile({
     return (
       <div style={tile}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <img className="logo-tile"
           src={src}
           alt={`${name} logo`}
           style={{ width: "100%", height: "100%", objectFit: "contain", padding: 8 }}
@@ -153,7 +153,7 @@ export function EntityProfileHeader({
     <div
       className="entity-profile-header"
       style={{
-        backgroundColor: "#fff",
+        backgroundColor: "var(--t-panel)",
         padding: "0 24px",
       }}
     >

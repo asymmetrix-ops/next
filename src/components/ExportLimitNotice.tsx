@@ -49,7 +49,7 @@ export const ExportLimitNotice: React.FC = () => {
     >
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--t-panel)",
           borderRadius: "8px",
           padding: "24px",
           maxWidth: "460px",
@@ -62,7 +62,7 @@ export const ExportLimitNotice: React.FC = () => {
           style={{
             fontSize: "20px",
             fontWeight: 700,
-            color: "#1a202c",
+            color: "var(--c-fg-1a202c)",
             margin: "0 0 12px",
           }}
         >
@@ -71,7 +71,7 @@ export const ExportLimitNotice: React.FC = () => {
         <p
           style={{
             fontSize: "15px",
-            color: "#4a5568",
+            color: "var(--c-fg-4a5568)",
             margin: "0 0 20px",
             lineHeight: 1.5,
           }}
@@ -83,7 +83,7 @@ export const ExportLimitNotice: React.FC = () => {
                   <a
                     key={i}
                     href={`mailto:${EXPORT_LIMIT_CONTACT_EMAIL}`}
-                    style={{ color: "#0075df" }}
+                    style={{ color: "var(--c-fg-0075df)" }}
                   >
                     {EXPORT_LIMIT_CONTACT_EMAIL}
                   </a>,

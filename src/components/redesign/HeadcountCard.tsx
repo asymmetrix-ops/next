@@ -24,14 +24,14 @@ const HC_THEME_CSS = `
   --hc-tint: #E8F8FF;
   --hc-up-fg: ${T.up};
   --hc-up-bg: ${T.emeraldSoft};
-  --hc-up-bd: #C3E7D3;
+  --hc-up-bd: var(--c-line-c3e7d3);
   --hc-down-fg: ${T.down};
   --hc-down-bg: ${T.coralSoft};
-  --hc-down-bd: #F5CFC8;
+  --hc-down-bd: var(--c-line-f5cfc8);
   --hc-flat-fg: ${T.body};
   --hc-flat-bg: ${T.inset};
   --hc-flat-bd: ${T.divider};
-  --hc-tip-bg: #FFFFFF;
+  --hc-tip-bg: var(--t-panel);
   --hc-tip-bd: ${T.divider};
 }
 .dark .hc-card {
