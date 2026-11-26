@@ -61,8 +61,16 @@ function OwnershipTag({ value }: { value: string }) {
   );
 }
 
+function sectorHref(item: PeerTargetItem): string | null {
+  const id = item.sector_id;
+  if (id == null || !Number.isFinite(Number(id))) return null;
+  const isPrimary = String(item.sector_importance ?? "Primary").trim().toLowerCase() === "primary";
+  return isPrimary ? `/sector/${id}` : `/sub-sector/${id}`;
+}
+
 function Row({ item, isLast }: { item: PeerTargetItem; isLast: boolean }) {
   const hasLink = item.company_id != null && Number.isFinite(Number(item.company_id));
+  const sectorLink = sectorHref(item);
   const nameStyle: React.CSSProperties = {
     fontFamily: T.sans,
     fontWeight: 600,
@@ -101,8 +109,28 @@ function Row({ item, isLast }: { item: PeerTargetItem; isLast: boolean }) {
           />
         ) : null}
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.body, minWidth: 0 }}>
-        {item.sector?.trim() || ""}
+      <div
+        style={{
+          fontFamily: T.sans,
+          fontSize: 12.5,
+          color: sectorLink ? T.azure : T.body,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item.sector?.trim() ? (
+          sectorLink ? (
+            <Link href={sectorLink} style={{ color: "inherit", textDecoration: "none" }}>
+              {item.sector.trim()}
+            </Link>
+          ) : (
+            item.sector.trim()
+          )
+        ) : (
+          ""
+        )}
       </div>
       <div>{item.ownership?.trim() ? <OwnershipTag value={item.ownership.trim()} /> : null}</div>
       <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.ink2, whiteSpace: "nowrap" }}>
@@ -119,9 +147,9 @@ export function PeersTargetsCard({ peers, targets, onBenchmark }: Props) {
   const tabs = useMemo(() => {
     const t: { id: TabId; label: string }[] = [];
     if (sortedPeers.length > 0)
-      t.push({ id: "peers", label: `Peers & Competitors ${sortedPeers.length}` });
+      t.push({ id: "peers", label: "Peers & Competitors" });
     if (sortedTargets.length > 0)
-      t.push({ id: "targets", label: `Acquisition Targets ${sortedTargets.length}` });
+      t.push({ id: "targets", label: "Acquisition Targets" });
     return t;
   }, [sortedPeers.length, sortedTargets.length]);
 

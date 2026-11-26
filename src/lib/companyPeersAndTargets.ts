@@ -6,6 +6,10 @@ export type PeerTargetItem = {
   country?: string | null;
   country_iso2?: string | null;
   sector?: string | null;
+  /** Id of the sector/sub-sector, used to build the link to /sector/[id] or /sub-sector/[id] */
+  sector_id?: number | null;
+  /** "Primary" -> links to /sector/[id]; anything else (e.g. "Secondary") -> links to /sub-sector/[id] */
+  sector_importance?: string | null;
   ownership?: string | null;
   revenue_band?: string | null;
 };
