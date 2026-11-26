@@ -4374,7 +4374,9 @@ const CompanyDetail = () => {
                 />
               );
               // News sits beside I&A in the main column, or in the rail when there's no I&A; always 1/3 of the page
-              const newsInMain = showNewsCard && showInsights && !!topStories;
+              // A single article moves to the top of the right rail as a compact card
+              const singleNews = !!topStories && topStories.total === 1;
+              const newsInMain = showNewsCard && showInsights && !!topStories && !singleNews;
               const newsWeight = 110 + 95 * (topStories?.items.length ?? 0);
               const cards: ZoneCard[] = [
                 { id: "insights", col: "main" as const, weight: newsInMain ? Math.max(450, newsWeight) : 450, movable: false, show: Boolean(showInsights), node: () => (
@@ -4433,7 +4435,7 @@ const CompanyDetail = () => {
                 {newsInMain && newsCardNode(false)}
                 </div>
                 ) },
-                { id: "newsrail", col: "rail" as const, weight: newsWeight, movable: false, show: Boolean(showNewsCard && !showInsights && topStories), node: () => newsCardNode(false) },
+                { id: "newsrail", col: "rail" as const, weight: newsWeight, movable: false, show: Boolean(showNewsCard && topStories && (!showInsights || singleNews)), node: () => newsCardNode(false) },
                 { id: "events", col: "main" as const, weight: 350, movable: false, show: Boolean(corporateEvents.length > 0), node: () => (
                 <div className="company-grid-corporate-events">
                   <LinkPanel
@@ -4636,7 +4638,7 @@ const CompanyDetail = () => {
               ].filter((c) => c.show);
               // Set card order in each column (Peers above Corporate Events, as in the design)
               const mainOrder = ["insights", "products", "peers", "events"];
-              const railOrder = ["fin1", "fin2", "newsrail", "airisk", "headcount", "management", "subsidiaries"];
+              const railOrder = [...(singleNews ? ["newsrail"] : []), "fin1", "fin2", ...(singleNews ? [] : ["newsrail"]), "airisk", "headcount", "management", "subsidiaries"];
               const mainCards = cards
                 .filter((c) => c.col === "main")
                 .sort((x, y) => mainOrder.indexOf(x.id) - mainOrder.indexOf(y.id));

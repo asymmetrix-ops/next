@@ -482,7 +482,8 @@ export function InsightsCard({
         )}
       </div>
 
-      {/* footer pager — top border is the sole separator above the footer */}
+      {/* footer pager — hidden when everything already fits in the card */}
+      {!loading && !canPrev && !canNext ? null : (
       <div
         style={{
           display: "flex",
@@ -520,6 +521,7 @@ export function InsightsCard({
         </Link>
         )}
       </div>
+      )}
     </LinkPanel>
     </>
   );

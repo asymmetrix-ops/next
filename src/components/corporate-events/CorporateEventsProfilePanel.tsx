@@ -562,7 +562,7 @@ export const CorporateEventsProfilePanel: React.FC<
         </div>
       </div>
 
-      {usePagination ? (
+      {usePagination && !loading && !canPrev && !canNext ? null : usePagination ? (
         <div
           style={{
             display: "flex",

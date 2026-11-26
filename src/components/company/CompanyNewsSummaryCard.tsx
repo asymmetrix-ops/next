@@ -82,6 +82,7 @@ export default function CompanyNewsSummaryCard({
         })}
       </ul>
 
+      {summary.total > summary.shown && (
       <div
         style={{
           display: "flex",
@@ -104,6 +105,7 @@ export default function CompanyNewsSummaryCard({
           View all news
         </button>
       </div>
+      )}
     </div>
   );
 }

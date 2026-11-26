@@ -106,18 +106,21 @@ export const CorporateEventDealMetrics: React.FC<
       }}
     >
       {hasDealType && (
-      <div style={rowStyle}>
-        <strong>Deal Type:</strong>{" "}
+      <div
+        style={{
+          ...rowStyle,
+          ...(plainDealType
+            ? {}
+            : { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: align === "center" ? "center" : "flex-start", columnGap: 6, rowGap: 4 }),
+        }}
+      >
+        <strong style={{ whiteSpace: "nowrap" }}>Deal Type:</strong>{" "}
         {plainDealType ? (
           [dealType, fundingStage].filter(isNonEmptyString).join(", ")
         ) : isNonEmptyString(dealType) || isNonEmptyString(fundingStage) ? (
           <span
             style={{
-              display: "inline-flex",
-              flexWrap: "wrap",
-              gap: 4,
-              justifyContent: align === "center" ? "center" : "flex-start",
-              verticalAlign: "middle",
+              display: "contents",
             }}
           >
             {isNonEmptyString(dealType) && <DealTypeBadge dealType={dealType} />}
