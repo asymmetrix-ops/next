@@ -1275,6 +1275,8 @@ const CompanyDetail = () => {
   // Financial metrics from Xano `company_financial_metrics`
   const [financialMetrics, setFinancialMetrics] =
     useState<CompanyFinancialMetrics | null>(null);
+  // Company-level "Hide financials on platform" switch (set in the CMS)
+  const [hideFinancials, setHideFinancials] = useState(false);
   const [aiRiskData, setAiRiskData] = useState<CompanyAiRiskData | null>(null);
   const [productServicesData, setProductServicesData] = useState<ProductUsersSection[] | null>(null);
   const [usersUseCasesData, setUsersUseCasesData] = useState<ProductUsersSection[] | null>(null);
@@ -1789,7 +1791,7 @@ const CompanyDetail = () => {
   }, [preferredCurrencyId]);
 
   const showFinancialsTab = useMemo(() => {
-    if (!company) return false;
+    if (!company || hideFinancials) return false;
 
     const profileRows = normalizeIncomeStatementRows(company.income_statement);
     const displayRows = resolveDisplayIncomeStatementRows({
@@ -1816,6 +1818,7 @@ const CompanyDetail = () => {
     return false;
   }, [
     company,
+    hideFinancials,
     incomeStatementCardLoading,
     financialMetricsCardLoading,
     incomeStatementApiRows,
@@ -2098,6 +2101,9 @@ const CompanyDetail = () => {
           }
         } catch {}
 
+        setHideFinancials(
+          (data as unknown as { hide_financials?: boolean }).hide_financials === true
+        );
         setCompany(enrichedCompany);
 
         const token = localStorage.getItem("asymmetrix_auth_token");
@@ -2210,7 +2216,7 @@ const CompanyDetail = () => {
     if (showNews) tabs.push("News");
     if (showInsightsTab) tabs.push("Insights & Analysis");
     if (showFinancialsTab) tabs.push("Financials");
-    if (hasFinancialMetricsCardData(financialMetricsCardRows)) {
+    if (!hideFinancials && hasFinancialMetricsCardData(financialMetricsCardRows)) {
       tabs.push("Financial Intelligence");
     }
     return tabs.map((tab) => ({
@@ -2219,17 +2225,18 @@ const CompanyDetail = () => {
       ...(tab === "News" && newsSummary ? { count: newsSummary.total } : {}),
       ...(tab === "Insights & Analysis" ? { count: insightsTabTotal } : {}),
     }));
-  }, [showFinancialsTab, financialMetricsCardRows, showNews, newsSummary, showInsightsTab, insightsTabTotal]);
+  }, [showFinancialsTab, hideFinancials, financialMetricsCardRows, showNews, newsSummary, showInsightsTab, insightsTabTotal]);
 
   useEffect(() => {
     if (
       activeProfileTab === "Financial Intelligence" &&
-      !financialMetricsCardLoading &&
-      !hasFinancialMetricsCardData(financialMetricsCardRows)
+      (hideFinancials ||
+        (!financialMetricsCardLoading &&
+          !hasFinancialMetricsCardData(financialMetricsCardRows)))
     ) {
       setActiveProfileTab("Summary");
     }
-  }, [activeProfileTab, financialMetricsCardLoading, financialMetricsCardRows]);
+  }, [activeProfileTab, hideFinancials, financialMetricsCardLoading, financialMetricsCardRows]);
 
   // Merge investors found in corporate events into the company's investors list
   useEffect(() => {
