@@ -4,40 +4,41 @@
 // Exact values from the Asymmetrix design system (ui_kits/landing/landing.css
 // "--lp-*"), the authoritative source for this redesign. Kept in sync with
 // ./primitives.tsx's T export.
+// Light and dark values live in app/theme.css
 export const T = {
   // surfaces
-  paper:   '#F5F7FD',
-  panel:   '#FFFFFF',
-  inset:   '#EFF2F8',
-  divider: '#E4E8F2',
-  hair:    '#EFF2F8',
+  paper:   'var(--t-paper)',
+  panel:   'var(--t-panel)',
+  inset:   'var(--t-inset)',
+  divider: 'var(--t-divider)',
+  hair:    'var(--t-hair)',
 
   // ink
-  ink:   '#0A0E1A',
-  body:  '#566078',
-  muted: '#6B7488',
-  faint: '#8A93A8',
+  ink:   'var(--t-ink)',
+  body:  'var(--t-body)',
+  muted: 'var(--t-muted)',
+  faint: 'var(--t-faint)',
 
   // Asymmetrix palette
-  azure:        '#2A46EA',
-  azureSoft:    '#F1F4FE',
-  azureBand:    '#1F35C4',
-  azureDeep:    '#182A9B',
-  lavender:     '#523793',
-  lavenderSoft: '#F1EBFC',
-  coral:        '#A62E22',
-  coralSoft:    '#FCEAE7',
-  emerald:      '#0F7040',
-  emeraldSoft:  '#E4F5EC',
+  azure:        'var(--t-azure)',
+  azureSoft:    'var(--t-azure-soft)',
+  azureBand:    'var(--ax-cyan-700)',
+  azureDeep:    'var(--ax-cyan-800)',
+  lavender:     'var(--t-lavender)',
+  lavenderSoft: 'var(--t-lavender-soft)',
+  coral:        'var(--t-coral)',
+  coralSoft:    'var(--t-coral-soft)',
+  emerald:      'var(--t-emerald)',
+  emeraldSoft:  'var(--t-emerald-soft)',
   signal:       '#E0A32E',
-  signalSoft:   '#FEF6E0',
-  up:           '#0F7040',
-  down:         '#A62E22',
+  signalSoft:   'var(--t-warn-soft)',
+  up:           'var(--t-emerald)',
+  down:         'var(--t-coral)',
 
   // aliases
-  indigo:     '#2A46EA',
-  indigoSoft: '#F1F4FE',
-  plum:       '#523793',
+  indigo:     'var(--t-azure)',
+  indigoSoft: 'var(--t-azure-soft)',
+  plum:       'var(--t-lavender)',
 
   // radii / shadow
   r: 8,
@@ -49,7 +50,7 @@ export const T = {
   sans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   mono: 'var(--font-geist-mono, "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace)',
   serif: '"Fraunces", Georgia, serif',
-  editorial: '#A62E22',
+  editorial: 'var(--t-coral)',
 };
 
 // Mock company data — Morningstar as the example
