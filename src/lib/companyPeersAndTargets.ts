@@ -1,3 +1,5 @@
+import { formatMetricMillionsPlain } from "@/lib/formatMetricMillions";
+
 export type PeerTargetItem = {
   /** null/undefined when the company is not in the database */
   company_id?: number | null;
@@ -12,6 +14,7 @@ export type PeerTargetItem = {
   sector_importance?: string | null;
   ownership?: string | null;
   revenue_band?: string | null;
+  revenue_usd_m?: number | string | null;
 };
 
 export type PeersAndTargetsResponse = {
@@ -62,9 +65,28 @@ export function revenueBandRank(band?: string | null): number {
   return i === -1 ? BAND_ORDER.length : i;
 }
 
+function peerRevenueUsdM(item: PeerTargetItem): number | null {
+  if (item.revenue_usd_m == null || item.revenue_usd_m === "") return null;
+  const n = Number(item.revenue_usd_m);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Revenue figure when sent, else the band
+export function formatPeerRevenue(item: PeerTargetItem): string {
+  const n = peerRevenueUsdM(item);
+  if (n != null) return `$${formatMetricMillionsPlain(n)}m`;
+  return item.revenue_band?.trim() || "";
+}
+
+// Largest revenue first, figures before bands, unknown last
 export function sortByRevenueDesc(items: PeerTargetItem[]): PeerTargetItem[] {
   return items
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => revenueBandRank(a.it.revenue_band) - revenueBandRank(b.it.revenue_band) || a.i - b.i)
+    .map((it, i) => ({ it, i, n: peerRevenueUsdM(it) }))
+    .sort((a, b) => {
+      if (a.n != null && b.n != null) return b.n - a.n || a.i - b.i;
+      if (a.n != null) return -1;
+      if (b.n != null) return 1;
+      return revenueBandRank(a.it.revenue_band) - revenueBandRank(b.it.revenue_band) || a.i - b.i;
+    })
     .map((x) => x.it);
 }

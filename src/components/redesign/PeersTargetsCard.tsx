@@ -8,6 +8,7 @@ import CompanyLogo from "@/components/investor/CompanyLogo";
 import { CountryFlagImg } from "@/components/corporate-events/CorporateEventPartyLink";
 import { COUNTRY_FLAG_INLINE_SIZE_PX } from "@/lib/dealRadar";
 import {
+  formatPeerRevenue,
   sortByRevenueDesc,
   type PeerTargetItem,
 } from "@/lib/companyPeersAndTargets";
@@ -136,7 +137,7 @@ function Row({ item, isLast }: { item: PeerTargetItem; isLast: boolean }) {
       </div>
       <div>{item.ownership?.trim() ? <OwnershipTag value={item.ownership.trim()} /> : null}</div>
       <div style={{ fontFamily: T.sans, fontSize: 12.5, color: T.ink2, whiteSpace: "nowrap" }}>
-        {item.revenue_band?.trim() || ""}
+        {formatPeerRevenue(item)}
       </div>
     </div>
   );
